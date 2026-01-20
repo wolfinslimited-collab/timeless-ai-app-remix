@@ -639,18 +639,20 @@ serve(async (req) => {
 
         const statusData = await statusResponse.json();
         
-        // Normalize status across providers
+        // Normalize status across providers (handle both string and numeric statuses)
         const rawStatus =
           statusData?.data?.status ??
           statusData?.data?.state ??
           statusData?.status ??
           statusData?.state;
+        const successFlag = statusData?.data?.successFlag; // Veo uses numeric successFlag: 0=pending, 1=success, 2/3=failed
         const status = typeof rawStatus === "string" ? rawStatus.toUpperCase() : rawStatus;
         
-        console.log(`Video status check ${attempt + 1}/${maxAttempts}: ${status}`, JSON.stringify(statusData).slice(0, 200));
+        console.log(`Video status check ${attempt + 1}/${maxAttempts}: status=${status}, successFlag=${successFlag}`, JSON.stringify(statusData).slice(0, 300));
 
-        // Extract video URL from various response formats
+        // Extract video URL from various response formats (including Veo's response.resultUrls)
         const extractedUrl =
+          (Array.isArray(statusData?.data?.response?.resultUrls) ? statusData.data.response.resultUrls[0] : undefined) ||
           (Array.isArray(statusData?.data?.output) ? statusData.data.output[0] : undefined) ||
           statusData?.data?.video?.url ||
           statusData?.data?.video_url ||
@@ -664,13 +666,16 @@ serve(async (req) => {
           statusData?.data?.cover ||
           extractedUrl;
 
-        // Consider complete if we have a URL or known success status
-        if (extractedUrl || status === "SUCCESS" || status === "SUCCEEDED" || status === "COMPLETED") {
+        // Consider complete if: we have a URL, successFlag=1 (Veo), or known success status strings
+        const isSuccess = extractedUrl || successFlag === 1 || status === "SUCCESS" || status === "SUCCEEDED" || status === "COMPLETED";
+        const isFailed = successFlag === 2 || successFlag === 3 || status === "FAILED" || status === "FAILURE";
+
+        if (isSuccess) {
           videoUrl = extractedUrl;
           thumbnailUrl = extractedThumb || videoUrl;
           console.log("Video generation complete:", videoUrl);
           break;
-        } else if (status === "FAILED" || status === "FAILURE") {
+        } else if (isFailed) {
           const providerMessage =
             statusData?.data?.msg ||
             statusData?.data?.message ||
