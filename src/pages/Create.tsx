@@ -52,16 +52,16 @@ const imageModels = [
   { id: "midjourney", name: "Midjourney", description: "Artistic style images", badge: "PRO", credits: 10 },
 ];
 
-// VALIDATED MODELS ONLY - Smoke-tested against Kie.ai /jobs/createTask endpoint
+// Video models catalog
 const videoModels = [
-  // Kling 2.1 Text-to-Video (validated)
-  { id: "kling-2.1-standard", name: "Kling 2.1 Standard", description: "Standard T2V", badge: "NEW", credits: 12 },
-  { id: "kling-2.1-pro", name: "Kling 2.1 Pro", description: "High quality T2V", badge: "PRO", credits: 18 },
-  { id: "kling-2.1-master", name: "Kling 2.1 Master", description: "Best quality T2V", badge: "TOP", credits: 25 },
-  // Kling 2.6 Text-to-Video (validated)
-  { id: "kling-2.6-t2v", name: "Kling 2.6 T2V", description: "Audio-visual sync", badge: "NEW", credits: 22 },
-  // Kling 2.6 Image-to-Video (validated)
-  { id: "kling-2.6-i2v", name: "Kling 2.6 I2V", description: "Image to video", badge: "I2V", credits: 24 },
+  { id: "wan-2.6", name: "Wan 2.6", description: "Latest Alibaba model", badge: "NEW", credits: 15 },
+  { id: "kling-2.6", name: "Kling 2.6", description: "Audio-visual sync", badge: "PRO", credits: 22 },
+  { id: "veo-3.1", name: "Veo 3.1", description: "Google's latest", badge: "TOP", credits: 30 },
+  { id: "sora-2-pro", name: "Sora 2 Pro", description: "OpenAI premium", badge: "TOP", credits: 35 },
+  { id: "hailuo-2.3", name: "Hailuo 2.3", description: "Fast generation", badge: "NEW", credits: 18 },
+  { id: "veo-3", name: "Veo 3", description: "Google video model", badge: "PRO", credits: 25 },
+  { id: "sora-2", name: "Sora 2", description: "OpenAI video", badge: "PRO", credits: 28 },
+  { id: "seedance-1.5", name: "Seedance 1.5", description: "Creative motion", badge: "NEW", credits: 20 },
 ];
 
 
@@ -77,10 +77,11 @@ const VIDEO_MODEL_CAPABILITIES: Record<
     requiresImage?: boolean;
   }
 > = {
-  // Slow models
-  "kling-2.1-master": { slow: true },
-  // Image-to-video models require starting image
-  "kling-2.6-i2v": { requiresImage: true },
+  // Slow models (high quality, longer generation time)
+  "veo-3.1": { slow: true },
+  "veo-3": { slow: true },
+  "sora-2-pro": { slow: true },
+  "sora-2": { slow: true },
 };
 
 const imageTemplates = [
@@ -346,7 +347,7 @@ const Create = () => {
 
   const handleTypeChange = (newType: string) => {
     setType(newType as "image" | "video");
-    setModel(newType === "image" ? "ideogram-v2-turbo" : "minimax-video");
+    setModel(newType === "image" ? "ideogram-v2-turbo" : "wan-2.6");
     setAspectRatio(newType === "image" ? "1:1" : "16:9");
     setQuality("720p");
     setStartingImage(null);
