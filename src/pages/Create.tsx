@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits, getModelCost } from "@/hooks/useCredits";
@@ -69,6 +69,25 @@ const videoModels = [
   { id: "kling-1.6-pro-10s", name: "Kling 1.6 Pro (10s)", description: "10s extended", badge: "PRO", credits: 30 },
 ];
 
+
+const VIDEO_DEFAULT_ASPECT_RATIOS = ["16:9", "9:16", "1:1"];
+const VIDEO_DEFAULT_QUALITIES = ["480p", "720p", "1080p"];
+
+const VIDEO_MODEL_CAPABILITIES: Record<
+  string,
+  {
+    aspectRatios?: string[];
+    qualities?: string[];
+    slow?: boolean;
+  }
+> = {
+  // Conservative defaults based on provider quirks reported by users
+  "wan-2.1": { qualities: ["480p"] },
+  "wan-2.1-pro": { qualities: ["720p"] },
+  "veo-3": { qualities: ["720p", "1080p"], slow: true },
+  "veo-3-fast": { qualities: ["720p", "1080p"], slow: true },
+};
+
 const imageTemplates = [
   { label: "Cyberpunk City", prompt: "A futuristic cyberpunk cityscape at night, neon lights reflecting on wet streets, flying cars, holographic advertisements, ultra detailed, 8K" },
   { label: "Fantasy Portrait", prompt: "An elegant fantasy portrait of a mystical elf warrior, intricate golden armor, ethereal lighting, magical forest background, highly detailed" },
@@ -118,6 +137,27 @@ const Create = () => {
 
   const currentCost = type === "video" ? getModelCost(model, quality) : getModelCost(model);
 
+  const allowedVideoAspectRatios =
+    VIDEO_MODEL_CAPABILITIES[model]?.aspectRatios ?? VIDEO_DEFAULT_ASPECT_RATIOS;
+  const allowedVideoQualities =
+    VIDEO_MODEL_CAPABILITIES[model]?.qualities ?? VIDEO_DEFAULT_QUALITIES;
+
+  const isSlowVideoModel =
+    type === "video" && !!VIDEO_MODEL_CAPABILITIES[model]?.slow;
+
+  useEffect(() => {
+    if (type !== "video") return;
+
+    if (!allowedVideoAspectRatios.includes(aspectRatio)) {
+      setAspectRatio(allowedVideoAspectRatios[0]);
+    }
+
+    if (!allowedVideoQualities.includes(quality)) {
+      setQuality(allowedVideoQualities[0]);
+    }
+    // Only react to model/type changes; user selections are constrained by UI.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, model]);
   const handleGenerate = async () => {
     if (!prompt.trim()) {
       toast({
@@ -136,6 +176,27 @@ const Create = () => {
       });
       navigate("/auth");
       return;
+    }
+
+    // Guard against provider-rejected combinations (quality/aspect can be model-specific)
+    if (type === "video") {
+      if (!allowedVideoAspectRatios.includes(aspectRatio)) {
+        toast({
+          variant: "destructive",
+          title: "Unsupported aspect ratio",
+          description: `This model supports: ${allowedVideoAspectRatios.join(", ")}.`,
+        });
+        return;
+      }
+
+      if (!allowedVideoQualities.includes(quality)) {
+        toast({
+          variant: "destructive",
+          title: "Unsupported quality",
+          description: `This model supports: ${allowedVideoQualities.join(", ")}.`,
+        });
+        return;
+      }
     }
 
     if (!hasEnoughCreditsForModel(model)) {
@@ -642,21 +703,31 @@ const Create = () => {
                 <div className="space-y-2">
                   <Label>Aspect Ratio</Label>
                   <div className="grid grid-cols-4 gap-2">
-                    {(type === "image" 
-                      ? ["1:1", "16:9", "9:16", "4:3"] 
+                    {(type === "image"
+                      ? ["1:1", "16:9", "9:16", "4:3"]
                       : ["16:9", "9:16", "1:1", "4:3"]
-                    ).map((ratio) => (
-                      <Button
-                        key={ratio}
-                        type="button"
-                        variant={aspectRatio === ratio ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setAspectRatio(ratio)}
-                        className={aspectRatio === ratio ? "gradient-primary" : "border-border/50"}
-                      >
-                        {ratio}
-                      </Button>
-                    ))}
+                    ).map((ratio) => {
+                      const disabled =
+                        type === "video" && !allowedVideoAspectRatios.includes(ratio);
+
+                      return (
+                        <Button
+                          key={ratio}
+                          type="button"
+                          variant={aspectRatio === ratio ? "default" : "outline"}
+                          size="sm"
+                          disabled={disabled}
+                          onClick={() => setAspectRatio(ratio)}
+                          className={
+                            aspectRatio === ratio
+                              ? "gradient-primary"
+                              : "border-border/50"
+                          }
+                        >
+                          {ratio}
+                        </Button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -698,6 +769,11 @@ const Create = () => {
                         <p className="text-sm font-medium">Continue in background</p>
                         <p className="text-xs text-muted-foreground">
                           Start generating and leave this page
+                          {isSlowVideoModel && (
+                            <span className="block">
+                              Recommended for this model (can take several minutes)
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -790,11 +866,11 @@ const Create = () => {
                               </p>
                             </div>
                           )}
-                          <p className="text-xs text-center text-muted-foreground">
-                            {generationProgress.stage === 'processing' 
-                              ? "Video generation typically takes 1-3 minutes" 
-                              : "Please wait..."}
-                          </p>
+                           <p className="text-xs text-center text-muted-foreground">
+                             {generationProgress.stage === 'processing' 
+                               ? "Video generation can take several minutes (Background mode is recommended if it's slow)" 
+                               : "Please wait..."}
+                           </p>
                         </div>
                       ) : (
                         <p className="text-sm">
