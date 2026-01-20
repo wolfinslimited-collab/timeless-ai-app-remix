@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 const KIE_BASE_URL = "https://api.kie.ai/api/v1";
+const FAL_RESULT_URL = "https://queue.fal.run";
 
 // Unified task status endpoint
 const KIE_UNIFIED_DETAIL_ENDPOINT = "/jobs/recordInfo";
@@ -22,6 +23,10 @@ const MODEL_DETAIL_ENDPOINTS: Record<string, string> = {
   "sora-2": KIE_UNIFIED_DETAIL_ENDPOINT,
   "seedance-1.5": KIE_UNIFIED_DETAIL_ENDPOINT,
 };
+
+// Check if provider_endpoint indicates Fal.ai
+const isFalProvider = (endpoint: string | null) => endpoint?.startsWith("fal:");
+const getFalEndpoint = (endpoint: string) => endpoint.replace("fal:", "");
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -84,9 +89,11 @@ serve(async (req) => {
     }
 
     const KIE_API_KEY = Deno.env.get("KIE_API_KEY");
-    if (!KIE_API_KEY) {
+    const FAL_API_KEY = Deno.env.get("FAL_API_KEY");
+    
+    if (!KIE_API_KEY && !FAL_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "API key not configured" }),
+        JSON.stringify({ error: "API keys not configured" }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -99,49 +106,64 @@ serve(async (req) => {
         continue;
       }
 
-      const mappedEndpoint = MODEL_DETAIL_ENDPOINTS[gen.model];
-      const primaryEndpoint = gen.provider_endpoint || mappedEndpoint || KIE_UNIFIED_DETAIL_ENDPOINT;
+      const providerEndpoint = gen.provider_endpoint;
+      const useFal = isFalProvider(providerEndpoint);
 
       try {
-        // Fetch task status from unified endpoint
-        const tryFetch = async (endpoint: string) => {
-          const url = `${KIE_BASE_URL}${endpoint}?taskId=${encodeURIComponent(gen.task_id)}`;
-          return await fetch(url, {
-            method: "GET",
-            headers: { "Authorization": `Bearer ${KIE_API_KEY}` }
+        let videoUrl: string | undefined;
+        let thumbnailUrl: string | undefined;
+        let isSuccess = false;
+        let isFailed = false;
+
+        if (useFal && FAL_API_KEY) {
+          // Check Fal.ai status
+          const falEndpoint = getFalEndpoint(providerEndpoint!);
+          const statusResp = await fetch(`${FAL_RESULT_URL}/${falEndpoint}/requests/${gen.task_id}/status`, {
+            headers: { "Authorization": `Key ${FAL_API_KEY}` }
           });
-        };
-
-        // Use primary endpoint with fallback to unified endpoint
-        const endpointsToTry = primaryEndpoint === KIE_UNIFIED_DETAIL_ENDPOINT 
-          ? [KIE_UNIFIED_DETAIL_ENDPOINT] 
-          : [primaryEndpoint, KIE_UNIFIED_DETAIL_ENDPOINT];
-
-        let usedEndpoint = endpointsToTry[0];
-        let statusResponse: Response | null = null;
-
-        for (const ep of endpointsToTry) {
-          usedEndpoint = ep;
-          const resp = await tryFetch(ep);
-          if (resp.ok) {
-            statusResponse = resp;
-            break;
+          
+          if (statusResp.ok) {
+            const statusData = await statusResp.json();
+            if (statusData.status === "COMPLETED") {
+              const resultResp = await fetch(`${FAL_RESULT_URL}/${falEndpoint}/requests/${gen.task_id}`, {
+                headers: { "Authorization": `Key ${FAL_API_KEY}` }
+              });
+              if (resultResp.ok) {
+                const result = await resultResp.json();
+                videoUrl = result.video?.url;
+                thumbnailUrl = result.thumbnail?.url || videoUrl;
+                isSuccess = !!videoUrl;
+              }
+            } else if (statusData.status === "FAILED") {
+              isFailed = true;
+            }
           }
-          // If not ok, continue trying fallbacks
-        }
+        } else if (KIE_API_KEY) {
+          // Check Kie.ai status
+          const mappedEndpoint = MODEL_DETAIL_ENDPOINTS[gen.model];
+          const primaryEndpoint = providerEndpoint || mappedEndpoint || KIE_UNIFIED_DETAIL_ENDPOINT;
+          
+          const tryFetch = async (endpoint: string) => {
+            const url = `${KIE_BASE_URL}${endpoint}?taskId=${encodeURIComponent(gen.task_id)}`;
+            return await fetch(url, { method: "GET", headers: { "Authorization": `Bearer ${KIE_API_KEY}` } });
+          };
 
-        if (!statusResponse) {
-          results.push({ id: gen.id, status: "check_failed", changed: false });
-          continue;
-        }
+          const endpointsToTry = primaryEndpoint === KIE_UNIFIED_DETAIL_ENDPOINT 
+            ? [KIE_UNIFIED_DETAIL_ENDPOINT] 
+            : [primaryEndpoint, KIE_UNIFIED_DETAIL_ENDPOINT];
 
-        if (!statusResponse.ok) {
-          console.log(`Status check failed for ${gen.id}: ${statusResponse.status}`);
-          results.push({ id: gen.id, status: "check_failed", changed: false });
-          continue;
-        }
+          let statusResponse: Response | null = null;
+          for (const ep of endpointsToTry) {
+            const resp = await tryFetch(ep);
+            if (resp.ok) { statusResponse = resp; break; }
+          }
 
-        const statusData = await statusResponse.json();
+          if (!statusResponse || !statusResponse.ok) {
+            results.push({ id: gen.id, status: "check_failed", changed: false });
+            continue;
+          }
+
+          const statusData = await statusResponse.json();
 
         const providerCode = statusData?.code;
         const providerMsg = statusData?.msg ?? statusData?.message;
