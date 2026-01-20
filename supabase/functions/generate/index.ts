@@ -50,6 +50,19 @@ const getModelCost = (model: string, type: string, quality?: string): number => 
   return baseCost;
 };
 
+// Provider type for multi-provider support
+type Provider = "kie" | "fal";
+
+// Fal.ai API configuration
+const FAL_BASE_URL = "https://queue.fal.run";
+const FAL_RESULT_URL = "https://queue.fal.run";
+
+// Models that should use Fal.ai instead of Kie.ai (faster response times)
+const FAL_PREFERRED_MODELS: Record<string, { endpoint: string; imageEndpoint?: string }> = {
+  "sora-2": { endpoint: "fal-ai/sora-2/text-to-video", imageEndpoint: "fal-ai/sora-2/image-to-video" },
+  "sora-2-pro": { endpoint: "fal-ai/sora-2/text-to-video", imageEndpoint: "fal-ai/sora-2/image-to-video" },
+};
+
 // Kie.ai API endpoints and model mappings
 const KIE_IMAGE_MODELS: Record<string, { endpoint: string; model: string }> = {
   "flux-1.1-pro": { endpoint: "/flux/generate", model: "flux-1.1-pro" },
@@ -263,6 +276,109 @@ const buildKieVideoRequestBody = (args: {
 
 const KIE_BASE_URL = "https://api.kie.ai/api/v1";
 
+// Fal.ai request building
+const buildFalVideoRequest = (args: {
+  prompt: string;
+  aspectRatio: string;
+  quality: string;
+  imageUrl?: string | null;
+}) => {
+  const { prompt, aspectRatio, quality, imageUrl } = args;
+  
+  // Convert aspect ratio for Fal.ai (supports 16:9, 9:16 only)
+  let falAspectRatio: string;
+  if (aspectRatio === "9:16" || aspectRatio === "3:4" || aspectRatio === "2:3") {
+    falAspectRatio = "9:16";
+  } else {
+    falAspectRatio = "16:9"; // Default to landscape
+  }
+  
+  // Duration: "4", "8", or "12" seconds
+  const duration = "8"; // Default to 8 seconds for balanced output
+  
+  const input: Record<string, unknown> = {
+    prompt,
+    aspect_ratio: falAspectRatio,
+    resolution: "720p", // Fal only supports 720p for Sora 2
+    duration,
+    delete_video: false, // Keep video for our storage
+  };
+  
+  if (imageUrl) {
+    input.image_url = imageUrl;
+  }
+  
+  return input;
+};
+
+// Submit to Fal.ai queue
+const submitToFal = async (endpoint: string, input: Record<string, unknown>, apiKey: string): Promise<{ requestId: string }> => {
+  const response = await fetch(`${FAL_BASE_URL}/${endpoint}`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Key ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Fal.ai submit error:", errorText);
+    throw new Error(`Fal.ai error: ${response.status} - ${errorText}`);
+  }
+  
+  const data = await response.json();
+  return { requestId: data.request_id };
+};
+
+// Check Fal.ai queue status
+const checkFalStatus = async (endpoint: string, requestId: string, apiKey: string): Promise<{
+  status: "IN_QUEUE" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
+  result?: { video?: { url: string }; thumbnail?: { url: string } };
+  error?: string;
+}> => {
+  const response = await fetch(`${FAL_RESULT_URL}/${endpoint}/requests/${requestId}/status`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Key ${apiKey}`,
+    },
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Fal.ai status error:", errorText);
+    return { status: "FAILED", error: errorText };
+  }
+  
+  const data = await response.json();
+  return {
+    status: data.status,
+    result: data.response_url ? undefined : undefined,
+  };
+};
+
+// Get Fal.ai result
+const getFalResult = async (endpoint: string, requestId: string, apiKey: string): Promise<{
+  video?: { url: string };
+  thumbnail?: { url: string };
+}> => {
+  const response = await fetch(`${FAL_RESULT_URL}/${endpoint}/requests/${requestId}`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Key ${apiKey}`,
+    },
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Fal.ai result error:", errorText);
+    throw new Error(`Failed to get Fal.ai result: ${errorText}`);
+  }
+  
+  return await response.json();
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -336,8 +452,13 @@ serve(async (req) => {
               await supabase.from("profiles").update({ credits: currentCredits - creditCost }).eq("user_id", user.id);
             }
 
+            // Check if we should use Fal.ai for this model (faster for Sora)
+            const FAL_API_KEY = Deno.env.get("FAL_API_KEY");
             const KIE_API_KEY = Deno.env.get("KIE_API_KEY");
-            if (!KIE_API_KEY) {
+            const falConfig = FAL_PREFERRED_MODELS[model];
+            const useFal = falConfig && FAL_API_KEY;
+
+            if (!useFal && !KIE_API_KEY) {
               if (!hasActiveSubscription) {
                 await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
               }
@@ -346,61 +467,106 @@ serve(async (req) => {
               return;
             }
 
-            sendEvent('status', { stage: 'submitting', message: 'Submitting to AI...', progress: 5 });
+            sendEvent('status', { stage: 'submitting', message: `Submitting to ${useFal ? 'Fal.ai' : 'Kie.ai'}...`, progress: 5 });
+
+            let taskId: string = "";
+            let provider: Provider = "kie";
+            let providerEndpoint: string = "";
+
+            if (useFal && falConfig) {
+              // Use Fal.ai for Sora models (faster)
+              provider = "fal";
+              const endpoint = imageUrl ? (falConfig.imageEndpoint || falConfig.endpoint) : falConfig.endpoint;
+              providerEndpoint = endpoint;
+              
+              const falInput = buildFalVideoRequest({
+                prompt,
+                aspectRatio,
+                quality,
+                imageUrl,
+              });
+
+              console.log(`Fal.ai request to ${endpoint}:`, JSON.stringify(falInput));
+
+              try {
+                const { requestId } = await submitToFal(endpoint, falInput, FAL_API_KEY!);
+                taskId = requestId;
+                console.log(`Fal.ai task submitted: ${taskId}`);
+              } catch (error) {
+                console.error("Fal.ai submit error:", error);
+                // Fall back to Kie.ai if Fal fails
+                if (KIE_API_KEY) {
+                  sendEvent('status', { stage: 'fallback', message: 'Falling back to alternative provider...', progress: 5 });
+                  provider = "kie";
+                } else {
+                  if (!hasActiveSubscription) {
+                    await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+                  }
+                  sendEvent('error', { message: `Fal.ai error: ${error instanceof Error ? error.message : 'Unknown error'}` });
+                  controller.close();
+                  return;
+                }
+              }
+            }
+            
+            // Use Kie.ai (either as primary or fallback)
+            if (!useFal || provider! === "kie") {
+              provider = "kie";
+              const modelConfig = KIE_VIDEO_MODELS[model];
+              if (!modelConfig) {
+                sendEvent('error', { message: `Unknown video model: ${model}` });
+                controller.close();
+                return;
+              }
+              providerEndpoint = modelConfig.detailEndpoint;
+
+              // Build request body - Kling uses /jobs/createTask with nested input object
+              const requestBody = buildKieVideoRequestBody({
+                model,
+                modelConfig,
+                prompt,
+                negativePrompt,
+                aspectRatio,
+                quality,
+                imageUrl,
+              });
+
+              console.log(`Kie.ai/Video request to ${modelConfig.endpoint}:`, JSON.stringify(requestBody));
+
+              const generateResponse = await fetch(`${KIE_BASE_URL}${modelConfig.endpoint}`, {
+                method: "POST",
+                headers: {
+                  "Authorization": `Bearer ${KIE_API_KEY}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(requestBody)
+              });
+
+              if (!generateResponse.ok) {
+                if (!hasActiveSubscription) {
+                  await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+                }
+                sendEvent('error', { message: `API error: ${generateResponse.status}` });
+                controller.close();
+                return;
+              }
+
+              const generateData = await generateResponse.json();
+              taskId = getTaskIdFromKieResponse(generateData)!;
+            }
 
             const modelConfig = KIE_VIDEO_MODELS[model];
-            if (!modelConfig) {
-              sendEvent('error', { message: `Unknown video model: ${model}` });
-              controller.close();
-              return;
-            }
 
-            // Build request body - Kling uses /jobs/createTask with nested input object
-            const requestBody = buildKieVideoRequestBody({
-              model,
-              modelConfig,
-              prompt,
-              negativePrompt,
-              aspectRatio,
-              quality,
-              imageUrl,
-            });
-
-            console.log(`Kling/Video request to ${modelConfig.endpoint}:`, JSON.stringify(requestBody));
-
-            const generateResponse = await fetch(`${KIE_BASE_URL}${modelConfig.endpoint}`, {
-              method: "POST",
-              headers: {
-                "Authorization": `Bearer ${KIE_API_KEY}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(requestBody)
-            });
-
-            if (!generateResponse.ok) {
+            if (!taskId!) {
               if (!hasActiveSubscription) {
                 await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
               }
-              sendEvent('error', { message: `API error: ${generateResponse.status}` });
+              sendEvent('error', { message: 'Failed to start video generation' });
               controller.close();
               return;
             }
 
-            const generateData = await generateResponse.json();
-            const taskId = getTaskIdFromKieResponse(generateData);
-
-            if (!taskId) {
-              const errorMsg = generateData?.msg || generateData?.message || generateData?.data?.msg || generateData?.data?.message || "Unknown error";
-              console.error("Kie.ai createTask did not return taskId:", JSON.stringify(generateData));
-              if (!hasActiveSubscription) {
-                await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
-              }
-              sendEvent('error', { message: `Video API error: ${errorMsg}` });
-              controller.close();
-              return;
-            }
-
-            sendEvent('status', { stage: 'queued', message: 'Video queued for processing...', progress: 10, taskId });
+            sendEvent('status', { stage: 'queued', message: `Video queued for processing (${provider === 'fal' ? 'Fal.ai' : 'Kie.ai'})...`, progress: 10, taskId });
 
             // If background mode, save pending generation and return immediately
             if (background) {
@@ -413,7 +579,7 @@ serve(async (req) => {
                   model: model,
                   status: "pending",
                   task_id: taskId,
-                  provider_endpoint: modelConfig.detailEndpoint,
+                  provider_endpoint: provider === 'fal' ? `fal:${providerEndpoint}` : modelConfig?.detailEndpoint,
                   aspect_ratio: aspectRatio,
                   quality: quality,
                   credits_used: creditCost,
@@ -432,7 +598,7 @@ serve(async (req) => {
 
             // Poll for result with model-specific timeout
             const pollInterval = 5000;
-            const maxPollingTime = modelConfig.maxPollingTime || 600; // Default 10 minutes
+            const maxPollingTime = provider === 'fal' ? 300 : (modelConfig?.maxPollingTime || 600); // Fal is usually faster
             const maxAttempts = Math.ceil(maxPollingTime / (pollInterval / 1000));
 
             for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -442,88 +608,117 @@ serve(async (req) => {
               const progress = Math.min(10 + Math.round((attempt / maxAttempts) * 85), 95);
               sendEvent('status', { 
                 stage: 'processing', 
-                message: `Generating video... (${elapsedSeconds}s / ~${maxPollingTime}s)`, 
+                message: `Generating video via ${provider === 'fal' ? 'Fal.ai' : 'Kie.ai'}... (${elapsedSeconds}s / ~${maxPollingTime}s)`, 
                 progress,
                 attempt: attempt + 1,
                 maxAttempts
               });
 
-              const tryFetch = async (endpoint: string) => {
-                const url = `${KIE_BASE_URL}${endpoint}?taskId=${encodeURIComponent(taskId)}`;
-                return await fetch(url, {
-                  method: "GET",
-                  headers: { "Authorization": `Bearer ${KIE_API_KEY}` }
-                });
-              };
+              let videoUrl: string | undefined;
+              let thumbnailUrl: string | undefined;
+              let isComplete = false;
+              let isFailed = false;
+              let failMessage = "";
 
-              // Primary endpoint is model-specific; for deprecated endpoints, fall back to unified recordInfo.
-              let statusResponse = await tryFetch(modelConfig.detailEndpoint);
-              if (!statusResponse.ok && statusResponse.status === 404 && modelConfig.detailEndpoint !== "/jobs/recordInfo") {
-                statusResponse = await tryFetch("/jobs/recordInfo");
-              }
-
-              if (!statusResponse.ok) continue;
-
-              const statusData = await statusResponse.json();
-              console.log(`Poll attempt ${attempt + 1}: Raw Veo/video response:`, JSON.stringify(statusData));
-
-              // Unified endpoint returns a stringified JSON result in data.resultJson
-              let unifiedResult: any = null;
-              const resultJson = statusData?.data?.resultJson;
-              if (typeof resultJson === "string") {
+              if (provider === 'fal') {
+                // Poll Fal.ai
                 try {
-                  unifiedResult = JSON.parse(resultJson);
-                } catch {
-                  unifiedResult = null;
+                  const falStatus = await checkFalStatus(providerEndpoint, taskId, FAL_API_KEY!);
+                  console.log(`Fal.ai poll attempt ${attempt + 1}: status=${falStatus.status}`);
+                  
+                  if (falStatus.status === "COMPLETED") {
+                    const result = await getFalResult(providerEndpoint, taskId, FAL_API_KEY!);
+                    videoUrl = result.video?.url;
+                    thumbnailUrl = result.thumbnail?.url || videoUrl;
+                    isComplete = true;
+                    console.log(`Fal.ai completed: videoUrl=${videoUrl}`);
+                  } else if (falStatus.status === "FAILED") {
+                    isFailed = true;
+                    failMessage = falStatus.error || "Fal.ai generation failed";
+                  }
+                  // IN_QUEUE and IN_PROGRESS continue polling
+                } catch (error) {
+                  console.error(`Fal.ai poll error:`, error);
+                }
+              } else {
+                // Poll Kie.ai
+                const tryFetch = async (endpoint: string) => {
+                  const url = `${KIE_BASE_URL}${endpoint}?taskId=${encodeURIComponent(taskId)}`;
+                  return await fetch(url, {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${KIE_API_KEY}` }
+                  });
+                };
+
+                // Primary endpoint is model-specific; for deprecated endpoints, fall back to unified recordInfo.
+                let statusResponse = await tryFetch(modelConfig?.detailEndpoint || "/jobs/recordInfo");
+                if (!statusResponse.ok && statusResponse.status === 404 && modelConfig?.detailEndpoint !== "/jobs/recordInfo") {
+                  statusResponse = await tryFetch("/jobs/recordInfo");
+                }
+
+                if (statusResponse.ok) {
+                  const statusData = await statusResponse.json();
+                  console.log(`Poll attempt ${attempt + 1}: Raw Kie.ai response:`, JSON.stringify(statusData).slice(0, 500));
+
+                  // Unified endpoint returns a stringified JSON result in data.resultJson
+                  let unifiedResult: any = null;
+                  const resultJson = statusData?.data?.resultJson;
+                  if (typeof resultJson === "string") {
+                    try {
+                      unifiedResult = JSON.parse(resultJson);
+                    } catch {
+                      unifiedResult = null;
+                    }
+                  }
+                  
+                  // Extract status from multiple possible paths
+                  const rawStatus =
+                    statusData?.data?.state ??
+                    statusData?.data?.response?.status ??
+                    statusData?.data?.status ??
+                    statusData?.status ??
+                    statusData?.state;
+
+                  const successFlag = statusData?.data?.response?.successFlag ?? statusData?.data?.successFlag ?? statusData?.successFlag;
+                  const isVeoSuccess = successFlag === 1;
+                  const isVeoFailure = successFlag === 2 || successFlag === 3;
+                  const status = typeof rawStatus === "string" ? rawStatus.toUpperCase() : String(rawStatus || '').toUpperCase();
+                  const isSuccessStatus = ["SUCCESS", "SUCCEEDED", "COMPLETED", "DONE", "FINISHED"].includes(status);
+
+                  // Extract video URL from various response formats
+                  videoUrl =
+                    (Array.isArray(unifiedResult?.resultUrls) ? unifiedResult.resultUrls[0] : undefined) ||
+                    (Array.isArray(statusData?.data?.response?.resultUrls) ? statusData.data.response.resultUrls[0] : undefined) ||
+                    (Array.isArray(statusData?.data?.resultUrls) ? statusData.data.resultUrls[0] : undefined) ||
+                    statusData?.data?.response?.videoUrl ||
+                    statusData?.data?.response?.video_url ||
+                    (Array.isArray(statusData?.data?.output) ? statusData.data.output[0] : undefined) ||
+                    statusData?.data?.video?.url ||
+                    statusData?.data?.video_url ||
+                    statusData?.data?.videoUrl ||
+                    statusData?.data?.result?.video?.url ||
+                    statusData?.data?.result?.url ||
+                    statusData?.data?.url;
+
+                  thumbnailUrl =
+                    statusData?.data?.thumbnail ||
+                    statusData?.data?.thumbnail_url ||
+                    statusData?.data?.cover ||
+                    videoUrl;
+
+                  console.log(`Poll attempt ${attempt + 1}: status=${status}, successFlag=${successFlag}, videoUrl=${videoUrl ? 'found' : 'none'}`);
+
+                  if (videoUrl || isSuccessStatus || isVeoSuccess) {
+                    isComplete = true;
+                  } else if (status === "FAILED" || status === "FAILURE" || isVeoFailure) {
+                    isFailed = true;
+                    failMessage = statusData?.data?.msg || statusData?.data?.message || statusData?.msg || statusData?.message || "Video generation failed";
+                  }
                 }
               }
-              
-              // Extract status from multiple possible paths (different providers use different structures)
-              const rawStatus =
-                statusData?.data?.state ??
-                statusData?.data?.response?.status ??
-                statusData?.data?.status ??
-                statusData?.data?.state ??
-                statusData?.status ??
-                statusData?.state;
 
-              // Handle Veo's numeric successFlag (1 = success, 2/3 = failure)
-              const successFlag = statusData?.data?.response?.successFlag ?? statusData?.data?.successFlag ?? statusData?.successFlag;
-              const isVeoSuccess = successFlag === 1;
-              const isVeoFailure = successFlag === 2 || successFlag === 3;
-
-              // Normalize status to uppercase string
-              const status = typeof rawStatus === "string" ? rawStatus.toUpperCase() : String(rawStatus || '').toUpperCase();
-              
-              // Check for success status strings (including lowercase variations)
-              const isSuccessStatus = ["SUCCESS", "SUCCEEDED", "COMPLETED", "DONE", "FINISHED"].includes(status);
-
-              // Extract video URL from various response formats including Veo's resultUrls
-              const videoUrl =
-                (Array.isArray(unifiedResult?.resultUrls) ? unifiedResult.resultUrls[0] : undefined) ||
-                (Array.isArray(statusData?.data?.response?.resultUrls) ? statusData.data.response.resultUrls[0] : undefined) ||
-                (Array.isArray(statusData?.data?.resultUrls) ? statusData.data.resultUrls[0] : undefined) ||
-                statusData?.data?.response?.videoUrl ||
-                statusData?.data?.response?.video_url ||
-                (Array.isArray(statusData?.data?.output) ? statusData.data.output[0] : undefined) ||
-                statusData?.data?.video?.url ||
-                statusData?.data?.video_url ||
-                statusData?.data?.videoUrl ||
-                statusData?.data?.result?.video?.url ||
-                statusData?.data?.result?.url ||
-                statusData?.data?.url;
-
-              const thumbnailUrl =
-                statusData?.data?.thumbnail ||
-                statusData?.data?.thumbnail_url ||
-                statusData?.data?.cover ||
-                videoUrl;
-
-              console.log(`Poll attempt ${attempt + 1}: status=${status}, successFlag=${successFlag}, isSuccessStatus=${isSuccessStatus}, videoUrl=${videoUrl ? 'found' : 'none'}`);
-
-              // Check for success via URL presence, string status, or Veo's successFlag
-              if (videoUrl || isSuccessStatus || isVeoSuccess) {
-                // Save to database
+              // Handle completion
+              if (isComplete && videoUrl) {
                 const { data: generation } = await supabase
                   .from("generations")
                   .insert({
@@ -532,9 +727,10 @@ serve(async (req) => {
                     type: type,
                     model: model,
                     status: "completed",
-                    output_url: videoUrl || null,
-                    thumbnail_url: thumbnailUrl || null,
+                    output_url: videoUrl,
+                    thumbnail_url: thumbnailUrl || videoUrl,
                     credits_used: creditCost,
+                    provider_endpoint: provider === 'fal' ? `fal:${providerEndpoint}` : modelConfig?.detailEndpoint,
                   })
                   .select()
                   .single();
@@ -546,17 +742,14 @@ serve(async (req) => {
                 });
                 controller.close();
                 return;
-              } else if (status === "FAILED" || status === "FAILURE" || isVeoFailure) {
-                const providerMessage =
-                  statusData?.data?.msg ||
-                  statusData?.data?.message ||
-                  statusData?.msg ||
-                  statusData?.message;
+              }
 
+              // Handle failure
+              if (isFailed) {
                 if (!hasActiveSubscription) {
                   await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
                 }
-                sendEvent('error', { message: providerMessage ? `Video generation failed: ${providerMessage}` : 'Video generation failed' });
+                sendEvent('error', { message: failMessage || 'Video generation failed' });
                 controller.close();
                 return;
               }
@@ -572,7 +765,7 @@ serve(async (req) => {
                 model: model,
                 status: "pending",
                 task_id: taskId,
-                provider_endpoint: modelConfig.detailEndpoint,
+                provider_endpoint: provider === 'fal' ? `fal:${providerEndpoint}` : modelConfig?.detailEndpoint,
                 aspect_ratio: aspectRatio,
                 quality: quality,
                 credits_used: creditCost,
