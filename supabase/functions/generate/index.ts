@@ -117,7 +117,8 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
     model: "sora-2-pro-text-to-video", 
     duration: 5, 
     maxPollingTime: 900, 
-    useJobsCreateTask: true 
+    useJobsCreateTask: true,
+    useAspectUnderscore: true
   },
   
   // Hailuo 2.3 - Fast generation model
@@ -147,7 +148,8 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
     model: "sora-2-text-to-video", 
     duration: 5, 
     maxPollingTime: 900, 
-    useJobsCreateTask: true 
+    useJobsCreateTask: true,
+    useAspectUnderscore: true
   },
   
   // Seedance 1.5 - Creative motion model
@@ -184,10 +186,14 @@ const buildKieVideoRequestBody = (args: {
 
   if (modelConfig.useJobsCreateTask) {
     const imageField: JobsImageField = modelConfig.jobsImageField ?? "image_url";
+    // Convert aspect ratio format: "16:9" -> "16_9" if model requires it
+    const formattedAspectRatio = modelConfig.useAspectUnderscore 
+      ? aspectRatio.replace(":", "_") 
+      : aspectRatio;
     const input: Record<string, unknown> = {
       prompt,
       duration: String(modelConfig.duration || 5),
-      aspect_ratio: aspectRatio,
+      aspect_ratio: formattedAspectRatio,
       ...(negativePrompt ? { negative_prompt: negativePrompt } : {}),
     };
 
