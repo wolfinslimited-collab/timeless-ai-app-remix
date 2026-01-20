@@ -14,16 +14,28 @@ const CREDIT_PACKAGES: Record<string, number> = {
   'price_1SrcU0CpOaBygRMzYAhHRnqv': 500,  // Ultimate Pack
 };
 
+// Subscription price ID
+const SUBSCRIPTION_PRICE_ID = 'price_1SrcXaCpOaBygRMz5atgcaW3';
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { priceId } = await req.json();
+    const { priceId, isSubscription } = await req.json();
 
-    if (!priceId || !CREDIT_PACKAGES[priceId]) {
+    if (!priceId) {
+      throw new Error("Price ID is required");
+    }
+
+    // Validate price ID
+    if (!isSubscription && !CREDIT_PACKAGES[priceId]) {
       throw new Error("Invalid price ID");
+    }
+
+    if (isSubscription && priceId !== SUBSCRIPTION_PRICE_ID) {
+      throw new Error("Invalid subscription price ID");
     }
 
     const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
@@ -50,7 +62,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Creating checkout for user: ${user.id}, price: ${priceId}`);
+    console.log(`Creating checkout for user: ${user.id}, price: ${priceId}, subscription: ${isSubscription}`);
 
     const stripe = new Stripe(STRIPE_SECRET_KEY, {
       apiVersion: "2023-10-16",
@@ -78,7 +90,7 @@ serve(async (req) => {
     // Get the origin from the request
     const origin = req.headers.get('origin') || 'http://localhost:5173';
 
-    const session = await stripe.checkout.sessions.create({
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       customer: customerId,
       line_items: [
         {
@@ -86,14 +98,26 @@ serve(async (req) => {
           quantity: 1,
         },
       ],
-      mode: 'payment',
-      success_url: `${origin}/pricing?success=true`,
+      mode: isSubscription ? 'subscription' : 'payment',
+      success_url: `${origin}/pricing?success=true&type=${isSubscription ? 'subscription' : 'credits'}`,
       cancel_url: `${origin}/pricing?canceled=true`,
       metadata: {
         user_id: user.id,
-        credits: CREDIT_PACKAGES[priceId].toString(),
+        type: isSubscription ? 'subscription' : 'credits',
+        credits: isSubscription ? '0' : CREDIT_PACKAGES[priceId].toString(),
       },
-    });
+    };
+
+    // For subscriptions, add subscription metadata
+    if (isSubscription) {
+      sessionParams.subscription_data = {
+        metadata: {
+          user_id: user.id,
+        },
+      };
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     console.log(`Checkout session created: ${session.id}`);
 

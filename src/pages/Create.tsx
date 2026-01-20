@@ -25,7 +25,8 @@ import {
   Download,
   Wand2,
   Zap,
-  Coins
+  Coins,
+  Infinity
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -42,7 +43,7 @@ const videoModels = [
 
 const Create = () => {
   const { user, loading } = useAuth();
-  const { credits, loading: creditsLoading, refetch: refetchCredits, hasEnoughCredits } = useCredits();
+  const { credits, loading: creditsLoading, refetch: refetchCredits, hasEnoughCredits, hasActiveSubscription } = useCredits();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -156,12 +157,19 @@ const Create = () => {
               </div>
               
               {user && (
-                <div className="flex items-center gap-2 rounded-full border border-border/50 bg-secondary px-4 py-1.5">
-                  <Coins className="h-4 w-4 text-accent" />
-                  <span className="text-sm font-medium">
-                    {creditsLoading ? "..." : credits ?? 0} credits
-                  </span>
-                </div>
+                hasActiveSubscription ? (
+                  <div className="flex items-center gap-2 rounded-full border border-primary/50 bg-primary/10 px-4 py-1.5">
+                    <Infinity className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium text-primary">Unlimited</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 rounded-full border border-border/50 bg-secondary px-4 py-1.5">
+                    <Coins className="h-4 w-4 text-accent" />
+                    <span className="text-sm font-medium">
+                      {creditsLoading ? "..." : credits ?? 0} credits
+                    </span>
+                  </div>
+                )
               )}
             </div>
             <h1 className="text-3xl font-bold mb-2 text-center">Create Something Amazing</h1>
