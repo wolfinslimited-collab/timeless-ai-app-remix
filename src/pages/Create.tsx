@@ -52,15 +52,11 @@ const imageModels = [
   { id: "midjourney", name: "Midjourney", description: "Artistic style images", badge: "PRO", credits: 10 },
 ];
 
-// VALIDATED MODELS ONLY - Smoke-tested against Kie.ai /jobs/createTask endpoint
+// VALIDATED MODELS ONLY - Latest versions
 const videoModels = [
-  // Kling 2.1 Text-to-Video (validated)
-  { id: "kling-2.1-standard", name: "Kling 2.1 Standard", description: "Standard T2V", badge: "NEW", credits: 12 },
-  { id: "kling-2.1-pro", name: "Kling 2.1 Pro", description: "High quality T2V", badge: "PRO", credits: 18 },
-  { id: "kling-2.1-master", name: "Kling 2.1 Master", description: "Best quality T2V", badge: "TOP", credits: 25 },
-  // Kling 2.6 Text-to-Video (validated)
-  { id: "kling-2.6-t2v", name: "Kling 2.6 T2V", description: "Audio-visual sync", badge: "NEW", credits: 22 },
-  // Kling 2.6 Image-to-Video (validated)
+  // Kling 2.6 (latest) - Text-to-Video
+  { id: "kling-2.6-t2v", name: "Kling 2.6", description: "Latest text-to-video", badge: "NEW", credits: 22 },
+  // Kling 2.6 (latest) - Image-to-Video
   { id: "kling-2.6-i2v", name: "Kling 2.6 I2V", description: "Image to video", badge: "I2V", credits: 24 },
 ];
 
@@ -77,8 +73,6 @@ const VIDEO_MODEL_CAPABILITIES: Record<
     requiresImage?: boolean;
   }
 > = {
-  // Slow models
-  "kling-2.1-master": { slow: true },
   // Image-to-video models require starting image
   "kling-2.6-i2v": { requiresImage: true },
 };
