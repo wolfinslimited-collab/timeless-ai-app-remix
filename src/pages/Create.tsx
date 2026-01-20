@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
+import { useCredits, getModelCost } from "@/hooks/useCredits";
 import Sidebar from "@/components/Sidebar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
@@ -32,45 +32,45 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const imageModels = [
-  // Kie.ai Image Models
-  { id: "flux-1.1-pro", name: "Flux 1.1 Pro", description: "High quality creative images", badge: "PRO" },
-  { id: "flux-1.1-pro-ultra", name: "Flux 1.1 Pro Ultra", description: "Ultra HD 4K images", badge: "TOP" },
-  { id: "ideogram-v2", name: "Ideogram V2", description: "Best for text in images", badge: "NEW" },
-  { id: "ideogram-v2-turbo", name: "Ideogram V2 Turbo", description: "Fast text generation", badge: "FAST" },
-  { id: "recraft-v3", name: "Recraft V3", description: "Design & illustration", badge: "PRO" },
-  { id: "stable-diffusion-3.5", name: "SD 3.5 Large", description: "Stable Diffusion latest", badge: "NEW" },
-  { id: "dall-e-3", name: "DALL-E 3", description: "OpenAI's image model", badge: "TOP" },
-  { id: "midjourney", name: "Midjourney", description: "Artistic style images", badge: "PRO" },
+  // Kie.ai Image Models - with credit costs
+  { id: "ideogram-v2-turbo", name: "Ideogram V2 Turbo", description: "Fast text generation", badge: "FAST", credits: 3 },
+  { id: "stable-diffusion-3.5", name: "SD 3.5 Large", description: "Stable Diffusion latest", badge: "NEW", credits: 4 },
+  { id: "flux-1.1-pro", name: "Flux 1.1 Pro", description: "High quality creative", badge: "PRO", credits: 5 },
+  { id: "ideogram-v2", name: "Ideogram V2", description: "Best for text in images", badge: "NEW", credits: 5 },
+  { id: "recraft-v3", name: "Recraft V3", description: "Design & illustration", badge: "PRO", credits: 5 },
+  { id: "dall-e-3", name: "DALL-E 3", description: "OpenAI's image model", badge: "TOP", credits: 8 },
+  { id: "flux-1.1-pro-ultra", name: "Flux 1.1 Pro Ultra", description: "Ultra HD 4K images", badge: "TOP", credits: 10 },
+  { id: "midjourney", name: "Midjourney", description: "Artistic style images", badge: "PRO", credits: 10 },
 ];
 
 const videoModels = [
-  // Kie.ai Video Models  
-  { id: "runway-gen3-5s", name: "Runway Gen-3 (5s)", description: "5 second cinematic", badge: "NEW" },
-  { id: "runway-gen3-10s", name: "Runway Gen-3 (10s)", description: "10 second cinematic", badge: "TOP" },
-  { id: "veo-3", name: "Google Veo 3", description: "Audio sync, lip-sync", badge: "PRO" },
-  { id: "veo-3-fast", name: "Google Veo 3 Fast", description: "Quick generation", badge: "FAST" },
-  { id: "wan-2.1", name: "Alibaba Wan 2.1", description: "480p fast videos", badge: "NEW" },
-  { id: "wan-2.1-pro", name: "Alibaba Wan 2.1 Pro", description: "720p quality", badge: "PRO" },
-  { id: "kling-1.6-pro", name: "Kling 1.6 Pro", description: "5s high quality", badge: "TOP" },
-  { id: "kling-1.6-pro-10s", name: "Kling 1.6 Pro (10s)", description: "10s extended", badge: "PRO" },
-  { id: "minimax-video", name: "MiniMax Video", description: "Fast generation", badge: "FAST" },
-  { id: "luma-ray2", name: "Luma Ray 2", description: "Cinematic quality", badge: "NEW" },
-  { id: "pika-2.0", name: "Pika 2.0", description: "Creative animations", badge: "NEW" },
+  // Kie.ai Video Models - with credit costs
+  { id: "wan-2.1", name: "Alibaba Wan 2.1", description: "480p fast videos", badge: "FAST", credits: 8 },
+  { id: "minimax-video", name: "MiniMax Video", description: "Fast generation", badge: "FAST", credits: 10 },
+  { id: "veo-3-fast", name: "Google Veo 3 Fast", description: "Quick generation", badge: "FAST", credits: 12 },
+  { id: "wan-2.1-pro", name: "Alibaba Wan 2.1 Pro", description: "720p quality", badge: "PRO", credits: 12 },
+  { id: "pika-2.0", name: "Pika 2.0", description: "Creative animations", badge: "NEW", credits: 12 },
+  { id: "runway-gen3-5s", name: "Runway Gen-3 (5s)", description: "5s cinematic", badge: "NEW", credits: 15 },
+  { id: "luma-ray2", name: "Luma Ray 2", description: "Cinematic quality", badge: "NEW", credits: 15 },
+  { id: "kling-1.6-pro", name: "Kling 1.6 Pro", description: "5s high quality", badge: "TOP", credits: 18 },
+  { id: "veo-3", name: "Google Veo 3", description: "Audio sync, lip-sync", badge: "PRO", credits: 20 },
+  { id: "runway-gen3-10s", name: "Runway Gen-3 (10s)", description: "10s cinematic", badge: "TOP", credits: 25 },
+  { id: "kling-1.6-pro-10s", name: "Kling 1.6 Pro (10s)", description: "10s extended", badge: "PRO", credits: 30 },
 ];
 
 const Create = () => {
   const { user, loading } = useAuth();
-  const { credits, loading: creditsLoading, refetch: refetchCredits, hasEnoughCredits, hasActiveSubscription } = useCredits();
+  const { credits, loading: creditsLoading, refetch: refetchCredits, hasEnoughCreditsForModel, hasActiveSubscription } = useCredits();
   const navigate = useNavigate();
   const { toast } = useToast();
   
   const [type, setType] = useState<"image" | "video">("image");
   const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState("flux-1.1-pro");
+  const [model, setModel] = useState("ideogram-v2-turbo");
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
 
-  const currentCost = CREDIT_COSTS[type];
+  const currentCost = getModelCost(model);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -92,11 +92,11 @@ const Create = () => {
       return;
     }
 
-    if (!hasEnoughCredits(type)) {
+    if (!hasEnoughCreditsForModel(model)) {
       toast({
         variant: "destructive",
         title: "Insufficient credits",
-        description: `You need ${currentCost} credits for this generation. Current balance: ${credits ?? 0}`,
+        description: `You need ${currentCost} credits for ${currentModels.find(m => m.id === model)?.name}. Current balance: ${credits ?? 0}`,
       });
       return;
     }
@@ -145,7 +145,7 @@ const Create = () => {
 
   const handleTypeChange = (newType: string) => {
     setType(newType as "image" | "video");
-    setModel(newType === "image" ? "flux-1.1-pro" : "runway-gen3-5s");
+    setModel(newType === "image" ? "ideogram-v2-turbo" : "wan-2.1");
     setResult(null);
   };
 
@@ -202,14 +202,14 @@ const Create = () => {
                 <Image className="h-4 w-4" />
                 Image
                 <Badge variant="secondary" className="ml-1 text-xs">
-                  {CREDIT_COSTS.image} credits
+                  3-10 credits
                 </Badge>
               </TabsTrigger>
               <TabsTrigger value="video" className="gap-2">
                 <Video className="h-4 w-4" />
                 Video
                 <Badge variant="secondary" className="ml-1 text-xs">
-                  {CREDIT_COSTS.video} credits
+                  8-30 credits
                 </Badge>
               </TabsTrigger>
             </TabsList>
@@ -250,8 +250,11 @@ const Create = () => {
                           <div className="flex items-center gap-2">
                             <Zap className="h-4 w-4 text-primary" />
                             <span>{m.name}</span>
+                            <Badge variant="outline" className="ml-1 text-xs px-1.5 py-0">
+                              {m.credits}
+                            </Badge>
                             <span className="text-xs text-muted-foreground">
-                              - {m.description}
+                              {m.description}
                             </span>
                           </div>
                         </SelectItem>
@@ -263,7 +266,7 @@ const Create = () => {
                 {/* Generate Button */}
                 <Button 
                   onClick={handleGenerate}
-                  disabled={isGenerating || !prompt.trim() || (user && !hasEnoughCredits(type))}
+                  disabled={isGenerating || !prompt.trim() || (user && !hasEnoughCreditsForModel(model))}
                   className="w-full gradient-primary text-primary-foreground gap-2"
                   size="lg"
                 >
@@ -283,7 +286,7 @@ const Create = () => {
                   )}
                 </Button>
 
-                {user && !hasEnoughCredits(type) && (
+                {user && !hasEnoughCreditsForModel(model) && (
                   <p className="text-center text-sm text-destructive">
                     Insufficient credits. You need {currentCost} credits but have {credits ?? 0}.
                   </p>
