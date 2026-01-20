@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits, getModelCost } from "@/hooks/useCredits";
+import { useBackgroundGenerations } from "@/hooks/useBackgroundGenerations";
 import Sidebar from "@/components/Sidebar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,10 @@ import {
   Lightbulb,
   Clock,
   RotateCcw,
-  AlertCircle
+  AlertCircle,
+  CloudOff,
+  Play,
+  RefreshCw
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -86,6 +90,15 @@ const videoTemplates = [
 const Create = () => {
   const { user, loading } = useAuth();
   const { credits, loading: creditsLoading, refetch: refetchCredits, hasEnoughCreditsForModel, hasActiveSubscription } = useCredits();
+  const { 
+    pendingGenerations, 
+    completedGenerations, 
+    isChecking, 
+    checkPendingGenerations,
+    fetchPendingGenerations,
+    dismissCompleted,
+    hasPending 
+  } = useBackgroundGenerations();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -98,6 +111,7 @@ const Create = () => {
   const [startingImage, setStartingImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [backgroundMode, setBackgroundMode] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ stage: string; message: string; progress?: number } | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
@@ -159,7 +173,8 @@ const Create = () => {
             aspectRatio, 
             quality, 
             imageUrl: startingImage,
-            stream: true 
+            stream: true,
+            background: backgroundMode
           })
         });
 
@@ -203,6 +218,28 @@ const Create = () => {
                       title: "Generation complete!",
                       description: `Your video has been created. ${data.credits_remaining} credits remaining.`,
                     });
+                  } else if (eventType === 'background') {
+                    // Background mode - generation will continue in background
+                    fetchPendingGenerations();
+                    refetchCredits();
+                    toast({
+                      title: "Generation started!",
+                      description: "Your video is generating in the background. You can leave this page.",
+                      duration: 8000,
+                    });
+                    setIsGenerating(false);
+                    setGenerationProgress(null);
+                    setPrompt("");
+                  } else if (eventType === 'timeout_pending') {
+                    // Timeout but saved as pending
+                    fetchPendingGenerations();
+                    toast({
+                      title: "Generation continuing...",
+                      description: "Taking longer than expected. We'll notify you when it's ready.",
+                      duration: 8000,
+                    });
+                    setIsGenerating(false);
+                    setGenerationProgress(null);
                   } else if (eventType === 'error') {
                     throw new Error(data.message);
                   }
@@ -336,6 +373,80 @@ const Create = () => {
 
       <main className="flex-1 pb-20 md:pb-0">
         <div className="max-w-4xl mx-auto p-6">
+          {/* Pending Generations Banner */}
+          {hasPending && (
+            <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-primary">
+                      {pendingGenerations.length} video{pendingGenerations.length !== 1 ? 's' : ''} generating in background
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      We'll notify you when they're ready
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={checkPendingGenerations}
+                  disabled={isChecking}
+                  className="gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
+                  Check Now
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Completed Generations Notifications */}
+          {completedGenerations.length > 0 && (
+            <div className="mb-6 space-y-3">
+              {completedGenerations.map((gen) => (
+                <div 
+                  key={gen.id}
+                  className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <Play className="h-5 w-5 text-green-500" />
+                    <div>
+                      <p className="text-sm font-medium text-green-500">Video Ready!</p>
+                      <p className="text-xs text-muted-foreground truncate max-w-xs">
+                        {gen.prompt.substring(0, 60)}...
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => {
+                        setResult({ output_url: gen.output_url });
+                        dismissCompleted(gen.id);
+                      }}
+                      className="gap-2 border-green-500/50 text-green-500 hover:bg-green-500/10"
+                    >
+                      <Play className="h-4 w-4" />
+                      View
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => dismissCompleted(gen.id)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
@@ -577,6 +688,31 @@ const Create = () => {
                     </p>
                   </div>
                 )}
+
+                {/* Background Mode Toggle - Only for video */}
+                {type === "video" && (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/50">
+                    <div className="flex items-center gap-2">
+                      <CloudOff className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Continue in background</p>
+                        <p className="text-xs text-muted-foreground">
+                          Start generating and leave this page
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant={backgroundMode ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setBackgroundMode(!backgroundMode)}
+                      className={backgroundMode ? "gradient-primary" : ""}
+                    >
+                      {backgroundMode ? "On" : "Off"}
+                    </Button>
+                  </div>
+                )}
+
                 <Button 
                   onClick={handleGenerate}
                   disabled={isGenerating || !prompt.trim() || (user && !hasEnoughCreditsForModel(model))}
@@ -587,6 +723,14 @@ const Create = () => {
                     <>
                       <Loader2 className="h-5 w-5 animate-spin" />
                       Generating...
+                    </>
+                  ) : backgroundMode && type === "video" ? (
+                    <>
+                      <CloudOff className="h-5 w-5" />
+                      Generate in Background
+                      <span className="text-primary-foreground/80 text-sm">
+                        ({currentCost} credits)
+                      </span>
                     </>
                   ) : (
                     <>

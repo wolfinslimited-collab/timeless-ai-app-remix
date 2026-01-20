@@ -16,39 +16,51 @@ export type Database = {
     Tables: {
       generations: {
         Row: {
+          aspect_ratio: string | null
           created_at: string
           credits_used: number
           id: string
           model: string
           output_url: string | null
           prompt: string
+          provider_endpoint: string | null
+          quality: string | null
           status: string
+          task_id: string | null
           thumbnail_url: string | null
           title: string | null
           type: string
           user_id: string
         }
         Insert: {
+          aspect_ratio?: string | null
           created_at?: string
           credits_used?: number
           id?: string
           model?: string
           output_url?: string | null
           prompt: string
+          provider_endpoint?: string | null
+          quality?: string | null
           status?: string
+          task_id?: string | null
           thumbnail_url?: string | null
           title?: string | null
           type?: string
           user_id: string
         }
         Update: {
+          aspect_ratio?: string | null
           created_at?: string
           credits_used?: number
           id?: string
           model?: string
           output_url?: string | null
           prompt?: string
+          provider_endpoint?: string | null
+          quality?: string | null
           status?: string
+          task_id?: string | null
           thumbnail_url?: string | null
           title?: string | null
           type?: string

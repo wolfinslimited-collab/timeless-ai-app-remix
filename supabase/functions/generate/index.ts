@@ -89,7 +89,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, negativePrompt, type, model, aspectRatio = "1:1", quality = "720p", imageUrl, stream = false } = await req.json();
+    const { prompt, negativePrompt, type, model, aspectRatio = "1:1", quality = "720p", imageUrl, stream = false, background = false } = await req.json();
 
     // SSE streaming response for real-time progress
     if (stream && type === "video") {
@@ -215,6 +215,34 @@ serve(async (req) => {
 
             sendEvent('status', { stage: 'queued', message: 'Video queued for processing...', progress: 10, taskId });
 
+            // If background mode, save pending generation and return immediately
+            if (background) {
+              const { data: generation } = await supabase
+                .from("generations")
+                .insert({
+                  user_id: user.id,
+                  prompt: prompt,
+                  type: type,
+                  model: model,
+                  status: "pending",
+                  task_id: taskId,
+                  provider_endpoint: modelConfig.detailEndpoint,
+                  aspect_ratio: aspectRatio,
+                  quality: quality,
+                  credits_used: creditCost,
+                })
+                .select()
+                .single();
+
+              sendEvent('background', { 
+                message: 'Generation started in background. You can leave this page.',
+                generation,
+                taskId,
+              });
+              controller.close();
+              return;
+            }
+
             // Poll for result with model-specific timeout
             const pollInterval = 5000;
             const maxPollingTime = modelConfig.maxPollingTime || 600; // Default 10 minutes
@@ -304,11 +332,29 @@ serve(async (req) => {
               }
             }
 
-            // Timeout
-            if (!hasActiveSubscription) {
-              await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
-            }
-            sendEvent('error', { message: 'Video generation timed out. Please try again.' });
+            // Timeout - save as pending so user can check later
+            const { data: pendingGen } = await supabase
+              .from("generations")
+              .insert({
+                user_id: user.id,
+                prompt: prompt,
+                type: type,
+                model: model,
+                status: "pending",
+                task_id: taskId,
+                provider_endpoint: modelConfig.detailEndpoint,
+                aspect_ratio: aspectRatio,
+                quality: quality,
+                credits_used: creditCost,
+              })
+              .select()
+              .single();
+
+            sendEvent('timeout_pending', { 
+              message: 'Generation is taking longer than expected. It will continue in the background.',
+              generation: pendingGen,
+              taskId,
+            });
             controller.close();
 
           } catch (error: unknown) {
