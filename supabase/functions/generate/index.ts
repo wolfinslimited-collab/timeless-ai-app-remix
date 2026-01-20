@@ -120,7 +120,7 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
   "veo-3.1": { 
     endpoint: "/jobs/createTask", 
     detailEndpoint: "/jobs/recordInfo", 
-    model: "veo-3-quality", 
+    model: "veo-3.1-fast", 
     duration: 5, 
     maxPollingTime: 900, 
     useJobsCreateTask: true 
