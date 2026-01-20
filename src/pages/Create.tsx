@@ -67,6 +67,7 @@ const Create = () => {
   const [type, setType] = useState<"image" | "video">("image");
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("ideogram-v2-turbo");
+  const [aspectRatio, setAspectRatio] = useState("1:1");
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
 
@@ -106,7 +107,7 @@ const Create = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke("generate", {
-        body: { prompt, type, model }
+        body: { prompt, type, model, aspectRatio }
       });
 
       if (error) {
@@ -146,6 +147,7 @@ const Create = () => {
   const handleTypeChange = (newType: string) => {
     setType(newType as "image" | "video");
     setModel(newType === "image" ? "ideogram-v2-turbo" : "wan-2.1");
+    setAspectRatio(newType === "image" ? "1:1" : "16:9");
     setResult(null);
   };
 
@@ -261,6 +263,28 @@ const Create = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* Aspect Ratio Selection */}
+                <div className="space-y-2">
+                  <Label>Aspect Ratio</Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(type === "image" 
+                      ? ["1:1", "16:9", "9:16", "4:3"] 
+                      : ["16:9", "9:16", "1:1", "4:3"]
+                    ).map((ratio) => (
+                      <Button
+                        key={ratio}
+                        type="button"
+                        variant={aspectRatio === ratio ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setAspectRatio(ratio)}
+                        className={aspectRatio === ratio ? "gradient-primary" : "border-border/50"}
+                      >
+                        {ratio}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Generate Button */}
