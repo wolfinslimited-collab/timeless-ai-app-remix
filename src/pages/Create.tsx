@@ -144,7 +144,6 @@ const Create = () => {
 
   const isSlowVideoModel =
     type === "video" && !!VIDEO_MODEL_CAPABILITIES[model]?.slow;
-  const effectiveBackgroundMode = type === "video" && isSlowVideoModel ? true : backgroundMode;
   useEffect(() => {
     if (type !== "video") return;
 
@@ -235,7 +234,7 @@ const Create = () => {
             quality, 
             imageUrl: startingImage,
             stream: true,
-            background: effectiveBackgroundMode
+            background: backgroundMode
           })
         });
 
@@ -779,16 +778,12 @@ const Create = () => {
                     </div>
                     <Button
                       type="button"
-                      variant={effectiveBackgroundMode ? "default" : "outline"}
+                      variant={backgroundMode ? "default" : "outline"}
                       size="sm"
-                      disabled={isSlowVideoModel}
-                      onClick={() => {
-                        if (isSlowVideoModel) return;
-                        setBackgroundMode(!backgroundMode);
-                      }}
-                      className={effectiveBackgroundMode ? "gradient-primary" : ""}
+                      onClick={() => setBackgroundMode(!backgroundMode)}
+                      className={backgroundMode ? "gradient-primary" : ""}
                     >
-                      {effectiveBackgroundMode ? "On" : "Off"}
+                      {backgroundMode ? "On" : "Off"}
                     </Button>
                   </div>
                 )}
@@ -804,7 +799,7 @@ const Create = () => {
                       <Loader2 className="h-5 w-5 animate-spin" />
                       Generating...
                     </>
-                  ) : effectiveBackgroundMode && type === "video" ? (
+                  ) : backgroundMode && type === "video" ? (
                     <>
                       <CloudOff className="h-5 w-5" />
                       Generate in Background
