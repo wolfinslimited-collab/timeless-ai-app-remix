@@ -147,7 +147,7 @@ const Create = () => {
   const [type, setType] = useState<"image" | "video">("image");
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
-  const [model, setModel] = useState("ideogram-v2-turbo");
+  const [model, setModel] = useState("flux-1.1-pro");
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const [quality, setQuality] = useState("720p");
   const [startingImage, setStartingImage] = useState<string | null>(null);
@@ -376,7 +376,7 @@ const Create = () => {
 
   const handleTypeChange = (newType: string) => {
     setType(newType as "image" | "video");
-    setModel(newType === "image" ? "ideogram-v2-turbo" : "wan-2.6");
+    setModel(newType === "image" ? "flux-1.1-pro" : "wan-2.6");
     setAspectRatio(newType === "image" ? "1:1" : "16:9");
     setQuality("720p");
     setStartingImage(null);
