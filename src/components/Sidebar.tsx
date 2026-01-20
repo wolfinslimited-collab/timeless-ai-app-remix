@@ -6,11 +6,15 @@ import {
   Settings,
   HelpCircle,
   Crown,
-  Sparkles
+  Sparkles,
+  LogOut,
+  LogIn
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -35,6 +39,10 @@ const NavItem = ({ icon, label, active, onClick }: NavItemProps) => (
 );
 
 const Sidebar = () => {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   return (
     <aside className="hidden md:flex flex-col w-64 h-screen sticky top-0 border-r border-border/50 bg-sidebar p-4">
       {/* Logo */}
@@ -47,30 +55,78 @@ const Sidebar = () => {
 
       {/* Main Nav */}
       <nav className="space-y-1 flex-1">
-        <NavItem icon={<Home className="h-5 w-5" />} label="Home" active />
-        <NavItem icon={<Users className="h-5 w-5" />} label="Community" />
-        <NavItem icon={<Library className="h-5 w-5" />} label="Library" />
-        <NavItem icon={<User className="h-5 w-5" />} label="Profile" />
+        <NavItem 
+          icon={<Home className="h-5 w-5" />} 
+          label="Home" 
+          active={location.pathname === "/"} 
+          onClick={() => navigate("/")}
+        />
+        <NavItem 
+          icon={<Users className="h-5 w-5" />} 
+          label="Community" 
+        />
+        <NavItem 
+          icon={<Library className="h-5 w-5" />} 
+          label="Library" 
+          active={location.pathname === "/library"}
+          onClick={() => navigate("/library")}
+        />
+        <NavItem 
+          icon={<User className="h-5 w-5" />} 
+          label="Profile" 
+        />
         
         <Separator className="my-4 bg-border/50" />
         
         <NavItem icon={<Settings className="h-5 w-5" />} label="Settings" />
         <NavItem icon={<HelpCircle className="h-5 w-5" />} label="Help & FAQ" />
+        
+        {user ? (
+          <NavItem 
+            icon={<LogOut className="h-5 w-5" />} 
+            label="Sign Out" 
+            onClick={signOut}
+          />
+        ) : (
+          <NavItem 
+            icon={<LogIn className="h-5 w-5" />} 
+            label="Sign In" 
+            onClick={() => navigate("/auth")}
+          />
+        )}
       </nav>
 
       {/* Upgrade CTA */}
-      <div className="p-4 rounded-xl bg-gradient-to-br from-primary/20 to-accent/10 border border-primary/20">
-        <div className="flex items-center gap-2 mb-2">
-          <Crown className="h-5 w-5 text-accent" />
-          <span className="font-semibold">Go Pro</span>
+      {user ? (
+        <div className="p-4 rounded-xl bg-gradient-to-br from-primary/20 to-accent/10 border border-primary/20">
+          <div className="flex items-center gap-2 mb-2">
+            <Crown className="h-5 w-5 text-accent" />
+            <span className="font-semibold">Go Pro</span>
+          </div>
+          <p className="text-sm text-muted-foreground mb-3">
+            Unlock unlimited generations & premium models
+          </p>
+          <Button className="w-full gradient-primary text-primary-foreground">
+            Upgrade Now
+          </Button>
         </div>
-        <p className="text-sm text-muted-foreground mb-3">
-          Unlock unlimited generations & premium models
-        </p>
-        <Button className="w-full gradient-primary text-primary-foreground">
-          Upgrade Now
-        </Button>
-      </div>
+      ) : (
+        <div className="p-4 rounded-xl bg-gradient-to-br from-primary/20 to-accent/10 border border-primary/20">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <span className="font-semibold">Get Started</span>
+          </div>
+          <p className="text-sm text-muted-foreground mb-3">
+            Sign up to save your creations
+          </p>
+          <Button 
+            className="w-full gradient-primary text-primary-foreground"
+            onClick={() => navigate("/auth")}
+          >
+            Sign Up Free
+          </Button>
+        </div>
+      )}
     </aside>
   );
 };

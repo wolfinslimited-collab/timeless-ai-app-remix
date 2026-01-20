@@ -1,7 +1,12 @@
-import { Sparkles, ArrowRight } from "lucide-react";
+import { Sparkles, ArrowRight, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 const HeroSection = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
   return (
     <section className="relative overflow-hidden py-12 md:py-20">
       {/* Background effects */}
@@ -33,13 +38,42 @@ const HeroSection = () => {
 
           {/* CTA */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button size="lg" className="gradient-primary text-primary-foreground gap-2 px-8">
-              Start Creating
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-            <Button size="lg" variant="outline" className="gap-2 border-border/50 hover:bg-secondary">
-              Explore all tools
-            </Button>
+            {user ? (
+              <>
+                <Button size="lg" className="gradient-primary text-primary-foreground gap-2 px-8">
+                  Start Creating
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="gap-2 border-border/50 hover:bg-secondary"
+                  onClick={() => navigate("/library")}
+                >
+                  View Library
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  size="lg" 
+                  className="gradient-primary text-primary-foreground gap-2 px-8"
+                  onClick={() => navigate("/auth")}
+                >
+                  Get Started Free
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="gap-2 border-border/50 hover:bg-secondary"
+                  onClick={() => navigate("/auth")}
+                >
+                  <LogIn className="h-4 w-4" />
+                  Sign In
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>

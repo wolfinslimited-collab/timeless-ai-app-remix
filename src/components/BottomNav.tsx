@@ -1,5 +1,6 @@
 import { Home, Users, Library, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -29,13 +30,34 @@ const NavItem = ({ icon, label, active, onClick }: NavItemProps) => (
 );
 
 const BottomNav = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 bg-background/90 backdrop-blur-xl md:hidden">
       <div className="flex items-center justify-around py-2">
-        <NavItem icon={<Home className="h-5 w-5" />} label="Home" active />
-        <NavItem icon={<Users className="h-5 w-5" />} label="Community" />
-        <NavItem icon={<Library className="h-5 w-5" />} label="Library" />
-        <NavItem icon={<User className="h-5 w-5" />} label="Profile" />
+        <NavItem 
+          icon={<Home className="h-5 w-5" />} 
+          label="Home" 
+          active={location.pathname === "/"}
+          onClick={() => navigate("/")}
+        />
+        <NavItem 
+          icon={<Users className="h-5 w-5" />} 
+          label="Community" 
+        />
+        <NavItem 
+          icon={<Library className="h-5 w-5" />} 
+          label="Library" 
+          active={location.pathname === "/library"}
+          onClick={() => navigate("/library")}
+        />
+        <NavItem 
+          icon={<User className="h-5 w-5" />} 
+          label="Profile" 
+          active={location.pathname === "/auth"}
+          onClick={() => navigate("/auth")}
+        />
       </div>
     </nav>
   );
