@@ -18,14 +18,15 @@ const MODEL_CREDITS: Record<string, number> = {
   "dall-e-3": 8,
   "midjourney": 10,
   
-  // Video models - Kling 2.1 (validated)
-  "kling-2.1-standard": 12,
-  "kling-2.1-pro": 18,
-  "kling-2.1-master": 25,
-  
-  // Video models - Kling 2.6 (validated)
-  "kling-2.6-t2v": 22,
-  "kling-2.6-i2v": 24,
+  // Video models (matching frontend catalog)
+  "wan-2.6": 15,
+  "kling-2.6": 22,
+  "veo-3.1": 30,
+  "sora-2-pro": 35,
+  "hailuo-2.3": 18,
+  "veo-3": 25,
+  "sora-2": 28,
+  "seedance-1.5": 20,
 };
 
 // Fallback costs
@@ -71,27 +72,92 @@ type KieVideoModelConfig = {
   useAspectUnderscore?: boolean;
   maxPollingTime?: number;
   useJobsCreateTask?: boolean;
-  /**
-   * Some /jobs/createTask models validate this flag as required (e.g. Kling 2.6).
-   * We default to false unless UI later adds a toggle.
-   */
   jobsRequiresSoundFlag?: boolean;
-  /**
-   * Some /jobs/createTask I2V models expect image_urls: string[] (e.g. Kling 2.6 I2V).
-   */
   jobsImageField?: JobsImageField;
 };
 
-// VALIDATED MODELS ONLY - Only Kling 2.x models work with /jobs/createTask endpoint
-// Other models (Hailuo, Luma, Wan, Veo) require different endpoints not supported by current Kie.ai API
+// All 8 video models with Kie.ai /jobs/createTask unified endpoint
 const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
-  // Kling 2.1 models (validated via smoke-test)
-  "kling-2.1-standard": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-standard", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
-  "kling-2.1-pro": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-pro", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
-  "kling-2.1-master": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-master-text-to-video", duration: 5, maxPollingTime: 600, useJobsCreateTask: true },
-  // Kling 2.6 models (validated via smoke-test) - requires explicit `sound` flag and I2V expects `image_urls` array
-  "kling-2.6-t2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling-2.6/text-to-video", duration: 5, maxPollingTime: 420, useJobsCreateTask: true, jobsRequiresSoundFlag: true },
-  "kling-2.6-i2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling-2.6/image-to-video", duration: 5, maxPollingTime: 420, useJobsCreateTask: true, jobsRequiresSoundFlag: true, jobsImageField: "image_urls" },
+  // Wan 2.6 - Alibaba's latest model
+  "wan-2.6": { 
+    endpoint: "/jobs/createTask", 
+    detailEndpoint: "/jobs/recordInfo", 
+    model: "wan/wan2.1-t2v-turbo", 
+    duration: 5, 
+    maxPollingTime: 420, 
+    useJobsCreateTask: true 
+  },
+  
+  // Kling 2.6 - Kuaishou's model with audio sync
+  "kling-2.6": { 
+    endpoint: "/jobs/createTask", 
+    detailEndpoint: "/jobs/recordInfo", 
+    model: "kling-2.6/text-to-video", 
+    duration: 5, 
+    maxPollingTime: 420, 
+    useJobsCreateTask: true, 
+    jobsRequiresSoundFlag: true 
+  },
+  
+  // Veo 3.1 - Google's latest video model
+  "veo-3.1": { 
+    endpoint: "/jobs/createTask", 
+    detailEndpoint: "/jobs/recordInfo", 
+    model: "veo/veo-3.1", 
+    duration: 5, 
+    maxPollingTime: 900, 
+    useJobsCreateTask: true 
+  },
+  
+  // Sora 2 Pro - OpenAI premium video
+  "sora-2-pro": { 
+    endpoint: "/jobs/createTask", 
+    detailEndpoint: "/jobs/recordInfo", 
+    model: "sora/sora-2-pro", 
+    duration: 5, 
+    maxPollingTime: 900, 
+    useJobsCreateTask: true 
+  },
+  
+  // Hailuo 2.3 - Fast generation model
+  "hailuo-2.3": { 
+    endpoint: "/jobs/createTask", 
+    detailEndpoint: "/jobs/recordInfo", 
+    model: "hailuo/hailuo-2.3", 
+    duration: 5, 
+    maxPollingTime: 420, 
+    useJobsCreateTask: true 
+  },
+  
+  // Veo 3 - Google video model
+  "veo-3": { 
+    endpoint: "/jobs/createTask", 
+    detailEndpoint: "/jobs/recordInfo", 
+    model: "veo/veo-3", 
+    duration: 5, 
+    maxPollingTime: 900, 
+    useJobsCreateTask: true 
+  },
+  
+  // Sora 2 - OpenAI video model
+  "sora-2": { 
+    endpoint: "/jobs/createTask", 
+    detailEndpoint: "/jobs/recordInfo", 
+    model: "sora/sora-2", 
+    duration: 5, 
+    maxPollingTime: 900, 
+    useJobsCreateTask: true 
+  },
+  
+  // Seedance 1.5 - Creative motion model
+  "seedance-1.5": { 
+    endpoint: "/jobs/createTask", 
+    detailEndpoint: "/jobs/recordInfo", 
+    model: "seedance/seedance-1.5", 
+    duration: 5, 
+    maxPollingTime: 420, 
+    useJobsCreateTask: true 
+  },
 };
 
 const getTaskIdFromKieResponse = (payload: any): string | null => {
