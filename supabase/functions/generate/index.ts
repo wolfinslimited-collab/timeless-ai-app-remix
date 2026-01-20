@@ -18,23 +18,13 @@ const MODEL_CREDITS: Record<string, number> = {
   "dall-e-3": 8,
   "midjourney": 10,
   
-  // Video models - Text-to-Video
-  "minimax-video": 10,
-  "hailuo-2.3-fast": 10,
-  "luma-ray-flash-2": 12,
+  // Video models - Kling 2.1 (validated)
   "kling-2.1-standard": 12,
-  "wan-2.1-t2v": 12,
-  "hailuo-2.3": 15,
-  "luma-ray2": 15,
-  "veo-3-fast": 15,
   "kling-2.1-pro": 18,
-  "veo-3": 20,
-  "kling-2.6-t2v": 22,
   "kling-2.1-master": 25,
   
-  // Video models - Image-to-Video
-  "wan-2.1-i2v": 14,
-  "veo-3-i2v": 22,
+  // Video models - Kling 2.6 (validated)
+  "kling-2.6-t2v": 22,
   "kling-2.6-i2v": 24,
 };
 
@@ -92,30 +82,14 @@ type KieVideoModelConfig = {
   jobsImageField?: JobsImageField;
 };
 
+// VALIDATED MODELS ONLY - Only Kling 2.x models work with /jobs/createTask endpoint
+// Other models (Hailuo, Luma, Wan, Veo) require different endpoints not supported by current Kie.ai API
 const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
-  // MiniMax/Hailuo models
-  "minimax-video": { endpoint: "/minimax/generate", detailEndpoint: "/minimax/task-detail", model: "video-01", maxPollingTime: 360 },
-  "hailuo-2.3": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "minimax/hailuo-2.3", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
-  "hailuo-2.3-fast": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "minimax/hailuo-2.3-fast", duration: 5, maxPollingTime: 240, useJobsCreateTask: true },
-  
-  // Luma models
-  "luma-ray2": { endpoint: "/luma/generate", detailEndpoint: "/luma/task-detail", model: "ray2", maxPollingTime: 420 },
-  "luma-ray-flash-2": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "luma/ray-flash-2", duration: 5, maxPollingTime: 240, useJobsCreateTask: true },
-  
-  // Alibaba Wan models - Kie.ai uses "wan2.1-t2v-turbo" and "wan2.1-i2v-480p" (no alibaba/ prefix)
-  "wan-2.1-t2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "wan2.1-t2v-turbo", duration: 5, maxPollingTime: 360, useJobsCreateTask: true },
-  "wan-2.1-i2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "wan2.1-i2v-480p", duration: 5, maxPollingTime: 360, useJobsCreateTask: true },
-  
-  // Google Veo models
-  "veo-3": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-info", model: "veo3", useAspectUnderscore: true, maxPollingTime: 900 },
-  "veo-3-fast": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-info", model: "veo3_fast", useAspectUnderscore: true, maxPollingTime: 600 },
-  "veo-3-i2v": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-info", model: "veo3", useAspectUnderscore: true, maxPollingTime: 900 },
-  
-  // Kling 2.x models (unified jobs endpoint)
+  // Kling 2.1 models (validated via smoke-test)
   "kling-2.1-standard": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-standard", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
   "kling-2.1-pro": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-pro", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
   "kling-2.1-master": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-master-text-to-video", duration: 5, maxPollingTime: 600, useJobsCreateTask: true },
-  // Kling 2.6 requires an explicit `sound` flag (docs) and I2V expects `image_urls` (array)
+  // Kling 2.6 models (validated via smoke-test) - requires explicit `sound` flag and I2V expects `image_urls` array
   "kling-2.6-t2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling-2.6/text-to-video", duration: 5, maxPollingTime: 420, useJobsCreateTask: true, jobsRequiresSoundFlag: true },
   "kling-2.6-i2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling-2.6/image-to-video", duration: 5, maxPollingTime: 420, useJobsCreateTask: true, jobsRequiresSoundFlag: true, jobsImageField: "image_urls" },
 };
