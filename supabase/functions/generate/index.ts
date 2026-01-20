@@ -88,7 +88,212 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, negativePrompt, type, model, aspectRatio = "1:1", quality = "720p", imageUrl } = await req.json();
+    const { prompt, negativePrompt, type, model, aspectRatio = "1:1", quality = "720p", imageUrl, stream = false } = await req.json();
+
+    // SSE streaming response for real-time progress
+    if (stream && type === "video") {
+      const encoder = new TextEncoder();
+      const streamHeaders = {
+        ...corsHeaders,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      };
+
+      const readableStream = new ReadableStream({
+        async start(controller) {
+          const sendEvent = (event: string, data: any) => {
+            controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+          };
+
+          try {
+            sendEvent('status', { stage: 'auth', message: 'Authenticating...' });
+
+            const authHeader = req.headers.get('Authorization');
+            const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+            const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+            
+            const supabase = createClient(supabaseUrl, supabaseKey, {
+              global: { headers: { Authorization: authHeader || '' } }
+            });
+
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            
+            if (authError || !user) {
+              sendEvent('error', { message: 'Unauthorized' });
+              controller.close();
+              return;
+            }
+
+            sendEvent('status', { stage: 'credits', message: 'Checking credits...' });
+
+            const creditCost = getModelCost(model, type, quality);
+            
+            const { data: profile, error: profileError } = await supabase
+              .from("profiles")
+              .select("credits, subscription_status")
+              .eq("user_id", user.id)
+              .single();
+
+            if (profileError) {
+              sendEvent('error', { message: 'Could not fetch user profile' });
+              controller.close();
+              return;
+            }
+
+            const currentCredits = profile?.credits ?? 0;
+            const hasActiveSubscription = profile?.subscription_status === 'active';
+
+            if (!hasActiveSubscription && currentCredits < creditCost) {
+              sendEvent('error', { message: 'Insufficient credits', required: creditCost, available: currentCredits });
+              controller.close();
+              return;
+            }
+
+            if (!hasActiveSubscription) {
+              await supabase.from("profiles").update({ credits: currentCredits - creditCost }).eq("user_id", user.id);
+            }
+
+            const KIE_API_KEY = Deno.env.get("KIE_API_KEY");
+            if (!KIE_API_KEY) {
+              if (!hasActiveSubscription) {
+                await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+              }
+              sendEvent('error', { message: 'API key not configured' });
+              controller.close();
+              return;
+            }
+
+            sendEvent('status', { stage: 'submitting', message: 'Submitting to AI...', progress: 5 });
+
+            const modelConfig = KIE_VIDEO_MODELS[model];
+            if (!modelConfig) {
+              sendEvent('error', { message: `Unknown video model: ${model}` });
+              controller.close();
+              return;
+            }
+
+            const generateResponse = await fetch(`${KIE_BASE_URL}${modelConfig.endpoint}`, {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${KIE_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                prompt: prompt,
+                model: modelConfig.model,
+                ...(modelConfig.useAspectUnderscore ? { aspect_ratio: aspectRatio } : { aspectRatio: aspectRatio }),
+                quality: quality,
+                duration: modelConfig.duration || 5,
+                ...(negativePrompt && { negative_prompt: negativePrompt }),
+                ...(imageUrl && { image_url: imageUrl }),
+              })
+            });
+
+            if (!generateResponse.ok) {
+              if (!hasActiveSubscription) {
+                await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+              }
+              sendEvent('error', { message: `API error: ${generateResponse.status}` });
+              controller.close();
+              return;
+            }
+
+            const generateData = await generateResponse.json();
+            const taskId = generateData.data?.taskId;
+
+            if (!taskId) {
+              const errorMsg = generateData.msg || generateData.message || "Unknown error";
+              if (!hasActiveSubscription) {
+                await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+              }
+              sendEvent('error', { message: `Video API error: ${errorMsg}` });
+              controller.close();
+              return;
+            }
+
+            sendEvent('status', { stage: 'queued', message: 'Video queued for processing...', progress: 10, taskId });
+
+            // Poll for result
+            const maxAttempts = 36;
+            const pollInterval = 5000;
+
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+              await new Promise(resolve => setTimeout(resolve, pollInterval));
+              
+              const progress = Math.min(10 + Math.round((attempt / maxAttempts) * 85), 95);
+              sendEvent('status', { 
+                stage: 'processing', 
+                message: `Generating video... (${attempt * 5}s)`, 
+                progress,
+                attempt: attempt + 1,
+                maxAttempts
+              });
+
+              const statusResponse = await fetch(`${KIE_BASE_URL}${modelConfig.detailEndpoint}?taskId=${taskId}`, {
+                method: "GET",
+                headers: { "Authorization": `Bearer ${KIE_API_KEY}` }
+              });
+
+              if (!statusResponse.ok) continue;
+
+              const statusData = await statusResponse.json();
+              const status = statusData.data?.status;
+
+              if (status === "SUCCESS") {
+                const videoUrl = statusData.data?.output?.[0] || statusData.data?.video?.url;
+                const thumbnailUrl = statusData.data?.thumbnail || videoUrl;
+
+                // Save to database
+                const { data: generation } = await supabase
+                  .from("generations")
+                  .insert({
+                    user_id: user.id,
+                    prompt: prompt,
+                    type: type,
+                    model: model,
+                    status: "completed",
+                    output_url: videoUrl || null,
+                    thumbnail_url: thumbnailUrl || null,
+                    credits_used: creditCost,
+                  })
+                  .select()
+                  .single();
+
+                sendEvent('complete', { 
+                  result: { type: 'video', output_url: videoUrl, thumbnail_url: thumbnailUrl },
+                  generation,
+                  credits_remaining: hasActiveSubscription ? currentCredits : currentCredits - creditCost
+                });
+                controller.close();
+                return;
+              } else if (status === "FAILED") {
+                if (!hasActiveSubscription) {
+                  await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+                }
+                sendEvent('error', { message: 'Video generation failed' });
+                controller.close();
+                return;
+              }
+            }
+
+            // Timeout
+            if (!hasActiveSubscription) {
+              await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+            }
+            sendEvent('error', { message: 'Video generation timed out. Please try again.' });
+            controller.close();
+
+          } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            sendEvent('error', { message: errorMessage });
+            controller.close();
+          }
+        }
+      });
+
+      return new Response(readableStream, { headers: streamHeaders });
+    }
     
     console.log(`Generation request - Type: ${type}, Model: ${model}, Aspect: ${aspectRatio}, Quality: ${quality}, I2V: ${!!imageUrl}, NegPrompt: ${!!negativePrompt}, Prompt: ${prompt?.substring(0, 50)}...`);
 
