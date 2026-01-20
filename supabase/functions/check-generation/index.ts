@@ -103,7 +103,11 @@ serve(async (req) => {
         continue;
       }
 
-      const detailEndpoint = gen.provider_endpoint || MODEL_DETAIL_ENDPOINTS[gen.model];
+      const mappedEndpoint = MODEL_DETAIL_ENDPOINTS[gen.model];
+
+      // Veo status endpoint is unreliable across versions; force unified endpoint.
+      const isVeo = typeof gen.model === 'string' && gen.model.startsWith('veo-');
+      const detailEndpoint = isVeo ? KIE_UNIFIED_DETAIL_ENDPOINT : (gen.provider_endpoint || mappedEndpoint);
       if (!detailEndpoint) {
         console.log(`Unknown model for generation ${gen.id}: ${gen.model}`);
         results.push({ id: gen.id, status: "unknown_model", changed: false });
@@ -120,11 +124,13 @@ serve(async (req) => {
           });
         };
 
-        let statusResponse = await tryFetch(detailEndpoint);
+        let usedEndpoint = detailEndpoint;
+        let statusResponse = await tryFetch(usedEndpoint);
 
         // Fallback: if provider endpoint is deprecated and we got 404, try unified endpoint
-        if (!statusResponse.ok && statusResponse.status === 404 && detailEndpoint !== KIE_UNIFIED_DETAIL_ENDPOINT) {
-          statusResponse = await tryFetch(KIE_UNIFIED_DETAIL_ENDPOINT);
+        if (!statusResponse.ok && statusResponse.status === 404 && usedEndpoint !== KIE_UNIFIED_DETAIL_ENDPOINT) {
+          usedEndpoint = KIE_UNIFIED_DETAIL_ENDPOINT;
+          statusResponse = await tryFetch(usedEndpoint);
         }
 
         if (!statusResponse.ok) {
@@ -182,7 +188,7 @@ serve(async (req) => {
         const isSuccess = !!videoUrl || successFlag === 1 || isSuccessStatus;
         const isFailed = successFlag === 2 || successFlag === 3 || status === "FAILED" || status === "FAILURE";
 
-        console.log(`Generation ${gen.id} check: endpoint=${detailEndpoint}, status=${status}, successFlag=${successFlag}, videoUrl=${!!videoUrl}`);
+        console.log(`Generation ${gen.id} check: endpoint=${usedEndpoint}, status=${status}, successFlag=${successFlag}, videoUrl=${!!videoUrl}`);
 
         if (isSuccess) {
           // Update generation as completed
