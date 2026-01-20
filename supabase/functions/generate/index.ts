@@ -66,17 +66,18 @@ const KIE_IMAGE_MODELS: Record<string, { endpoint: string; model: string }> = {
 };
 
 const KIE_VIDEO_MODELS: Record<string, { endpoint: string; detailEndpoint: string; model: string; duration?: number; useAspectUnderscore?: boolean; maxPollingTime?: number }> = {
-  "runway-gen3-5s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 5, maxPollingTime: 180 },
-  "runway-gen3-10s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 10, maxPollingTime: 240 },
-  "veo-3": { endpoint: "/veo/generate", detailEndpoint: "/veo/task-detail", model: "veo3", useAspectUnderscore: true, maxPollingTime: 420 },
-  "veo-3-fast": { endpoint: "/veo/generate", detailEndpoint: "/veo/task-detail", model: "veo3_fast", useAspectUnderscore: true, maxPollingTime: 300 },
-  "wan-2.1": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1", duration: 5, maxPollingTime: 180 },
-  "wan-2.1-pro": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1-pro", duration: 5, maxPollingTime: 240 },
-  "kling-1.6-pro": { endpoint: "/kling/generate", detailEndpoint: "/kling/task-detail", model: "kling-v1-6-pro", duration: 5, maxPollingTime: 300 },
-  "kling-1.6-pro-10s": { endpoint: "/kling/generate", detailEndpoint: "/kling/task-detail", model: "kling-v1-6-pro", duration: 10, maxPollingTime: 420 },
-  "minimax-video": { endpoint: "/minimax/generate", detailEndpoint: "/minimax/task-detail", model: "video-01", maxPollingTime: 240 },
-  "luma-ray2": { endpoint: "/luma/generate", detailEndpoint: "/luma/task-detail", model: "ray2", maxPollingTime: 300 },
-  "pika-2.0": { endpoint: "/pika/generate", detailEndpoint: "/pika/task-detail", model: "pika-2.0", maxPollingTime: 240 },
+  "runway-gen3-5s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 5, maxPollingTime: 240 },
+  "runway-gen3-10s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 10, maxPollingTime: 360 },
+  // Veo can be very slow; keep generous polling time
+  "veo-3": { endpoint: "/veo/generate", detailEndpoint: "/veo/task-detail", model: "veo3", useAspectUnderscore: true, maxPollingTime: 900 },
+  "veo-3-fast": { endpoint: "/veo/generate", detailEndpoint: "/veo/task-detail", model: "veo3_fast", useAspectUnderscore: true, maxPollingTime: 600 },
+  "wan-2.1": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1", duration: 5, maxPollingTime: 240 },
+  "wan-2.1-pro": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1-pro", duration: 5, maxPollingTime: 360 },
+  "kling-1.6-pro": { endpoint: "/kling/generate", detailEndpoint: "/kling/task-detail", model: "kling-v1-6-pro", duration: 5, maxPollingTime: 420 },
+  "kling-1.6-pro-10s": { endpoint: "/kling/generate", detailEndpoint: "/kling/task-detail", model: "kling-v1-6-pro", duration: 10, maxPollingTime: 600 },
+  "minimax-video": { endpoint: "/minimax/generate", detailEndpoint: "/minimax/task-detail", model: "video-01", maxPollingTime: 360 },
+  "luma-ray2": { endpoint: "/luma/generate", detailEndpoint: "/luma/task-detail", model: "ray2", maxPollingTime: 420 },
+  "pika-2.0": { endpoint: "/pika/generate", detailEndpoint: "/pika/task-detail", model: "pika-2.0", maxPollingTime: 360 },
 };
 
 const KIE_BASE_URL = "https://api.kie.ai/api/v1";
@@ -216,13 +217,13 @@ serve(async (req) => {
 
             // Poll for result with model-specific timeout
             const pollInterval = 5000;
-            const maxPollingTime = modelConfig.maxPollingTime || 300; // Default 5 minutes
+            const maxPollingTime = modelConfig.maxPollingTime || 600; // Default 10 minutes
             const maxAttempts = Math.ceil(maxPollingTime / (pollInterval / 1000));
 
             for (let attempt = 0; attempt < maxAttempts; attempt++) {
               await new Promise(resolve => setTimeout(resolve, pollInterval));
               
-              const elapsedSeconds = (attempt + 1) * 5;
+              const elapsedSeconds = (attempt + 1) * (pollInterval / 1000);
               const progress = Math.min(10 + Math.round((attempt / maxAttempts) * 85), 95);
               sendEvent('status', { 
                 stage: 'processing', 
@@ -240,12 +241,30 @@ serve(async (req) => {
               if (!statusResponse.ok) continue;
 
               const statusData = await statusResponse.json();
-              const status = statusData.data?.status;
+              const rawStatus =
+                statusData?.data?.status ??
+                statusData?.data?.state ??
+                statusData?.status ??
+                statusData?.state;
 
-              if (status === "SUCCESS") {
-                const videoUrl = statusData.data?.output?.[0] || statusData.data?.video?.url;
-                const thumbnailUrl = statusData.data?.thumbnail || videoUrl;
+              const status = typeof rawStatus === "string" ? rawStatus.toUpperCase() : rawStatus;
 
+              const videoUrl =
+                (Array.isArray(statusData?.data?.output) ? statusData.data.output[0] : undefined) ||
+                statusData?.data?.video?.url ||
+                statusData?.data?.video_url ||
+                statusData?.data?.result?.video?.url ||
+                statusData?.data?.result?.url ||
+                statusData?.data?.url;
+
+              const thumbnailUrl =
+                statusData?.data?.thumbnail ||
+                statusData?.data?.thumbnail_url ||
+                statusData?.data?.cover ||
+                videoUrl;
+
+              // If we have a URL, consider it complete even if the provider uses a different status string.
+              if (videoUrl || status === "SUCCESS" || status === "SUCCEEDED" || status === "COMPLETED") {
                 // Save to database
                 const { data: generation } = await supabase
                   .from("generations")
@@ -269,11 +288,17 @@ serve(async (req) => {
                 });
                 controller.close();
                 return;
-              } else if (status === "FAILED") {
+              } else if (status === "FAILED" || status === "FAILURE") {
+                const providerMessage =
+                  statusData?.data?.msg ||
+                  statusData?.data?.message ||
+                  statusData?.msg ||
+                  statusData?.message;
+
                 if (!hasActiveSubscription) {
                   await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
                 }
-                sendEvent('error', { message: 'Video generation failed' });
+                sendEvent('error', { message: providerMessage ? `Video generation failed: ${providerMessage}` : 'Video generation failed' });
                 controller.close();
                 return;
               }
