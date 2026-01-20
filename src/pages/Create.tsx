@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits, getModelCost } from "@/hooks/useCredits";
 import { useBackgroundGenerations } from "@/hooks/useBackgroundGenerations";
@@ -68,6 +69,7 @@ const videoModels = [
 const VIDEO_DEFAULT_ASPECT_RATIOS = ["16:9", "9:16", "1:1"];
 const VIDEO_DEFAULT_QUALITIES = ["480p", "720p", "1080p"];
 
+// Kie.ai supported aspect ratios per model
 const VIDEO_MODEL_CAPABILITIES: Record<
   string,
   {
@@ -77,11 +79,50 @@ const VIDEO_MODEL_CAPABILITIES: Record<
     requiresImage?: boolean;
   }
 > = {
-  // Slow models (high quality, longer generation time)
-  "veo-3.1": { slow: true },
-  "veo-3": { slow: true },
-  "sora-2-pro": { slow: true },
-  "sora-2": { slow: true },
+  // Wan 2.6 - supports all standard ratios
+  "wan-2.6": { 
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+    qualities: ["480p", "720p"]
+  },
+  // Kling 2.6 - limited aspect ratios
+  "kling-2.6": { 
+    aspectRatios: ["16:9", "9:16", "1:1"],
+    qualities: ["720p", "1080p"]
+  },
+  // Veo 3.1 - Google's latest, limited options
+  "veo-3.1": { 
+    aspectRatios: ["16:9", "9:16"],
+    qualities: ["720p", "1080p"],
+    slow: true 
+  },
+  // Sora 2 Pro - OpenAI premium
+  "sora-2-pro": { 
+    aspectRatios: ["16:9", "9:16", "1:1"],
+    qualities: ["720p", "1080p"],
+    slow: true 
+  },
+  // Hailuo 2.3 - fast generation
+  "hailuo-2.3": { 
+    aspectRatios: ["16:9", "9:16", "1:1"],
+    qualities: ["720p"]
+  },
+  // Veo 3 - Google video
+  "veo-3": { 
+    aspectRatios: ["16:9", "9:16"],
+    qualities: ["720p", "1080p"],
+    slow: true 
+  },
+  // Sora 2 - OpenAI standard
+  "sora-2": { 
+    aspectRatios: ["16:9", "9:16", "1:1"],
+    qualities: ["480p", "720p", "1080p"],
+    slow: true 
+  },
+  // Seedance 1.5 - creative motion
+  "seedance-1.5": { 
+    aspectRatios: ["16:9", "9:16", "1:1"],
+    qualities: ["480p", "720p"]
+  },
 };
 
 const imageTemplates = [
@@ -699,7 +740,7 @@ const Create = () => {
                   <div className="grid grid-cols-4 gap-2">
                     {(type === "image"
                       ? ["1:1", "16:9", "9:16", "4:3"]
-                      : ["16:9", "9:16", "1:1", "4:3"]
+                      : ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"]
                     ).map((ratio) => {
                       const disabled =
                         type === "video" && !allowedVideoAspectRatios.includes(ratio);
@@ -712,11 +753,13 @@ const Create = () => {
                           size="sm"
                           disabled={disabled}
                           onClick={() => setAspectRatio(ratio)}
-                          className={
+                          className={cn(
                             aspectRatio === ratio
                               ? "gradient-primary"
-                              : "border-border/50"
-                          }
+                              : "border-border/50",
+                            disabled && "opacity-40 cursor-not-allowed"
+                          )}
+                          title={disabled ? `Not available for this model` : ratio}
                         >
                           {ratio}
                         </Button>
