@@ -16,16 +16,30 @@ const KIE_VEO_DETAIL_ENDPOINT = "/veo/record-info";
 
 // Map model names to their detail endpoints
 const MODEL_DETAIL_ENDPOINTS: Record<string, string> = {
-  // Veo uses a dedicated status endpoint
-  "veo-3": KIE_VEO_DETAIL_ENDPOINT,
-  // MiniMax and Luma use model-specific endpoints  
+  // MiniMax/Hailuo models
   "minimax-video": "/minimax/task-detail",
+  "hailuo-2.3": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "hailuo-2.3-fast": KIE_UNIFIED_DETAIL_ENDPOINT,
+  
+  // Luma models
   "luma-ray2": "/luma/task-detail",
-  // Kling 2.x uses unified jobs endpoint
+  "luma-ray-flash-2": KIE_UNIFIED_DETAIL_ENDPOINT,
+  
+  // Alibaba Wan models
+  "wan-2.1-t2v": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "wan-2.1-i2v": KIE_UNIFIED_DETAIL_ENDPOINT,
+  
+  // Google Veo models
+  "veo-3": KIE_VEO_DETAIL_ENDPOINT,
+  "veo-3-fast": KIE_VEO_DETAIL_ENDPOINT,
+  "veo-3-i2v": KIE_VEO_DETAIL_ENDPOINT,
+  
+  // Kling 2.x models
   "kling-2.1-standard": KIE_UNIFIED_DETAIL_ENDPOINT,
   "kling-2.1-pro": KIE_UNIFIED_DETAIL_ENDPOINT,
   "kling-2.1-master": KIE_UNIFIED_DETAIL_ENDPOINT,
-  "kling-2.6": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "kling-2.6-t2v": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "kling-2.6-i2v": KIE_UNIFIED_DETAIL_ENDPOINT,
 };
 
 serve(async (req) => {

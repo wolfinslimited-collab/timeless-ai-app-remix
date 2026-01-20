@@ -14,14 +14,24 @@ export const MODEL_CREDITS: Record<string, number> = {
   "dall-e-3": 8,
   "midjourney": 10,
   
-  // Video models
+  // Video models - Text-to-Video
   "minimax-video": 10,
+  "hailuo-2.3-fast": 10,
+  "luma-ray-flash-2": 12,
   "kling-2.1-standard": 12,
+  "wan-2.1-t2v": 12,
+  "hailuo-2.3": 15,
   "luma-ray2": 15,
+  "veo-3-fast": 15,
   "kling-2.1-pro": 18,
   "veo-3": 20,
-  "kling-2.6": 22,
+  "kling-2.6-t2v": 22,
   "kling-2.1-master": 25,
+  
+  // Video models - Image-to-Video
+  "wan-2.1-i2v": 14,
+  "veo-3-i2v": 22,
+  "kling-2.6-i2v": 24,
 };
 
 // Legacy type-based costs (fallback)
