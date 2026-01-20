@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
-// Model-specific credit costs
+// Model-specific credit costs - VALIDATED MODELS ONLY
 export const MODEL_CREDITS: Record<string, number> = {
   // Image models
   "flux-1.1-pro": 5,
@@ -14,23 +14,13 @@ export const MODEL_CREDITS: Record<string, number> = {
   "dall-e-3": 8,
   "midjourney": 10,
   
-  // Video models - Text-to-Video
-  "minimax-video": 10,
-  "hailuo-2.3-fast": 10,
-  "luma-ray-flash-2": 12,
+  // Video models - Kling 2.1 (validated via smoke-test)
   "kling-2.1-standard": 12,
-  "wan-2.1-t2v": 12,
-  "hailuo-2.3": 15,
-  "luma-ray2": 15,
-  "veo-3-fast": 15,
   "kling-2.1-pro": 18,
-  "veo-3": 20,
-  "kling-2.6-t2v": 22,
   "kling-2.1-master": 25,
   
-  // Video models - Image-to-Video
-  "wan-2.1-i2v": 14,
-  "veo-3-i2v": 22,
+  // Video models - Kling 2.6 (validated via smoke-test)
+  "kling-2.6-t2v": 22,
   "kling-2.6-i2v": 24,
 };
 

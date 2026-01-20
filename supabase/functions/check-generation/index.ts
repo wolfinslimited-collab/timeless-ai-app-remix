@@ -14,27 +14,9 @@ const KIE_UNIFIED_DETAIL_ENDPOINT = "/jobs/recordInfo";
 // Veo-specific task status endpoint (official for Veo 3.1)
 const KIE_VEO_DETAIL_ENDPOINT = "/veo/record-info";
 
-// Map model names to their detail endpoints
+// Map model names to their detail endpoints - VALIDATED MODELS ONLY
 const MODEL_DETAIL_ENDPOINTS: Record<string, string> = {
-  // MiniMax/Hailuo models
-  "minimax-video": "/minimax/task-detail",
-  "hailuo-2.3": KIE_UNIFIED_DETAIL_ENDPOINT,
-  "hailuo-2.3-fast": KIE_UNIFIED_DETAIL_ENDPOINT,
-  
-  // Luma models
-  "luma-ray2": "/luma/task-detail",
-  "luma-ray-flash-2": KIE_UNIFIED_DETAIL_ENDPOINT,
-  
-  // Alibaba Wan models
-  "wan-2.1-t2v": KIE_UNIFIED_DETAIL_ENDPOINT,
-  "wan-2.1-i2v": KIE_UNIFIED_DETAIL_ENDPOINT,
-  
-  // Google Veo models
-  "veo-3": KIE_VEO_DETAIL_ENDPOINT,
-  "veo-3-fast": KIE_VEO_DETAIL_ENDPOINT,
-  "veo-3-i2v": KIE_VEO_DETAIL_ENDPOINT,
-  
-  // Kling 2.x models
+  // Kling 2.x models (validated)
   "kling-2.1-standard": KIE_UNIFIED_DETAIL_ENDPOINT,
   "kling-2.1-pro": KIE_UNIFIED_DETAIL_ENDPOINT,
   "kling-2.1-master": KIE_UNIFIED_DETAIL_ENDPOINT,
