@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Sidebar from "@/components/Sidebar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
-import { Image, Video, Download, Trash2, Clock, Loader2 } from "lucide-react";
+import { Image, Video, Download, Trash2, Clock, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -164,10 +164,30 @@ const Library = () => {
               {filteredGenerations.map((gen) => (
                 <div
                   key={gen.id}
-                  className="group relative rounded-xl border border-border/50 bg-card overflow-hidden hover:border-primary/30 transition-all"
+                  className={`group relative rounded-xl border bg-card overflow-hidden transition-all ${
+                    gen.status === "failed" 
+                      ? "border-destructive/50 hover:border-destructive" 
+                      : gen.status === "pending"
+                      ? "border-yellow-500/50 hover:border-yellow-500"
+                      : "border-border/50 hover:border-primary/30"
+                  }`}
                 >
+                  {/* Status Badge */}
+                  {gen.status === "failed" && (
+                    <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-destructive/90 text-destructive-foreground rounded-full px-2 py-1">
+                      <AlertCircle className="h-3 w-3" />
+                      <span className="text-xs font-medium">Failed</span>
+                    </div>
+                  )}
+                  {gen.status === "pending" && (
+                    <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-yellow-500/90 text-black rounded-full px-2 py-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span className="text-xs font-medium">Generating</span>
+                    </div>
+                  )}
+
                   {/* Thumbnail */}
-                  <div className="aspect-square bg-secondary flex items-center justify-center">
+                  <div className={`aspect-square bg-secondary flex items-center justify-center ${gen.status === "failed" ? "opacity-50" : ""}`}>
                     {gen.thumbnail_url || gen.output_url ? (
                       <img
                         src={gen.thumbnail_url || gen.output_url || ""}
@@ -176,12 +196,27 @@ const Library = () => {
                       />
                     ) : (
                       <div className="flex flex-col items-center text-muted-foreground">
-                        {gen.type === "video" ? (
-                          <Video className="h-12 w-12 mb-2" />
+                        {gen.status === "failed" ? (
+                          <>
+                            <AlertCircle className="h-12 w-12 mb-2 text-destructive" />
+                            <span className="text-sm">Generation failed</span>
+                          </>
+                        ) : gen.status === "pending" ? (
+                          <>
+                            <Loader2 className="h-12 w-12 mb-2 animate-spin" />
+                            <span className="text-sm">Processing...</span>
+                          </>
+                        ) : gen.type === "video" ? (
+                          <>
+                            <Video className="h-12 w-12 mb-2" />
+                            <span className="text-sm">Preview unavailable</span>
+                          </>
                         ) : (
-                          <Image className="h-12 w-12 mb-2" />
+                          <>
+                            <Image className="h-12 w-12 mb-2" />
+                            <span className="text-sm">Preview unavailable</span>
+                          </>
                         )}
-                        <span className="text-sm">Preview unavailable</span>
                       </div>
                     )}
                   </div>
@@ -213,10 +248,18 @@ const Library = () => {
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span className="capitalize">{gen.model}</span>
                       <span>•</span>
-                      <Clock className="h-3 w-3" />
-                      <span>
-                        {new Date(gen.created_at).toLocaleDateString()}
-                      </span>
+                      {gen.status === "failed" ? (
+                        <span className="text-destructive font-medium">Failed</span>
+                      ) : gen.status === "pending" ? (
+                        <span className="text-yellow-500 font-medium">Processing</span>
+                      ) : (
+                        <>
+                          <Clock className="h-3 w-3" />
+                          <span>
+                            {new Date(gen.created_at).toLocaleDateString()}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
