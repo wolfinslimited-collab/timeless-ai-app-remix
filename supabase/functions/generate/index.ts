@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Model-specific credit costs
+// Model-specific credit costs - LATEST VERSIONS ONLY
 const MODEL_CREDITS: Record<string, number> = {
   // Image models
   "flux-1.1-pro": 5,
@@ -18,12 +18,7 @@ const MODEL_CREDITS: Record<string, number> = {
   "dall-e-3": 8,
   "midjourney": 10,
   
-  // Video models - Kling 2.1 (validated)
-  "kling-2.1-standard": 12,
-  "kling-2.1-pro": 18,
-  "kling-2.1-master": 25,
-  
-  // Video models - Kling 2.6 (validated)
+  // Video models - Kling 2.6 (latest)
   "kling-2.6-t2v": 22,
   "kling-2.6-i2v": 24,
 };
@@ -82,14 +77,9 @@ type KieVideoModelConfig = {
   jobsImageField?: JobsImageField;
 };
 
-// VALIDATED MODELS ONLY - Only Kling 2.x models work with /jobs/createTask endpoint
-// Other models (Hailuo, Luma, Wan, Veo) require different endpoints not supported by current Kie.ai API
+// LATEST VERSIONS ONLY - Kling 2.6 via /jobs/createTask endpoint
 const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
-  // Kling 2.1 models (validated via smoke-test)
-  "kling-2.1-standard": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-standard", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
-  "kling-2.1-pro": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-pro", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
-  "kling-2.1-master": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-master-text-to-video", duration: 5, maxPollingTime: 600, useJobsCreateTask: true },
-  // Kling 2.6 models (validated via smoke-test) - requires explicit `sound` flag and I2V expects `image_urls` array
+  // Kling 2.6 (latest) - requires explicit `sound` flag and I2V expects `image_urls` array
   "kling-2.6-t2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling-2.6/text-to-video", duration: 5, maxPollingTime: 420, useJobsCreateTask: true, jobsRequiresSoundFlag: true },
   "kling-2.6-i2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling-2.6/image-to-video", duration: 5, maxPollingTime: 420, useJobsCreateTask: true, jobsRequiresSoundFlag: true, jobsImageField: "image_urls" },
 };
