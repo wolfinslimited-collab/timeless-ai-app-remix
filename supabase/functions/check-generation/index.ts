@@ -114,29 +114,40 @@ serve(async (req) => {
         let thumbnailUrl: string | undefined;
         let isSuccess = false;
         let isFailed = false;
+        let providerCode: number | undefined;
+        let providerMsg: string | undefined;
+        let status = "";
+        let successFlag: number | undefined;
 
         if (useFal && FAL_API_KEY) {
           // Check Fal.ai status
           const falEndpoint = getFalEndpoint(providerEndpoint!);
+          console.log(`Checking Fal.ai status for ${gen.id}: ${falEndpoint}`);
+          
           const statusResp = await fetch(`${FAL_RESULT_URL}/${falEndpoint}/requests/${gen.task_id}/status`, {
             headers: { "Authorization": `Key ${FAL_API_KEY}` }
           });
           
           if (statusResp.ok) {
             const statusData = await statusResp.json();
+            console.log(`Fal.ai status for ${gen.id}:`, JSON.stringify(statusData));
+            
             if (statusData.status === "COMPLETED") {
               const resultResp = await fetch(`${FAL_RESULT_URL}/${falEndpoint}/requests/${gen.task_id}`, {
                 headers: { "Authorization": `Key ${FAL_API_KEY}` }
               });
               if (resultResp.ok) {
                 const result = await resultResp.json();
+                console.log(`Fal.ai result for ${gen.id}:`, JSON.stringify(result));
                 videoUrl = result.video?.url;
                 thumbnailUrl = result.thumbnail?.url || videoUrl;
                 isSuccess = !!videoUrl;
               }
             } else if (statusData.status === "FAILED") {
               isFailed = true;
+              providerMsg = statusData.error || "Fal.ai generation failed";
             }
+            status = statusData.status || "";
           }
         } else if (KIE_API_KEY) {
           // Check Kie.ai status
@@ -153,9 +164,14 @@ serve(async (req) => {
             : [primaryEndpoint, KIE_UNIFIED_DETAIL_ENDPOINT];
 
           let statusResponse: Response | null = null;
+          let usedEndpoint = "";
           for (const ep of endpointsToTry) {
             const resp = await tryFetch(ep);
-            if (resp.ok) { statusResponse = resp; break; }
+            if (resp.ok) { 
+              statusResponse = resp; 
+              usedEndpoint = ep;
+              break; 
+            }
           }
 
           if (!statusResponse || !statusResponse.ok) {
@@ -165,74 +181,74 @@ serve(async (req) => {
 
           const statusData = await statusResponse.json();
 
-        const providerCode = statusData?.code;
-        const providerMsg = statusData?.msg ?? statusData?.message;
-        
-        // Normalize status across providers (handle both string and numeric statuses)
-        const rawStatus =
-          statusData?.data?.response?.status ??
-          statusData?.data?.status ??
-          statusData?.data?.state ??
-          statusData?.status ??
-          statusData?.state;
+          providerCode = statusData?.code;
+          providerMsg = statusData?.msg ?? statusData?.message;
+          
+          // Normalize status across providers (handle both string and numeric statuses)
+          const rawStatus =
+            statusData?.data?.response?.status ??
+            statusData?.data?.status ??
+            statusData?.data?.state ??
+            statusData?.status ??
+            statusData?.state;
 
-        // Veo uses numeric: 0=pending, 1=success, 2/3=failed
-        const successFlag =
-          statusData?.data?.response?.successFlag ??
-          statusData?.data?.successFlag ??
-          statusData?.successFlag;
+          // Veo uses numeric: 0=pending, 1=success, 2/3=failed
+          successFlag =
+            statusData?.data?.response?.successFlag ??
+            statusData?.data?.successFlag ??
+            statusData?.successFlag;
 
-        const status = typeof rawStatus === "string" ? rawStatus.toUpperCase() : String(rawStatus || "").toUpperCase();
+          status = typeof rawStatus === "string" ? rawStatus.toUpperCase() : String(rawStatus || "").toUpperCase();
 
-        // Unified endpoint returns a stringified JSON result in data.resultJson
-        let unifiedResult: any = null;
-        const resultJson = statusData?.data?.resultJson;
-        if (typeof resultJson === "string") {
-          try {
-            unifiedResult = JSON.parse(resultJson);
-          } catch {
-            unifiedResult = null;
+          // Unified endpoint returns a stringified JSON result in data.resultJson
+          let unifiedResult: any = null;
+          const resultJson = statusData?.data?.resultJson;
+          if (typeof resultJson === "string") {
+            try {
+              unifiedResult = JSON.parse(resultJson);
+            } catch {
+              unifiedResult = null;
+            }
+          } else if (resultJson && typeof resultJson === "object") {
+            unifiedResult = resultJson;
           }
-        } else if (resultJson && typeof resultJson === "object") {
-          unifiedResult = resultJson;
+
+          // Extract video URL from various response formats
+          videoUrl =
+            (Array.isArray(unifiedResult?.resultUrls) ? unifiedResult.resultUrls[0] : undefined) ||
+            (Array.isArray(statusData?.data?.response?.resultUrls) ? statusData.data.response.resultUrls[0] : undefined) ||
+            (Array.isArray(statusData?.data?.output) ? statusData.data.output[0] : undefined) ||
+            statusData?.data?.video?.url ||
+            statusData?.data?.video_url ||
+            statusData?.data?.result?.video?.url ||
+            statusData?.data?.result?.url ||
+            statusData?.data?.url;
+
+          thumbnailUrl =
+            statusData?.data?.thumbnail ||
+            statusData?.data?.thumbnail_url ||
+            statusData?.data?.cover ||
+            videoUrl;
+
+          // Determine success/failure
+          const isSuccessStatus = ["SUCCESS", "SUCCEEDED", "COMPLETED", "DONE", "FINISHED"].includes(status);
+          const isFailedStatus = ["FAILED", "FAILURE", "ERROR", "CANCELLED", "CANCELED"].includes(status);
+          // Only mark as success if we have a video URL or explicit success flags
+          isSuccess = (!!videoUrl && (successFlag === 1 || isSuccessStatus)) || (successFlag === 1 && !!videoUrl);
+          isFailed = successFlag === 2 || successFlag === 3 || isFailedStatus;
+
+          console.log(
+            `Generation ${gen.id} check: endpoint=${usedEndpoint}, code=${providerCode}, msg=${providerMsg}, status=${status}, successFlag=${successFlag}, videoUrl=${!!videoUrl}`,
+          );
         }
 
-        // Extract video URL from various response formats (including Veo record-info and unified resultJson)
-        const videoUrl =
-          (Array.isArray(unifiedResult?.resultUrls) ? unifiedResult.resultUrls[0] : undefined) ||
-          (Array.isArray(statusData?.data?.response?.resultUrls) ? statusData.data.response.resultUrls[0] : undefined) ||
-          (Array.isArray(statusData?.data?.response?.resultUrls) ? statusData.data.response.resultUrls[0] : undefined) ||
-          (Array.isArray(statusData?.data?.output) ? statusData.data.output[0] : undefined) ||
-          statusData?.data?.video?.url ||
-          statusData?.data?.video_url ||
-          statusData?.data?.result?.video?.url ||
-          statusData?.data?.result?.url ||
-          statusData?.data?.url;
-
-        const thumbnailUrl =
-          statusData?.data?.thumbnail ||
-          statusData?.data?.thumbnail_url ||
-          statusData?.data?.cover ||
-          videoUrl;
-
-        // Determine success/failure
-        const isSuccessStatus = ["SUCCESS", "SUCCEEDED", "COMPLETED", "DONE", "FINISHED"].includes(status);
-        const isFailedStatus = ["FAILED", "FAILURE", "ERROR", "CANCELLED", "CANCELED"].includes(status);
-        // Only mark as success if we have a video URL or explicit success flags
-        const isSuccess = (!!videoUrl && (successFlag === 1 || isSuccessStatus)) || (successFlag === 1 && !!videoUrl);
-        const isFailed = successFlag === 2 || successFlag === 3 || isFailedStatus;
-
-        console.log(
-          `Generation ${gen.id} check: endpoint=${usedEndpoint}, code=${providerCode}, msg=${providerMsg}, status=${status}, successFlag=${successFlag}, videoUrl=${!!videoUrl}`,
-        );
-
-        if (isSuccess) {
+        if (isSuccess && videoUrl) {
           // Update generation as completed
           await supabase
             .from("generations")
             .update({
               status: "completed",
-              output_url: videoUrl || null,
+              output_url: videoUrl,
               thumbnail_url: thumbnailUrl || null,
             })
             .eq("id", gen.id);
