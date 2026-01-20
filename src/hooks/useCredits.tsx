@@ -10,11 +10,13 @@ export const CREDIT_COSTS = {
 export const useCredits = () => {
   const { user } = useAuth();
   const [credits, setCredits] = useState<number | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchCredits = async () => {
     if (!user) {
       setCredits(null);
+      setSubscriptionStatus(null);
       setLoading(false);
       return;
     }
@@ -22,15 +24,17 @@ export const useCredits = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("credits")
+        .select("credits, subscription_status")
         .eq("user_id", user.id)
         .single();
 
       if (error) throw error;
       setCredits(data?.credits ?? 0);
+      setSubscriptionStatus(data?.subscription_status ?? null);
     } catch (error) {
       console.error("Error fetching credits:", error);
       setCredits(0);
+      setSubscriptionStatus(null);
     } finally {
       setLoading(false);
     }
@@ -45,10 +49,21 @@ export const useCredits = () => {
     fetchCredits();
   };
 
+  const hasActiveSubscription = subscriptionStatus === 'active';
+
   const hasEnoughCredits = (type: "image" | "video") => {
+    if (hasActiveSubscription) return true;
     if (credits === null) return false;
     return credits >= CREDIT_COSTS[type];
   };
 
-  return { credits, loading, refetch, hasEnoughCredits, CREDIT_COSTS };
+  return { 
+    credits, 
+    loading, 
+    refetch, 
+    hasEnoughCredits, 
+    CREDIT_COSTS,
+    subscriptionStatus,
+    hasActiveSubscription,
+  };
 };

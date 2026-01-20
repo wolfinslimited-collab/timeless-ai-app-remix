@@ -52,12 +52,12 @@ serve(async (req) => {
 
     console.log(`User authenticated: ${user.id}`);
 
-    // Check user credits
+    // Check user profile for credits and subscription
     const creditCost = CREDIT_COSTS[type as keyof typeof CREDIT_COSTS] || 5;
     
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("credits")
+      .select("credits, subscription_status")
       .eq("user_id", user.id)
       .single();
 
@@ -70,34 +70,41 @@ serve(async (req) => {
     }
 
     const currentCredits = profile?.credits ?? 0;
-    console.log(`User credits: ${currentCredits}, Cost: ${creditCost}`);
+    const hasActiveSubscription = profile?.subscription_status === 'active';
+    
+    console.log(`User credits: ${currentCredits}, Subscription: ${hasActiveSubscription}, Cost: ${creditCost}`);
 
-    if (currentCredits < creditCost) {
-      return new Response(
-        JSON.stringify({ 
-          error: "Insufficient credits",
-          required: creditCost,
-          available: currentCredits
-        }),
-        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // If user has active subscription, skip credit check
+    if (!hasActiveSubscription) {
+      if (currentCredits < creditCost) {
+        return new Response(
+          JSON.stringify({ 
+            error: "Insufficient credits",
+            required: creditCost,
+            available: currentCredits
+          }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Deduct credits before generation
+      const { error: deductError } = await supabase
+        .from("profiles")
+        .update({ credits: currentCredits - creditCost })
+        .eq("user_id", user.id);
+
+      if (deductError) {
+        console.error("Credit deduction error:", deductError.message);
+        return new Response(
+          JSON.stringify({ error: "Failed to deduct credits" }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`Credits deducted: ${creditCost}, Remaining: ${currentCredits - creditCost}`);
+    } else {
+      console.log("User has active subscription - no credits deducted");
     }
-
-    // Deduct credits before generation
-    const { error: deductError } = await supabase
-      .from("profiles")
-      .update({ credits: currentCredits - creditCost })
-      .eq("user_id", user.id);
-
-    if (deductError) {
-      console.error("Credit deduction error:", deductError.message);
-      return new Response(
-        JSON.stringify({ error: "Failed to deduct credits" }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`Credits deducted: ${creditCost}, Remaining: ${currentCredits - creditCost}`);
 
     let result;
     

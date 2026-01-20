@@ -47,55 +47,135 @@ serve(async (req) => {
 
     console.log(`Received Stripe event: ${event.type}`);
 
+    // Use service role for admin operations
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Handle one-time payment completed
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
       
       const userId = session.metadata?.user_id;
-      const creditsToAdd = parseInt(session.metadata?.credits || '0', 10);
+      const type = session.metadata?.type;
 
-      if (!userId || !creditsToAdd) {
-        console.error("Missing user_id or credits in session metadata");
+      if (!userId) {
+        console.error("Missing user_id in session metadata");
         return new Response(
           JSON.stringify({ error: "Invalid session metadata" }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      console.log(`Adding ${creditsToAdd} credits to user ${userId}`);
+      if (type === 'credits') {
+        // Handle credit purchase
+        const creditsToAdd = parseInt(session.metadata?.credits || '0', 10);
+        
+        if (!creditsToAdd) {
+          console.error("Missing credits in session metadata");
+          return new Response(
+            JSON.stringify({ error: "Invalid credits metadata" }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
 
-      // Use service role for admin operations
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        console.log(`Adding ${creditsToAdd} credits to user ${userId}`);
 
-      // Get current credits
-      const { data: profile, error: fetchError } = await supabase
-        .from("profiles")
-        .select("credits")
-        .eq("user_id", userId)
-        .single();
+        const { data: profile, error: fetchError } = await supabase
+          .from("profiles")
+          .select("credits")
+          .eq("user_id", userId)
+          .single();
 
-      if (fetchError) {
-        console.error("Error fetching profile:", fetchError.message);
-        throw new Error("Failed to fetch user profile");
+        if (fetchError) {
+          console.error("Error fetching profile:", fetchError.message);
+          throw new Error("Failed to fetch user profile");
+        }
+
+        const currentCredits = profile?.credits ?? 0;
+        const newCredits = currentCredits + creditsToAdd;
+
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({ credits: newCredits })
+          .eq("user_id", userId);
+
+        if (updateError) {
+          console.error("Error updating credits:", updateError.message);
+          throw new Error("Failed to update credits");
+        }
+
+        console.log(`Credits updated: ${currentCredits} -> ${newCredits}`);
+      } else if (type === 'subscription') {
+        // Handle subscription activation
+        const subscriptionId = session.subscription as string;
+        
+        console.log(`Activating subscription ${subscriptionId} for user ${userId}`);
+
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({ 
+            subscription_status: 'active',
+            subscription_id: subscriptionId,
+          })
+          .eq("user_id", userId);
+
+        if (updateError) {
+          console.error("Error updating subscription:", updateError.message);
+          throw new Error("Failed to update subscription");
+        }
+
+        console.log(`Subscription activated for user ${userId}`);
       }
+    }
 
-      const currentCredits = profile?.credits ?? 0;
-      const newCredits = currentCredits + creditsToAdd;
+    // Handle subscription updated (renewal, plan change)
+    if (event.type === 'customer.subscription.updated') {
+      const subscription = event.data.object as Stripe.Subscription;
+      const userId = subscription.metadata?.user_id;
 
-      // Update credits
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ credits: newCredits })
-        .eq("user_id", userId);
+      if (userId) {
+        const status = subscription.status === 'active' ? 'active' : 
+                       subscription.status === 'past_due' ? 'past_due' : 'inactive';
+        
+        const endDate = new Date(subscription.current_period_end * 1000).toISOString();
 
-      if (updateError) {
-        console.error("Error updating credits:", updateError.message);
-        throw new Error("Failed to update credits");
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({ 
+            subscription_status: status,
+            subscription_end_date: endDate,
+          })
+          .eq("user_id", userId);
+
+        if (updateError) {
+          console.error("Error updating subscription status:", updateError.message);
+        } else {
+          console.log(`Subscription status updated to ${status} for user ${userId}`);
+        }
       }
+    }
 
-      console.log(`Credits updated: ${currentCredits} -> ${newCredits}`);
+    // Handle subscription canceled
+    if (event.type === 'customer.subscription.deleted') {
+      const subscription = event.data.object as Stripe.Subscription;
+      const userId = subscription.metadata?.user_id;
+
+      if (userId) {
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({ 
+            subscription_status: 'canceled',
+            subscription_id: null,
+          })
+          .eq("user_id", userId);
+
+        if (updateError) {
+          console.error("Error canceling subscription:", updateError.message);
+        } else {
+          console.log(`Subscription canceled for user ${userId}`);
+        }
+      }
     }
 
     return new Response(
