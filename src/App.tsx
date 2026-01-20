@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import Library from "./pages/Library";
 import Create from "./pages/Create";
 import Pricing from "./pages/Pricing";
+import Subscription from "./pages/Subscription";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/library" element={<Library />} />
             <Route path="/create" element={<Create />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/subscription" element={<Subscription />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
