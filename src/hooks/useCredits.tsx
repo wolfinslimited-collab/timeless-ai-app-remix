@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
-// Model-specific credit costs - VALIDATED MODELS ONLY
+// Model-specific credit costs
 export const MODEL_CREDITS: Record<string, number> = {
   // Image models
   "flux-1.1-pro": 5,
@@ -14,14 +14,15 @@ export const MODEL_CREDITS: Record<string, number> = {
   "dall-e-3": 8,
   "midjourney": 10,
   
-  // Video models - Kling 2.1 (validated via smoke-test)
-  "kling-2.1-standard": 12,
-  "kling-2.1-pro": 18,
-  "kling-2.1-master": 25,
-  
-  // Video models - Kling 2.6 (validated via smoke-test)
-  "kling-2.6-t2v": 22,
-  "kling-2.6-i2v": 24,
+  // Video models
+  "wan-2.6": 15,
+  "kling-2.6": 22,
+  "veo-3.1": 30,
+  "sora-2-pro": 35,
+  "hailuo-2.3": 18,
+  "veo-3": 25,
+  "sora-2": 28,
+  "seedance-1.5": 20,
 };
 
 // Legacy type-based costs (fallback)
