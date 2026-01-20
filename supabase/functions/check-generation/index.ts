@@ -11,13 +11,16 @@ const KIE_BASE_URL = "https://api.kie.ai/api/v1";
 // Unified task status endpoint (works across many Kie Market tasks; needed for Veo in newer API versions)
 const KIE_UNIFIED_DETAIL_ENDPOINT = "/jobs/recordInfo";
 
+// Veo-specific task status endpoint (official for Veo 3.1)
+const KIE_VEO_DETAIL_ENDPOINT = "/veo/record-info";
+
 // Map model names to their detail endpoints
 const MODEL_DETAIL_ENDPOINTS: Record<string, string> = {
   "runway-gen3-5s": "/runway/task-detail",
   "runway-gen3-10s": "/runway/task-detail",
-  // Veo status endpoint has changed; use unified recordInfo to avoid 404s
-  "veo-3": KIE_UNIFIED_DETAIL_ENDPOINT,
-  "veo-3-fast": KIE_UNIFIED_DETAIL_ENDPOINT,
+  // Veo uses a dedicated status endpoint
+  "veo-3": KIE_VEO_DETAIL_ENDPOINT,
+  "veo-3-fast": KIE_VEO_DETAIL_ENDPOINT,
   "wan-2.1": "/wan/task-detail",
   "wan-2.1-pro": "/wan/task-detail",
   "kling-1.6-pro": "/kling/task-detail",
@@ -105,10 +108,9 @@ serve(async (req) => {
 
       const mappedEndpoint = MODEL_DETAIL_ENDPOINTS[gen.model];
 
-      // Veo status endpoint is unreliable across versions; force unified endpoint.
       const isVeo = typeof gen.model === 'string' && gen.model.startsWith('veo-');
-      const detailEndpoint = isVeo ? KIE_UNIFIED_DETAIL_ENDPOINT : (gen.provider_endpoint || mappedEndpoint);
-      if (!detailEndpoint) {
+      const primaryEndpoint = gen.provider_endpoint || mappedEndpoint;
+      if (!primaryEndpoint && !isVeo) {
         console.log(`Unknown model for generation ${gen.id}: ${gen.model}`);
         results.push({ id: gen.id, status: "unknown_model", changed: false });
         continue;
@@ -124,13 +126,27 @@ serve(async (req) => {
           });
         };
 
-        let usedEndpoint = detailEndpoint;
-        let statusResponse = await tryFetch(usedEndpoint);
+        // Try provider-specific endpoint first; Veo uses /veo/record-info.
+        const endpointsToTry = isVeo
+          ? [KIE_VEO_DETAIL_ENDPOINT, "/veo/task-detail", KIE_UNIFIED_DETAIL_ENDPOINT]
+          : [primaryEndpoint];
 
-        // Fallback: if provider endpoint is deprecated and we got 404, try unified endpoint
-        if (!statusResponse.ok && statusResponse.status === 404 && usedEndpoint !== KIE_UNIFIED_DETAIL_ENDPOINT) {
-          usedEndpoint = KIE_UNIFIED_DETAIL_ENDPOINT;
-          statusResponse = await tryFetch(usedEndpoint);
+        let usedEndpoint = endpointsToTry[0];
+        let statusResponse: Response | null = null;
+
+        for (const ep of endpointsToTry) {
+          usedEndpoint = ep;
+          const resp = await tryFetch(ep);
+          if (resp.ok) {
+            statusResponse = resp;
+            break;
+          }
+          // If not ok, continue trying fallbacks
+        }
+
+        if (!statusResponse) {
+          results.push({ id: gen.id, status: "check_failed", changed: false });
+          continue;
         }
 
         if (!statusResponse.ok) {
@@ -140,6 +156,9 @@ serve(async (req) => {
         }
 
         const statusData = await statusResponse.json();
+
+        const providerCode = statusData?.code;
+        const providerMsg = statusData?.msg ?? statusData?.message;
         
         // Normalize status across providers (handle both string and numeric statuses)
         const rawStatus =
@@ -149,8 +168,11 @@ serve(async (req) => {
           statusData?.status ??
           statusData?.state;
 
-        // Veo uses numeric: 0=pending, 1=success, 2/3=failed (may live in data.response or data)
-        const successFlag = statusData?.data?.response?.successFlag ?? statusData?.data?.successFlag;
+        // Veo uses numeric: 0=pending, 1=success, 2/3=failed
+        const successFlag =
+          statusData?.data?.response?.successFlag ??
+          statusData?.data?.successFlag ??
+          statusData?.successFlag;
 
         const status = typeof rawStatus === "string" ? rawStatus.toUpperCase() : String(rawStatus || "").toUpperCase();
 
@@ -163,11 +185,14 @@ serve(async (req) => {
           } catch {
             unifiedResult = null;
           }
+        } else if (resultJson && typeof resultJson === "object") {
+          unifiedResult = resultJson;
         }
 
-        // Extract video URL from various response formats (including unified resultJson/resultUrls)
+        // Extract video URL from various response formats (including Veo record-info and unified resultJson)
         const videoUrl =
           (Array.isArray(unifiedResult?.resultUrls) ? unifiedResult.resultUrls[0] : undefined) ||
+          (Array.isArray(statusData?.data?.response?.resultUrls) ? statusData.data.response.resultUrls[0] : undefined) ||
           (Array.isArray(statusData?.data?.response?.resultUrls) ? statusData.data.response.resultUrls[0] : undefined) ||
           (Array.isArray(statusData?.data?.output) ? statusData.data.output[0] : undefined) ||
           statusData?.data?.video?.url ||
@@ -184,11 +209,13 @@ serve(async (req) => {
 
         // Determine success/failure
         const isSuccessStatus = ["SUCCESS", "SUCCEEDED", "COMPLETED", "DONE", "FINISHED"].includes(status);
-        const isFailureStatus = ["FAILED", "FAILURE"].includes(status);
+        const isFailedStatus = ["FAILED", "FAILURE"].includes(status);
         const isSuccess = !!videoUrl || successFlag === 1 || isSuccessStatus;
-        const isFailed = successFlag === 2 || successFlag === 3 || status === "FAILED" || status === "FAILURE";
+        const isFailed = successFlag === 2 || successFlag === 3 || isFailedStatus;
 
-        console.log(`Generation ${gen.id} check: endpoint=${usedEndpoint}, status=${status}, successFlag=${successFlag}, videoUrl=${!!videoUrl}`);
+        console.log(
+          `Generation ${gen.id} check: endpoint=${usedEndpoint}, code=${providerCode}, msg=${providerMsg}, status=${status}, successFlag=${successFlag}, videoUrl=${!!videoUrl}`,
+        );
 
         if (isSuccess) {
           // Update generation as completed
@@ -245,6 +272,9 @@ serve(async (req) => {
             status: "pending",
             changed: false,
             provider_status: status,
+            provider_code: providerCode,
+            provider_msg: providerMsg,
+            provider_success_flag: successFlag,
           });
         }
       } catch (err) {
