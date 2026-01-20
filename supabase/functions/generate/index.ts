@@ -19,17 +19,13 @@ const MODEL_CREDITS: Record<string, number> = {
   "midjourney": 10,
   
   // Video models
-  "runway-gen3-5s": 15,
-  "runway-gen3-10s": 25,
-  "veo-3": 20,
-  "veo-3-fast": 12,
-  "wan-2.1": 8,
-  "wan-2.1-pro": 12,
-  "kling-1.6-pro": 18,
-  "kling-1.6-pro-10s": 30,
   "minimax-video": 10,
+  "kling-2.1-standard": 12,
   "luma-ray2": 15,
-  "pika-2.0": 12,
+  "kling-2.1-pro": 18,
+  "veo-3": 20,
+  "kling-2.6": 22,
+  "kling-2.1-master": 25,
 };
 
 // Fallback costs
@@ -66,19 +62,16 @@ const KIE_IMAGE_MODELS: Record<string, { endpoint: string; model: string }> = {
 };
 
 const KIE_VIDEO_MODELS: Record<string, { endpoint: string; detailEndpoint: string; model: string; duration?: number; useAspectUnderscore?: boolean; maxPollingTime?: number; useJobsCreateTask?: boolean }> = {
-  "runway-gen3-5s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 5, maxPollingTime: 240 },
-  "runway-gen3-10s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 10, maxPollingTime: 360 },
-  // Veo can be very slow; keep generous polling time
+  // Veo uses dedicated endpoints
   "veo-3": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-info", model: "veo3", useAspectUnderscore: true, maxPollingTime: 900 },
-  "veo-3-fast": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-info", model: "veo3_fast", useAspectUnderscore: true, maxPollingTime: 600 },
-  "wan-2.1": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1", duration: 5, maxPollingTime: 240 },
-  "wan-2.1-pro": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1-pro", duration: 5, maxPollingTime: 360 },
-  // Kling uses /jobs/createTask unified endpoint
-  "kling-1.6-pro": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v1-6-pro", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
-  "kling-1.6-pro-10s": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v1-6-pro", duration: 10, maxPollingTime: 600, useJobsCreateTask: true },
+  // MiniMax and Luma use model-specific endpoints
   "minimax-video": { endpoint: "/minimax/generate", detailEndpoint: "/minimax/task-detail", model: "video-01", maxPollingTime: 360 },
   "luma-ray2": { endpoint: "/luma/generate", detailEndpoint: "/luma/task-detail", model: "ray2", maxPollingTime: 420 },
-  "pika-2.0": { endpoint: "/pika/generate", detailEndpoint: "/pika/task-detail", model: "pika-2.0", maxPollingTime: 360 },
+  // Kling 2.x uses /jobs/createTask unified endpoint
+  "kling-2.1-standard": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-standard", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
+  "kling-2.1-pro": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-pro", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
+  "kling-2.1-master": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-master-text-to-video", duration: 5, maxPollingTime: 600, useJobsCreateTask: true },
+  "kling-2.6": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling-2.6/text-to-video", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
 };
 
 const KIE_BASE_URL = "https://api.kie.ai/api/v1";

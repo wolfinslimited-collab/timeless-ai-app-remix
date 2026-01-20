@@ -53,18 +53,14 @@ const imageModels = [
 ];
 
 const videoModels = [
-  // Kie.ai Video Models - with credit costs
-  { id: "wan-2.1", name: "Alibaba Wan 2.1", description: "480p fast videos", badge: "FAST", credits: 8 },
+  // Kie.ai Video Models - with credit costs (sorted by credits)
   { id: "minimax-video", name: "MiniMax Video", description: "Fast generation", badge: "FAST", credits: 10 },
-  { id: "veo-3-fast", name: "Google Veo 3 Fast", description: "Quick generation", badge: "FAST", credits: 12 },
-  { id: "wan-2.1-pro", name: "Alibaba Wan 2.1 Pro", description: "720p quality", badge: "PRO", credits: 12 },
-  { id: "pika-2.0", name: "Pika 2.0", description: "Creative animations", badge: "NEW", credits: 12 },
-  { id: "runway-gen3-5s", name: "Runway Gen-3 (5s)", description: "5s cinematic", badge: "NEW", credits: 15 },
-  { id: "luma-ray2", name: "Luma Ray 2", description: "Cinematic quality", badge: "NEW", credits: 15 },
-  { id: "kling-1.6-pro", name: "Kling 1.6 Pro", description: "5s high quality", badge: "TOP", credits: 18 },
-  { id: "veo-3", name: "Google Veo 3", description: "Audio sync, lip-sync", badge: "PRO", credits: 20 },
-  { id: "runway-gen3-10s", name: "Runway Gen-3 (10s)", description: "10s cinematic", badge: "TOP", credits: 25 },
-  { id: "kling-1.6-pro-10s", name: "Kling 1.6 Pro (10s)", description: "10s extended", badge: "PRO", credits: 30 },
+  { id: "kling-2.1-standard", name: "Kling 2.1 Standard", description: "Standard quality", badge: "NEW", credits: 12 },
+  { id: "luma-ray2", name: "Luma Ray 2", description: "Cinematic quality", badge: "PRO", credits: 15 },
+  { id: "kling-2.1-pro", name: "Kling 2.1 Pro", description: "High quality", badge: "PRO", credits: 18 },
+  { id: "veo-3", name: "Google Veo 3", description: "Audio sync, lip-sync", badge: "TOP", credits: 20 },
+  { id: "kling-2.6", name: "Kling 2.6", description: "Audio-visual sync", badge: "NEW", credits: 22 },
+  { id: "kling-2.1-master", name: "Kling 2.1 Master", description: "Best quality", badge: "TOP", credits: 25 },
 ];
 
 
@@ -79,11 +75,9 @@ const VIDEO_MODEL_CAPABILITIES: Record<
     slow?: boolean;
   }
 > = {
-  // Conservative defaults based on provider quirks reported by users
-  "wan-2.1": { qualities: ["480p"] },
-  "wan-2.1-pro": { qualities: ["720p"] },
+  // Conservative defaults based on provider quirks
   "veo-3": { qualities: ["720p", "1080p"], slow: true },
-  "veo-3-fast": { qualities: ["720p", "1080p"], slow: true },
+  "kling-2.1-master": { slow: true },
 };
 
 const imageTemplates = [
@@ -338,7 +332,7 @@ const Create = () => {
 
   const handleTypeChange = (newType: string) => {
     setType(newType as "image" | "video");
-    setModel(newType === "image" ? "ideogram-v2-turbo" : "wan-2.1");
+    setModel(newType === "image" ? "ideogram-v2-turbo" : "minimax-video");
     setAspectRatio(newType === "image" ? "1:1" : "16:9");
     setQuality("720p");
     setStartingImage(null);
