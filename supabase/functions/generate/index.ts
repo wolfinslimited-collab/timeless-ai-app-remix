@@ -18,14 +18,24 @@ const MODEL_CREDITS: Record<string, number> = {
   "dall-e-3": 8,
   "midjourney": 10,
   
-  // Video models
+  // Video models - Text-to-Video
   "minimax-video": 10,
+  "hailuo-2.3-fast": 10,
+  "luma-ray-flash-2": 12,
   "kling-2.1-standard": 12,
+  "wan-2.1-t2v": 12,
+  "hailuo-2.3": 15,
   "luma-ray2": 15,
+  "veo-3-fast": 15,
   "kling-2.1-pro": 18,
   "veo-3": 20,
-  "kling-2.6": 22,
+  "kling-2.6-t2v": 22,
   "kling-2.1-master": 25,
+  
+  // Video models - Image-to-Video
+  "wan-2.1-i2v": 14,
+  "veo-3-i2v": 22,
+  "kling-2.6-i2v": 24,
 };
 
 // Fallback costs
@@ -62,16 +72,30 @@ const KIE_IMAGE_MODELS: Record<string, { endpoint: string; model: string }> = {
 };
 
 const KIE_VIDEO_MODELS: Record<string, { endpoint: string; detailEndpoint: string; model: string; duration?: number; useAspectUnderscore?: boolean; maxPollingTime?: number; useJobsCreateTask?: boolean }> = {
-  // Veo uses dedicated endpoints
-  "veo-3": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-info", model: "veo3", useAspectUnderscore: true, maxPollingTime: 900 },
-  // MiniMax and Luma use model-specific endpoints
+  // MiniMax/Hailuo models
   "minimax-video": { endpoint: "/minimax/generate", detailEndpoint: "/minimax/task-detail", model: "video-01", maxPollingTime: 360 },
+  "hailuo-2.3": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "minimax/hailuo-2.3", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
+  "hailuo-2.3-fast": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "minimax/hailuo-2.3-fast", duration: 5, maxPollingTime: 240, useJobsCreateTask: true },
+  
+  // Luma models
   "luma-ray2": { endpoint: "/luma/generate", detailEndpoint: "/luma/task-detail", model: "ray2", maxPollingTime: 420 },
-  // Kling 2.x uses /jobs/createTask unified endpoint
+  "luma-ray-flash-2": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "luma/ray-flash-2", duration: 5, maxPollingTime: 240, useJobsCreateTask: true },
+  
+  // Alibaba Wan models
+  "wan-2.1-t2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "alibaba/wan2.1-t2v-plus", duration: 5, maxPollingTime: 360, useJobsCreateTask: true },
+  "wan-2.1-i2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "alibaba/wan2.1-i2v-preview", duration: 5, maxPollingTime: 360, useJobsCreateTask: true },
+  
+  // Google Veo models
+  "veo-3": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-info", model: "veo3", useAspectUnderscore: true, maxPollingTime: 900 },
+  "veo-3-fast": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-info", model: "veo3_fast", useAspectUnderscore: true, maxPollingTime: 600 },
+  "veo-3-i2v": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-info", model: "veo3", useAspectUnderscore: true, maxPollingTime: 900 },
+  
+  // Kling 2.x models (unified jobs endpoint)
   "kling-2.1-standard": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-standard", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
   "kling-2.1-pro": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-pro", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
   "kling-2.1-master": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-master-text-to-video", duration: 5, maxPollingTime: 600, useJobsCreateTask: true },
-  "kling-2.6": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling-2.6/text-to-video", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
+  "kling-2.6-t2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling-2.6/text-to-video", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
+  "kling-2.6-i2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling-2.6/image-to-video", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
 };
 
 const KIE_BASE_URL = "https://api.kie.ai/api/v1";

@@ -53,14 +53,25 @@ const imageModels = [
 ];
 
 const videoModels = [
-  // Kie.ai Video Models - with credit costs (sorted by credits)
-  { id: "minimax-video", name: "MiniMax Video", description: "Fast generation", badge: "FAST", credits: 10 },
-  { id: "kling-2.1-standard", name: "Kling 2.1 Standard", description: "Standard quality", badge: "NEW", credits: 12 },
-  { id: "luma-ray2", name: "Luma Ray 2", description: "Cinematic quality", badge: "PRO", credits: 15 },
-  { id: "kling-2.1-pro", name: "Kling 2.1 Pro", description: "High quality", badge: "PRO", credits: 18 },
+  // Kie.ai Video Models - sorted by credits
+  // Text-to-Video models
+  { id: "minimax-video", name: "MiniMax Video-01", description: "Fast T2V generation", badge: "FAST", credits: 10 },
+  { id: "hailuo-2.3-fast", name: "Hailuo 2.3 Fast", description: "Quick T2V", badge: "FAST", credits: 10 },
+  { id: "luma-ray-flash-2", name: "Luma Ray Flash 2", description: "Fast cinematic", badge: "FAST", credits: 12 },
+  { id: "kling-2.1-standard", name: "Kling 2.1 Standard", description: "Standard T2V", badge: "NEW", credits: 12 },
+  { id: "wan-2.1-t2v", name: "Wan 2.1 T2V Plus", description: "Alibaba T2V", badge: "NEW", credits: 12 },
+  { id: "hailuo-2.3", name: "Hailuo 2.3", description: "High quality T2V", badge: "PRO", credits: 15 },
+  { id: "luma-ray2", name: "Luma Ray 2", description: "Cinematic T2V", badge: "PRO", credits: 15 },
+  { id: "veo-3-fast", name: "Google Veo 3 Fast", description: "Quick Veo", badge: "PRO", credits: 15 },
+  { id: "kling-2.1-pro", name: "Kling 2.1 Pro", description: "High quality T2V", badge: "PRO", credits: 18 },
   { id: "veo-3", name: "Google Veo 3", description: "Audio sync, lip-sync", badge: "TOP", credits: 20 },
-  { id: "kling-2.6", name: "Kling 2.6", description: "Audio-visual sync", badge: "NEW", credits: 22 },
-  { id: "kling-2.1-master", name: "Kling 2.1 Master", description: "Best quality", badge: "TOP", credits: 25 },
+  { id: "kling-2.6-t2v", name: "Kling 2.6 T2V", description: "Audio-visual sync", badge: "NEW", credits: 22 },
+  { id: "kling-2.1-master", name: "Kling 2.1 Master", description: "Best quality T2V", badge: "TOP", credits: 25 },
+  
+  // Image-to-Video models
+  { id: "wan-2.1-i2v", name: "Wan 2.1 I2V", description: "Alibaba I2V", badge: "I2V", credits: 14 },
+  { id: "kling-2.6-i2v", name: "Kling 2.6 I2V", description: "Image to video", badge: "I2V", credits: 24 },
+  { id: "veo-3-i2v", name: "Veo 3 I2V", description: "Image to video", badge: "I2V", credits: 22 },
 ];
 
 
@@ -73,11 +84,17 @@ const VIDEO_MODEL_CAPABILITIES: Record<
     aspectRatios?: string[];
     qualities?: string[];
     slow?: boolean;
+    requiresImage?: boolean;
   }
 > = {
-  // Conservative defaults based on provider quirks
+  // Slow models
   "veo-3": { qualities: ["720p", "1080p"], slow: true },
+  "veo-3-fast": { qualities: ["720p", "1080p"] },
   "kling-2.1-master": { slow: true },
+  // Image-to-video models require starting image
+  "wan-2.1-i2v": { requiresImage: true },
+  "kling-2.6-i2v": { requiresImage: true },
+  "veo-3-i2v": { requiresImage: true, qualities: ["720p", "1080p"] },
 };
 
 const imageTemplates = [
@@ -169,6 +186,17 @@ const Create = () => {
 
     // Guard against provider-rejected combinations (quality/aspect can be model-specific)
     if (type === "video") {
+      // Check if I2V model requires starting image
+      const modelCaps = VIDEO_MODEL_CAPABILITIES[model];
+      if (modelCaps?.requiresImage && !startingImage) {
+        toast({
+          variant: "destructive",
+          title: "Starting image required",
+          description: "This Image-to-Video model requires you to upload a starting image first.",
+        });
+        return;
+      }
+
       if (!allowedVideoAspectRatios.includes(aspectRatio)) {
         toast({
           variant: "destructive",
