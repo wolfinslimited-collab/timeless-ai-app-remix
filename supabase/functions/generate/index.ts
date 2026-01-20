@@ -77,9 +77,9 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, type, model, aspectRatio = "1:1" } = await req.json();
+    const { prompt, type, model, aspectRatio = "1:1", imageUrl } = await req.json();
     
-    console.log(`Generation request - Type: ${type}, Model: ${model}, Aspect: ${aspectRatio}, Prompt: ${prompt?.substring(0, 50)}...`);
+    console.log(`Generation request - Type: ${type}, Model: ${model}, Aspect: ${aspectRatio}, I2V: ${!!imageUrl}, Prompt: ${prompt?.substring(0, 50)}...`);
 
     if (!prompt) {
       throw new Error("Prompt is required");
@@ -293,6 +293,7 @@ serve(async (req) => {
           aspectRatio: aspectRatio,
           quality: "720p",
           duration: modelConfig.duration || 5,
+          ...(imageUrl && { imageUrl: imageUrl }),
         })
       });
 

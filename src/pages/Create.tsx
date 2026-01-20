@@ -26,7 +26,9 @@ import {
   Wand2,
   Zap,
   Coins,
-  Infinity
+  Infinity,
+  Upload,
+  X
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -68,6 +70,8 @@ const Create = () => {
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("ideogram-v2-turbo");
   const [aspectRatio, setAspectRatio] = useState("1:1");
+  const [startingImage, setStartingImage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
 
@@ -107,7 +111,7 @@ const Create = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke("generate", {
-        body: { prompt, type, model, aspectRatio }
+        body: { prompt, type, model, aspectRatio, imageUrl: startingImage }
       });
 
       if (error) {
@@ -148,7 +152,66 @@ const Create = () => {
     setType(newType as "image" | "video");
     setModel(newType === "image" ? "ideogram-v2-turbo" : "wan-2.1");
     setAspectRatio(newType === "image" ? "1:1" : "16:9");
+    setStartingImage(null);
     setResult(null);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        variant: "destructive",
+        title: "Invalid file",
+        description: "Please upload an image file.",
+      });
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "File too large",
+        description: "Please upload an image under 10MB.",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('generation-inputs')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('generation-inputs')
+        .getPublicUrl(fileName);
+
+      setStartingImage(publicUrl);
+      toast({
+        title: "Image uploaded",
+        description: "Your starting frame is ready for video generation.",
+      });
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: error.message || "Failed to upload image.",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeStartingImage = () => {
+    setStartingImage(null);
   };
 
   const currentModels = type === "image" ? imageModels : videoModels;
@@ -238,6 +301,59 @@ const Create = () => {
                     Be specific and descriptive for best results
                   </p>
                 </div>
+
+                {/* Starting Image Upload - Video only */}
+                {type === "video" && (
+                  <div className="space-y-2">
+                    <Label>Starting Frame (Optional)</Label>
+                    {startingImage ? (
+                      <div className="relative rounded-lg overflow-hidden border border-border/50">
+                        <img 
+                          src={startingImage} 
+                          alt="Starting frame" 
+                          className="w-full h-32 object-cover"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-2 right-2 h-6 w-6"
+                          onClick={removeStartingImage}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                        <div className="absolute bottom-2 left-2 bg-background/80 rounded px-2 py-1">
+                          <span className="text-xs text-foreground">Image-to-Video mode</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-border/50 rounded-lg cursor-pointer bg-secondary hover:bg-secondary/80 transition-colors">
+                        <div className="flex flex-col items-center justify-center pt-2 pb-3">
+                          {isUploading ? (
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                          ) : (
+                            <>
+                              <Upload className="h-6 w-6 text-muted-foreground mb-1" />
+                              <p className="text-xs text-muted-foreground">
+                                Upload image to animate
+                              </p>
+                            </>
+                          )}
+                        </div>
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          disabled={isUploading || !user}
+                        />
+                      </label>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Upload an image to use as the first frame of your video
+                    </p>
+                  </div>
+                )}
 
                 {/* Model Selection */}
                 <div className="space-y-2">
