@@ -11,11 +11,33 @@ const CREDIT_COSTS = {
   video: 10,
 };
 
-// Map our model IDs to Kie.ai models
-const KIE_MODEL_MAP: Record<string, string> = {
-  "gemini-3-flash": "runway-duration-5-generate",
-  "sora-2": "runway-duration-10-generate",
+// Kie.ai API endpoints and model mappings
+const KIE_IMAGE_MODELS: Record<string, { endpoint: string; model: string }> = {
+  "flux-1.1-pro": { endpoint: "/flux/generate", model: "flux-1.1-pro" },
+  "flux-1.1-pro-ultra": { endpoint: "/flux/generate", model: "flux-1.1-pro-ultra" },
+  "ideogram-v2": { endpoint: "/ideogram/generate", model: "ideogram-v2" },
+  "ideogram-v2-turbo": { endpoint: "/ideogram/generate", model: "ideogram-v2-turbo" },
+  "recraft-v3": { endpoint: "/recraft/generate", model: "recraft-v3" },
+  "stable-diffusion-3.5": { endpoint: "/stable-diffusion/generate", model: "sd3.5-large" },
+  "dall-e-3": { endpoint: "/openai/generate", model: "dall-e-3" },
+  "midjourney": { endpoint: "/midjourney/generate", model: "midjourney" },
 };
+
+const KIE_VIDEO_MODELS: Record<string, { endpoint: string; model: string; duration?: number }> = {
+  "runway-gen3-5s": { endpoint: "/runway/generate", model: "runway-duration-5-generate", duration: 5 },
+  "runway-gen3-10s": { endpoint: "/runway/generate", model: "runway-duration-10-generate", duration: 10 },
+  "veo-3": { endpoint: "/veo/generate", model: "veo-3" },
+  "veo-3-fast": { endpoint: "/veo/generate", model: "veo-3-fast" },
+  "wan-2.1": { endpoint: "/wan/generate", model: "wan-2.1-t2v-480p" },
+  "wan-2.1-pro": { endpoint: "/wan/generate", model: "wan-2.1-t2v-720p" },
+  "kling-1.6-pro": { endpoint: "/kling/generate", model: "kling-1.6-pro-5s" },
+  "kling-1.6-pro-10s": { endpoint: "/kling/generate", model: "kling-1.6-pro-10s" },
+  "minimax-video": { endpoint: "/minimax/generate", model: "minimax-video-01" },
+  "luma-ray2": { endpoint: "/luma/generate", model: "ray-2" },
+  "pika-2.0": { endpoint: "/pika/generate", model: "pika-2.0" },
+};
+
+const KIE_BASE_URL = "https://api.kie.ai/api/v1";
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -30,11 +52,6 @@ serve(async (req) => {
 
     if (!prompt) {
       throw new Error("Prompt is required");
-    }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     // Get user from auth header
@@ -112,78 +129,30 @@ serve(async (req) => {
       console.log("User has active subscription - no credits deducted");
     }
 
+    const KIE_API_KEY = Deno.env.get("KIE_API_KEY");
+    if (!KIE_API_KEY) {
+      // Refund credits if not subscription
+      if (!hasActiveSubscription) {
+        await supabase
+          .from("profiles")
+          .update({ credits: currentCredits })
+          .eq("user_id", user.id);
+      }
+      throw new Error("KIE_API_KEY is not configured");
+    }
+
     let result;
     
     if (type === "image") {
-      // Image generation using Gemini image model
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-image-preview",
-          messages: [
-            {
-              role: "user",
-              content: `Generate a high-quality, visually stunning image based on this description: ${prompt}`
-            }
-          ],
-          modalities: ["image", "text"]
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("AI Gateway error:", errorText);
-        
-        // Refund credits on failure
-        await supabase
-          .from("profiles")
-          .update({ credits: currentCredits })
-          .eq("user_id", user.id);
-        
-        throw new Error(`AI Gateway error: ${response.status}`);
+      // Image generation using Kie.ai
+      const modelConfig = KIE_IMAGE_MODELS[model];
+      if (!modelConfig) {
+        throw new Error(`Unknown image model: ${model}`);
       }
 
-      const data = await response.json();
-      console.log("Image generation response received");
-      
-      const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-      
-      if (!imageUrl) {
-        // Refund credits if no image generated
-        await supabase
-          .from("profiles")
-          .update({ credits: currentCredits })
-          .eq("user_id", user.id);
-        
-        throw new Error("No image generated");
-      }
+      console.log(`Using Kie.ai image endpoint: ${modelConfig.endpoint}, model: ${modelConfig.model}`);
 
-      result = {
-        type: "image",
-        output_url: imageUrl,
-        thumbnail_url: imageUrl,
-      };
-    } else {
-      // Video generation using Kie.ai API
-      const KIE_API_KEY = Deno.env.get("KIE_API_KEY");
-      if (!KIE_API_KEY) {
-        // Refund credits
-        await supabase
-          .from("profiles")
-          .update({ credits: currentCredits })
-          .eq("user_id", user.id);
-        throw new Error("KIE_API_KEY is not configured");
-      }
-
-      const kieModel = KIE_MODEL_MAP[model] || "runway-duration-5-generate";
-      console.log(`Using Kie.ai model: ${kieModel}`);
-
-      // Start video generation
-      const generateResponse = await fetch("https://api.kie.ai/api/v1/runway/generate", {
+      const generateResponse = await fetch(`${KIE_BASE_URL}${modelConfig.endpoint}`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${KIE_API_KEY}`,
@@ -191,23 +160,19 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           prompt: prompt,
-          model: kieModel,
-          aspectRatio: "16:9",
-          quality: "720p",
-          duration: model === "sora-2" ? 10 : 5,
+          model: modelConfig.model,
+          aspectRatio: "1:1",
+          numImages: 1,
         })
       });
 
       if (!generateResponse.ok) {
         const errorText = await generateResponse.text();
-        console.error("Kie.ai generation error:", errorText);
+        console.error("Kie.ai image error:", errorText);
         
-        // Refund credits on failure
-        await supabase
-          .from("profiles")
-          .update({ credits: currentCredits })
-          .eq("user_id", user.id);
-        
+        if (!hasActiveSubscription) {
+          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+        }
         throw new Error(`Kie.ai error: ${generateResponse.status}`);
       }
 
@@ -215,31 +180,127 @@ serve(async (req) => {
       const taskId = generateData.data?.taskId;
       
       if (!taskId) {
-        console.error("No taskId returned from Kie.ai:", generateData);
-        // Refund credits
-        await supabase
-          .from("profiles")
-          .update({ credits: currentCredits })
-          .eq("user_id", user.id);
+        // Some models return images directly
+        const imageUrl = generateData.data?.output?.[0] || generateData.data?.images?.[0]?.url;
+        if (imageUrl) {
+          result = {
+            type: "image",
+            output_url: imageUrl,
+            thumbnail_url: imageUrl,
+          };
+        } else {
+          console.error("No taskId or image returned:", generateData);
+          if (!hasActiveSubscription) {
+            await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+          }
+          throw new Error("Failed to start image generation");
+        }
+      } else {
+        // Poll for result
+        console.log(`Kie.ai image task started: ${taskId}`);
+        
+        let imageUrl = null;
+        const maxAttempts = 30;
+        const pollInterval = 2000;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          
+          const endpointBase = modelConfig.endpoint.split('/')[1];
+          const statusResponse = await fetch(`${KIE_BASE_URL}/${endpointBase}/details?taskId=${taskId}`, {
+            method: "GET",
+            headers: { "Authorization": `Bearer ${KIE_API_KEY}` }
+          });
+
+          if (!statusResponse.ok) continue;
+
+          const statusData = await statusResponse.json();
+          console.log(`Image status check ${attempt + 1}:`, statusData.data?.status);
+
+          if (statusData.data?.status === "SUCCESS") {
+            imageUrl = statusData.data?.output?.[0] || statusData.data?.images?.[0]?.url;
+            break;
+          } else if (statusData.data?.status === "FAILED") {
+            if (!hasActiveSubscription) {
+              await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+            }
+            throw new Error("Image generation failed");
+          }
+        }
+
+        if (!imageUrl) {
+          if (!hasActiveSubscription) {
+            await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+          }
+          throw new Error("Image generation timed out");
+        }
+
+        result = {
+          type: "image",
+          output_url: imageUrl,
+          thumbnail_url: imageUrl,
+        };
+      }
+    } else {
+      // Video generation using Kie.ai
+      const modelConfig = KIE_VIDEO_MODELS[model];
+      if (!modelConfig) {
+        throw new Error(`Unknown video model: ${model}`);
+      }
+
+      console.log(`Using Kie.ai video endpoint: ${modelConfig.endpoint}, model: ${modelConfig.model}`);
+
+      const generateResponse = await fetch(`${KIE_BASE_URL}${modelConfig.endpoint}`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${KIE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          model: modelConfig.model,
+          aspectRatio: "16:9",
+          quality: "720p",
+          duration: modelConfig.duration || 5,
+        })
+      });
+
+      if (!generateResponse.ok) {
+        const errorText = await generateResponse.text();
+        console.error("Kie.ai video error:", errorText);
+        
+        if (!hasActiveSubscription) {
+          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+        }
+        throw new Error(`Kie.ai error: ${generateResponse.status}`);
+      }
+
+      const generateData = await generateResponse.json();
+      const taskId = generateData.data?.taskId;
+      
+      if (!taskId) {
+        console.error("No taskId returned:", generateData);
+        if (!hasActiveSubscription) {
+          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+        }
         throw new Error("Failed to start video generation");
       }
 
-      console.log(`Kie.ai task started: ${taskId}`);
+      console.log(`Kie.ai video task started: ${taskId}`);
 
-      // Poll for result (max 2 minutes)
+      // Poll for result (max 3 minutes for video)
       let videoUrl = null;
       let thumbnailUrl = null;
-      const maxAttempts = 24;
-      const pollInterval = 5000; // 5 seconds
+      const maxAttempts = 36;
+      const pollInterval = 5000;
 
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         await new Promise(resolve => setTimeout(resolve, pollInterval));
         
-        const statusResponse = await fetch(`https://api.kie.ai/api/v1/runway/details?taskId=${taskId}`, {
+        const endpointBase = modelConfig.endpoint.split('/')[1];
+        const statusResponse = await fetch(`${KIE_BASE_URL}/${endpointBase}/details?taskId=${taskId}`, {
           method: "GET",
-          headers: {
-            "Authorization": `Bearer ${KIE_API_KEY}`,
-          }
+          headers: { "Authorization": `Bearer ${KIE_API_KEY}` }
         });
 
         if (!statusResponse.ok) {
@@ -248,30 +309,26 @@ serve(async (req) => {
         }
 
         const statusData = await statusResponse.json();
-        console.log(`Status check ${attempt + 1}:`, statusData.data?.status);
+        console.log(`Video status check ${attempt + 1}:`, statusData.data?.status);
 
         if (statusData.data?.status === "SUCCESS") {
-          videoUrl = statusData.data?.output?.[0];
+          videoUrl = statusData.data?.output?.[0] || statusData.data?.video?.url;
           thumbnailUrl = statusData.data?.thumbnail || videoUrl;
           console.log("Video generation complete:", videoUrl);
           break;
         } else if (statusData.data?.status === "FAILED") {
           console.error("Video generation failed:", statusData);
-          // Refund credits on failure
-          await supabase
-            .from("profiles")
-            .update({ credits: currentCredits })
-            .eq("user_id", user.id);
+          if (!hasActiveSubscription) {
+            await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+          }
           throw new Error("Video generation failed");
         }
       }
 
       if (!videoUrl) {
-        // Timeout - refund credits
-        await supabase
-          .from("profiles")
-          .update({ credits: currentCredits })
-          .eq("user_id", user.id);
+        if (!hasActiveSubscription) {
+          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+        }
         throw new Error("Video generation timed out. Please try again.");
       }
 
@@ -290,7 +347,7 @@ serve(async (req) => {
         user_id: user.id,
         prompt: prompt,
         type: type,
-        model: model || (type === "image" ? "nano-banana-pro" : "gemini-3-flash"),
+        model: model,
         status: "completed",
         output_url: result.output_url || null,
         thumbnail_url: result.thumbnail_url || null,
@@ -310,7 +367,7 @@ serve(async (req) => {
         success: true, 
         result,
         generation: generation || null,
-        credits_remaining: currentCredits - creditCost
+        credits_remaining: hasActiveSubscription ? currentCredits : currentCredits - creditCost
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

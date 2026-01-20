@@ -32,13 +32,30 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const imageModels = [
-  { id: "nano-banana-pro", name: "Nano Banana Pro", description: "Best 4K image model", badge: "∞" },
-  { id: "flux-ultra", name: "Flux Ultra", description: "High detail images", badge: "PRO" },
+  // Kie.ai Image Models
+  { id: "flux-1.1-pro", name: "Flux 1.1 Pro", description: "High quality creative images", badge: "PRO" },
+  { id: "flux-1.1-pro-ultra", name: "Flux 1.1 Pro Ultra", description: "Ultra HD 4K images", badge: "TOP" },
+  { id: "ideogram-v2", name: "Ideogram V2", description: "Best for text in images", badge: "NEW" },
+  { id: "ideogram-v2-turbo", name: "Ideogram V2 Turbo", description: "Fast text generation", badge: "FAST" },
+  { id: "recraft-v3", name: "Recraft V3", description: "Design & illustration", badge: "PRO" },
+  { id: "stable-diffusion-3.5", name: "SD 3.5 Large", description: "Stable Diffusion latest", badge: "NEW" },
+  { id: "dall-e-3", name: "DALL-E 3", description: "OpenAI's image model", badge: "TOP" },
+  { id: "midjourney", name: "Midjourney", description: "Artistic style images", badge: "PRO" },
 ];
 
 const videoModels = [
-  { id: "gemini-3-flash", name: "Runway Gen-3", description: "5s cinematic videos", badge: "NEW" },
-  { id: "sora-2", name: "Runway Gen-3 Pro", description: "10s high quality", badge: "TOP" },
+  // Kie.ai Video Models  
+  { id: "runway-gen3-5s", name: "Runway Gen-3 (5s)", description: "5 second cinematic", badge: "NEW" },
+  { id: "runway-gen3-10s", name: "Runway Gen-3 (10s)", description: "10 second cinematic", badge: "TOP" },
+  { id: "veo-3", name: "Google Veo 3", description: "Audio sync, lip-sync", badge: "PRO" },
+  { id: "veo-3-fast", name: "Google Veo 3 Fast", description: "Quick generation", badge: "FAST" },
+  { id: "wan-2.1", name: "Alibaba Wan 2.1", description: "480p fast videos", badge: "NEW" },
+  { id: "wan-2.1-pro", name: "Alibaba Wan 2.1 Pro", description: "720p quality", badge: "PRO" },
+  { id: "kling-1.6-pro", name: "Kling 1.6 Pro", description: "5s high quality", badge: "TOP" },
+  { id: "kling-1.6-pro-10s", name: "Kling 1.6 Pro (10s)", description: "10s extended", badge: "PRO" },
+  { id: "minimax-video", name: "MiniMax Video", description: "Fast generation", badge: "FAST" },
+  { id: "luma-ray2", name: "Luma Ray 2", description: "Cinematic quality", badge: "NEW" },
+  { id: "pika-2.0", name: "Pika 2.0", description: "Creative animations", badge: "NEW" },
 ];
 
 const Create = () => {
@@ -49,7 +66,7 @@ const Create = () => {
   
   const [type, setType] = useState<"image" | "video">("image");
   const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState("nano-banana-pro");
+  const [model, setModel] = useState("flux-1.1-pro");
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
 
@@ -128,7 +145,7 @@ const Create = () => {
 
   const handleTypeChange = (newType: string) => {
     setType(newType as "image" | "video");
-    setModel(newType === "image" ? "nano-banana-pro" : "gemini-3-flash");
+    setModel(newType === "image" ? "flux-1.1-pro" : "runway-gen3-5s");
     setResult(null);
   };
 
