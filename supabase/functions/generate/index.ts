@@ -563,6 +563,18 @@ serve(async (req) => {
 
               const generateData = await generateResponse.json();
               console.log(`Kie.ai/Video response:`, JSON.stringify(generateData));
+              
+              // Check for API-level errors (e.g., unsupported model)
+              if (generateData.code && generateData.code !== 200) {
+                if (!hasActiveSubscription) {
+                  await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+                }
+                const apiError = generateData.msg || generateData.message || `API error code: ${generateData.code}`;
+                sendEvent('error', { message: apiError });
+                controller.close();
+                return;
+              }
+              
               taskId = getTaskIdFromKieResponse(generateData)!;
               console.log(`Kie.ai taskId extracted:`, taskId);
             }
@@ -573,7 +585,7 @@ serve(async (req) => {
               if (!hasActiveSubscription) {
                 await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
               }
-              sendEvent('error', { message: 'Failed to start video generation' });
+              sendEvent('error', { message: 'Failed to start video generation. The model may be temporarily unavailable.' });
               controller.close();
               return;
             }

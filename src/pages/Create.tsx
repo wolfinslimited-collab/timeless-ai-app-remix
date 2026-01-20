@@ -284,7 +284,9 @@ const Create = () => {
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP error: ${response.status}`);
+          const errorData = await response.json().catch(() => null);
+          const apiError = errorData?.error || errorData?.msg || errorData?.message;
+          throw new Error(apiError || `HTTP error: ${response.status}`);
         }
 
         const reader = response.body?.getReader();
