@@ -14,9 +14,12 @@ const KIE_UNIFIED_DETAIL_ENDPOINT = "/jobs/recordInfo";
 // Veo-specific task status endpoint (official for Veo 3.1)
 const KIE_VEO_DETAIL_ENDPOINT = "/veo/record-info";
 
-// Map model names to their detail endpoints - LATEST VERSIONS ONLY
+// Map model names to their detail endpoints - VALIDATED MODELS ONLY
 const MODEL_DETAIL_ENDPOINTS: Record<string, string> = {
-  // Kling 2.6 (latest)
+  // Kling 2.x models (validated)
+  "kling-2.1-standard": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "kling-2.1-pro": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "kling-2.1-master": KIE_UNIFIED_DETAIL_ENDPOINT,
   "kling-2.6-t2v": KIE_UNIFIED_DETAIL_ENDPOINT,
   "kling-2.6-i2v": KIE_UNIFIED_DETAIL_ENDPOINT,
 };
