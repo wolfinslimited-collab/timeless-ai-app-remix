@@ -120,15 +120,19 @@ serve(async (req) => {
 
         const statusData = await statusResponse.json();
         
+        // Normalize status across providers (handle both string and numeric statuses)
         const rawStatus =
           statusData?.data?.status ??
           statusData?.data?.state ??
           statusData?.status ??
           statusData?.state;
+        const successFlag = statusData?.data?.successFlag; // Veo uses numeric: 0=pending, 1=success, 2/3=failed
 
         const status = typeof rawStatus === "string" ? rawStatus.toUpperCase() : rawStatus;
 
+        // Extract video URL from various response formats (including Veo's response.resultUrls)
         const videoUrl =
+          (Array.isArray(statusData?.data?.response?.resultUrls) ? statusData.data.response.resultUrls[0] : undefined) ||
           (Array.isArray(statusData?.data?.output) ? statusData.data.output[0] : undefined) ||
           statusData?.data?.video?.url ||
           statusData?.data?.video_url ||
@@ -142,7 +146,13 @@ serve(async (req) => {
           statusData?.data?.cover ||
           videoUrl;
 
-        if (videoUrl || status === "SUCCESS" || status === "SUCCEEDED" || status === "COMPLETED") {
+        // Determine success/failure (handle Veo's numeric successFlag and string statuses)
+        const isSuccess = videoUrl || successFlag === 1 || status === "SUCCESS" || status === "SUCCEEDED" || status === "COMPLETED";
+        const isFailed = successFlag === 2 || successFlag === 3 || status === "FAILED" || status === "FAILURE";
+
+        console.log(`Generation ${gen.id} check: status=${status}, successFlag=${successFlag}, videoUrl=${!!videoUrl}`);
+
+        if (isSuccess) {
           // Update generation as completed
           await supabase
             .from("generations")
@@ -162,7 +172,7 @@ serve(async (req) => {
             prompt: gen.prompt,
             model: gen.model,
           });
-        } else if (status === "FAILED" || status === "FAILURE") {
+        } else if (isFailed) {
           // Refund credits if needed
           const { data: profile } = await supabase
             .from("profiles")
