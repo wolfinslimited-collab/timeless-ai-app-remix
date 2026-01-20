@@ -70,6 +70,7 @@ type KieVideoModelConfig = {
   model: string;
   duration?: number;
   useAspectUnderscore?: boolean;
+  useAspectLandscapePortrait?: boolean;
   maxPollingTime?: number;
   useJobsCreateTask?: boolean;
   jobsRequiresSoundFlag?: boolean;
@@ -118,7 +119,7 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
     duration: 5, 
     maxPollingTime: 900, 
     useJobsCreateTask: true,
-    useAspectUnderscore: true
+    useAspectLandscapePortrait: true
   },
   
   // Hailuo 2.3 - Fast generation model
@@ -149,7 +150,7 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
     duration: 5, 
     maxPollingTime: 900, 
     useJobsCreateTask: true,
-    useAspectUnderscore: true
+    useAspectLandscapePortrait: true
   },
   
   // Seedance 1.5 - Creative motion model
@@ -186,10 +187,26 @@ const buildKieVideoRequestBody = (args: {
 
   if (modelConfig.useJobsCreateTask) {
     const imageField: JobsImageField = modelConfig.jobsImageField ?? "image_url";
-    // Convert aspect ratio format: "16:9" -> "16_9" if model requires it
-    const formattedAspectRatio = modelConfig.useAspectUnderscore 
-      ? aspectRatio.replace(":", "_") 
-      : aspectRatio;
+    
+    // Convert aspect ratio format based on model requirements
+    let formattedAspectRatio: string;
+    if (modelConfig.useAspectLandscapePortrait) {
+      // Sora models use "landscape" / "portrait" / "square" format
+      if (aspectRatio === "16:9" || aspectRatio === "21:9" || aspectRatio === "4:3" || aspectRatio === "3:2") {
+        formattedAspectRatio = "landscape";
+      } else if (aspectRatio === "9:16" || aspectRatio === "3:4" || aspectRatio === "2:3") {
+        formattedAspectRatio = "portrait";
+      } else if (aspectRatio === "1:1") {
+        formattedAspectRatio = "square";
+      } else {
+        formattedAspectRatio = "landscape"; // default fallback
+      }
+    } else if (modelConfig.useAspectUnderscore) {
+      formattedAspectRatio = aspectRatio.replace(":", "_");
+    } else {
+      formattedAspectRatio = aspectRatio;
+    }
+    
     const input: Record<string, unknown> = {
       prompt,
       duration: String(modelConfig.duration || 5),
