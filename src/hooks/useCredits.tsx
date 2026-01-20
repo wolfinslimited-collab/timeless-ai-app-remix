@@ -34,8 +34,19 @@ export const CREDIT_COSTS = {
   video: 15,
 } as const;
 
-export const getModelCost = (model: string): number => {
-  return MODEL_CREDITS[model] ?? CREDIT_COSTS.image;
+// Quality multipliers for video
+export const QUALITY_MULTIPLIERS: Record<string, number> = {
+  "480p": 0.8,
+  "720p": 1.0,
+  "1080p": 1.5,
+};
+
+export const getModelCost = (model: string, quality?: string): number => {
+  const baseCost = MODEL_CREDITS[model] ?? CREDIT_COSTS.image;
+  if (quality && QUALITY_MULTIPLIERS[quality]) {
+    return Math.round(baseCost * QUALITY_MULTIPLIERS[quality]);
+  }
+  return baseCost;
 };
 
 export const useCredits = () => {

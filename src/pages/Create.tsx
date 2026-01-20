@@ -70,12 +70,13 @@ const Create = () => {
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("ideogram-v2-turbo");
   const [aspectRatio, setAspectRatio] = useState("1:1");
+  const [quality, setQuality] = useState("720p");
   const [startingImage, setStartingImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
 
-  const currentCost = getModelCost(model);
+  const currentCost = type === "video" ? getModelCost(model, quality) : getModelCost(model);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -111,7 +112,7 @@ const Create = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke("generate", {
-        body: { prompt, type, model, aspectRatio, imageUrl: startingImage }
+        body: { prompt, type, model, aspectRatio, quality, imageUrl: startingImage }
       });
 
       if (error) {
@@ -152,6 +153,7 @@ const Create = () => {
     setType(newType as "image" | "video");
     setModel(newType === "image" ? "ideogram-v2-turbo" : "wan-2.1");
     setAspectRatio(newType === "image" ? "1:1" : "16:9");
+    setQuality("720p");
     setStartingImage(null);
     setResult(null);
   };
@@ -403,7 +405,34 @@ const Create = () => {
                   </div>
                 </div>
 
-                {/* Generate Button */}
+                {/* Quality Selection - Video only */}
+                {type === "video" && (
+                  <div className="space-y-2">
+                    <Label>Quality</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: "480p", label: "480p", multiplier: "0.8×" },
+                        { id: "720p", label: "720p", multiplier: "1×" },
+                        { id: "1080p", label: "1080p", multiplier: "1.5×" },
+                      ].map((q) => (
+                        <Button
+                          key={q.id}
+                          type="button"
+                          variant={quality === q.id ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setQuality(q.id)}
+                          className={quality === q.id ? "gradient-primary" : "border-border/50"}
+                        >
+                          <span>{q.label}</span>
+                          <span className="ml-1 text-xs opacity-70">{q.multiplier}</span>
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Higher quality = more credits (multiplier shown)
+                    </p>
+                  </div>
+                )}
                 <Button 
                   onClick={handleGenerate}
                   disabled={isGenerating || !prompt.trim() || (user && !hasEnoughCreditsForModel(model))}

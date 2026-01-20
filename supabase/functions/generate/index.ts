@@ -38,8 +38,19 @@ const DEFAULT_CREDITS = {
   video: 15,
 };
 
-const getModelCost = (model: string, type: string): number => {
-  return MODEL_CREDITS[model] ?? DEFAULT_CREDITS[type as keyof typeof DEFAULT_CREDITS] ?? 5;
+// Quality multipliers
+const QUALITY_MULTIPLIERS: Record<string, number> = {
+  "480p": 0.8,
+  "720p": 1.0,
+  "1080p": 1.5,
+};
+
+const getModelCost = (model: string, type: string, quality?: string): number => {
+  const baseCost = MODEL_CREDITS[model] ?? DEFAULT_CREDITS[type as keyof typeof DEFAULT_CREDITS] ?? 5;
+  if (quality && QUALITY_MULTIPLIERS[quality]) {
+    return Math.round(baseCost * QUALITY_MULTIPLIERS[quality]);
+  }
+  return baseCost;
 };
 
 // Kie.ai API endpoints and model mappings
@@ -77,9 +88,9 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, type, model, aspectRatio = "1:1", imageUrl } = await req.json();
+    const { prompt, type, model, aspectRatio = "1:1", quality = "720p", imageUrl } = await req.json();
     
-    console.log(`Generation request - Type: ${type}, Model: ${model}, Aspect: ${aspectRatio}, I2V: ${!!imageUrl}, Prompt: ${prompt?.substring(0, 50)}...`);
+    console.log(`Generation request - Type: ${type}, Model: ${model}, Aspect: ${aspectRatio}, Quality: ${quality}, I2V: ${!!imageUrl}, Prompt: ${prompt?.substring(0, 50)}...`);
 
     if (!prompt) {
       throw new Error("Prompt is required");
@@ -107,7 +118,7 @@ serve(async (req) => {
     console.log(`User authenticated: ${user.id}`);
 
     // Check user profile for credits and subscription
-    const creditCost = getModelCost(model, type);
+    const creditCost = type === "video" ? getModelCost(model, type, quality) : getModelCost(model, type);
     
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
@@ -291,7 +302,7 @@ serve(async (req) => {
           prompt: prompt,
           model: modelConfig.model,
           aspectRatio: aspectRatio,
-          quality: "720p",
+          quality: quality,
           duration: modelConfig.duration || 5,
           ...(imageUrl && { imageUrl: imageUrl }),
         })
