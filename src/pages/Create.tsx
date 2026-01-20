@@ -37,8 +37,8 @@ const imageModels = [
 ];
 
 const videoModels = [
-  { id: "gemini-3-flash", name: "Gemini 3 Flash", description: "Fast video storyboards", badge: "NEW" },
-  { id: "sora-2", name: "Sora 2", description: "Cinematic quality", badge: "TOP" },
+  { id: "gemini-3-flash", name: "Runway Gen-3", description: "5s cinematic videos", badge: "NEW" },
+  { id: "sora-2", name: "Runway Gen-3 Pro", description: "10s high quality", badge: "TOP" },
 ];
 
 const Create = () => {
@@ -110,7 +110,7 @@ const Create = () => {
         title: "Generation complete!",
         description: type === "image" 
           ? `Your image has been created. ${data.credits_remaining} credits remaining.` 
-          : `Your video storyboard is ready. ${data.credits_remaining} credits remaining.`,
+          : `Your video has been created. ${data.credits_remaining} credits remaining.`,
       });
 
     } catch (error: any) {
@@ -291,26 +291,33 @@ const Create = () => {
               <CardContent className="p-6">
                 <Label className="mb-4 block">Preview</Label>
                 
-                <div className="aspect-square rounded-xl bg-secondary border border-border/50 flex items-center justify-center overflow-hidden">
+                <div className="aspect-video rounded-xl bg-secondary border border-border/50 flex items-center justify-center overflow-hidden">
                   {isGenerating ? (
                     <div className="flex flex-col items-center gap-4 text-muted-foreground">
                       <div className="relative">
                         <div className="h-16 w-16 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
                         <Sparkles className="h-6 w-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                       </div>
-                      <p className="text-sm">Creating your masterpiece...</p>
+                      <p className="text-sm">
+                        {type === "video" ? "Generating video... This may take up to 2 minutes" : "Creating your masterpiece..."}
+                      </p>
                     </div>
                   ) : result?.output_url ? (
-                    <img 
-                      src={result.output_url} 
-                      alt="Generated image"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : result?.storyboard ? (
-                    <div className="p-4 text-sm text-muted-foreground overflow-auto max-h-full">
-                      <h4 className="font-semibold text-foreground mb-2">Video Storyboard</h4>
-                      <p className="whitespace-pre-wrap">{result.storyboard}</p>
-                    </div>
+                    type === "video" ? (
+                      <video 
+                        src={result.output_url} 
+                        controls
+                        autoPlay
+                        loop
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <img 
+                        src={result.output_url} 
+                        alt="Generated image"
+                        className="w-full h-full object-cover"
+                      />
+                    )
                   ) : (
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       {type === "image" ? (
@@ -330,12 +337,13 @@ const Create = () => {
                     onClick={() => {
                       const link = document.createElement('a');
                       link.href = result.output_url!;
-                      link.download = 'generation.png';
+                      link.download = type === "video" ? 'generation.mp4' : 'generation.png';
+                      link.target = '_blank';
                       link.click();
                     }}
                   >
                     <Download className="h-4 w-4" />
-                    Download
+                    Download {type === "video" ? "Video" : "Image"}
                   </Button>
                 )}
               </CardContent>

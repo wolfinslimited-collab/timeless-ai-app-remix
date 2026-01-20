@@ -11,6 +11,12 @@ const CREDIT_COSTS = {
   video: 10,
 };
 
+// Map our model IDs to Kie.ai models
+const KIE_MODEL_MAP: Record<string, string> = {
+  "gemini-3-flash": "runway-duration-5-generate",
+  "sora-2": "runway-duration-10-generate",
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -162,31 +168,39 @@ serve(async (req) => {
         thumbnail_url: imageUrl,
       };
     } else {
-      // For video, we'll generate a description/storyboard using text model
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      // Video generation using Kie.ai API
+      const KIE_API_KEY = Deno.env.get("KIE_API_KEY");
+      if (!KIE_API_KEY) {
+        // Refund credits
+        await supabase
+          .from("profiles")
+          .update({ credits: currentCredits })
+          .eq("user_id", user.id);
+        throw new Error("KIE_API_KEY is not configured");
+      }
+
+      const kieModel = KIE_MODEL_MAP[model] || "runway-duration-5-generate";
+      console.log(`Using Kie.ai model: ${kieModel}`);
+
+      // Start video generation
+      const generateResponse = await fetch("https://api.kie.ai/api/v1/runway/generate", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Authorization": `Bearer ${KIE_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            {
-              role: "system",
-              content: "You are a creative video director. Create a detailed scene-by-scene breakdown for a short video based on the user's prompt. Include visual descriptions, camera movements, and timing."
-            },
-            {
-              role: "user",
-              content: prompt
-            }
-          ]
+          prompt: prompt,
+          model: kieModel,
+          aspectRatio: "16:9",
+          quality: "720p",
+          duration: model === "sora-2" ? 10 : 5,
         })
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("AI Gateway error:", errorText);
+      if (!generateResponse.ok) {
+        const errorText = await generateResponse.text();
+        console.error("Kie.ai generation error:", errorText);
         
         // Refund credits on failure
         await supabase
@@ -194,16 +208,78 @@ serve(async (req) => {
           .update({ credits: currentCredits })
           .eq("user_id", user.id);
         
-        throw new Error(`AI Gateway error: ${response.status}`);
+        throw new Error(`Kie.ai error: ${generateResponse.status}`);
       }
 
-      const data = await response.json();
-      const storyboard = data.choices?.[0]?.message?.content;
+      const generateData = await generateResponse.json();
+      const taskId = generateData.data?.taskId;
+      
+      if (!taskId) {
+        console.error("No taskId returned from Kie.ai:", generateData);
+        // Refund credits
+        await supabase
+          .from("profiles")
+          .update({ credits: currentCredits })
+          .eq("user_id", user.id);
+        throw new Error("Failed to start video generation");
+      }
+
+      console.log(`Kie.ai task started: ${taskId}`);
+
+      // Poll for result (max 2 minutes)
+      let videoUrl = null;
+      let thumbnailUrl = null;
+      const maxAttempts = 24;
+      const pollInterval = 5000; // 5 seconds
+
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        
+        const statusResponse = await fetch(`https://api.kie.ai/api/v1/runway/details?taskId=${taskId}`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${KIE_API_KEY}`,
+          }
+        });
+
+        if (!statusResponse.ok) {
+          console.log(`Status check attempt ${attempt + 1} failed`);
+          continue;
+        }
+
+        const statusData = await statusResponse.json();
+        console.log(`Status check ${attempt + 1}:`, statusData.data?.status);
+
+        if (statusData.data?.status === "SUCCESS") {
+          videoUrl = statusData.data?.output?.[0];
+          thumbnailUrl = statusData.data?.thumbnail || videoUrl;
+          console.log("Video generation complete:", videoUrl);
+          break;
+        } else if (statusData.data?.status === "FAILED") {
+          console.error("Video generation failed:", statusData);
+          // Refund credits on failure
+          await supabase
+            .from("profiles")
+            .update({ credits: currentCredits })
+            .eq("user_id", user.id);
+          throw new Error("Video generation failed");
+        }
+      }
+
+      if (!videoUrl) {
+        // Timeout - refund credits
+        await supabase
+          .from("profiles")
+          .update({ credits: currentCredits })
+          .eq("user_id", user.id);
+        throw new Error("Video generation timed out. Please try again.");
+      }
 
       result = {
         type: "video",
-        storyboard: storyboard,
-        status: "storyboard_ready",
+        output_url: videoUrl,
+        thumbnail_url: thumbnailUrl,
+        status: "completed",
       };
     }
 
