@@ -8,12 +8,16 @@ const corsHeaders = {
 
 const KIE_BASE_URL = "https://api.kie.ai/api/v1";
 
+// Unified task status endpoint (works across many Kie Market tasks; needed for Veo in newer API versions)
+const KIE_UNIFIED_DETAIL_ENDPOINT = "/jobs/recordInfo";
+
 // Map model names to their detail endpoints
 const MODEL_DETAIL_ENDPOINTS: Record<string, string> = {
   "runway-gen3-5s": "/runway/task-detail",
   "runway-gen3-10s": "/runway/task-detail",
-  "veo-3": "/veo/task-detail",
-  "veo-3-fast": "/veo/task-detail",
+  // Veo status endpoint has changed; use unified recordInfo to avoid 404s
+  "veo-3": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "veo-3-fast": KIE_UNIFIED_DETAIL_ENDPOINT,
   "wan-2.1": "/wan/task-detail",
   "wan-2.1-pro": "/wan/task-detail",
   "kling-1.6-pro": "/kling/task-detail",
@@ -107,10 +111,21 @@ serve(async (req) => {
       }
 
       try {
-        const statusResponse = await fetch(`${KIE_BASE_URL}${detailEndpoint}?taskId=${gen.task_id}`, {
-          method: "GET",
-          headers: { "Authorization": `Bearer ${KIE_API_KEY}` }
-        });
+        // Some providers return 404 on legacy *task-detail endpoints; Veo now needs /jobs/recordInfo
+        const tryFetch = async (endpoint: string) => {
+          const url = `${KIE_BASE_URL}${endpoint}?taskId=${encodeURIComponent(gen.task_id)}`;
+          return await fetch(url, {
+            method: "GET",
+            headers: { "Authorization": `Bearer ${KIE_API_KEY}` }
+          });
+        };
+
+        let statusResponse = await tryFetch(detailEndpoint);
+
+        // Fallback: if provider endpoint is deprecated and we got 404, try unified endpoint
+        if (!statusResponse.ok && statusResponse.status === 404 && detailEndpoint !== KIE_UNIFIED_DETAIL_ENDPOINT) {
+          statusResponse = await tryFetch(KIE_UNIFIED_DETAIL_ENDPOINT);
+        }
 
         if (!statusResponse.ok) {
           console.log(`Status check failed for ${gen.id}: ${statusResponse.status}`);
@@ -122,16 +137,31 @@ serve(async (req) => {
         
         // Normalize status across providers (handle both string and numeric statuses)
         const rawStatus =
+          statusData?.data?.response?.status ??
           statusData?.data?.status ??
           statusData?.data?.state ??
           statusData?.status ??
           statusData?.state;
-        const successFlag = statusData?.data?.successFlag; // Veo uses numeric: 0=pending, 1=success, 2/3=failed
 
-        const status = typeof rawStatus === "string" ? rawStatus.toUpperCase() : rawStatus;
+        // Veo uses numeric: 0=pending, 1=success, 2/3=failed (may live in data.response or data)
+        const successFlag = statusData?.data?.response?.successFlag ?? statusData?.data?.successFlag;
 
-        // Extract video URL from various response formats (including Veo's response.resultUrls)
+        const status = typeof rawStatus === "string" ? rawStatus.toUpperCase() : String(rawStatus || "").toUpperCase();
+
+        // Unified endpoint returns a stringified JSON result in data.resultJson
+        let unifiedResult: any = null;
+        const resultJson = statusData?.data?.resultJson;
+        if (typeof resultJson === "string") {
+          try {
+            unifiedResult = JSON.parse(resultJson);
+          } catch {
+            unifiedResult = null;
+          }
+        }
+
+        // Extract video URL from various response formats (including unified resultJson/resultUrls)
         const videoUrl =
+          (Array.isArray(unifiedResult?.resultUrls) ? unifiedResult.resultUrls[0] : undefined) ||
           (Array.isArray(statusData?.data?.response?.resultUrls) ? statusData.data.response.resultUrls[0] : undefined) ||
           (Array.isArray(statusData?.data?.output) ? statusData.data.output[0] : undefined) ||
           statusData?.data?.video?.url ||
@@ -146,11 +176,13 @@ serve(async (req) => {
           statusData?.data?.cover ||
           videoUrl;
 
-        // Determine success/failure (handle Veo's numeric successFlag and string statuses)
-        const isSuccess = videoUrl || successFlag === 1 || status === "SUCCESS" || status === "SUCCEEDED" || status === "COMPLETED";
+        // Determine success/failure
+        const isSuccessStatus = ["SUCCESS", "SUCCEEDED", "COMPLETED", "DONE", "FINISHED"].includes(status);
+        const isFailureStatus = ["FAILED", "FAILURE"].includes(status);
+        const isSuccess = !!videoUrl || successFlag === 1 || isSuccessStatus;
         const isFailed = successFlag === 2 || successFlag === 3 || status === "FAILED" || status === "FAILURE";
 
-        console.log(`Generation ${gen.id} check: status=${status}, successFlag=${successFlag}, videoUrl=${!!videoUrl}`);
+        console.log(`Generation ${gen.id} check: endpoint=${detailEndpoint}, status=${status}, successFlag=${successFlag}, videoUrl=${!!videoUrl}`);
 
         if (isSuccess) {
           // Update generation as completed
