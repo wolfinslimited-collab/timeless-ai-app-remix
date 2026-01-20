@@ -116,11 +116,11 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
     jobsImageField: "image_urls" as JobsImageField // For image-to-video: kling-2.6/image-to-video
   },
   
-  // Veo 3.1 - Google's latest video model
+  // Veo 3.1 - Google's latest video model (Quality version)
   "veo-3.1": { 
     endpoint: "/jobs/createTask", 
     detailEndpoint: "/jobs/recordInfo", 
-    model: "veo-3.1-fast", 
+    model: "veo3", 
     duration: 5, 
     maxPollingTime: 900, 
     useJobsCreateTask: true 
@@ -148,11 +148,11 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
     useJobsCreateTask: true 
   },
   
-  // Veo 3 - Google video model
+  // Veo 3 - Google video model (Fast version)
   "veo-3": { 
     endpoint: "/jobs/createTask", 
     detailEndpoint: "/jobs/recordInfo", 
-    model: "veo-3-fast", 
+    model: "veo3_fast", 
     duration: 5, 
     maxPollingTime: 900, 
     useJobsCreateTask: true 
