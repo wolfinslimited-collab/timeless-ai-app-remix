@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import Sidebar from "@/components/Sidebar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
@@ -13,8 +14,9 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { 
   Image, 
   Video, 
@@ -22,7 +24,8 @@ import {
   Loader2, 
   Download,
   Wand2,
-  Zap
+  Zap,
+  Coins
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -39,6 +42,7 @@ const videoModels = [
 
 const Create = () => {
   const { user, loading } = useAuth();
+  const { credits, loading: creditsLoading, refetch: refetchCredits, hasEnoughCredits } = useCredits();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -47,6 +51,8 @@ const Create = () => {
   const [model, setModel] = useState("nano-banana-pro");
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
+
+  const currentCost = CREDIT_COSTS[type];
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -68,6 +74,15 @@ const Create = () => {
       return;
     }
 
+    if (!hasEnoughCredits(type)) {
+      toast({
+        variant: "destructive",
+        title: "Insufficient credits",
+        description: `You need ${currentCost} credits for this generation. Current balance: ${credits ?? 0}`,
+      });
+      return;
+    }
+
     setIsGenerating(true);
     setResult(null);
 
@@ -81,16 +96,20 @@ const Create = () => {
       }
 
       if (data.error) {
+        if (data.required && data.available !== undefined) {
+          throw new Error(`Insufficient credits. Need ${data.required}, have ${data.available}`);
+        }
         throw new Error(data.error);
       }
 
       setResult(data.result);
+      refetchCredits();
       
       toast({
         title: "Generation complete!",
         description: type === "image" 
-          ? "Your image has been created and saved to your library." 
-          : "Your video storyboard is ready.",
+          ? `Your image has been created. ${data.credits_remaining} credits remaining.` 
+          : `Your video storyboard is ready. ${data.credits_remaining} credits remaining.`,
       });
 
     } catch (error: any) {
@@ -100,6 +119,7 @@ const Create = () => {
         title: "Generation failed",
         description: error.message || "Something went wrong. Please try again.",
       });
+      refetchCredits();
     } finally {
       setIsGenerating(false);
     }
@@ -128,13 +148,24 @@ const Create = () => {
       <main className="flex-1 pb-20 md:pb-0">
         <div className="max-w-4xl mx-auto p-6">
           {/* Header */}
-          <div className="mb-8 text-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 mb-4">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-primary">AI Generation Studio</span>
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-primary">AI Generation Studio</span>
+              </div>
+              
+              {user && (
+                <div className="flex items-center gap-2 rounded-full border border-border/50 bg-secondary px-4 py-1.5">
+                  <Coins className="h-4 w-4 text-accent" />
+                  <span className="text-sm font-medium">
+                    {creditsLoading ? "..." : credits ?? 0} credits
+                  </span>
+                </div>
+              )}
             </div>
-            <h1 className="text-3xl font-bold mb-2">Create Something Amazing</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-3xl font-bold mb-2 text-center">Create Something Amazing</h1>
+            <p className="text-muted-foreground text-center">
               Describe what you want to create and let AI bring it to life
             </p>
           </div>
@@ -145,10 +176,16 @@ const Create = () => {
               <TabsTrigger value="image" className="gap-2">
                 <Image className="h-4 w-4" />
                 Image
+                <Badge variant="secondary" className="ml-1 text-xs">
+                  {CREDIT_COSTS.image} credits
+                </Badge>
               </TabsTrigger>
               <TabsTrigger value="video" className="gap-2">
                 <Video className="h-4 w-4" />
                 Video
+                <Badge variant="secondary" className="ml-1 text-xs">
+                  {CREDIT_COSTS.video} credits
+                </Badge>
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -201,7 +238,7 @@ const Create = () => {
                 {/* Generate Button */}
                 <Button 
                   onClick={handleGenerate}
-                  disabled={isGenerating || !prompt.trim()}
+                  disabled={isGenerating || !prompt.trim() || (user && !hasEnoughCredits(type))}
                   className="w-full gradient-primary text-primary-foreground gap-2"
                   size="lg"
                 >
@@ -214,9 +251,18 @@ const Create = () => {
                     <>
                       <Wand2 className="h-5 w-5" />
                       Generate {type === "image" ? "Image" : "Video"}
+                      <span className="text-primary-foreground/80 text-sm">
+                        ({currentCost} credits)
+                      </span>
                     </>
                   )}
                 </Button>
+
+                {user && !hasEnoughCredits(type) && (
+                  <p className="text-center text-sm text-destructive">
+                    Insufficient credits. You need {currentCost} credits but have {credits ?? 0}.
+                  </p>
+                )}
 
                 {!user && (
                   <p className="text-center text-sm text-muted-foreground">
