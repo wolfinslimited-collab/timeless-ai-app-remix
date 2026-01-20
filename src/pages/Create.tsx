@@ -35,7 +35,6 @@ import {
   Clock,
   RotateCcw,
   AlertCircle,
-  CloudOff,
   Play,
   RefreshCw
 } from "lucide-react";
@@ -130,7 +129,7 @@ const Create = () => {
   const [startingImage, setStartingImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [backgroundMode, setBackgroundMode] = useState(false);
+  
   const [generationProgress, setGenerationProgress] = useState<{ stage: string; message: string; progress?: number } | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
@@ -142,8 +141,7 @@ const Create = () => {
   const allowedVideoQualities =
     VIDEO_MODEL_CAPABILITIES[model]?.qualities ?? VIDEO_DEFAULT_QUALITIES;
 
-  const isSlowVideoModel =
-    type === "video" && !!VIDEO_MODEL_CAPABILITIES[model]?.slow;
+
   useEffect(() => {
     if (type !== "video") return;
 
@@ -234,7 +232,7 @@ const Create = () => {
             quality, 
             imageUrl: startingImage,
             stream: true,
-            background: backgroundMode
+            background: false
           })
         });
 
@@ -759,34 +757,6 @@ const Create = () => {
                   </div>
                 )}
 
-                {/* Background Mode Toggle - Only for video */}
-                {type === "video" && (
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/50">
-                    <div className="flex items-center gap-2">
-                      <CloudOff className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium">Continue in background</p>
-                        <p className="text-xs text-muted-foreground">
-                          Start generating and leave this page
-                          {isSlowVideoModel && (
-                            <span className="block">
-                              Recommended for this model (can take several minutes)
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant={backgroundMode ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setBackgroundMode(!backgroundMode)}
-                      className={backgroundMode ? "gradient-primary" : ""}
-                    >
-                      {backgroundMode ? "On" : "Off"}
-                    </Button>
-                  </div>
-                )}
 
                 <Button 
                   onClick={handleGenerate}
@@ -798,14 +768,6 @@ const Create = () => {
                     <>
                       <Loader2 className="h-5 w-5 animate-spin" />
                       Generating...
-                    </>
-                  ) : backgroundMode && type === "video" ? (
-                    <>
-                      <CloudOff className="h-5 w-5" />
-                      Generate in Background
-                      <span className="text-primary-foreground/80 text-sm">
-                        ({currentCost} credits)
-                      </span>
                     </>
                   ) : (
                     <>
