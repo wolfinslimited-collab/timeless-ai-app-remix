@@ -615,11 +615,14 @@ serve(async (req) => {
 
       console.log(`Kie.ai video task started: ${taskId}`);
 
-      // Poll for result (max 3 minutes for video)
+      // Poll for result with model-specific timeout
       let videoUrl = null;
       let thumbnailUrl = null;
-      const maxAttempts = 36;
       const pollInterval = 5000;
+      const maxPollingTime = modelConfig.maxPollingTime || 600; // Use model config, default 10 min
+      const maxAttempts = Math.ceil(maxPollingTime / (pollInterval / 1000));
+      
+      console.log(`Polling with maxAttempts=${maxAttempts}, maxPollingTime=${maxPollingTime}s`);
 
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         await new Promise(resolve => setTimeout(resolve, pollInterval));
@@ -630,24 +633,54 @@ serve(async (req) => {
         });
 
         if (!statusResponse.ok) {
-          console.log(`Status check attempt ${attempt + 1} failed`);
+          console.log(`Status check attempt ${attempt + 1}/${maxAttempts} - HTTP ${statusResponse.status}`);
           continue;
         }
 
         const statusData = await statusResponse.json();
-        console.log(`Video status check ${attempt + 1}:`, statusData.data?.status);
+        
+        // Normalize status across providers
+        const rawStatus =
+          statusData?.data?.status ??
+          statusData?.data?.state ??
+          statusData?.status ??
+          statusData?.state;
+        const status = typeof rawStatus === "string" ? rawStatus.toUpperCase() : rawStatus;
+        
+        console.log(`Video status check ${attempt + 1}/${maxAttempts}: ${status}`, JSON.stringify(statusData).slice(0, 200));
 
-        if (statusData.data?.status === "SUCCESS") {
-          videoUrl = statusData.data?.output?.[0] || statusData.data?.video?.url;
-          thumbnailUrl = statusData.data?.thumbnail || videoUrl;
+        // Extract video URL from various response formats
+        const extractedUrl =
+          (Array.isArray(statusData?.data?.output) ? statusData.data.output[0] : undefined) ||
+          statusData?.data?.video?.url ||
+          statusData?.data?.video_url ||
+          statusData?.data?.result?.video?.url ||
+          statusData?.data?.result?.url ||
+          statusData?.data?.url;
+
+        const extractedThumb =
+          statusData?.data?.thumbnail ||
+          statusData?.data?.thumbnail_url ||
+          statusData?.data?.cover ||
+          extractedUrl;
+
+        // Consider complete if we have a URL or known success status
+        if (extractedUrl || status === "SUCCESS" || status === "SUCCEEDED" || status === "COMPLETED") {
+          videoUrl = extractedUrl;
+          thumbnailUrl = extractedThumb || videoUrl;
           console.log("Video generation complete:", videoUrl);
           break;
-        } else if (statusData.data?.status === "FAILED") {
-          console.error("Video generation failed:", statusData);
+        } else if (status === "FAILED" || status === "FAILURE") {
+          const providerMessage =
+            statusData?.data?.msg ||
+            statusData?.data?.message ||
+            statusData?.msg ||
+            statusData?.message;
+          console.error("Video generation failed:", providerMessage || statusData);
           if (!hasActiveSubscription) {
             await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
           }
-          throw new Error("Video generation failed");
+          throw new Error(providerMessage ? `Video generation failed: ${providerMessage}` : "Video generation failed");
         }
       }
 
