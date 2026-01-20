@@ -65,7 +65,7 @@ const KIE_IMAGE_MODELS: Record<string, { endpoint: string; model: string }> = {
   "midjourney": { endpoint: "/midjourney/generate", model: "midjourney" },
 };
 
-const KIE_VIDEO_MODELS: Record<string, { endpoint: string; detailEndpoint: string; model: string; duration?: number; useAspectUnderscore?: boolean; maxPollingTime?: number }> = {
+const KIE_VIDEO_MODELS: Record<string, { endpoint: string; detailEndpoint: string; model: string; duration?: number; useAspectUnderscore?: boolean; maxPollingTime?: number; useJobsCreateTask?: boolean }> = {
   "runway-gen3-5s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 5, maxPollingTime: 240 },
   "runway-gen3-10s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 10, maxPollingTime: 360 },
   // Veo can be very slow; keep generous polling time
@@ -73,8 +73,9 @@ const KIE_VIDEO_MODELS: Record<string, { endpoint: string; detailEndpoint: strin
   "veo-3-fast": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-info", model: "veo3_fast", useAspectUnderscore: true, maxPollingTime: 600 },
   "wan-2.1": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1", duration: 5, maxPollingTime: 240 },
   "wan-2.1-pro": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1-pro", duration: 5, maxPollingTime: 360 },
-  "kling-1.6-pro": { endpoint: "/kling/generate", detailEndpoint: "/kling/task-detail", model: "kling-v1-6-pro", duration: 5, maxPollingTime: 420 },
-  "kling-1.6-pro-10s": { endpoint: "/kling/generate", detailEndpoint: "/kling/task-detail", model: "kling-v1-6-pro", duration: 10, maxPollingTime: 600 },
+  // Kling uses /jobs/createTask unified endpoint
+  "kling-1.6-pro": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v1-6-pro", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
+  "kling-1.6-pro-10s": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v1-6-pro", duration: 10, maxPollingTime: 600, useJobsCreateTask: true },
   "minimax-video": { endpoint: "/minimax/generate", detailEndpoint: "/minimax/task-detail", model: "video-01", maxPollingTime: 360 },
   "luma-ray2": { endpoint: "/luma/generate", detailEndpoint: "/luma/task-detail", model: "ray2", maxPollingTime: 420 },
   "pika-2.0": { endpoint: "/pika/generate", detailEndpoint: "/pika/task-detail", model: "pika-2.0", maxPollingTime: 360 },
@@ -174,21 +175,37 @@ serve(async (req) => {
               return;
             }
 
+            // Build request body - Kling uses /jobs/createTask with nested input object
+            const requestBody = modelConfig.useJobsCreateTask
+              ? {
+                  model: modelConfig.model,
+                  input: {
+                    prompt: prompt,
+                    duration: String(modelConfig.duration || 5),
+                    aspect_ratio: aspectRatio,
+                    ...(negativePrompt && { negative_prompt: negativePrompt }),
+                    ...(imageUrl && { image_url: imageUrl }),
+                  }
+                }
+              : {
+                  prompt: prompt,
+                  model: modelConfig.model,
+                  ...(modelConfig.useAspectUnderscore ? { aspect_ratio: aspectRatio } : { aspectRatio: aspectRatio }),
+                  quality: quality,
+                  duration: modelConfig.duration || 5,
+                  ...(negativePrompt && { negative_prompt: negativePrompt }),
+                  ...(imageUrl && { image_url: imageUrl }),
+                };
+
+            console.log(`Kling/Video request to ${modelConfig.endpoint}:`, JSON.stringify(requestBody));
+
             const generateResponse = await fetch(`${KIE_BASE_URL}${modelConfig.endpoint}`, {
               method: "POST",
               headers: {
                 "Authorization": `Bearer ${KIE_API_KEY}`,
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({
-                prompt: prompt,
-                model: modelConfig.model,
-                ...(modelConfig.useAspectUnderscore ? { aspect_ratio: aspectRatio } : { aspectRatio: aspectRatio }),
-                quality: quality,
-                duration: modelConfig.duration || 5,
-                ...(negativePrompt && { negative_prompt: negativePrompt }),
-                ...(imageUrl && { image_url: imageUrl }),
-              })
+              body: JSON.stringify(requestBody)
             });
 
             if (!generateResponse.ok) {
@@ -614,21 +631,37 @@ serve(async (req) => {
 
       console.log(`Using Kie.ai video endpoint: ${modelConfig.endpoint}, model: ${modelConfig.model}`);
 
+      // Build request body - Kling uses /jobs/createTask with nested input object
+      const requestBody = modelConfig.useJobsCreateTask
+        ? {
+            model: modelConfig.model,
+            input: {
+              prompt: prompt,
+              duration: String(modelConfig.duration || 5),
+              aspect_ratio: aspectRatio,
+              ...(negativePrompt && { negative_prompt: negativePrompt }),
+              ...(imageUrl && { image_url: imageUrl }),
+            }
+          }
+        : {
+            prompt: prompt,
+            model: modelConfig.model,
+            ...(modelConfig.useAspectUnderscore ? { aspect_ratio: aspectRatio } : { aspectRatio: aspectRatio }),
+            quality: quality,
+            duration: modelConfig.duration || 5,
+            ...(negativePrompt && { negative_prompt: negativePrompt }),
+            ...(imageUrl && { image_url: imageUrl }),
+          };
+
+      console.log(`Video request body:`, JSON.stringify(requestBody));
+
       const generateResponse = await fetch(`${KIE_BASE_URL}${modelConfig.endpoint}`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${KIE_API_KEY}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          prompt: prompt,
-          model: modelConfig.model,
-          ...(modelConfig.useAspectUnderscore ? { aspect_ratio: aspectRatio } : { aspectRatio: aspectRatio }),
-          quality: quality,
-          duration: modelConfig.duration || 5,
-          ...(negativePrompt && { negative_prompt: negativePrompt }),
-          ...(imageUrl && { image_url: imageUrl }),
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!generateResponse.ok) {
