@@ -269,27 +269,37 @@ serve(async (req) => {
               if (!statusResponse.ok) continue;
 
               const statusData = await statusResponse.json();
-              console.log(`Poll attempt ${attempt + 1}: Raw response:`, JSON.stringify(statusData));
+              console.log(`Poll attempt ${attempt + 1}: Raw Veo/video response:`, JSON.stringify(statusData));
               
+              // Extract status from multiple possible paths (different providers use different structures)
               const rawStatus =
+                statusData?.data?.response?.status ??
                 statusData?.data?.status ??
                 statusData?.data?.state ??
                 statusData?.status ??
                 statusData?.state;
 
               // Handle Veo's numeric successFlag (1 = success, 2/3 = failure)
-              const successFlag = statusData?.data?.response?.successFlag ?? statusData?.data?.successFlag;
+              const successFlag = statusData?.data?.response?.successFlag ?? statusData?.data?.successFlag ?? statusData?.successFlag;
               const isVeoSuccess = successFlag === 1;
               const isVeoFailure = successFlag === 2 || successFlag === 3;
 
-              const status = typeof rawStatus === "string" ? rawStatus.toUpperCase() : rawStatus;
+              // Normalize status to uppercase string
+              const status = typeof rawStatus === "string" ? rawStatus.toUpperCase() : String(rawStatus || '').toUpperCase();
+              
+              // Check for success status strings (including lowercase variations)
+              const isSuccessStatus = ["SUCCESS", "SUCCEEDED", "COMPLETED", "DONE", "FINISHED"].includes(status);
 
               // Extract video URL from various response formats including Veo's resultUrls
               const videoUrl =
                 (Array.isArray(statusData?.data?.response?.resultUrls) ? statusData.data.response.resultUrls[0] : undefined) ||
+                (Array.isArray(statusData?.data?.resultUrls) ? statusData.data.resultUrls[0] : undefined) ||
+                statusData?.data?.response?.videoUrl ||
+                statusData?.data?.response?.video_url ||
                 (Array.isArray(statusData?.data?.output) ? statusData.data.output[0] : undefined) ||
                 statusData?.data?.video?.url ||
                 statusData?.data?.video_url ||
+                statusData?.data?.videoUrl ||
                 statusData?.data?.result?.video?.url ||
                 statusData?.data?.result?.url ||
                 statusData?.data?.url;
@@ -300,10 +310,10 @@ serve(async (req) => {
                 statusData?.data?.cover ||
                 videoUrl;
 
-              console.log(`Poll attempt ${attempt + 1}: status=${status}, successFlag=${successFlag}, videoUrl=${videoUrl ? 'found' : 'none'}`);
+              console.log(`Poll attempt ${attempt + 1}: status=${status}, successFlag=${successFlag}, isSuccessStatus=${isSuccessStatus}, videoUrl=${videoUrl ? 'found' : 'none'}`);
 
               // Check for success via URL presence, string status, or Veo's successFlag
-              if (videoUrl || status === "SUCCESS" || status === "SUCCEEDED" || status === "COMPLETED" || isVeoSuccess) {
+              if (videoUrl || isSuccessStatus || isVeoSuccess) {
                 // Save to database
                 const { data: generation } = await supabase
                   .from("generations")
