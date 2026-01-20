@@ -1,0 +1,298 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import Sidebar from "@/components/Sidebar";
+import BottomNav from "@/components/BottomNav";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
+import { 
+  Image, 
+  Video, 
+  Sparkles, 
+  Loader2, 
+  Download,
+  Wand2,
+  Zap
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+const imageModels = [
+  { id: "nano-banana-pro", name: "Nano Banana Pro", description: "Best 4K image model", badge: "∞" },
+  { id: "flux-ultra", name: "Flux Ultra", description: "High detail images", badge: "PRO" },
+];
+
+const videoModels = [
+  { id: "gemini-3-flash", name: "Gemini 3 Flash", description: "Fast video storyboards", badge: "NEW" },
+  { id: "sora-2", name: "Sora 2", description: "Cinematic quality", badge: "TOP" },
+];
+
+const Create = () => {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  const [type, setType] = useState<"image" | "video">("image");
+  const [prompt, setPrompt] = useState("");
+  const [model, setModel] = useState("nano-banana-pro");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
+
+  const handleGenerate = async () => {
+    if (!prompt.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Prompt required",
+        description: "Please enter a description for your creation.",
+      });
+      return;
+    }
+
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Sign in required",
+        description: "Please sign in to generate content.",
+      });
+      navigate("/auth");
+      return;
+    }
+
+    setIsGenerating(true);
+    setResult(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("generate", {
+        body: { prompt, type, model }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setResult(data.result);
+      
+      toast({
+        title: "Generation complete!",
+        description: type === "image" 
+          ? "Your image has been created and saved to your library." 
+          : "Your video storyboard is ready.",
+      });
+
+    } catch (error: any) {
+      console.error("Generation error:", error);
+      toast({
+        variant: "destructive",
+        title: "Generation failed",
+        description: error.message || "Something went wrong. Please try again.",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleTypeChange = (newType: string) => {
+    setType(newType as "image" | "video");
+    setModel(newType === "image" ? "nano-banana-pro" : "gemini-3-flash");
+    setResult(null);
+  };
+
+  const currentModels = type === "image" ? imageModels : videoModels;
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen bg-background">
+      <Sidebar />
+
+      <main className="flex-1 pb-20 md:pb-0">
+        <div className="max-w-4xl mx-auto p-6">
+          {/* Header */}
+          <div className="mb-8 text-center">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 mb-4">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium text-primary">AI Generation Studio</span>
+            </div>
+            <h1 className="text-3xl font-bold mb-2">Create Something Amazing</h1>
+            <p className="text-muted-foreground">
+              Describe what you want to create and let AI bring it to life
+            </p>
+          </div>
+
+          {/* Type Selector */}
+          <Tabs value={type} onValueChange={handleTypeChange} className="mb-6">
+            <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+              <TabsTrigger value="image" className="gap-2">
+                <Image className="h-4 w-4" />
+                Image
+              </TabsTrigger>
+              <TabsTrigger value="video" className="gap-2">
+                <Video className="h-4 w-4" />
+                Video
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Input Panel */}
+            <Card className="border-border/50 bg-card">
+              <CardContent className="p-6 space-y-6">
+                {/* Prompt Input */}
+                <div className="space-y-2">
+                  <Label htmlFor="prompt">Describe your {type}</Label>
+                  <Textarea
+                    id="prompt"
+                    placeholder={type === "image" 
+                      ? "A majestic dragon flying over a neon-lit cyberpunk city at sunset, 4K cinematic..." 
+                      : "A short cinematic video of waves crashing on a tropical beach during golden hour..."
+                    }
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    className="min-h-[150px] bg-secondary border-border/50 resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Be specific and descriptive for best results
+                  </p>
+                </div>
+
+                {/* Model Selection */}
+                <div className="space-y-2">
+                  <Label>Model</Label>
+                  <Select value={model} onValueChange={setModel}>
+                    <SelectTrigger className="bg-secondary border-border/50">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover border-border">
+                      {currentModels.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          <div className="flex items-center gap-2">
+                            <Zap className="h-4 w-4 text-primary" />
+                            <span>{m.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              - {m.description}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Generate Button */}
+                <Button 
+                  onClick={handleGenerate}
+                  disabled={isGenerating || !prompt.trim()}
+                  className="w-full gradient-primary text-primary-foreground gap-2"
+                  size="lg"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-5 w-5" />
+                      Generate {type === "image" ? "Image" : "Video"}
+                    </>
+                  )}
+                </Button>
+
+                {!user && (
+                  <p className="text-center text-sm text-muted-foreground">
+                    <button 
+                      onClick={() => navigate("/auth")}
+                      className="text-primary hover:underline"
+                    >
+                      Sign in
+                    </button>
+                    {" "}to save your creations
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Preview Panel */}
+            <Card className="border-border/50 bg-card">
+              <CardContent className="p-6">
+                <Label className="mb-4 block">Preview</Label>
+                
+                <div className="aspect-square rounded-xl bg-secondary border border-border/50 flex items-center justify-center overflow-hidden">
+                  {isGenerating ? (
+                    <div className="flex flex-col items-center gap-4 text-muted-foreground">
+                      <div className="relative">
+                        <div className="h-16 w-16 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+                        <Sparkles className="h-6 w-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                      </div>
+                      <p className="text-sm">Creating your masterpiece...</p>
+                    </div>
+                  ) : result?.output_url ? (
+                    <img 
+                      src={result.output_url} 
+                      alt="Generated image"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : result?.storyboard ? (
+                    <div className="p-4 text-sm text-muted-foreground overflow-auto max-h-full">
+                      <h4 className="font-semibold text-foreground mb-2">Video Storyboard</h4>
+                      <p className="whitespace-pre-wrap">{result.storyboard}</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      {type === "image" ? (
+                        <Image className="h-12 w-12" />
+                      ) : (
+                        <Video className="h-12 w-12" />
+                      )}
+                      <p className="text-sm">Your creation will appear here</p>
+                    </div>
+                  )}
+                </div>
+
+                {result?.output_url && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full mt-4 gap-2 border-border/50"
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = result.output_url!;
+                      link.download = 'generation.png';
+                      link.click();
+                    }}
+                  >
+                    <Download className="h-4 w-4" />
+                    Download
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </main>
+
+      <BottomNav />
+    </div>
+  );
+};
+
+export default Create;

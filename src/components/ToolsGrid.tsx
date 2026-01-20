@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import ToolCard from "./ToolCard";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 const tools = [
   {
@@ -20,6 +21,7 @@ const tools = [
     icon: <Image className="h-6 w-6 text-emerald-400" />,
     badge: "top" as const,
     gradient: "bg-emerald-500/20",
+    action: "image",
   },
   {
     title: "Create Video",
@@ -27,6 +29,7 @@ const tools = [
     icon: <Video className="h-6 w-6 text-blue-400" />,
     badge: "top" as const,
     gradient: "bg-blue-500/20",
+    action: "video",
   },
   {
     title: "Motion Control",
@@ -47,6 +50,7 @@ const tools = [
     icon: <Sparkles className="h-6 w-6 text-amber-400" />,
     badge: "unlimited" as const,
     gradient: "bg-amber-500/20",
+    action: "image",
   },
   {
     title: "Kling Video Edit",
@@ -77,6 +81,14 @@ const tools = [
 ];
 
 const ToolsGrid = () => {
+  const navigate = useNavigate();
+
+  const handleToolClick = (action?: string) => {
+    if (action) {
+      navigate(`/create?type=${action}`);
+    }
+  };
+
   return (
     <section className="py-12">
       <div className="container px-4">
@@ -86,7 +98,11 @@ const ToolsGrid = () => {
             <h2 className="text-2xl font-bold md:text-3xl">Quick Actions</h2>
             <p className="text-muted-foreground mt-1">Your most-used creative tools</p>
           </div>
-          <Button variant="ghost" className="text-muted-foreground hover:text-foreground gap-1">
+          <Button 
+            variant="ghost" 
+            className="text-muted-foreground hover:text-foreground gap-1"
+            onClick={() => navigate("/create")}
+          >
             See all
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -95,7 +111,11 @@ const ToolsGrid = () => {
         {/* Tools Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {tools.map((tool) => (
-            <ToolCard key={tool.title} {...tool} />
+            <ToolCard 
+              key={tool.title} 
+              {...tool} 
+              onClick={() => handleToolClick(tool.action)}
+            />
           ))}
         </div>
       </div>

@@ -40,7 +40,11 @@ const HeroSection = () => {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             {user ? (
               <>
-                <Button size="lg" className="gradient-primary text-primary-foreground gap-2 px-8">
+                <Button 
+                  size="lg" 
+                  className="gradient-primary text-primary-foreground gap-2 px-8"
+                  onClick={() => navigate("/create")}
+                >
                   Start Creating
                   <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -58,7 +62,7 @@ const HeroSection = () => {
                 <Button 
                   size="lg" 
                   className="gradient-primary text-primary-foreground gap-2 px-8"
-                  onClick={() => navigate("/auth")}
+                  onClick={() => navigate("/create")}
                 >
                   Get Started Free
                   <ArrowRight className="h-4 w-4" />
