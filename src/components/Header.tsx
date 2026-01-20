@@ -1,16 +1,21 @@
-import { Search, Bell, Crown } from "lucide-react";
+import { Search, Bell, Crown, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useCredits } from "@/hooks/useCredits";
+import { useAuth } from "@/hooks/useAuth";
 
 const Header = () => {
+  const { user } = useAuth();
+  const { credits, loading: creditsLoading } = useCredits();
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
       <div className="container flex h-16 items-center justify-between px-4">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-primary">
-            <span className="text-lg font-bold text-primary-foreground">H</span>
+            <span className="text-lg font-bold text-primary-foreground">T</span>
           </div>
           <span className="text-xl font-bold">Timeless</span>
         </div>
@@ -28,6 +33,15 @@ const Header = () => {
 
         {/* Actions */}
         <div className="flex items-center gap-3">
+          {user && (
+            <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-border/50 bg-secondary/50 px-3 py-1.5">
+              <Coins className="h-4 w-4 text-accent" />
+              <span className="text-sm font-medium">
+                {creditsLoading ? "..." : credits ?? 0}
+              </span>
+            </div>
+          )}
+
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
             <Bell className="h-5 w-5" />
           </Button>
@@ -39,7 +53,9 @@ const Header = () => {
 
           <Avatar className="h-9 w-9 border-2 border-primary/50">
             <AvatarImage src="" />
-            <AvatarFallback className="bg-secondary text-foreground text-sm">U</AvatarFallback>
+            <AvatarFallback className="bg-secondary text-foreground text-sm">
+              {user ? user.email?.charAt(0).toUpperCase() : "U"}
+            </AvatarFallback>
           </Avatar>
         </div>
       </div>

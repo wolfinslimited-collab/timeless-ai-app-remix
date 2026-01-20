@@ -6,6 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const CREDIT_COSTS = {
+  image: 5,
+  video: 10,
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -47,6 +52,53 @@ serve(async (req) => {
 
     console.log(`User authenticated: ${user.id}`);
 
+    // Check user credits
+    const creditCost = CREDIT_COSTS[type as keyof typeof CREDIT_COSTS] || 5;
+    
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("credits")
+      .eq("user_id", user.id)
+      .single();
+
+    if (profileError) {
+      console.error("Profile fetch error:", profileError.message);
+      return new Response(
+        JSON.stringify({ error: "Could not fetch user profile" }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const currentCredits = profile?.credits ?? 0;
+    console.log(`User credits: ${currentCredits}, Cost: ${creditCost}`);
+
+    if (currentCredits < creditCost) {
+      return new Response(
+        JSON.stringify({ 
+          error: "Insufficient credits",
+          required: creditCost,
+          available: currentCredits
+        }),
+        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Deduct credits before generation
+    const { error: deductError } = await supabase
+      .from("profiles")
+      .update({ credits: currentCredits - creditCost })
+      .eq("user_id", user.id);
+
+    if (deductError) {
+      console.error("Credit deduction error:", deductError.message);
+      return new Response(
+        JSON.stringify({ error: "Failed to deduct credits" }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Credits deducted: ${creditCost}, Remaining: ${currentCredits - creditCost}`);
+
     let result;
     
     if (type === "image") {
@@ -72,6 +124,13 @@ serve(async (req) => {
       if (!response.ok) {
         const errorText = await response.text();
         console.error("AI Gateway error:", errorText);
+        
+        // Refund credits on failure
+        await supabase
+          .from("profiles")
+          .update({ credits: currentCredits })
+          .eq("user_id", user.id);
+        
         throw new Error(`AI Gateway error: ${response.status}`);
       }
 
@@ -81,6 +140,12 @@ serve(async (req) => {
       const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
       
       if (!imageUrl) {
+        // Refund credits if no image generated
+        await supabase
+          .from("profiles")
+          .update({ credits: currentCredits })
+          .eq("user_id", user.id);
+        
         throw new Error("No image generated");
       }
 
@@ -91,7 +156,6 @@ serve(async (req) => {
       };
     } else {
       // For video, we'll generate a description/storyboard using text model
-      // Real video generation would require a video-specific API
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -116,6 +180,13 @@ serve(async (req) => {
       if (!response.ok) {
         const errorText = await response.text();
         console.error("AI Gateway error:", errorText);
+        
+        // Refund credits on failure
+        await supabase
+          .from("profiles")
+          .update({ credits: currentCredits })
+          .eq("user_id", user.id);
+        
         throw new Error(`AI Gateway error: ${response.status}`);
       }
 
@@ -140,14 +211,13 @@ serve(async (req) => {
         status: "completed",
         output_url: result.output_url || null,
         thumbnail_url: result.thumbnail_url || null,
-        credits_used: type === "image" ? 5 : 10,
+        credits_used: creditCost,
       })
       .select()
       .single();
 
     if (dbError) {
       console.error("Database error:", dbError.message);
-      // Don't fail the whole request, just log it
     }
 
     console.log("Generation completed successfully");
@@ -156,7 +226,8 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         result,
-        generation: generation || null
+        generation: generation || null,
+        credits_remaining: currentCredits - creditCost
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
