@@ -102,9 +102,9 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
   "luma-ray2": { endpoint: "/luma/generate", detailEndpoint: "/luma/task-detail", model: "ray2", maxPollingTime: 420 },
   "luma-ray-flash-2": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "luma/ray-flash-2", duration: 5, maxPollingTime: 240, useJobsCreateTask: true },
   
-  // Alibaba Wan models
-  "wan-2.1-t2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "alibaba/wan2.1-t2v-plus", duration: 5, maxPollingTime: 360, useJobsCreateTask: true },
-  "wan-2.1-i2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "alibaba/wan2.1-i2v-preview", duration: 5, maxPollingTime: 360, useJobsCreateTask: true },
+  // Alibaba Wan models - Kie.ai uses "wan2.1-t2v-turbo" and "wan2.1-i2v-480p" (no alibaba/ prefix)
+  "wan-2.1-t2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "wan2.1-t2v-turbo", duration: 5, maxPollingTime: 360, useJobsCreateTask: true },
+  "wan-2.1-i2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "wan2.1-i2v-480p", duration: 5, maxPollingTime: 360, useJobsCreateTask: true },
   
   // Google Veo models
   "veo-3": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-info", model: "veo3", useAspectUnderscore: true, maxPollingTime: 900 },
