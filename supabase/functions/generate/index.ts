@@ -69,8 +69,8 @@ const KIE_VIDEO_MODELS: Record<string, { endpoint: string; detailEndpoint: strin
   "runway-gen3-5s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 5, maxPollingTime: 240 },
   "runway-gen3-10s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 10, maxPollingTime: 360 },
   // Veo can be very slow; keep generous polling time
-  "veo-3": { endpoint: "/veo/generate", detailEndpoint: "/veo/task-detail", model: "veo3", useAspectUnderscore: true, maxPollingTime: 900 },
-  "veo-3-fast": { endpoint: "/veo/generate", detailEndpoint: "/veo/task-detail", model: "veo3_fast", useAspectUnderscore: true, maxPollingTime: 600 },
+  "veo-3": { endpoint: "/veo/generate", detailEndpoint: "/jobs/recordInfo", model: "veo3", useAspectUnderscore: true, maxPollingTime: 900 },
+  "veo-3-fast": { endpoint: "/veo/generate", detailEndpoint: "/jobs/recordInfo", model: "veo3_fast", useAspectUnderscore: true, maxPollingTime: 600 },
   "wan-2.1": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1", duration: 5, maxPollingTime: 240 },
   "wan-2.1-pro": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1-pro", duration: 5, maxPollingTime: 360 },
   "kling-1.6-pro": { endpoint: "/kling/generate", detailEndpoint: "/kling/task-detail", model: "kling-v1-6-pro", duration: 5, maxPollingTime: 420 },
@@ -261,18 +261,39 @@ serve(async (req) => {
                 maxAttempts
               });
 
-              const statusResponse = await fetch(`${KIE_BASE_URL}${modelConfig.detailEndpoint}?taskId=${taskId}`, {
-                method: "GET",
-                headers: { "Authorization": `Bearer ${KIE_API_KEY}` }
-              });
+              const tryFetch = async (endpoint: string) => {
+                const url = `${KIE_BASE_URL}${endpoint}?taskId=${encodeURIComponent(taskId)}`;
+                return await fetch(url, {
+                  method: "GET",
+                  headers: { "Authorization": `Bearer ${KIE_API_KEY}` }
+                });
+              };
+
+              // Primary endpoint is model-specific; for deprecated endpoints, fall back to unified recordInfo.
+              let statusResponse = await tryFetch(modelConfig.detailEndpoint);
+              if (!statusResponse.ok && statusResponse.status === 404 && modelConfig.detailEndpoint !== "/jobs/recordInfo") {
+                statusResponse = await tryFetch("/jobs/recordInfo");
+              }
 
               if (!statusResponse.ok) continue;
 
               const statusData = await statusResponse.json();
               console.log(`Poll attempt ${attempt + 1}: Raw Veo/video response:`, JSON.stringify(statusData));
+
+              // Unified endpoint returns a stringified JSON result in data.resultJson
+              let unifiedResult: any = null;
+              const resultJson = statusData?.data?.resultJson;
+              if (typeof resultJson === "string") {
+                try {
+                  unifiedResult = JSON.parse(resultJson);
+                } catch {
+                  unifiedResult = null;
+                }
+              }
               
               // Extract status from multiple possible paths (different providers use different structures)
               const rawStatus =
+                statusData?.data?.state ??
                 statusData?.data?.response?.status ??
                 statusData?.data?.status ??
                 statusData?.data?.state ??
@@ -292,6 +313,7 @@ serve(async (req) => {
 
               // Extract video URL from various response formats including Veo's resultUrls
               const videoUrl =
+                (Array.isArray(unifiedResult?.resultUrls) ? unifiedResult.resultUrls[0] : undefined) ||
                 (Array.isArray(statusData?.data?.response?.resultUrls) ? statusData.data.response.resultUrls[0] : undefined) ||
                 (Array.isArray(statusData?.data?.resultUrls) ? statusData.data.resultUrls[0] : undefined) ||
                 statusData?.data?.response?.videoUrl ||
