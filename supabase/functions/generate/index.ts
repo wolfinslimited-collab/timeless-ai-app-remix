@@ -88,9 +88,9 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, type, model, aspectRatio = "1:1", quality = "720p", imageUrl } = await req.json();
+    const { prompt, negativePrompt, type, model, aspectRatio = "1:1", quality = "720p", imageUrl } = await req.json();
     
-    console.log(`Generation request - Type: ${type}, Model: ${model}, Aspect: ${aspectRatio}, Quality: ${quality}, I2V: ${!!imageUrl}, Prompt: ${prompt?.substring(0, 50)}...`);
+    console.log(`Generation request - Type: ${type}, Model: ${model}, Aspect: ${aspectRatio}, Quality: ${quality}, I2V: ${!!imageUrl}, NegPrompt: ${!!negativePrompt}, Prompt: ${prompt?.substring(0, 50)}...`);
 
     if (!prompt) {
       throw new Error("Prompt is required");
@@ -205,6 +205,7 @@ serve(async (req) => {
           model: modelConfig.model,
           aspectRatio: aspectRatio,
           numImages: 1,
+          ...(negativePrompt && { negativePrompt: negativePrompt }),
         })
       });
 
@@ -304,6 +305,7 @@ serve(async (req) => {
           aspectRatio: aspectRatio,
           quality: quality,
           duration: modelConfig.duration || 5,
+          ...(negativePrompt && { negativePrompt: negativePrompt }),
           ...(imageUrl && { imageUrl: imageUrl }),
         })
       });

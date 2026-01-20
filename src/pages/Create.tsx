@@ -68,6 +68,7 @@ const Create = () => {
   
   const [type, setType] = useState<"image" | "video">("image");
   const [prompt, setPrompt] = useState("");
+  const [negativePrompt, setNegativePrompt] = useState("");
   const [model, setModel] = useState("ideogram-v2-turbo");
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const [quality, setQuality] = useState("720p");
@@ -112,7 +113,7 @@ const Create = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke("generate", {
-        body: { prompt, type, model, aspectRatio, quality, imageUrl: startingImage }
+        body: { prompt, negativePrompt: negativePrompt.trim() || undefined, type, model, aspectRatio, quality, imageUrl: startingImage }
       });
 
       if (error) {
@@ -297,10 +298,28 @@ const Create = () => {
                     }
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
-                    className="min-h-[150px] bg-secondary border-border/50 resize-none"
+                    className="min-h-[120px] bg-secondary border-border/50 resize-none"
                   />
                   <p className="text-xs text-muted-foreground">
                     Be specific and descriptive for best results
+                  </p>
+                </div>
+
+                {/* Negative Prompt */}
+                <div className="space-y-2">
+                  <Label htmlFor="negative-prompt" className="flex items-center gap-2">
+                    Negative prompt
+                    <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+                  </Label>
+                  <Textarea
+                    id="negative-prompt"
+                    placeholder="blur, low quality, distorted, watermark, text..."
+                    value={negativePrompt}
+                    onChange={(e) => setNegativePrompt(e.target.value)}
+                    className="min-h-[60px] bg-secondary border-border/50 resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Describe what to avoid in the generated content
                   </p>
                 </div>
 
