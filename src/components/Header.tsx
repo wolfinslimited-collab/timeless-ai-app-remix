@@ -4,10 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useCredits } from "@/hooks/useCredits";
 import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 const Header = () => {
   const { user } = useAuth();
   const { credits, loading: creditsLoading } = useCredits();
+  const navigate = useNavigate();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -46,9 +48,12 @@ const Header = () => {
             <Bell className="h-5 w-5" />
           </Button>
           
-          <Button className="gradient-primary text-primary-foreground gap-2 hidden sm:flex">
+          <Button 
+            className="gradient-primary text-primary-foreground gap-2 hidden sm:flex"
+            onClick={() => navigate("/pricing")}
+          >
             <Crown className="h-4 w-4" />
-            Upgrade
+            Get Credits
           </Button>
 
           <Avatar className="h-9 w-9 border-2 border-primary/50">

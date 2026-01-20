@@ -101,13 +101,16 @@ const Sidebar = () => {
         <div className="p-4 rounded-xl bg-gradient-to-br from-primary/20 to-accent/10 border border-primary/20">
           <div className="flex items-center gap-2 mb-2">
             <Crown className="h-5 w-5 text-accent" />
-            <span className="font-semibold">Go Pro</span>
+            <span className="font-semibold">Need More Credits?</span>
           </div>
           <p className="text-sm text-muted-foreground mb-3">
-            Unlock unlimited generations & premium models
+            Get more credits for AI generations
           </p>
-          <Button className="w-full gradient-primary text-primary-foreground">
-            Upgrade Now
+          <Button 
+            className="w-full gradient-primary text-primary-foreground"
+            onClick={() => navigate("/pricing")}
+          >
+            Get Credits
           </Button>
         </div>
       ) : (
