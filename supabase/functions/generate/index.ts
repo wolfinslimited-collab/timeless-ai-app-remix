@@ -138,11 +138,11 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
     useNFrames: true
   },
   
-  // Hailuo 2.3 - Fast generation model (minimax-video-01-director)
+  // Hailuo 2.3 - Fast generation model
   "hailuo-2.3": { 
     endpoint: "/jobs/createTask", 
     detailEndpoint: "/jobs/recordInfo", 
-    model: "minimax-video-01-director", 
+    model: "MiniMax-Hailuo-2.3", 
     duration: 5, 
     maxPollingTime: 420, 
     useJobsCreateTask: true 
