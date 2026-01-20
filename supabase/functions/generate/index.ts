@@ -66,17 +66,17 @@ const KIE_IMAGE_MODELS: Record<string, { endpoint: string; model: string }> = {
 };
 
 const KIE_VIDEO_MODELS: Record<string, { endpoint: string; detailEndpoint: string; model: string; duration?: number; useAspectUnderscore?: boolean }> = {
-  "runway-gen3-5s": { endpoint: "/runway/generate", detailEndpoint: "/runway/record-detail", model: "gen3a_turbo", duration: 5 },
-  "runway-gen3-10s": { endpoint: "/runway/generate", detailEndpoint: "/runway/record-detail", model: "gen3a_turbo", duration: 10 },
-  "veo-3": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-detail", model: "veo3", useAspectUnderscore: true },
-  "veo-3-fast": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-detail", model: "veo3_fast", useAspectUnderscore: true },
-  "wan-2.1": { endpoint: "/kling/generate", detailEndpoint: "/kling/record-detail", model: "kling-v1", duration: 5 },
-  "wan-2.1-pro": { endpoint: "/kling/generate", detailEndpoint: "/kling/record-detail", model: "kling-v1-5", duration: 5 },
-  "kling-1.6-pro": { endpoint: "/kling/generate", detailEndpoint: "/kling/record-detail", model: "kling-v1-6-pro", duration: 5 },
-  "kling-1.6-pro-10s": { endpoint: "/kling/generate", detailEndpoint: "/kling/record-detail", model: "kling-v1-6-pro", duration: 10 },
-  "minimax-video": { endpoint: "/minimax/generate", detailEndpoint: "/minimax/record-detail", model: "video-01" },
-  "luma-ray2": { endpoint: "/luma/generate", detailEndpoint: "/luma/record-detail", model: "ray2" },
-  "pika-2.0": { endpoint: "/pika/generate", detailEndpoint: "/pika/record-detail", model: "pika-2.0" },
+  "runway-gen3-5s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 5 },
+  "runway-gen3-10s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 10 },
+  "veo-3": { endpoint: "/veo/generate", detailEndpoint: "/veo/task-detail", model: "veo3", useAspectUnderscore: true },
+  "veo-3-fast": { endpoint: "/veo/generate", detailEndpoint: "/veo/task-detail", model: "veo3_fast", useAspectUnderscore: true },
+  "wan-2.1": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1", duration: 5 },
+  "wan-2.1-pro": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1-pro", duration: 5 },
+  "kling-1.6-pro": { endpoint: "/kling/generate", detailEndpoint: "/kling/task-detail", model: "kling-v1-6-pro", duration: 5 },
+  "kling-1.6-pro-10s": { endpoint: "/kling/generate", detailEndpoint: "/kling/task-detail", model: "kling-v1-6-pro", duration: 10 },
+  "minimax-video": { endpoint: "/minimax/generate", detailEndpoint: "/minimax/task-detail", model: "video-01" },
+  "luma-ray2": { endpoint: "/luma/generate", detailEndpoint: "/luma/task-detail", model: "ray2" },
+  "pika-2.0": { endpoint: "/pika/generate", detailEndpoint: "/pika/task-detail", model: "pika-2.0" },
 };
 
 const KIE_BASE_URL = "https://api.kie.ai/api/v1";
