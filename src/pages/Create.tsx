@@ -28,7 +28,8 @@ import {
   Coins,
   Infinity,
   Upload,
-  X
+  X,
+  Lightbulb
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -58,6 +59,24 @@ const videoModels = [
   { id: "veo-3", name: "Google Veo 3", description: "Audio sync, lip-sync", badge: "PRO", credits: 20 },
   { id: "runway-gen3-10s", name: "Runway Gen-3 (10s)", description: "10s cinematic", badge: "TOP", credits: 25 },
   { id: "kling-1.6-pro-10s", name: "Kling 1.6 Pro (10s)", description: "10s extended", badge: "PRO", credits: 30 },
+];
+
+const imageTemplates = [
+  { label: "Cyberpunk City", prompt: "A futuristic cyberpunk cityscape at night, neon lights reflecting on wet streets, flying cars, holographic advertisements, ultra detailed, 8K" },
+  { label: "Fantasy Portrait", prompt: "An elegant fantasy portrait of a mystical elf warrior, intricate golden armor, ethereal lighting, magical forest background, highly detailed" },
+  { label: "Product Shot", prompt: "Professional product photography, minimalist white background, soft studio lighting, high-end commercial style, sharp focus" },
+  { label: "Abstract Art", prompt: "Abstract digital art with flowing organic shapes, vibrant gradient colors, dynamic composition, modern contemporary style" },
+  { label: "Anime Style", prompt: "Beautiful anime illustration, Studio Ghibli inspired, soft pastel colors, detailed background, cinematic lighting" },
+  { label: "Photorealistic", prompt: "Photorealistic image, ultra high resolution, natural lighting, professional DSLR quality, sharp details" },
+];
+
+const videoTemplates = [
+  { label: "Cinematic Landscape", prompt: "Cinematic drone shot flying over majestic mountains at golden hour, smooth camera movement, epic scale, film grain" },
+  { label: "Product Showcase", prompt: "Elegant product reveal with smooth 360 rotation, studio lighting, professional commercial style, premium feel" },
+  { label: "Nature Scene", prompt: "Peaceful nature scene with gentle breeze moving through grass, soft sunlight, serene atmosphere, slow motion" },
+  { label: "Urban Life", prompt: "Dynamic urban street scene, people walking, city lights, evening atmosphere, cinematic color grading" },
+  { label: "Abstract Motion", prompt: "Abstract fluid motion graphics, morphing geometric shapes, vibrant colors, smooth transitions, mesmerizing loop" },
+  { label: "Talking Portrait", prompt: "Professional talking head video, person speaking directly to camera, clean background, natural expressions" },
 ];
 
 const Create = () => {
@@ -287,6 +306,28 @@ const Create = () => {
             {/* Input Panel */}
             <Card className="border-border/50 bg-card">
               <CardContent className="p-6 space-y-6">
+                {/* Prompt Templates */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Lightbulb className="h-4 w-4 text-accent" />
+                    Quick templates
+                  </Label>
+                  <div className="flex flex-wrap gap-2">
+                    {(type === "image" ? imageTemplates : videoTemplates).map((template) => (
+                      <Button
+                        key={template.label}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPrompt(template.prompt)}
+                        className="text-xs border-border/50 hover:bg-primary/10 hover:border-primary/50"
+                      >
+                        {template.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Prompt Input */}
                 <div className="space-y-2">
                   <Label htmlFor="prompt">Describe your {type}</Label>
