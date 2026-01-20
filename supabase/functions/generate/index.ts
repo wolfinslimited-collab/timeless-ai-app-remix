@@ -65,18 +65,18 @@ const KIE_IMAGE_MODELS: Record<string, { endpoint: string; model: string }> = {
   "midjourney": { endpoint: "/midjourney/generate", model: "midjourney" },
 };
 
-const KIE_VIDEO_MODELS: Record<string, { endpoint: string; detailEndpoint: string; model: string; duration?: number; useAspectUnderscore?: boolean }> = {
-  "runway-gen3-5s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 5 },
-  "runway-gen3-10s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 10 },
-  "veo-3": { endpoint: "/veo/generate", detailEndpoint: "/veo/task-detail", model: "veo3", useAspectUnderscore: true },
-  "veo-3-fast": { endpoint: "/veo/generate", detailEndpoint: "/veo/task-detail", model: "veo3_fast", useAspectUnderscore: true },
-  "wan-2.1": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1", duration: 5 },
-  "wan-2.1-pro": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1-pro", duration: 5 },
-  "kling-1.6-pro": { endpoint: "/kling/generate", detailEndpoint: "/kling/task-detail", model: "kling-v1-6-pro", duration: 5 },
-  "kling-1.6-pro-10s": { endpoint: "/kling/generate", detailEndpoint: "/kling/task-detail", model: "kling-v1-6-pro", duration: 10 },
-  "minimax-video": { endpoint: "/minimax/generate", detailEndpoint: "/minimax/task-detail", model: "video-01" },
-  "luma-ray2": { endpoint: "/luma/generate", detailEndpoint: "/luma/task-detail", model: "ray2" },
-  "pika-2.0": { endpoint: "/pika/generate", detailEndpoint: "/pika/task-detail", model: "pika-2.0" },
+const KIE_VIDEO_MODELS: Record<string, { endpoint: string; detailEndpoint: string; model: string; duration?: number; useAspectUnderscore?: boolean; maxPollingTime?: number }> = {
+  "runway-gen3-5s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 5, maxPollingTime: 180 },
+  "runway-gen3-10s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 10, maxPollingTime: 240 },
+  "veo-3": { endpoint: "/veo/generate", detailEndpoint: "/veo/task-detail", model: "veo3", useAspectUnderscore: true, maxPollingTime: 420 },
+  "veo-3-fast": { endpoint: "/veo/generate", detailEndpoint: "/veo/task-detail", model: "veo3_fast", useAspectUnderscore: true, maxPollingTime: 300 },
+  "wan-2.1": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1", duration: 5, maxPollingTime: 180 },
+  "wan-2.1-pro": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1-pro", duration: 5, maxPollingTime: 240 },
+  "kling-1.6-pro": { endpoint: "/kling/generate", detailEndpoint: "/kling/task-detail", model: "kling-v1-6-pro", duration: 5, maxPollingTime: 300 },
+  "kling-1.6-pro-10s": { endpoint: "/kling/generate", detailEndpoint: "/kling/task-detail", model: "kling-v1-6-pro", duration: 10, maxPollingTime: 420 },
+  "minimax-video": { endpoint: "/minimax/generate", detailEndpoint: "/minimax/task-detail", model: "video-01", maxPollingTime: 240 },
+  "luma-ray2": { endpoint: "/luma/generate", detailEndpoint: "/luma/task-detail", model: "ray2", maxPollingTime: 300 },
+  "pika-2.0": { endpoint: "/pika/generate", detailEndpoint: "/pika/task-detail", model: "pika-2.0", maxPollingTime: 240 },
 };
 
 const KIE_BASE_URL = "https://api.kie.ai/api/v1";
@@ -214,17 +214,19 @@ serve(async (req) => {
 
             sendEvent('status', { stage: 'queued', message: 'Video queued for processing...', progress: 10, taskId });
 
-            // Poll for result
-            const maxAttempts = 36;
+            // Poll for result with model-specific timeout
             const pollInterval = 5000;
+            const maxPollingTime = modelConfig.maxPollingTime || 300; // Default 5 minutes
+            const maxAttempts = Math.ceil(maxPollingTime / (pollInterval / 1000));
 
             for (let attempt = 0; attempt < maxAttempts; attempt++) {
               await new Promise(resolve => setTimeout(resolve, pollInterval));
               
+              const elapsedSeconds = (attempt + 1) * 5;
               const progress = Math.min(10 + Math.round((attempt / maxAttempts) * 85), 95);
               sendEvent('status', { 
                 stage: 'processing', 
-                message: `Generating video... (${attempt * 5}s)`, 
+                message: `Generating video... (${elapsedSeconds}s / ~${maxPollingTime}s)`, 
                 progress,
                 attempt: attempt + 1,
                 maxAttempts
