@@ -71,7 +71,28 @@ const KIE_IMAGE_MODELS: Record<string, { endpoint: string; model: string }> = {
   "midjourney": { endpoint: "/midjourney/generate", model: "midjourney" },
 };
 
-const KIE_VIDEO_MODELS: Record<string, { endpoint: string; detailEndpoint: string; model: string; duration?: number; useAspectUnderscore?: boolean; maxPollingTime?: number; useJobsCreateTask?: boolean }> = {
+type JobsImageField = "image_url" | "image_urls";
+
+type KieVideoModelConfig = {
+  endpoint: string;
+  detailEndpoint: string;
+  model: string;
+  duration?: number;
+  useAspectUnderscore?: boolean;
+  maxPollingTime?: number;
+  useJobsCreateTask?: boolean;
+  /**
+   * Some /jobs/createTask models validate this flag as required (e.g. Kling 2.6).
+   * We default to false unless UI later adds a toggle.
+   */
+  jobsRequiresSoundFlag?: boolean;
+  /**
+   * Some /jobs/createTask I2V models expect image_urls: string[] (e.g. Kling 2.6 I2V).
+   */
+  jobsImageField?: JobsImageField;
+};
+
+const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
   // MiniMax/Hailuo models
   "minimax-video": { endpoint: "/minimax/generate", detailEndpoint: "/minimax/task-detail", model: "video-01", maxPollingTime: 360 },
   "hailuo-2.3": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "minimax/hailuo-2.3", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
@@ -94,8 +115,74 @@ const KIE_VIDEO_MODELS: Record<string, { endpoint: string; detailEndpoint: strin
   "kling-2.1-standard": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-standard", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
   "kling-2.1-pro": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-pro", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
   "kling-2.1-master": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling/v2-1-master-text-to-video", duration: 5, maxPollingTime: 600, useJobsCreateTask: true },
-  "kling-2.6-t2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling-2.6/text-to-video", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
-  "kling-2.6-i2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling-2.6/image-to-video", duration: 5, maxPollingTime: 420, useJobsCreateTask: true },
+  // Kling 2.6 requires an explicit `sound` flag (docs) and I2V expects `image_urls` (array)
+  "kling-2.6-t2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling-2.6/text-to-video", duration: 5, maxPollingTime: 420, useJobsCreateTask: true, jobsRequiresSoundFlag: true },
+  "kling-2.6-i2v": { endpoint: "/jobs/createTask", detailEndpoint: "/jobs/recordInfo", model: "kling-2.6/image-to-video", duration: 5, maxPollingTime: 420, useJobsCreateTask: true, jobsRequiresSoundFlag: true, jobsImageField: "image_urls" },
+};
+
+const getTaskIdFromKieResponse = (payload: any): string | null => {
+  return (
+    payload?.data?.taskId ??
+    payload?.data?.task_id ??
+    payload?.taskId ??
+    payload?.task_id ??
+    null
+  );
+};
+
+const buildKieVideoRequestBody = (args: {
+  model: string;
+  modelConfig: KieVideoModelConfig;
+  prompt: string;
+  negativePrompt?: string;
+  aspectRatio: string;
+  quality: string;
+  imageUrl?: string | null;
+}) => {
+  const { model, modelConfig, prompt, negativePrompt, aspectRatio, quality, imageUrl } = args;
+
+  if (modelConfig.useJobsCreateTask) {
+    const imageField: JobsImageField = modelConfig.jobsImageField ?? "image_url";
+    const input: Record<string, unknown> = {
+      prompt,
+      duration: String(modelConfig.duration || 5),
+      aspect_ratio: aspectRatio,
+      ...(negativePrompt ? { negative_prompt: negativePrompt } : {}),
+    };
+
+    // Kling 2.6 docs require an explicit sound flag.
+    if (modelConfig.jobsRequiresSoundFlag) {
+      input.sound = false;
+    }
+
+    // Some providers expect resolution/quality on jobs endpoint; safe for Kling 2.6
+    if (quality) {
+      input.resolution = quality;
+    }
+
+    if (imageUrl) {
+      if (imageField === "image_urls") {
+        input.image_urls = [imageUrl];
+      } else {
+        input.image_url = imageUrl;
+      }
+    }
+
+    return {
+      model: modelConfig.model,
+      input,
+    };
+  }
+
+  return {
+    prompt,
+    model: modelConfig.model,
+    ...(modelConfig.useAspectUnderscore ? { aspect_ratio: aspectRatio } : { aspectRatio }),
+    quality,
+    duration: modelConfig.duration || 5,
+    ...(negativePrompt ? { negative_prompt: negativePrompt } : {}),
+    ...(imageUrl ? { image_url: imageUrl } : {}),
+  };
 };
 
 const KIE_BASE_URL = "https://api.kie.ai/api/v1";
@@ -193,26 +280,15 @@ serve(async (req) => {
             }
 
             // Build request body - Kling uses /jobs/createTask with nested input object
-            const requestBody = modelConfig.useJobsCreateTask
-              ? {
-                  model: modelConfig.model,
-                  input: {
-                    prompt: prompt,
-                    duration: String(modelConfig.duration || 5),
-                    aspect_ratio: aspectRatio,
-                    ...(negativePrompt && { negative_prompt: negativePrompt }),
-                    ...(imageUrl && { image_url: imageUrl }),
-                  }
-                }
-              : {
-                  prompt: prompt,
-                  model: modelConfig.model,
-                  ...(modelConfig.useAspectUnderscore ? { aspect_ratio: aspectRatio } : { aspectRatio: aspectRatio }),
-                  quality: quality,
-                  duration: modelConfig.duration || 5,
-                  ...(negativePrompt && { negative_prompt: negativePrompt }),
-                  ...(imageUrl && { image_url: imageUrl }),
-                };
+            const requestBody = buildKieVideoRequestBody({
+              model,
+              modelConfig,
+              prompt,
+              negativePrompt,
+              aspectRatio,
+              quality,
+              imageUrl,
+            });
 
             console.log(`Kling/Video request to ${modelConfig.endpoint}:`, JSON.stringify(requestBody));
 
@@ -235,10 +311,11 @@ serve(async (req) => {
             }
 
             const generateData = await generateResponse.json();
-            const taskId = generateData.data?.taskId;
+            const taskId = getTaskIdFromKieResponse(generateData);
 
             if (!taskId) {
-              const errorMsg = generateData.msg || generateData.message || "Unknown error";
+              const errorMsg = generateData?.msg || generateData?.message || generateData?.data?.msg || generateData?.data?.message || "Unknown error";
+              console.error("Kie.ai createTask did not return taskId:", JSON.stringify(generateData));
               if (!hasActiveSubscription) {
                 await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
               }
@@ -649,26 +726,15 @@ serve(async (req) => {
       console.log(`Using Kie.ai video endpoint: ${modelConfig.endpoint}, model: ${modelConfig.model}`);
 
       // Build request body - Kling uses /jobs/createTask with nested input object
-      const requestBody = modelConfig.useJobsCreateTask
-        ? {
-            model: modelConfig.model,
-            input: {
-              prompt: prompt,
-              duration: String(modelConfig.duration || 5),
-              aspect_ratio: aspectRatio,
-              ...(negativePrompt && { negative_prompt: negativePrompt }),
-              ...(imageUrl && { image_url: imageUrl }),
-            }
-          }
-        : {
-            prompt: prompt,
-            model: modelConfig.model,
-            ...(modelConfig.useAspectUnderscore ? { aspect_ratio: aspectRatio } : { aspectRatio: aspectRatio }),
-            quality: quality,
-            duration: modelConfig.duration || 5,
-            ...(negativePrompt && { negative_prompt: negativePrompt }),
-            ...(imageUrl && { image_url: imageUrl }),
-          };
+      const requestBody = buildKieVideoRequestBody({
+        model,
+        modelConfig,
+        prompt,
+        negativePrompt,
+        aspectRatio,
+        quality,
+        imageUrl,
+      });
 
       console.log(`Video request body:`, JSON.stringify(requestBody));
 
@@ -694,10 +760,10 @@ serve(async (req) => {
       const generateData = await generateResponse.json();
       console.log("Kie.ai video response:", JSON.stringify(generateData));
       
-      const taskId = generateData.data?.taskId;
+      const taskId = getTaskIdFromKieResponse(generateData);
       
       if (!taskId) {
-        const errorMsg = generateData.msg || generateData.message || "Unknown error";
+        const errorMsg = generateData?.msg || generateData?.message || generateData?.data?.msg || generateData?.data?.message || "Unknown error";
         console.error("No taskId returned:", generateData);
         if (!hasActiveSubscription) {
           await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
