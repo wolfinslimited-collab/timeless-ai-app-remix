@@ -71,6 +71,7 @@ type KieVideoModelConfig = {
   duration?: number;
   useAspectUnderscore?: boolean;
   useAspectLandscapePortrait?: boolean;
+  useNFrames?: boolean; // Sora models use n_frames instead of duration
   maxPollingTime?: number;
   useJobsCreateTask?: boolean;
   jobsRequiresSoundFlag?: boolean;
@@ -111,15 +112,16 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
     useJobsCreateTask: true 
   },
   
-  // Sora 2 Pro - OpenAI premium video
+  // Sora 2 Pro - OpenAI premium video (uses n_frames: "10" or "15")
   "sora-2-pro": { 
     endpoint: "/jobs/createTask", 
     detailEndpoint: "/jobs/recordInfo", 
     model: "sora-2-pro-text-to-video", 
-    duration: 5, 
+    duration: 10, 
     maxPollingTime: 900, 
     useJobsCreateTask: true,
-    useAspectLandscapePortrait: true
+    useAspectLandscapePortrait: true,
+    useNFrames: true
   },
   
   // Hailuo 2.3 - Fast generation model
@@ -142,15 +144,16 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
     useJobsCreateTask: true 
   },
   
-  // Sora 2 - OpenAI video model
+  // Sora 2 - OpenAI video model (uses n_frames: "10" or "15")
   "sora-2": { 
     endpoint: "/jobs/createTask", 
     detailEndpoint: "/jobs/recordInfo", 
     model: "sora-2-text-to-video", 
-    duration: 5, 
+    duration: 10, 
     maxPollingTime: 900, 
     useJobsCreateTask: true,
-    useAspectLandscapePortrait: true
+    useAspectLandscapePortrait: true,
+    useNFrames: true
   },
   
   // Seedance 1.5 - Creative motion model
@@ -209,18 +212,27 @@ const buildKieVideoRequestBody = (args: {
     
     const input: Record<string, unknown> = {
       prompt,
-      duration: String(modelConfig.duration || 5),
       aspect_ratio: formattedAspectRatio,
       ...(negativePrompt ? { negative_prompt: negativePrompt } : {}),
     };
+    
+    // Sora models use n_frames instead of duration
+    if (modelConfig.useNFrames) {
+      input.n_frames = String(modelConfig.duration || 10);
+    } else {
+      input.duration = String(modelConfig.duration || 5);
+    }
 
     // Kling 2.6 docs require an explicit sound flag.
     if (modelConfig.jobsRequiresSoundFlag) {
       input.sound = false;
     }
 
-    // Some providers expect resolution/quality on jobs endpoint; safe for Kling 2.6
-    if (quality) {
+    // Quality mapping: Sora uses "size" (standard/high), others use "resolution"
+    if (modelConfig.useNFrames) {
+      // Sora models use size: "standard" (720p) or "high" (1080p)
+      input.size = quality === "1080p" ? "high" : "standard";
+    } else if (quality) {
       input.resolution = quality;
     }
 
