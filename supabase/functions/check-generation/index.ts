@@ -16,18 +16,16 @@ const KIE_VEO_DETAIL_ENDPOINT = "/veo/record-info";
 
 // Map model names to their detail endpoints
 const MODEL_DETAIL_ENDPOINTS: Record<string, string> = {
-  "runway-gen3-5s": "/runway/task-detail",
-  "runway-gen3-10s": "/runway/task-detail",
   // Veo uses a dedicated status endpoint
   "veo-3": KIE_VEO_DETAIL_ENDPOINT,
-  "veo-3-fast": KIE_VEO_DETAIL_ENDPOINT,
-  "wan-2.1": "/wan/task-detail",
-  "wan-2.1-pro": "/wan/task-detail",
-  "kling-1.6-pro": "/kling/task-detail",
-  "kling-1.6-pro-10s": "/kling/task-detail",
+  // MiniMax and Luma use model-specific endpoints  
   "minimax-video": "/minimax/task-detail",
   "luma-ray2": "/luma/task-detail",
-  "pika-2.0": "/pika/task-detail",
+  // Kling 2.x uses unified jobs endpoint
+  "kling-2.1-standard": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "kling-2.1-pro": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "kling-2.1-master": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "kling-2.6": KIE_UNIFIED_DETAIL_ENDPOINT,
 };
 
 serve(async (req) => {

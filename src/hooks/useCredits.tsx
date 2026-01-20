@@ -15,17 +15,13 @@ export const MODEL_CREDITS: Record<string, number> = {
   "midjourney": 10,
   
   // Video models
-  "runway-gen3-5s": 15,
-  "runway-gen3-10s": 25,
-  "veo-3": 20,
-  "veo-3-fast": 12,
-  "wan-2.1": 8,
-  "wan-2.1-pro": 12,
-  "kling-1.6-pro": 18,
-  "kling-1.6-pro-10s": 30,
   "minimax-video": 10,
+  "kling-2.1-standard": 12,
   "luma-ray2": 15,
-  "pika-2.0": 12,
+  "kling-2.1-pro": 18,
+  "veo-3": 20,
+  "kling-2.6": 22,
+  "kling-2.1-master": 25,
 };
 
 // Legacy type-based costs (fallback)
