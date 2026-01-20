@@ -195,8 +195,9 @@ serve(async (req) => {
 
         // Determine success/failure
         const isSuccessStatus = ["SUCCESS", "SUCCEEDED", "COMPLETED", "DONE", "FINISHED"].includes(status);
-        const isFailedStatus = ["FAILED", "FAILURE"].includes(status);
-        const isSuccess = !!videoUrl || successFlag === 1 || isSuccessStatus;
+        const isFailedStatus = ["FAILED", "FAILURE", "ERROR", "CANCELLED", "CANCELED"].includes(status);
+        // Only mark as success if we have a video URL or explicit success flags
+        const isSuccess = (!!videoUrl && (successFlag === 1 || isSuccessStatus)) || (successFlag === 1 && !!videoUrl);
         const isFailed = successFlag === 2 || successFlag === 3 || isFailedStatus;
 
         console.log(
