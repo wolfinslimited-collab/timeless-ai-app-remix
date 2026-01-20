@@ -6,9 +6,40 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const CREDIT_COSTS = {
+// Model-specific credit costs
+const MODEL_CREDITS: Record<string, number> = {
+  // Image models
+  "flux-1.1-pro": 5,
+  "flux-1.1-pro-ultra": 10,
+  "ideogram-v2": 5,
+  "ideogram-v2-turbo": 3,
+  "recraft-v3": 5,
+  "stable-diffusion-3.5": 4,
+  "dall-e-3": 8,
+  "midjourney": 10,
+  
+  // Video models
+  "runway-gen3-5s": 15,
+  "runway-gen3-10s": 25,
+  "veo-3": 20,
+  "veo-3-fast": 12,
+  "wan-2.1": 8,
+  "wan-2.1-pro": 12,
+  "kling-1.6-pro": 18,
+  "kling-1.6-pro-10s": 30,
+  "minimax-video": 10,
+  "luma-ray2": 15,
+  "pika-2.0": 12,
+};
+
+// Fallback costs
+const DEFAULT_CREDITS = {
   image: 5,
-  video: 10,
+  video: 15,
+};
+
+const getModelCost = (model: string, type: string): number => {
+  return MODEL_CREDITS[model] ?? DEFAULT_CREDITS[type as keyof typeof DEFAULT_CREDITS] ?? 5;
 };
 
 // Kie.ai API endpoints and model mappings
@@ -76,7 +107,7 @@ serve(async (req) => {
     console.log(`User authenticated: ${user.id}`);
 
     // Check user profile for credits and subscription
-    const creditCost = CREDIT_COSTS[type as keyof typeof CREDIT_COSTS] || 5;
+    const creditCost = getModelCost(model, type);
     
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
