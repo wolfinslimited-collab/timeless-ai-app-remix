@@ -6,26 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const KIE_BASE_URL = "https://api.kie.ai/api/v1";
-const FAL_RESULT_URL = "https://queue.fal.run";
+const FAL_BASE_URL = "https://queue.fal.run";
 
-// Unified task status endpoint
-const KIE_UNIFIED_DETAIL_ENDPOINT = "/jobs/recordInfo";
-
-// Map model names to their detail endpoints - all 8 video models
-const MODEL_DETAIL_ENDPOINTS: Record<string, string> = {
-  "wan-2.6": KIE_UNIFIED_DETAIL_ENDPOINT,
-  "kling-2.6": KIE_UNIFIED_DETAIL_ENDPOINT,
-  "veo-3.1": KIE_UNIFIED_DETAIL_ENDPOINT,
-  "sora-2-pro": KIE_UNIFIED_DETAIL_ENDPOINT,
-  "hailuo-2.3": KIE_UNIFIED_DETAIL_ENDPOINT,
-  "veo-3": KIE_UNIFIED_DETAIL_ENDPOINT,
-  "sora-2": KIE_UNIFIED_DETAIL_ENDPOINT,
-  "seedance-1.5": KIE_UNIFIED_DETAIL_ENDPOINT,
-};
-
-// Check if provider_endpoint indicates Fal.ai
-const isFalProvider = (endpoint: string | null) => endpoint?.startsWith("fal:");
+// Extract Fal.ai endpoint from provider_endpoint (format: "fal:fal-ai/model/...")
 const getFalEndpoint = (endpoint: string) => endpoint.replace("fal:", "");
 
 serve(async (req) => {
@@ -88,12 +71,11 @@ serve(async (req) => {
       pendingGenerations = data || [];
     }
 
-    const KIE_API_KEY = Deno.env.get("KIE_API_KEY");
     const FAL_API_KEY = Deno.env.get("FAL_API_KEY");
     
-    if (!KIE_API_KEY && !FAL_API_KEY) {
+    if (!FAL_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "API keys not configured" }),
+        JSON.stringify({ error: "FAL_API_KEY not configured" }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -107,163 +89,76 @@ serve(async (req) => {
       }
 
       const providerEndpoint = gen.provider_endpoint;
-      const useFal = isFalProvider(providerEndpoint);
+      
+      // Only Fal.ai is supported now
+      if (!providerEndpoint?.startsWith("fal:")) {
+        results.push({ id: gen.id, status: "unsupported_provider", changed: false });
+        continue;
+      }
 
       try {
-        let videoUrl: string | undefined;
-        let thumbnailUrl: string | undefined;
-        let isSuccess = false;
-        let isFailed = false;
-        let providerCode: number | undefined;
-        let providerMsg: string | undefined;
-        let status = "";
-        let successFlag: number | undefined;
+        const falEndpoint = getFalEndpoint(providerEndpoint);
+        const basePath = falEndpoint.split('/').slice(0, 2).join('/');
+        
+        console.log(`Checking Fal.ai status for ${gen.id}: ${basePath}, task: ${gen.task_id}`);
+        
+        // Check status
+        const statusResp = await fetch(`${FAL_BASE_URL}/${basePath}/requests/${gen.task_id}/status`, {
+          headers: { "Authorization": `Key ${FAL_API_KEY}` }
+        });
+        
+        if (!statusResp.ok) {
+          const errorText = await statusResp.text();
+          console.error(`Fal.ai status error for ${gen.id}:`, errorText);
+          results.push({ id: gen.id, status: "check_failed", changed: false, error: errorText });
+          continue;
+        }
 
-        if (useFal && FAL_API_KEY) {
-          // Check Fal.ai status
-          const falEndpoint = getFalEndpoint(providerEndpoint!);
-          console.log(`Checking Fal.ai status for ${gen.id}: ${falEndpoint}`);
-          
-          const statusResp = await fetch(`${FAL_RESULT_URL}/${falEndpoint}/requests/${gen.task_id}/status`, {
+        const statusData = await statusResp.json();
+        console.log(`Fal.ai status for ${gen.id}:`, JSON.stringify(statusData));
+
+        if (statusData.status === "COMPLETED") {
+          // Get result
+          const resultResp = await fetch(`${FAL_BASE_URL}/${basePath}/requests/${gen.task_id}`, {
             headers: { "Authorization": `Key ${FAL_API_KEY}` }
           });
           
-          if (statusResp.ok) {
-            const statusData = await statusResp.json();
-            console.log(`Fal.ai status for ${gen.id}:`, JSON.stringify(statusData));
+          if (resultResp.ok) {
+            const result = await resultResp.json();
+            console.log(`Fal.ai result for ${gen.id}:`, JSON.stringify(result));
             
-            if (statusData.status === "COMPLETED") {
-              const resultResp = await fetch(`${FAL_RESULT_URL}/${falEndpoint}/requests/${gen.task_id}`, {
-                headers: { "Authorization": `Key ${FAL_API_KEY}` }
+            const videoUrl = result.video?.url;
+            const imageUrl = result.images?.[0]?.url;
+            const outputUrl = videoUrl || imageUrl;
+            const thumbnailUrl = result.thumbnail?.url || outputUrl;
+
+            if (outputUrl) {
+              await supabase
+                .from("generations")
+                .update({
+                  status: "completed",
+                  output_url: outputUrl,
+                  thumbnail_url: thumbnailUrl || null,
+                })
+                .eq("id", gen.id);
+
+              results.push({
+                id: gen.id,
+                status: "completed",
+                changed: true,
+                output_url: outputUrl,
+                thumbnail_url: thumbnailUrl,
+                prompt: gen.prompt,
+                model: gen.model,
               });
-              if (resultResp.ok) {
-                const result = await resultResp.json();
-                console.log(`Fal.ai result for ${gen.id}:`, JSON.stringify(result));
-                videoUrl = result.video?.url;
-                thumbnailUrl = result.thumbnail?.url || videoUrl;
-                isSuccess = !!videoUrl;
-              }
-            } else if (statusData.status === "FAILED") {
-              isFailed = true;
-              providerMsg = statusData.error || "Fal.ai generation failed";
+            } else {
+              results.push({ id: gen.id, status: "pending", changed: false, provider_status: "COMPLETED_NO_OUTPUT" });
             }
-            status = statusData.status || "";
+          } else {
+            results.push({ id: gen.id, status: "pending", changed: false, provider_status: "RESULT_FETCH_FAILED" });
           }
-        } else if (KIE_API_KEY) {
-          // Check Kie.ai status
-          const mappedEndpoint = MODEL_DETAIL_ENDPOINTS[gen.model];
-          const primaryEndpoint = providerEndpoint || mappedEndpoint || KIE_UNIFIED_DETAIL_ENDPOINT;
-          
-          const tryFetch = async (endpoint: string) => {
-            const url = `${KIE_BASE_URL}${endpoint}?taskId=${encodeURIComponent(gen.task_id)}`;
-            return await fetch(url, { method: "GET", headers: { "Authorization": `Bearer ${KIE_API_KEY}` } });
-          };
-
-          const endpointsToTry = primaryEndpoint === KIE_UNIFIED_DETAIL_ENDPOINT 
-            ? [KIE_UNIFIED_DETAIL_ENDPOINT] 
-            : [primaryEndpoint, KIE_UNIFIED_DETAIL_ENDPOINT];
-
-          let statusResponse: Response | null = null;
-          let usedEndpoint = "";
-          for (const ep of endpointsToTry) {
-            const resp = await tryFetch(ep);
-            if (resp.ok) { 
-              statusResponse = resp; 
-              usedEndpoint = ep;
-              break; 
-            }
-          }
-
-          if (!statusResponse || !statusResponse.ok) {
-            results.push({ id: gen.id, status: "check_failed", changed: false });
-            continue;
-          }
-
-          const statusData = await statusResponse.json();
-
-          providerCode = statusData?.code;
-          providerMsg = statusData?.msg ?? statusData?.message;
-          
-          // Normalize status across providers (handle both string and numeric statuses)
-          const rawStatus =
-            statusData?.data?.response?.status ??
-            statusData?.data?.status ??
-            statusData?.data?.state ??
-            statusData?.status ??
-            statusData?.state;
-
-          // Veo uses numeric: 0=pending, 1=success, 2/3=failed
-          successFlag =
-            statusData?.data?.response?.successFlag ??
-            statusData?.data?.successFlag ??
-            statusData?.successFlag;
-
-          status = typeof rawStatus === "string" ? rawStatus.toUpperCase() : String(rawStatus || "").toUpperCase();
-
-          // Unified endpoint returns a stringified JSON result in data.resultJson
-          let unifiedResult: any = null;
-          const resultJson = statusData?.data?.resultJson;
-          if (typeof resultJson === "string") {
-            try {
-              unifiedResult = JSON.parse(resultJson);
-            } catch {
-              unifiedResult = null;
-            }
-          } else if (resultJson && typeof resultJson === "object") {
-            unifiedResult = resultJson;
-          }
-
-          // Extract video URL from various response formats
-          videoUrl =
-            (Array.isArray(unifiedResult?.resultUrls) ? unifiedResult.resultUrls[0] : undefined) ||
-            (Array.isArray(statusData?.data?.response?.resultUrls) ? statusData.data.response.resultUrls[0] : undefined) ||
-            (Array.isArray(statusData?.data?.output) ? statusData.data.output[0] : undefined) ||
-            statusData?.data?.video?.url ||
-            statusData?.data?.video_url ||
-            statusData?.data?.result?.video?.url ||
-            statusData?.data?.result?.url ||
-            statusData?.data?.url;
-
-          thumbnailUrl =
-            statusData?.data?.thumbnail ||
-            statusData?.data?.thumbnail_url ||
-            statusData?.data?.cover ||
-            videoUrl;
-
-          // Determine success/failure
-          const isSuccessStatus = ["SUCCESS", "SUCCEEDED", "COMPLETED", "DONE", "FINISHED"].includes(status);
-          const isFailedStatus = ["FAILED", "FAILURE", "ERROR", "CANCELLED", "CANCELED"].includes(status);
-          // Only mark as success if we have a video URL or explicit success flags
-          isSuccess = (!!videoUrl && (successFlag === 1 || isSuccessStatus)) || (successFlag === 1 && !!videoUrl);
-          isFailed = successFlag === 2 || successFlag === 3 || isFailedStatus;
-
-          console.log(
-            `Generation ${gen.id} check: endpoint=${usedEndpoint}, code=${providerCode}, msg=${providerMsg}, status=${status}, successFlag=${successFlag}, videoUrl=${!!videoUrl}`,
-          );
-        }
-
-        if (isSuccess && videoUrl) {
-          // Update generation as completed
-          await supabase
-            .from("generations")
-            .update({
-              status: "completed",
-              output_url: videoUrl,
-              thumbnail_url: thumbnailUrl || null,
-            })
-            .eq("id", gen.id);
-
-          results.push({
-            id: gen.id,
-            status: "completed",
-            changed: true,
-            output_url: videoUrl,
-            thumbnail_url: thumbnailUrl,
-            prompt: gen.prompt,
-            model: gen.model,
-          });
-        } else if (isFailed) {
-          // Refund credits if needed
+        } else if (statusData.status === "FAILED") {
+          // Refund credits
           const { data: profile } = await supabase
             .from("profiles")
             .select("credits, subscription_status")
@@ -287,24 +182,22 @@ serve(async (req) => {
             status: "failed",
             changed: true,
             credits_refunded: gen.credits_used,
+            error: statusData.error || "Generation failed",
             prompt: gen.prompt,
             model: gen.model,
           });
         } else {
-          // Still processing
+          // Still processing (IN_QUEUE or IN_PROGRESS)
           results.push({
             id: gen.id,
             status: "pending",
             changed: false,
-            provider_status: status,
-            provider_code: providerCode,
-            provider_msg: providerMsg,
-            provider_success_flag: successFlag,
+            provider_status: statusData.status,
           });
         }
       } catch (err) {
         console.error(`Error checking generation ${gen.id}:`, err);
-        results.push({ id: gen.id, status: "error", changed: false });
+        results.push({ id: gen.id, status: "error", changed: false, error: String(err) });
       }
     }
 

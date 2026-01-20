@@ -41,35 +41,31 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+// Fal.ai Image Models
 const imageModels = [
-  // Kie.ai Image Models - with credit costs
-  { id: "ideogram-v2-turbo", name: "Ideogram V2 Turbo", description: "Fast text generation", badge: "FAST", credits: 3 },
-  { id: "stable-diffusion-3.5", name: "SD 3.5 Large", description: "Stable Diffusion latest", badge: "NEW", credits: 4 },
   { id: "flux-1.1-pro", name: "Flux 1.1 Pro", description: "High quality creative", badge: "PRO", credits: 5 },
-  { id: "ideogram-v2", name: "Ideogram V2", description: "Best for text in images", badge: "NEW", credits: 5 },
+  { id: "flux-dev", name: "Flux Dev", description: "Fast development model", badge: "FAST", credits: 3 },
+  { id: "flux-schnell", name: "Flux Schnell", description: "Ultra fast generation", badge: "FAST", credits: 2 },
+  { id: "stable-diffusion-3", name: "SD 3 Medium", description: "Stable Diffusion 3", badge: "NEW", credits: 4 },
   { id: "recraft-v3", name: "Recraft V3", description: "Design & illustration", badge: "PRO", credits: 5 },
-  { id: "dall-e-3", name: "DALL-E 3", description: "OpenAI's image model", badge: "TOP", credits: 8 },
-  { id: "flux-1.1-pro-ultra", name: "Flux 1.1 Pro Ultra", description: "Ultra HD 4K images", badge: "TOP", credits: 10 },
-  { id: "midjourney", name: "Midjourney", description: "Artistic style images", badge: "PRO", credits: 10 },
 ];
 
-// Video models catalog
+// Fal.ai Video Models
 const videoModels = [
   { id: "wan-2.6", name: "Wan 2.6", description: "Latest Alibaba model", badge: "NEW", credits: 15 },
-  { id: "kling-2.6", name: "Kling 2.6", description: "Audio-visual sync", badge: "PRO", credits: 22 },
-  { id: "veo-3.1", name: "Veo 3.1", description: "Google's latest", badge: "TOP", credits: 30 },
-  { id: "sora-2-pro", name: "Sora 2 Pro", description: "OpenAI premium", badge: "TOP", credits: 35 },
-  { id: "hailuo-2.3", name: "Hailuo 2.3", description: "Fast generation", badge: "NEW", credits: 18 },
-  { id: "veo-3", name: "Veo 3", description: "Google video model", badge: "PRO", credits: 25 },
-  { id: "sora-2", name: "Sora 2", description: "OpenAI video", badge: "PRO", credits: 28 },
-  { id: "seedance-1.5", name: "Seedance 1.5", description: "Creative motion", badge: "NEW", credits: 20 },
+  { id: "kling-2.6", name: "Kling 2.6 Pro", description: "Cinematic with audio", badge: "TOP", credits: 25 },
+  { id: "veo-3", name: "Veo 3", description: "Google's best with audio", badge: "TOP", credits: 30 },
+  { id: "veo-3-fast", name: "Veo 3 Fast", description: "Faster Veo 3", badge: "PRO", credits: 20 },
+  { id: "hailuo-02", name: "Hailuo-02", description: "MiniMax video model", badge: "NEW", credits: 18 },
+  { id: "seedance-1.5", name: "Seedance 1.5", description: "With audio support", badge: "NEW", credits: 20 },
+  { id: "luma", name: "Luma Dream Machine", description: "Creative video", badge: "PRO", credits: 22 },
+  { id: "hunyuan-1.5", name: "Hunyuan 1.5", description: "Tencent video model", badge: "NEW", credits: 18 },
 ];
-
 
 const VIDEO_DEFAULT_ASPECT_RATIOS = ["16:9", "9:16", "1:1"];
 const VIDEO_DEFAULT_QUALITIES = ["480p", "720p", "1080p"];
 
-// Kie.ai supported aspect ratios per model
+// Fal.ai model capabilities
 const VIDEO_MODEL_CAPABILITIES: Record<
   string,
   {
@@ -79,49 +75,39 @@ const VIDEO_MODEL_CAPABILITIES: Record<
     requiresImage?: boolean;
   }
 > = {
-  // Wan 2.6 - supports all standard ratios
   "wan-2.6": { 
-    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+    aspectRatios: ["16:9", "9:16", "1:1"],
     qualities: ["480p", "720p"]
   },
-  // Kling 2.6 - limited aspect ratios
   "kling-2.6": { 
     aspectRatios: ["16:9", "9:16", "1:1"],
-    qualities: ["720p", "1080p"]
-  },
-  // Veo 3.1 - Google's latest, limited options
-  "veo-3.1": { 
-    aspectRatios: ["16:9", "9:16"],
     qualities: ["720p", "1080p"],
-    slow: true 
+    slow: true
   },
-  // Sora 2 Pro - OpenAI premium
-  "sora-2-pro": { 
-    aspectRatios: ["16:9", "9:16", "1:1"],
-    qualities: ["720p", "1080p"],
-    slow: true 
-  },
-  // Hailuo 2.3 - fast generation
-  "hailuo-2.3": { 
-    aspectRatios: ["16:9", "9:16", "1:1"],
-    qualities: ["720p"]
-  },
-  // Veo 3 - Google video
   "veo-3": { 
     aspectRatios: ["16:9", "9:16"],
     qualities: ["720p", "1080p"],
     slow: true 
   },
-  // Sora 2 - OpenAI standard
-  "sora-2": { 
-    aspectRatios: ["16:9", "9:16", "1:1"],
-    qualities: ["480p", "720p", "1080p"],
-    slow: true 
+  "veo-3-fast": { 
+    aspectRatios: ["16:9", "9:16"],
+    qualities: ["720p", "1080p"]
   },
-  // Seedance 1.5 - creative motion
+  "hailuo-02": { 
+    aspectRatios: ["16:9", "9:16", "1:1"],
+    qualities: ["720p"]
+  },
   "seedance-1.5": { 
     aspectRatios: ["16:9", "9:16", "1:1"],
     qualities: ["480p", "720p"]
+  },
+  "luma": { 
+    aspectRatios: ["16:9", "9:16", "1:1"],
+    qualities: ["720p", "1080p"]
+  },
+  "hunyuan-1.5": { 
+    aspectRatios: ["16:9", "9:16", "1:1"],
+    qualities: ["480p", "720p", "1080p"]
   },
 };
 
