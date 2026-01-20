@@ -69,8 +69,8 @@ const KIE_VIDEO_MODELS: Record<string, { endpoint: string; detailEndpoint: strin
   "runway-gen3-5s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 5, maxPollingTime: 240 },
   "runway-gen3-10s": { endpoint: "/runway/generate", detailEndpoint: "/runway/task-detail", model: "gen3a_turbo", duration: 10, maxPollingTime: 360 },
   // Veo can be very slow; keep generous polling time
-  "veo-3": { endpoint: "/veo/generate", detailEndpoint: "/jobs/recordInfo", model: "veo3", useAspectUnderscore: true, maxPollingTime: 900 },
-  "veo-3-fast": { endpoint: "/veo/generate", detailEndpoint: "/jobs/recordInfo", model: "veo3_fast", useAspectUnderscore: true, maxPollingTime: 600 },
+  "veo-3": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-info", model: "veo3", useAspectUnderscore: true, maxPollingTime: 900 },
+  "veo-3-fast": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-info", model: "veo3_fast", useAspectUnderscore: true, maxPollingTime: 600 },
   "wan-2.1": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1", duration: 5, maxPollingTime: 240 },
   "wan-2.1-pro": { endpoint: "/wan/generate", detailEndpoint: "/wan/task-detail", model: "wan2.1-pro", duration: 5, maxPollingTime: 360 },
   "kling-1.6-pro": { endpoint: "/kling/generate", detailEndpoint: "/kling/task-detail", model: "kling-v1-6-pro", duration: 5, maxPollingTime: 420 },

@@ -18,7 +18,6 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { 
   Image, 
   Video, 
@@ -130,7 +129,6 @@ const Create = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   
-  const [generationProgress, setGenerationProgress] = useState<{ stage: string; message: string; progress?: number } | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
 
@@ -207,7 +205,6 @@ const Create = () => {
 
     setIsGenerating(true);
     setResult(null);
-    setGenerationProgress(null);
     setGenerationError(null);
 
     try {
@@ -263,13 +260,7 @@ const Create = () => {
                   const eventType = eventMatch[1];
                   const data = JSON.parse(dataMatch[1]);
 
-                  if (eventType === 'status') {
-                    setGenerationProgress({
-                      stage: data.stage,
-                      message: data.message,
-                      progress: data.progress
-                    });
-                  } else if (eventType === 'complete') {
+                  if (eventType === 'complete') {
                     setResult(data.result);
                     refetchCredits();
                     toast({
@@ -286,7 +277,6 @@ const Create = () => {
                       duration: 8000,
                     });
                     setIsGenerating(false);
-                    setGenerationProgress(null);
                     setPrompt("");
                   } else if (eventType === 'timeout_pending') {
                     // Timeout but saved as pending
@@ -297,7 +287,6 @@ const Create = () => {
                       duration: 8000,
                     });
                     setIsGenerating(false);
-                    setGenerationProgress(null);
                   } else if (eventType === 'error') {
                     throw new Error(data.message);
                   }
@@ -344,7 +333,6 @@ const Create = () => {
       refetchCredits();
     } finally {
       setIsGenerating(false);
-      setGenerationProgress(null);
     }
   };
 
@@ -813,31 +801,9 @@ const Create = () => {
                         <Sparkles className="h-6 w-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                       </div>
                       
-                      {generationProgress ? (
-                        <div className="w-full max-w-xs space-y-3">
-                          <div className="flex items-center justify-center gap-2 text-sm text-foreground">
-                            <Clock className="h-4 w-4 text-primary animate-pulse" />
-                            <span>{generationProgress.message}</span>
-                          </div>
-                          {generationProgress.progress !== undefined && (
-                            <div className="space-y-1">
-                              <Progress value={generationProgress.progress} className="h-2" />
-                              <p className="text-xs text-center text-muted-foreground">
-                                {generationProgress.progress}% complete
-                              </p>
-                            </div>
-                          )}
-                           <p className="text-xs text-center text-muted-foreground">
-                             {generationProgress.stage === 'processing' 
-                               ? "Video generation can take several minutes (Background mode is recommended if it's slow)" 
-                               : "Please wait..."}
-                           </p>
-                        </div>
-                      ) : (
-                        <p className="text-sm">
-                          {type === "video" ? "Connecting to AI..." : "Creating your masterpiece..."}
-                        </p>
-                      )}
+                      <p className="text-sm">
+                        {type === "video" ? "Generating video..." : "Generating image..."}
+                      </p>
                     </div>
                   ) : result?.output_url ? (
                     type === "video" ? (
