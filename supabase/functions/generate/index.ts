@@ -561,7 +561,9 @@ serve(async (req) => {
               }
 
               const generateData = await generateResponse.json();
+              console.log(`Kie.ai/Video response:`, JSON.stringify(generateData));
               taskId = getTaskIdFromKieResponse(generateData)!;
+              console.log(`Kie.ai taskId extracted:`, taskId);
             }
 
             const modelConfig = KIE_VIDEO_MODELS[model];
