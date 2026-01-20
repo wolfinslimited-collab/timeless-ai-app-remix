@@ -8,20 +8,19 @@ const corsHeaders = {
 
 const KIE_BASE_URL = "https://api.kie.ai/api/v1";
 
-// Unified task status endpoint (works across many Kie Market tasks; needed for Veo in newer API versions)
+// Unified task status endpoint
 const KIE_UNIFIED_DETAIL_ENDPOINT = "/jobs/recordInfo";
 
-// Veo-specific task status endpoint (official for Veo 3.1)
-const KIE_VEO_DETAIL_ENDPOINT = "/veo/record-info";
-
-// Map model names to their detail endpoints - VALIDATED MODELS ONLY
+// Map model names to their detail endpoints - all 8 video models
 const MODEL_DETAIL_ENDPOINTS: Record<string, string> = {
-  // Kling 2.x models (validated)
-  "kling-2.1-standard": KIE_UNIFIED_DETAIL_ENDPOINT,
-  "kling-2.1-pro": KIE_UNIFIED_DETAIL_ENDPOINT,
-  "kling-2.1-master": KIE_UNIFIED_DETAIL_ENDPOINT,
-  "kling-2.6-t2v": KIE_UNIFIED_DETAIL_ENDPOINT,
-  "kling-2.6-i2v": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "wan-2.6": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "kling-2.6": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "veo-3.1": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "sora-2-pro": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "hailuo-2.3": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "veo-3": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "sora-2": KIE_UNIFIED_DETAIL_ENDPOINT,
+  "seedance-1.5": KIE_UNIFIED_DETAIL_ENDPOINT,
 };
 
 serve(async (req) => {
@@ -101,17 +100,10 @@ serve(async (req) => {
       }
 
       const mappedEndpoint = MODEL_DETAIL_ENDPOINTS[gen.model];
-
-      const isVeo = typeof gen.model === 'string' && gen.model.startsWith('veo-');
-      const primaryEndpoint = gen.provider_endpoint || mappedEndpoint;
-      if (!primaryEndpoint && !isVeo) {
-        console.log(`Unknown model for generation ${gen.id}: ${gen.model}`);
-        results.push({ id: gen.id, status: "unknown_model", changed: false });
-        continue;
-      }
+      const primaryEndpoint = gen.provider_endpoint || mappedEndpoint || KIE_UNIFIED_DETAIL_ENDPOINT;
 
       try {
-        // Some providers return 404 on legacy *task-detail endpoints; Veo now needs /jobs/recordInfo
+        // Fetch task status from unified endpoint
         const tryFetch = async (endpoint: string) => {
           const url = `${KIE_BASE_URL}${endpoint}?taskId=${encodeURIComponent(gen.task_id)}`;
           return await fetch(url, {
@@ -120,10 +112,10 @@ serve(async (req) => {
           });
         };
 
-        // Try provider-specific endpoint first; Veo uses /veo/record-info.
-        const endpointsToTry = isVeo
-          ? [KIE_VEO_DETAIL_ENDPOINT, "/veo/task-detail", KIE_UNIFIED_DETAIL_ENDPOINT]
-          : [primaryEndpoint];
+        // Use primary endpoint with fallback to unified endpoint
+        const endpointsToTry = primaryEndpoint === KIE_UNIFIED_DETAIL_ENDPOINT 
+          ? [KIE_UNIFIED_DETAIL_ENDPOINT] 
+          : [primaryEndpoint, KIE_UNIFIED_DETAIL_ENDPOINT];
 
         let usedEndpoint = endpointsToTry[0];
         let statusResponse: Response | null = null;
