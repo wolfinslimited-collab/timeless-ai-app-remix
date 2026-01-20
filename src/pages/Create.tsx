@@ -17,6 +17,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { 
   Image, 
   Video, 
@@ -29,7 +30,8 @@ import {
   Infinity,
   Upload,
   X,
-  Lightbulb
+  Lightbulb,
+  Clock
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -94,6 +96,7 @@ const Create = () => {
   const [startingImage, setStartingImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState<{ stage: string; message: string; progress?: number } | null>(null);
   const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
 
   const currentCost = type === "video" ? getModelCost(model, quality) : getModelCost(model);
@@ -129,32 +132,106 @@ const Create = () => {
 
     setIsGenerating(true);
     setResult(null);
+    setGenerationProgress(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke("generate", {
-        body: { prompt, negativePrompt: negativePrompt.trim() || undefined, type, model, aspectRatio, quality, imageUrl: startingImage }
-      });
+      // Use streaming for video generation
+      if (type === "video") {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ 
+            prompt, 
+            negativePrompt: negativePrompt.trim() || undefined, 
+            type, 
+            model, 
+            aspectRatio, 
+            quality, 
+            imageUrl: startingImage,
+            stream: true 
+          })
+        });
 
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (data.error) {
-        if (data.required && data.available !== undefined) {
-          throw new Error(`Insufficient credits. Need ${data.required}, have ${data.available}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error: ${response.status}`);
         }
-        throw new Error(data.error);
-      }
 
-      setResult(data.result);
-      refetchCredits();
-      
-      toast({
-        title: "Generation complete!",
-        description: type === "image" 
-          ? `Your image has been created. ${data.credits_remaining} credits remaining.` 
-          : `Your video has been created. ${data.credits_remaining} credits remaining.`,
-      });
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (reader) {
+          let buffer = '';
+          
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              if (line.startsWith('event:')) {
+                const eventMatch = line.match(/event: (\w+)/);
+                const dataMatch = line.match(/data: (.+)/);
+                
+                if (eventMatch && dataMatch) {
+                  const eventType = eventMatch[1];
+                  const data = JSON.parse(dataMatch[1]);
+
+                  if (eventType === 'status') {
+                    setGenerationProgress({
+                      stage: data.stage,
+                      message: data.message,
+                      progress: data.progress
+                    });
+                  } else if (eventType === 'complete') {
+                    setResult(data.result);
+                    refetchCredits();
+                    toast({
+                      title: "Generation complete!",
+                      description: `Your video has been created. ${data.credits_remaining} credits remaining.`,
+                    });
+                  } else if (eventType === 'error') {
+                    throw new Error(data.message);
+                  }
+                }
+              }
+            }
+          }
+        }
+      } else {
+        // Non-streaming for images
+        const { data, error } = await supabase.functions.invoke("generate", {
+          body: { prompt, negativePrompt: negativePrompt.trim() || undefined, type, model, aspectRatio, quality, imageUrl: startingImage }
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (data.error) {
+          if (data.required && data.available !== undefined) {
+            throw new Error(`Insufficient credits. Need ${data.required}, have ${data.available}`);
+          }
+          throw new Error(data.error);
+        }
+
+        setResult(data.result);
+        refetchCredits();
+        
+        toast({
+          title: "Generation complete!",
+          description: `Your image has been created. ${data.credits_remaining} credits remaining.`,
+        });
+      }
 
     } catch (error: any) {
       console.error("Generation error:", error);
@@ -166,6 +243,7 @@ const Create = () => {
       refetchCredits();
     } finally {
       setIsGenerating(false);
+      setGenerationProgress(null);
     }
   };
 
@@ -542,14 +620,37 @@ const Create = () => {
                 
                 <div className="aspect-video rounded-xl bg-secondary border border-border/50 flex items-center justify-center overflow-hidden">
                   {isGenerating ? (
-                    <div className="flex flex-col items-center gap-4 text-muted-foreground">
+                    <div className="flex flex-col items-center gap-4 text-muted-foreground w-full px-8">
                       <div className="relative">
                         <div className="h-16 w-16 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
                         <Sparkles className="h-6 w-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                       </div>
-                      <p className="text-sm">
-                        {type === "video" ? "Generating video... This may take up to 2 minutes" : "Creating your masterpiece..."}
-                      </p>
+                      
+                      {generationProgress ? (
+                        <div className="w-full max-w-xs space-y-3">
+                          <div className="flex items-center justify-center gap-2 text-sm text-foreground">
+                            <Clock className="h-4 w-4 text-primary animate-pulse" />
+                            <span>{generationProgress.message}</span>
+                          </div>
+                          {generationProgress.progress !== undefined && (
+                            <div className="space-y-1">
+                              <Progress value={generationProgress.progress} className="h-2" />
+                              <p className="text-xs text-center text-muted-foreground">
+                                {generationProgress.progress}% complete
+                              </p>
+                            </div>
+                          )}
+                          <p className="text-xs text-center text-muted-foreground">
+                            {generationProgress.stage === 'processing' 
+                              ? "Video generation typically takes 1-3 minutes" 
+                              : "Please wait..."}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-sm">
+                          {type === "video" ? "Connecting to AI..." : "Creating your masterpiece..."}
+                        </p>
+                      )}
                     </div>
                   ) : result?.output_url ? (
                     type === "video" ? (
