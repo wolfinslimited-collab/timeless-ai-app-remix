@@ -51,6 +51,26 @@ serve(async (req) => {
   }
 
   try {
+    // Optional request payload:
+    // {
+    //   "models": ["kie-model-id-1", "kie-model-id-2"],
+    //   "kind": "video" | "image" (defaults to "video")
+    // }
+    let body: any = {};
+    if (req.method !== "GET") {
+      try {
+        body = await req.json();
+      } catch {
+        body = {};
+      }
+    }
+
+    const requestedModels: string[] | null = Array.isArray(body?.models)
+      ? body.models.filter((m: unknown) => typeof m === "string" && m.trim().length > 0)
+      : null;
+
+    const kind: "video" | "image" = body?.kind === "image" ? "image" : "video";
+
     const KIE_API_KEY = Deno.env.get("KIE_API_KEY");
     if (!KIE_API_KEY) {
       return new Response(
@@ -107,24 +127,21 @@ serve(async (req) => {
       }
     }
 
-    // Quick test: try to create a task with a known model to see format
     const testResults: ValidationResult[] = [];
-    
-    // Test video models by attempting a minimal task creation (dry-run style)
-    console.log("Testing video models...");
-    for (const [ourId, kieId] of Object.entries(CONFIGURED_VIDEO_MODELS)) {
+
+    const validateKieModel = async (ourModelId: string, kieModelId: string): Promise<ValidationResult> => {
       const result: ValidationResult = {
-        ourModelId: ourId,
-        kieModelId: kieId,
+        ourModelId,
+        kieModelId,
         valid: false,
       };
 
       try {
         // Try to validate by checking if the model exists in the fetched list
-        const matchedModel = availableModels.find(m => 
-          m.id === kieId || 
-          m.id?.toLowerCase() === kieId.toLowerCase() ||
-          m.name?.toLowerCase() === kieId.toLowerCase()
+        const matchedModel = availableModels.find((m) =>
+          m.id === kieModelId ||
+          m.id?.toLowerCase() === kieModelId.toLowerCase() ||
+          m.name?.toLowerCase() === kieModelId.toLowerCase()
         );
 
         if (matchedModel) {
@@ -139,12 +156,18 @@ serve(async (req) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: kieId,
-              input: {
-                prompt: "test validation - do not process",
-                duration: "1",
-                aspect_ratio: "16:9",
-              },
+              model: kieModelId,
+              input: kind === "image"
+                ? {
+                    prompt: "test validation - do not process",
+                    // Keep minimal; image models generally don't accept /jobs/createTask but this helps detect obvious errors.
+                    aspect_ratio: "1:1",
+                  }
+                : {
+                    prompt: "test validation - do not process",
+                    duration: "1",
+                    aspect_ratio: "16:9",
+                  },
               // Some APIs support dry_run
               dry_run: true,
               validate_only: true,
@@ -166,7 +189,7 @@ serve(async (req) => {
           } else if (testData?.data?.taskId || testResponse.ok) {
             // If we got a task ID, the model is valid (cancel if possible)
             result.valid = true;
-            result.matchedModel = { id: kieId, name: kieId };
+            result.matchedModel = { id: kieModelId, name: kieModelId };
           } else {
             // Other errors might be parameter issues, not model issues
             result.valid = !isModelError;
@@ -180,36 +203,37 @@ serve(async (req) => {
         result.error = e instanceof Error ? e.message : "Validation failed";
       }
 
-      testResults.push(result);
-    }
+      return result;
+    };
 
-    // Test image models
-    console.log("Testing image models...");
-    for (const [ourId, kieId] of Object.entries(CONFIGURED_IMAGE_MODELS)) {
-      const result: ValidationResult = {
-        ourModelId: ourId,
-        kieModelId: kieId,
-        valid: false,
-      };
-
-      const matchedModel = availableModels.find(m => 
-        m.id === kieId || 
-        m.id?.toLowerCase() === kieId.toLowerCase()
-      );
-
-      if (matchedModel) {
-        result.valid = true;
-        result.matchedModel = matchedModel;
-      } else if (availableModels.length === 0) {
-        // Assume valid if we can't verify
-        result.valid = true;
-        result.error = "Could not verify - models endpoint unavailable";
-      } else {
-        result.valid = false;
-        result.error = "Model not found in Kie.ai catalog";
+    if (requestedModels && requestedModels.length > 0) {
+      console.log(`Testing ${requestedModels.length} requested ${kind} model(s)...`);
+      for (const kieId of requestedModels) {
+        testResults.push(await validateKieModel(kieId, kieId));
+      }
+    } else {
+      // Default behavior: validate our configured models
+      console.log("Testing configured video models...");
+      for (const [ourId, kieId] of Object.entries(CONFIGURED_VIDEO_MODELS)) {
+        testResults.push(await validateKieModel(ourId, kieId));
       }
 
-      testResults.push(result);
+      console.log("Testing configured image models...");
+      for (const [ourId, kieId] of Object.entries(CONFIGURED_IMAGE_MODELS)) {
+        // For image models, we only validate by listing endpoint if available; otherwise mark as unverifiable.
+        const matchedModel = availableModels.find(m =>
+          m.id === kieId ||
+          m.id?.toLowerCase() === kieId.toLowerCase()
+        );
+
+        if (matchedModel) {
+          testResults.push({ ourModelId: ourId, kieModelId: kieId, valid: true, matchedModel });
+        } else if (availableModels.length === 0) {
+          testResults.push({ ourModelId: ourId, kieModelId: kieId, valid: true, error: "Could not verify - models endpoint unavailable" });
+        } else {
+          testResults.push({ ourModelId: ourId, kieModelId: kieId, valid: false, error: "Model not found in Kie.ai catalog" });
+        }
+      }
     }
 
     const validCount = testResults.filter(r => r.valid).length;
