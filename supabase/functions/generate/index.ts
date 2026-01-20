@@ -77,12 +77,13 @@ type KieVideoModelConfig = {
 };
 
 // All 8 video models with Kie.ai /jobs/createTask unified endpoint
+// Model names follow Kie.ai's exact naming convention
 const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
   // Wan 2.6 - Alibaba's latest model
   "wan-2.6": { 
     endpoint: "/jobs/createTask", 
     detailEndpoint: "/jobs/recordInfo", 
-    model: "wan/wan2.1-t2v-turbo", 
+    model: "wan-2.1-t2v-turbo", 
     duration: 5, 
     maxPollingTime: 420, 
     useJobsCreateTask: true 
@@ -92,7 +93,7 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
   "kling-2.6": { 
     endpoint: "/jobs/createTask", 
     detailEndpoint: "/jobs/recordInfo", 
-    model: "kling-2.6/text-to-video", 
+    model: "kling-2.1-pro-text-to-video", 
     duration: 5, 
     maxPollingTime: 420, 
     useJobsCreateTask: true, 
@@ -103,7 +104,7 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
   "veo-3.1": { 
     endpoint: "/jobs/createTask", 
     detailEndpoint: "/jobs/recordInfo", 
-    model: "veo/veo-3.1", 
+    model: "veo-3-quality", 
     duration: 5, 
     maxPollingTime: 900, 
     useJobsCreateTask: true 
@@ -113,7 +114,7 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
   "sora-2-pro": { 
     endpoint: "/jobs/createTask", 
     detailEndpoint: "/jobs/recordInfo", 
-    model: "sora/sora-2-pro", 
+    model: "sora-2-pro-text-to-video", 
     duration: 5, 
     maxPollingTime: 900, 
     useJobsCreateTask: true 
@@ -123,7 +124,7 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
   "hailuo-2.3": { 
     endpoint: "/jobs/createTask", 
     detailEndpoint: "/jobs/recordInfo", 
-    model: "hailuo/hailuo-2.3", 
+    model: "hailuo-t2v-director", 
     duration: 5, 
     maxPollingTime: 420, 
     useJobsCreateTask: true 
@@ -133,7 +134,7 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
   "veo-3": { 
     endpoint: "/jobs/createTask", 
     detailEndpoint: "/jobs/recordInfo", 
-    model: "veo/veo-3", 
+    model: "veo-3-fast", 
     duration: 5, 
     maxPollingTime: 900, 
     useJobsCreateTask: true 
@@ -143,7 +144,7 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
   "sora-2": { 
     endpoint: "/jobs/createTask", 
     detailEndpoint: "/jobs/recordInfo", 
-    model: "sora/sora-2", 
+    model: "sora-2-text-to-video", 
     duration: 5, 
     maxPollingTime: 900, 
     useJobsCreateTask: true 
@@ -153,7 +154,7 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
   "seedance-1.5": { 
     endpoint: "/jobs/createTask", 
     detailEndpoint: "/jobs/recordInfo", 
-    model: "seedance/seedance-1.5", 
+    model: "seedance-1.0-lite-text-to-video", 
     duration: 5, 
     maxPollingTime: 420, 
     useJobsCreateTask: true 
