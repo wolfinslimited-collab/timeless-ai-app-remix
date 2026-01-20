@@ -31,7 +31,9 @@ import {
   Upload,
   X,
   Lightbulb,
-  Clock
+  Clock,
+  RotateCcw,
+  AlertCircle
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -97,6 +99,7 @@ const Create = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ stage: string; message: string; progress?: number } | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
 
   const currentCost = type === "video" ? getModelCost(model, quality) : getModelCost(model);
@@ -133,6 +136,7 @@ const Create = () => {
     setIsGenerating(true);
     setResult(null);
     setGenerationProgress(null);
+    setGenerationError(null);
 
     try {
       // Use streaming for video generation
@@ -235,10 +239,12 @@ const Create = () => {
 
     } catch (error: any) {
       console.error("Generation error:", error);
+      const errorMessage = error.message || "Something went wrong. Please try again.";
+      setGenerationError(errorMessage);
       toast({
         variant: "destructive",
         title: "Generation failed",
-        description: error.message || "Something went wrong. Please try again.",
+        description: errorMessage,
       });
       refetchCredits();
     } finally {
@@ -668,6 +674,25 @@ const Create = () => {
                         className="w-full h-full object-cover"
                       />
                     )
+                  ) : generationError ? (
+                    <div className="flex flex-col items-center gap-4 text-muted-foreground px-6 text-center">
+                      <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
+                        <AlertCircle className="h-8 w-8 text-destructive" />
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-foreground">Generation Failed</p>
+                        <p className="text-xs text-muted-foreground max-w-xs">{generationError}</p>
+                      </div>
+                      <Button 
+                        onClick={handleGenerate}
+                        disabled={!prompt.trim() || !hasEnoughCreditsForModel(model)}
+                        className="gap-2"
+                        variant="outline"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        Retry Generation
+                      </Button>
+                    </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       {type === "image" ? (
