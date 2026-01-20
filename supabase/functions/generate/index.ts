@@ -66,17 +66,17 @@ const KIE_IMAGE_MODELS: Record<string, { endpoint: string; model: string }> = {
 };
 
 const KIE_VIDEO_MODELS: Record<string, { endpoint: string; model: string; duration?: number }> = {
-  "runway-gen3-5s": { endpoint: "/runway/generate", model: "runway-duration-5-generate", duration: 5 },
-  "runway-gen3-10s": { endpoint: "/runway/generate", model: "runway-duration-10-generate", duration: 10 },
-  "veo-3": { endpoint: "/veo/generate", model: "veo-3" },
-  "veo-3-fast": { endpoint: "/veo/generate", model: "veo-3-fast" },
-  "wan-2.1": { endpoint: "/wan/generate", model: "wan-2.1-t2v-480p" },
-  "wan-2.1-pro": { endpoint: "/wan/generate", model: "wan-2.1-t2v-720p" },
-  "kling-1.6-pro": { endpoint: "/kling/generate", model: "kling-1.6-pro-5s" },
-  "kling-1.6-pro-10s": { endpoint: "/kling/generate", model: "kling-1.6-pro-10s" },
-  "minimax-video": { endpoint: "/minimax/generate", model: "minimax-video-01" },
-  "luma-ray2": { endpoint: "/luma/generate", model: "ray-2" },
-  "pika-2.0": { endpoint: "/pika/generate", model: "pika-2.0" },
+  "runway-gen3-5s": { endpoint: "/runway/generate", model: "gen3a_turbo", duration: 5 },
+  "runway-gen3-10s": { endpoint: "/runway/generate", model: "gen3a_turbo", duration: 10 },
+  "veo-3": { endpoint: "/google/generate", model: "veo-2" },
+  "veo-3-fast": { endpoint: "/google/generate", model: "veo-2" },
+  "wan-2.1": { endpoint: "/wanx/generate", model: "wanx-v2.1-t2v" },
+  "wan-2.1-pro": { endpoint: "/wanx/generate", model: "wanx-v2.1-t2v" },
+  "kling-1.6-pro": { endpoint: "/kling/generate", model: "kling-v1.6-pro", duration: 5 },
+  "kling-1.6-pro-10s": { endpoint: "/kling/generate", model: "kling-v1.6-pro", duration: 10 },
+  "minimax-video": { endpoint: "/minimax/generate", model: "video-01" },
+  "luma-ray2": { endpoint: "/luma/generate", model: "ray2" },
+  "pika-2.0": { endpoint: "/pika/generate", model: "pika-v2" },
 };
 
 const KIE_BASE_URL = "https://api.kie.ai/api/v1";
@@ -321,14 +321,18 @@ serve(async (req) => {
       }
 
       const generateData = await generateResponse.json();
+      console.log("Kie.ai video response:", JSON.stringify(generateData));
+      
       const taskId = generateData.data?.taskId;
       
       if (!taskId) {
+        const errorMsg = generateData.msg || generateData.message || "Unknown error";
         console.error("No taskId returned:", generateData);
         if (!hasActiveSubscription) {
           await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+          console.log("Credits refunded due to API error");
         }
-        throw new Error("Failed to start video generation");
+        throw new Error(`Video API error: ${errorMsg}`);
       }
 
       console.log(`Kie.ai video task started: ${taskId}`);
