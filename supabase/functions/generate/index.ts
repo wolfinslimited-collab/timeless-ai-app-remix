@@ -338,13 +338,15 @@ const submitToFal = async (endpoint: string, input: Record<string, unknown>, api
   return { requestId: data.request_id };
 };
 
+// Fal.ai uses a different URL structure for status/result: /requests/{request_id} without the endpoint
+const FAL_QUEUE_STATUS_URL = "https://queue.fal.run/requests";
+
 // Check Fal.ai queue status
-const checkFalStatus = async (endpoint: string, requestId: string, apiKey: string): Promise<{
+const checkFalStatus = async (requestId: string, apiKey: string): Promise<{
   status: "IN_QUEUE" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
-  result?: { video?: { url: string }; thumbnail?: { url: string } };
   error?: string;
 }> => {
-  const response = await fetch(`${FAL_RESULT_URL}/${endpoint}/requests/${requestId}/status`, {
+  const response = await fetch(`${FAL_QUEUE_STATUS_URL}/${requestId}/status`, {
     method: "GET",
     headers: {
       "Authorization": `Key ${apiKey}`,
@@ -360,16 +362,15 @@ const checkFalStatus = async (endpoint: string, requestId: string, apiKey: strin
   const data = await response.json();
   return {
     status: data.status,
-    result: data.response_url ? undefined : undefined,
   };
 };
 
 // Get Fal.ai result
-const getFalResult = async (endpoint: string, requestId: string, apiKey: string): Promise<{
+const getFalResult = async (requestId: string, apiKey: string): Promise<{
   video?: { url: string };
   thumbnail?: { url: string };
 }> => {
-  const response = await fetch(`${FAL_RESULT_URL}/${endpoint}/requests/${requestId}`, {
+  const response = await fetch(`${FAL_QUEUE_STATUS_URL}/${requestId}`, {
     method: "GET",
     headers: {
       "Authorization": `Key ${apiKey}`,
@@ -629,11 +630,11 @@ serve(async (req) => {
               if (provider === 'fal') {
                 // Poll Fal.ai
                 try {
-                  const falStatus = await checkFalStatus(providerEndpoint, taskId, FAL_API_KEY!);
+                  const falStatus = await checkFalStatus(taskId, FAL_API_KEY!);
                   console.log(`Fal.ai poll attempt ${attempt + 1}: status=${falStatus.status}`);
                   
                   if (falStatus.status === "COMPLETED") {
-                    const result = await getFalResult(providerEndpoint, taskId, FAL_API_KEY!);
+                    const result = await getFalResult(taskId, FAL_API_KEY!);
                     videoUrl = result.video?.url;
                     thumbnailUrl = result.thumbnail?.url || videoUrl;
                     isComplete = true;
@@ -1105,34 +1106,22 @@ serve(async (req) => {
         if (provider === "fal") {
           // Fal.ai polling
           const FAL_API_KEY = Deno.env.get("FAL_API_KEY")!;
-          const falEndpoint = providerEndpoint.replace("fal:", "");
           
           try {
-            const statusResp = await fetch(`${FAL_RESULT_URL}/${falEndpoint}/requests/${taskId}/status`, {
-              headers: { "Authorization": `Key ${FAL_API_KEY}` }
-            });
+            const falStatus = await checkFalStatus(taskId, FAL_API_KEY);
+            console.log(`Fal.ai status check ${attempt + 1}/${maxAttempts}:`, falStatus.status);
             
-            if (statusResp.ok) {
-              const statusData = await statusResp.json();
-              console.log(`Fal.ai status check ${attempt + 1}/${maxAttempts}:`, statusData.status);
-              
-              if (statusData.status === "COMPLETED") {
-                const resultResp = await fetch(`${FAL_RESULT_URL}/${falEndpoint}/requests/${taskId}`, {
-                  headers: { "Authorization": `Key ${FAL_API_KEY}` }
-                });
-                if (resultResp.ok) {
-                  const resultData = await resultResp.json();
-                  console.log(`Fal.ai result:`, JSON.stringify(resultData));
-                  videoUrl = resultData.video?.url || null;
-                  thumbnailUrl = resultData.thumbnail?.url || videoUrl;
-                  if (videoUrl) break;
-                }
-              } else if (statusData.status === "FAILED") {
-                if (!hasActiveSubscription) {
-                  await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
-                }
-                throw new Error(`Fal.ai generation failed: ${statusData.error || "Unknown error"}`);
+            if (falStatus.status === "COMPLETED") {
+              const resultData = await getFalResult(taskId, FAL_API_KEY);
+              console.log(`Fal.ai result:`, JSON.stringify(resultData));
+              videoUrl = resultData.video?.url || null;
+              thumbnailUrl = resultData.thumbnail?.url || videoUrl;
+              if (videoUrl) break;
+            } else if (falStatus.status === "FAILED") {
+              if (!hasActiveSubscription) {
+                await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
               }
+              throw new Error(`Fal.ai generation failed: ${falStatus.error || "Unknown error"}`);
             }
           } catch (error) {
             if (error instanceof Error && error.message.includes("failed")) throw error;
