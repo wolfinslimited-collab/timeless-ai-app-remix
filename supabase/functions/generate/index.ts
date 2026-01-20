@@ -285,18 +285,16 @@ const buildFalVideoRequest = (args: {
 }) => {
   const { prompt, aspectRatio, quality, imageUrl } = args;
   
-  // Fal.ai Sora 2 uses "landscape", "portrait", "square" for aspect ratio
-  let falAspectRatio: "landscape" | "portrait" | "square";
+  // Fal.ai Sora 2 only supports "16:9" or "9:16" aspect ratios
+  let falAspectRatio: "16:9" | "9:16";
   if (aspectRatio === "9:16" || aspectRatio === "3:4" || aspectRatio === "2:3") {
-    falAspectRatio = "portrait";
-  } else if (aspectRatio === "1:1") {
-    falAspectRatio = "square";
+    falAspectRatio = "9:16";
   } else {
-    falAspectRatio = "landscape"; // Default to landscape for 16:9, 4:3, etc.
+    falAspectRatio = "16:9"; // Default to 16:9 for landscape and square
   }
   
-  // Duration: 5, 10, or 20 seconds
-  const duration = 10; // Default to 10 seconds
+  // Duration: Fal.ai Sora only supports 4, 8, or 12 seconds
+  const duration = 8; // Default to 8 seconds for balanced output
   
   // Resolution: 480p, 720p, or 1080p
   let resolution = "720p";
@@ -338,15 +336,17 @@ const submitToFal = async (endpoint: string, input: Record<string, unknown>, api
   return { requestId: data.request_id };
 };
 
-// Fal.ai uses a different URL structure for status/result: /requests/{request_id} without the endpoint
-const FAL_QUEUE_STATUS_URL = "https://queue.fal.run/requests";
+// Fal.ai queue API base URL - model_id is required in the path
+const FAL_QUEUE_URL = "https://queue.fal.run";
 
-// Check Fal.ai queue status
-const checkFalStatus = async (requestId: string, apiKey: string): Promise<{
+// Check Fal.ai queue status - model_id is required in the URL path
+const checkFalStatus = async (modelEndpoint: string, requestId: string, apiKey: string): Promise<{
   status: "IN_QUEUE" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
   error?: string;
 }> => {
-  const response = await fetch(`${FAL_QUEUE_STATUS_URL}/${requestId}/status`, {
+  // Use the base model path without subpath for status check (e.g., fal-ai/sora-2)
+  const basePath = modelEndpoint.split('/').slice(0, 2).join('/');
+  const response = await fetch(`${FAL_QUEUE_URL}/${basePath}/requests/${requestId}/status`, {
     method: "GET",
     headers: {
       "Authorization": `Key ${apiKey}`,
@@ -365,12 +365,14 @@ const checkFalStatus = async (requestId: string, apiKey: string): Promise<{
   };
 };
 
-// Get Fal.ai result
-const getFalResult = async (requestId: string, apiKey: string): Promise<{
+// Get Fal.ai result - model_id is required in the URL path
+const getFalResult = async (modelEndpoint: string, requestId: string, apiKey: string): Promise<{
   video?: { url: string };
   thumbnail?: { url: string };
 }> => {
-  const response = await fetch(`${FAL_QUEUE_STATUS_URL}/${requestId}`, {
+  // Use the base model path without subpath for result retrieval
+  const basePath = modelEndpoint.split('/').slice(0, 2).join('/');
+  const response = await fetch(`${FAL_QUEUE_URL}/${basePath}/requests/${requestId}`, {
     method: "GET",
     headers: {
       "Authorization": `Key ${apiKey}`,
@@ -628,13 +630,13 @@ serve(async (req) => {
               let failMessage = "";
 
               if (provider === 'fal') {
-                // Poll Fal.ai
+                // Poll Fal.ai - use the endpoint stored in providerEndpoint (e.g., "fal-ai/sora-2/text-to-video")
                 try {
-                  const falStatus = await checkFalStatus(taskId, FAL_API_KEY!);
+                  const falStatus = await checkFalStatus(providerEndpoint, taskId, FAL_API_KEY!);
                   console.log(`Fal.ai poll attempt ${attempt + 1}: status=${falStatus.status}`);
                   
                   if (falStatus.status === "COMPLETED") {
-                    const result = await getFalResult(taskId, FAL_API_KEY!);
+                    const result = await getFalResult(providerEndpoint, taskId, FAL_API_KEY!);
                     videoUrl = result.video?.url;
                     thumbnailUrl = result.thumbnail?.url || videoUrl;
                     isComplete = true;
@@ -1104,15 +1106,16 @@ serve(async (req) => {
         await new Promise(resolve => setTimeout(resolve, pollInterval));
         
         if (provider === "fal") {
-          // Fal.ai polling
+          // Fal.ai polling - providerEndpoint contains "fal:{endpoint}", strip the "fal:" prefix
           const FAL_API_KEY = Deno.env.get("FAL_API_KEY")!;
+          const falEndpoint = providerEndpoint.replace("fal:", "");
           
           try {
-            const falStatus = await checkFalStatus(taskId, FAL_API_KEY);
+            const falStatus = await checkFalStatus(falEndpoint, taskId, FAL_API_KEY);
             console.log(`Fal.ai status check ${attempt + 1}/${maxAttempts}:`, falStatus.status);
             
             if (falStatus.status === "COMPLETED") {
-              const resultData = await getFalResult(taskId, FAL_API_KEY);
+              const resultData = await getFalResult(falEndpoint, taskId, FAL_API_KEY);
               console.log(`Fal.ai result:`, JSON.stringify(resultData));
               videoUrl = resultData.video?.url || null;
               thumbnailUrl = resultData.thumbnail?.url || videoUrl;
