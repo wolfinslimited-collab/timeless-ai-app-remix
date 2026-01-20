@@ -65,18 +65,18 @@ const KIE_IMAGE_MODELS: Record<string, { endpoint: string; model: string }> = {
   "midjourney": { endpoint: "/midjourney/generate", model: "midjourney" },
 };
 
-const KIE_VIDEO_MODELS: Record<string, { endpoint: string; model: string; duration?: number }> = {
-  "runway-gen3-5s": { endpoint: "/runway/generate", model: "gen3a_turbo", duration: 5 },
-  "runway-gen3-10s": { endpoint: "/runway/generate", model: "gen3a_turbo", duration: 10 },
-  "veo-3": { endpoint: "/google/generate", model: "veo-2" },
-  "veo-3-fast": { endpoint: "/google/generate", model: "veo-2" },
-  "wan-2.1": { endpoint: "/wanx/generate", model: "wanx-v2.1-t2v" },
-  "wan-2.1-pro": { endpoint: "/wanx/generate", model: "wanx-v2.1-t2v" },
-  "kling-1.6-pro": { endpoint: "/kling/generate", model: "kling-v1.6-pro", duration: 5 },
-  "kling-1.6-pro-10s": { endpoint: "/kling/generate", model: "kling-v1.6-pro", duration: 10 },
-  "minimax-video": { endpoint: "/minimax/generate", model: "video-01" },
-  "luma-ray2": { endpoint: "/luma/generate", model: "ray2" },
-  "pika-2.0": { endpoint: "/pika/generate", model: "pika-v2" },
+const KIE_VIDEO_MODELS: Record<string, { endpoint: string; detailEndpoint: string; model: string; duration?: number; useAspectUnderscore?: boolean }> = {
+  "runway-gen3-5s": { endpoint: "/runway/generate", detailEndpoint: "/runway/record-detail", model: "gen3a_turbo", duration: 5 },
+  "runway-gen3-10s": { endpoint: "/runway/generate", detailEndpoint: "/runway/record-detail", model: "gen3a_turbo", duration: 10 },
+  "veo-3": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-detail", model: "veo3", useAspectUnderscore: true },
+  "veo-3-fast": { endpoint: "/veo/generate", detailEndpoint: "/veo/record-detail", model: "veo3_fast", useAspectUnderscore: true },
+  "wan-2.1": { endpoint: "/kling/generate", detailEndpoint: "/kling/record-detail", model: "kling-v1", duration: 5 },
+  "wan-2.1-pro": { endpoint: "/kling/generate", detailEndpoint: "/kling/record-detail", model: "kling-v1-5", duration: 5 },
+  "kling-1.6-pro": { endpoint: "/kling/generate", detailEndpoint: "/kling/record-detail", model: "kling-v1-6-pro", duration: 5 },
+  "kling-1.6-pro-10s": { endpoint: "/kling/generate", detailEndpoint: "/kling/record-detail", model: "kling-v1-6-pro", duration: 10 },
+  "minimax-video": { endpoint: "/minimax/generate", detailEndpoint: "/minimax/record-detail", model: "video-01" },
+  "luma-ray2": { endpoint: "/luma/generate", detailEndpoint: "/luma/record-detail", model: "ray2" },
+  "pika-2.0": { endpoint: "/pika/generate", detailEndpoint: "/pika/record-detail", model: "pika-2.0" },
 };
 
 const KIE_BASE_URL = "https://api.kie.ai/api/v1";
@@ -302,11 +302,11 @@ serve(async (req) => {
         body: JSON.stringify({
           prompt: prompt,
           model: modelConfig.model,
-          aspectRatio: aspectRatio,
+          ...(modelConfig.useAspectUnderscore ? { aspect_ratio: aspectRatio } : { aspectRatio: aspectRatio }),
           quality: quality,
           duration: modelConfig.duration || 5,
-          ...(negativePrompt && { negativePrompt: negativePrompt }),
-          ...(imageUrl && { imageUrl: imageUrl }),
+          ...(negativePrompt && { negative_prompt: negativePrompt }),
+          ...(imageUrl && { image_url: imageUrl }),
         })
       });
 
@@ -346,8 +346,7 @@ serve(async (req) => {
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         await new Promise(resolve => setTimeout(resolve, pollInterval));
         
-        const endpointBase = modelConfig.endpoint.split('/')[1];
-        const statusResponse = await fetch(`${KIE_BASE_URL}/${endpointBase}/details?taskId=${taskId}`, {
+        const statusResponse = await fetch(`${KIE_BASE_URL}${modelConfig.detailEndpoint}?taskId=${taskId}`, {
           method: "GET",
           headers: { "Authorization": `Bearer ${KIE_API_KEY}` }
         });
