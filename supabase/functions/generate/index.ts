@@ -108,11 +108,12 @@ const KIE_VIDEO_MODELS: Record<string, KieVideoModelConfig> = {
   "kling-2.6": { 
     endpoint: "/jobs/createTask", 
     detailEndpoint: "/jobs/recordInfo", 
-    model: "kling-2.1-pro-text-to-video", 
+    model: "kling-2.6/text-to-video", 
     duration: 5, 
     maxPollingTime: 420, 
     useJobsCreateTask: true, 
-    jobsRequiresSoundFlag: true 
+    jobsRequiresSoundFlag: true,
+    jobsImageField: "image_urls" as JobsImageField // For image-to-video: kling-2.6/image-to-video
   },
   
   // Veo 3.1 - Google's latest video model
