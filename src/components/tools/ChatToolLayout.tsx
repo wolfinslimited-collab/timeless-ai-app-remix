@@ -34,6 +34,7 @@ import ConversationHistory from "./ConversationHistory";
 import ChatMessageSkeleton from "./ChatMessageSkeleton";
 import ModelLogo, { getModelEmoji } from "@/components/ModelLogo";
 import CodeBlock from "./CodeBlock";
+import VoiceInputWaveform from "./VoiceInputWaveform";
 
 // Web Speech API types
 interface SpeechRecognitionEvent extends Event {
@@ -1063,110 +1064,119 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
 
         {/* Input */}
         <div className="p-4 border-t border-border/50">
-          <div className="flex gap-2">
-            {supportsVision && (
-              <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-12 w-12 shrink-0"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isLoading || isUploading}
-                >
-                  {isUploading ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <ImagePlus className="h-5 w-5" />
-                  )}
-                </Button>
-              </>
-            )}
-            {/* Web Search Toggle */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className={cn(
-                    "flex items-center gap-2 px-3 h-12 rounded-lg border transition-colors",
-                    webSearchEnabled 
-                      ? "border-primary bg-primary/10" 
-                      : "border-border/50 bg-secondary/30"
-                  )}>
-                    <Globe className={cn("h-4 w-4", webSearchEnabled ? "text-primary" : "text-muted-foreground")} />
-                    <Switch
-                      checked={webSearchEnabled}
-                      onCheckedChange={setWebSearchEnabled}
-                      className="data-[state=checked]:bg-primary"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Live web search for real-time data (Bitcoin, weather, news)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            {/* Voice Input Button */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
+          {isListening ? (
+            /* Voice Input Waveform Overlay */
+            <VoiceInputWaveform
+              isListening={isListening}
+              onCancel={() => {
+                recognitionRef.current?.stop();
+                setIsListening(false);
+              }}
+              onConfirm={() => {
+                recognitionRef.current?.stop();
+                setIsListening(false);
+                // The speech recognition will have already added text to input
+                // User can now send or edit the message
+              }}
+            />
+          ) : (
+            /* Normal Input */
+            <div className="flex gap-2">
+              {supportsVision && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
                   <Button
-                    variant={isListening ? "default" : "outline"}
+                    variant="outline"
                     size="icon"
-                    className={cn(
-                      "h-12 w-12 shrink-0 transition-colors",
-                      isListening && "bg-destructive hover:bg-destructive/90 animate-pulse"
-                    )}
-                    onClick={toggleVoiceInput}
-                    disabled={isLoading}
+                    className="h-12 w-12 shrink-0"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isLoading || isUploading}
                   >
-                    {isListening ? (
-                      <MicOff className="h-5 w-5" />
+                    {isUploading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
-                      <Mic className="h-5 w-5" />
+                      <ImagePlus className="h-5 w-5" />
                     )}
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{isListening ? "Stop listening" : "Voice input"}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <Textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={isListening 
-                ? "Listening..." 
-                : (webSearchEnabled 
+                </>
+              )}
+              {/* Web Search Toggle */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className={cn(
+                      "flex items-center gap-2 px-3 h-12 rounded-lg border transition-colors",
+                      webSearchEnabled 
+                        ? "border-primary bg-primary/10" 
+                        : "border-border/50 bg-secondary/30"
+                    )}>
+                      <Globe className={cn("h-4 w-4", webSearchEnabled ? "text-primary" : "text-muted-foreground")} />
+                      <Switch
+                        checked={webSearchEnabled}
+                        onCheckedChange={setWebSearchEnabled}
+                        className="data-[state=checked]:bg-primary"
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Live web search for real-time data (Bitcoin, weather, news)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {/* Voice Input Button */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-12 w-12 shrink-0"
+                      onClick={toggleVoiceInput}
+                      disabled={isLoading}
+                    >
+                      <Mic className="h-5 w-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Voice input</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <Textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={webSearchEnabled 
                   ? `Search the web: Bitcoin price, latest news...` 
                   : (supportsVision 
                     ? `Message ${model.name} or share an image...` 
-                    : `Message ${model.name}...`))
-              }
-              className="min-h-[48px] max-h-[200px] resize-none"
-              disabled={isLoading}
-            />
-            <Button
-              onClick={handleSend}
-              disabled={(!input.trim() && pendingImages.length === 0) || isLoading}
-              size="icon"
-              className="h-12 w-12 shrink-0"
-            >
-              {isLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <Send className="h-5 w-5" />
-              )}
-            </Button>
-          </div>
+                    : `Message ${model.name}...`)
+                }
+                className="min-h-[48px] max-h-[200px] resize-none"
+                disabled={isLoading}
+              />
+              <Button
+                onClick={handleSend}
+                disabled={(!input.trim() && pendingImages.length === 0) || isLoading}
+                size="icon"
+                className="h-12 w-12 shrink-0"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Send className="h-5 w-5" />
+                )}
+              </Button>
+            </div>
+          )}
           <div className="flex items-center justify-between mt-2">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Coins className="h-3 w-3" />
