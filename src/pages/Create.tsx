@@ -42,7 +42,12 @@ import {
   Music,
   Pause,
   ChevronDown,
-  Info
+  Info,
+  Clapperboard,
+  Camera,
+  Focus,
+  Film,
+  Move3d
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
@@ -89,6 +94,86 @@ const musicModels = [
   { id: "lyria2", name: "Lyria 2", description: "Google's best music AI", badge: "PRO", credits: 12 },
   { id: "cassetteai", name: "CassetteAI", description: "Fast professional tracks", badge: "FAST", credits: 10 },
   { id: "stable-audio", name: "Stable Audio", description: "Open source audio gen", badge: "NEW", credits: 8 },
+];
+
+// Cinema Studio Models (optimized for cinematic camera control)
+const cinemaModels = [
+  { id: "wan-2.6-cinema", name: "Wan Cinema", description: "Best for camera control", badge: "TOP", credits: 20 },
+  { id: "kling-2.6-cinema", name: "Kling Cinema Pro", description: "Premium cinematic", badge: "PRO", credits: 30 },
+  { id: "veo-3-cinema", name: "Veo 3 Cinema", description: "Google cinematic AI", badge: "TOP", credits: 35 },
+  { id: "luma-cinema", name: "Luma Cinema", description: "Dream machine pro", badge: "PRO", credits: 28 },
+];
+
+// Camera Movement Presets (Higgsfield-style)
+const cameraMovements = {
+  classic: [
+    { id: "static", label: "Static", icon: "📷", description: "Fixed camera, no movement" },
+    { id: "dolly-in", label: "Dolly In", icon: "➡️", description: "Move camera toward subject" },
+    { id: "dolly-out", label: "Dolly Out", icon: "⬅️", description: "Move camera away from subject" },
+    { id: "pan-left", label: "Pan Left", icon: "↩️", description: "Rotate camera left" },
+    { id: "pan-right", label: "Pan Right", icon: "↪️", description: "Rotate camera right" },
+    { id: "tilt-up", label: "Tilt Up", icon: "⬆️", description: "Rotate camera upward" },
+    { id: "tilt-down", label: "Tilt Down", icon: "⬇️", description: "Rotate camera downward" },
+  ],
+  dynamic: [
+    { id: "zoom-in", label: "Zoom In", icon: "🔍", description: "Zoom lens toward subject" },
+    { id: "zoom-out", label: "Zoom Out", icon: "🔎", description: "Zoom lens away from subject" },
+    { id: "crash-zoom", label: "Crash Zoom", icon: "💥", description: "Fast dramatic zoom" },
+    { id: "dolly-zoom", label: "Dolly Zoom", icon: "🌀", description: "Vertigo effect" },
+    { id: "tracking-left", label: "Track Left", icon: "⏪", description: "Move camera left with subject" },
+    { id: "tracking-right", label: "Track Right", icon: "⏩", description: "Move camera right with subject" },
+    { id: "arc-left", label: "Arc Left", icon: "↺", description: "Arc around subject left" },
+    { id: "arc-right", label: "Arc Right", icon: "↻", description: "Arc around subject right" },
+  ],
+  specialty: [
+    { id: "crane-up", label: "Crane Up", icon: "🏗️", description: "Crane movement upward" },
+    { id: "crane-down", label: "Crane Down", icon: "⬇️", description: "Crane movement downward" },
+    { id: "handheld", label: "Handheld", icon: "🤚", description: "Realistic handheld shake" },
+    { id: "360-orbit", label: "360 Orbit", icon: "🔄", description: "Full rotation around subject" },
+    { id: "fpv-drone", label: "FPV Drone", icon: "🚁", description: "First person drone sweep" },
+    { id: "bullet-time", label: "Bullet Time", icon: "⏱️", description: "Frozen spin effect" },
+  ],
+};
+
+// Shot Types
+const shotTypes = [
+  { id: "extreme-wide", label: "Extreme Wide", icon: "🏔️", description: "Vast landscape shot" },
+  { id: "wide", label: "Wide Shot", icon: "🖼️", description: "Full scene view" },
+  { id: "medium-wide", label: "Medium Wide", icon: "👥", description: "Full body shot" },
+  { id: "medium", label: "Medium Shot", icon: "👤", description: "Waist up" },
+  { id: "medium-close", label: "Medium Close", icon: "🎭", description: "Chest up" },
+  { id: "close-up", label: "Close Up", icon: "😊", description: "Face/detail shot" },
+  { id: "extreme-close", label: "Extreme Close", icon: "👁️", description: "Eye/detail macro" },
+];
+
+// Camera Sensors (Film Simulation)
+const cameraSensors = [
+  { id: "digital-cinema", label: "Digital Cinema", description: "Clean modern look" },
+  { id: "arri-alexa", label: "ARRI Alexa 35", description: "Hollywood standard" },
+  { id: "red-komodo", label: "RED Komodo", description: "Sharp cinematic" },
+  { id: "film-35mm", label: "35mm Film", description: "Classic film grain" },
+  { id: "film-16mm", label: "16mm Film", description: "Indie film look" },
+  { id: "vhs", label: "VHS", description: "Retro analog" },
+];
+
+// Lens Types
+const lensTypes = [
+  { id: "12mm", label: "12mm Ultra Wide", description: "Dramatic perspective" },
+  { id: "24mm", label: "24mm Wide", description: "Environmental storytelling" },
+  { id: "35mm", label: "35mm Standard", description: "Natural perspective" },
+  { id: "50mm", label: "50mm Normal", description: "Human eye perspective" },
+  { id: "85mm", label: "85mm Portrait", description: "Flattering compression" },
+  { id: "135mm", label: "135mm Telephoto", description: "Strong compression" },
+];
+
+// Cinema Templates
+const cinemaTemplates = [
+  { label: "Epic Reveal", prompt: "Cinematic crane shot revealing a massive sci-fi cityscape at golden hour, dramatic lighting, IMAX quality" },
+  { label: "Action Sequence", prompt: "Dynamic FPV drone shot following a car chase through narrow streets, adrenaline-pumping, fast paced" },
+  { label: "Emotional Portrait", prompt: "Slow dolly in on a person's face showing deep emotion, shallow depth of field, intimate lighting" },
+  { label: "Nature Documentary", prompt: "Smooth tracking shot through a dense rainforest, wildlife, National Geographic style, 4K" },
+  { label: "Product Commercial", prompt: "360 orbit around a luxury product with dramatic lighting, high-end commercial quality" },
+  { label: "Film Noir", prompt: "Moody tracking shot through rain-soaked streets at night, high contrast, venetian blind shadows" },
 ];
 
 const VIDEO_DEFAULT_ASPECT_RATIOS = ["16:9", "9:16", "1:1"];
@@ -192,7 +277,7 @@ const Create = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [type, setType] = useState<"image" | "video" | "music">("image");
+  const [type, setType] = useState<"image" | "video" | "music" | "cinema">("image");
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [model, setModel] = useState("flux-1.1-pro");
@@ -212,6 +297,14 @@ const Create = () => {
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  
+  // Cinema Studio state
+  const [selectedMovements, setSelectedMovements] = useState<string[]>([]);
+  const [shotType, setShotType] = useState("medium");
+  const [cameraSensor, setCameraSensor] = useState("digital-cinema");
+  const [lensType, setLensType] = useState("35mm");
+  const [movementIntensity, setMovementIntensity] = useState(50);
+  const [cinematicDuration, setCinematicDuration] = useState(5);
   
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
@@ -303,10 +396,20 @@ const Create = () => {
     setGenerationError(null);
 
     try {
-      // Use streaming for video generation
-      if (type === "video") {
+      // Use streaming for video/cinema generation
+      if (type === "video" || type === "cinema") {
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData?.session?.access_token;
+        
+        // Build cinema-specific parameters
+        const cinemaParams = type === "cinema" ? {
+          cameraMovements: selectedMovements,
+          shotType,
+          cameraSensor,
+          lensType,
+          movementIntensity,
+          duration: cinematicDuration,
+        } : {};
         
         const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate`, {
           method: 'POST',
@@ -318,13 +421,14 @@ const Create = () => {
           body: JSON.stringify({ 
             prompt, 
             negativePrompt: negativePrompt.trim() || undefined, 
-            type, 
-            model, 
+            type: type === "cinema" ? "video" : type, // Backend treats cinema as video with extra params
+            model: type === "cinema" ? model.replace("-cinema", "") : model, // Use base video model
             aspectRatio, 
             quality, 
             imageUrl: startingImage,
             stream: true,
-            background: false
+            background: false,
+            ...cinemaParams,
           })
         });
 
@@ -452,13 +556,18 @@ const Create = () => {
   };
 
   const handleTypeChange = (newType: string) => {
-    setType(newType as "image" | "video" | "music");
+    setType(newType as "image" | "video" | "music" | "cinema");
     if (newType === "image") {
       setModel("flux-1.1-pro");
       setAspectRatio("1:1");
     } else if (newType === "video") {
       setModel("wan-2.6");
       setAspectRatio("16:9");
+    } else if (newType === "cinema") {
+      setModel("wan-2.6-cinema");
+      setAspectRatio("21:9");
+      setSelectedMovements([]);
+      setShotType("medium");
     } else {
       setModel("sonauto");
     }
@@ -533,8 +642,16 @@ const Create = () => {
     setStartingImage(null);
   };
 
-  const currentModels = type === "image" ? imageModels : type === "video" ? videoModels : musicModels;
-  const currentTemplates = type === "image" ? imageTemplates : type === "video" ? videoTemplates : musicTemplates;
+  const currentModels = type === "image" ? imageModels : type === "video" ? videoModels : type === "cinema" ? cinemaModels : musicModels;
+  const currentTemplates = type === "image" ? imageTemplates : type === "video" ? videoTemplates : type === "cinema" ? cinemaTemplates : musicTemplates;
+  
+  const toggleMovement = (movementId: string) => {
+    if (selectedMovements.includes(movementId)) {
+      setSelectedMovements(selectedMovements.filter(m => m !== movementId));
+    } else if (selectedMovements.length < 3) {
+      setSelectedMovements([...selectedMovements, movementId]);
+    }
+  };
 
   const toggleAudioPlayback = () => {
     if (audioElement) {
@@ -676,26 +793,33 @@ const Create = () => {
 
           {/* Type Selector */}
           <Tabs value={type} onValueChange={handleTypeChange} className="mb-6">
-            <TabsList className="grid w-full grid-cols-3 max-w-lg mx-auto">
+            <TabsList className="grid w-full grid-cols-4 max-w-2xl mx-auto">
               <TabsTrigger value="image" className="gap-2">
                 <Image className="h-4 w-4" />
-                Image
-                <Badge variant="secondary" className="ml-1 text-xs hidden sm:inline-flex">
+                <span className="hidden sm:inline">Image</span>
+                <Badge variant="secondary" className="ml-1 text-xs hidden md:inline-flex">
                   2-10
                 </Badge>
               </TabsTrigger>
               <TabsTrigger value="video" className="gap-2">
                 <Video className="h-4 w-4" />
-                Video
-                <Badge variant="secondary" className="ml-1 text-xs hidden sm:inline-flex">
+                <span className="hidden sm:inline">Video</span>
+                <Badge variant="secondary" className="ml-1 text-xs hidden md:inline-flex">
                   8-30
                 </Badge>
               </TabsTrigger>
               <TabsTrigger value="music" className="gap-2">
                 <Music className="h-4 w-4" />
-                Music
-                <Badge variant="secondary" className="ml-1 text-xs hidden sm:inline-flex">
-                  8-12
+                <span className="hidden sm:inline">Music</span>
+                <Badge variant="secondary" className="ml-1 text-xs hidden md:inline-flex">
+                  8-15
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="cinema" className="gap-2">
+                <Clapperboard className="h-4 w-4" />
+                <span className="hidden sm:inline">Cinema</span>
+                <Badge variant="secondary" className="ml-1 text-xs hidden md:inline-flex">
+                  20-35
                 </Badge>
               </TabsTrigger>
             </TabsList>
@@ -1000,7 +1124,329 @@ const Create = () => {
                   </div>
                 )}
 
-                {/* Starting Image Upload - Video only */}
+                {/* Cinema Studio Controls */}
+                {type === "cinema" && (
+                  <div className="space-y-4">
+                    {/* Camera Movements Section */}
+                    <div className="space-y-3">
+                      <Label className="flex items-center gap-2">
+                        <Move3d className="h-4 w-4 text-primary" />
+                        Camera Movements
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          {selectedMovements.length}/3
+                        </Badge>
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Stack up to 3 movements for complex camera work
+                      </p>
+                      
+                      {/* Classic Movements */}
+                      <div className="space-y-2">
+                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Classic</span>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {cameraMovements.classic.map((movement) => (
+                            <TooltipProvider key={movement.id}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant={selectedMovements.includes(movement.id) ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => toggleMovement(movement.id)}
+                                    disabled={!selectedMovements.includes(movement.id) && selectedMovements.length >= 3}
+                                    className={cn(
+                                      "flex flex-col items-center h-auto py-2 px-1 text-xs",
+                                      selectedMovements.includes(movement.id) ? "gradient-primary" : "border-border/50"
+                                    )}
+                                  >
+                                    <span>{movement.icon}</span>
+                                    <span className="text-[10px] truncate w-full text-center">{movement.label}</span>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{movement.description}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Dynamic Movements */}
+                      <div className="space-y-2">
+                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Dynamic</span>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {cameraMovements.dynamic.map((movement) => (
+                            <TooltipProvider key={movement.id}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant={selectedMovements.includes(movement.id) ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => toggleMovement(movement.id)}
+                                    disabled={!selectedMovements.includes(movement.id) && selectedMovements.length >= 3}
+                                    className={cn(
+                                      "flex flex-col items-center h-auto py-2 px-1 text-xs",
+                                      selectedMovements.includes(movement.id) ? "gradient-primary" : "border-border/50"
+                                    )}
+                                  >
+                                    <span>{movement.icon}</span>
+                                    <span className="text-[10px] truncate w-full text-center">{movement.label}</span>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{movement.description}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Specialty Movements */}
+                      <div className="space-y-2">
+                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Specialty</span>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {cameraMovements.specialty.map((movement) => (
+                            <TooltipProvider key={movement.id}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant={selectedMovements.includes(movement.id) ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => toggleMovement(movement.id)}
+                                    disabled={!selectedMovements.includes(movement.id) && selectedMovements.length >= 3}
+                                    className={cn(
+                                      "flex flex-col items-center h-auto py-2 px-1 text-xs",
+                                      selectedMovements.includes(movement.id) ? "gradient-primary" : "border-border/50"
+                                    )}
+                                  >
+                                    <span>{movement.icon}</span>
+                                    <span className="text-[10px] truncate w-full text-center">{movement.label}</span>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{movement.description}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Selected Movements Preview */}
+                      {selectedMovements.length > 0 && (
+                        <div className="flex flex-wrap gap-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
+                          {selectedMovements.map((id, index) => {
+                            const movement = [...cameraMovements.classic, ...cameraMovements.dynamic, ...cameraMovements.specialty]
+                              .find(m => m.id === id);
+                            return (
+                              <Badge 
+                                key={id} 
+                                variant="secondary" 
+                                className="gap-1 cursor-pointer hover:bg-destructive/20"
+                                onClick={() => toggleMovement(id)}
+                              >
+                                {index + 1}. {movement?.icon} {movement?.label}
+                                <X className="h-3 w-3 ml-1" />
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Shot Type */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Focus className="h-4 w-4 text-primary" />
+                        Shot Type
+                      </Label>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {shotTypes.map((shot) => (
+                          <TooltipProvider key={shot.id}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant={shotType === shot.id ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => setShotType(shot.id)}
+                                  className={cn(
+                                    "flex flex-col items-center h-auto py-2 px-1 text-xs",
+                                    shotType === shot.id ? "gradient-primary" : "border-border/50"
+                                  )}
+                                >
+                                  <span>{shot.icon}</span>
+                                  <span className="text-[10px] truncate w-full text-center">{shot.label}</span>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{shot.description}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Camera & Lens Settings */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <Camera className="h-4 w-4 text-primary" />
+                          Camera Sensor
+                        </Label>
+                        <Select value={cameraSensor} onValueChange={setCameraSensor}>
+                          <SelectTrigger className="bg-secondary border-border/50 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover border-border">
+                            {cameraSensors.map((sensor) => (
+                              <SelectItem key={sensor.id} value={sensor.id}>
+                                <div className="flex flex-col">
+                                  <span className="text-xs">{sensor.label}</span>
+                                  <span className="text-[10px] text-muted-foreground">{sensor.description}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <Film className="h-4 w-4 text-primary" />
+                          Lens Type
+                        </Label>
+                        <Select value={lensType} onValueChange={setLensType}>
+                          <SelectTrigger className="bg-secondary border-border/50 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover border-border">
+                            {lensTypes.map((lens) => (
+                              <SelectItem key={lens.id} value={lens.id}>
+                                <div className="flex flex-col">
+                                  <span className="text-xs">{lens.label}</span>
+                                  <span className="text-[10px] text-muted-foreground">{lens.description}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    
+                    {/* Movement Intensity */}
+                    <div className="p-3 rounded-lg border border-border/50 bg-secondary space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Label>Movement Intensity</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Controls how dramatic the camera movement is</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                        <span className="text-sm font-medium">{movementIntensity}%</span>
+                      </div>
+                      <Slider
+                        value={[movementIntensity]}
+                        onValueChange={([val]) => setMovementIntensity(val)}
+                        min={10}
+                        max={100}
+                        step={10}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Subtle</span>
+                        <span>Dramatic</span>
+                      </div>
+                    </div>
+                    
+                    {/* Duration */}
+                    <div className="p-3 rounded-lg border border-border/50 bg-secondary space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>Duration</Label>
+                        <span className="text-sm font-medium">{cinematicDuration}s</span>
+                      </div>
+                      <Slider
+                        value={[cinematicDuration]}
+                        onValueChange={([val]) => setCinematicDuration(val)}
+                        min={3}
+                        max={10}
+                        step={1}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>3s</span>
+                        <span>10s</span>
+                      </div>
+                    </div>
+                    
+                    {/* Hero Frame Upload */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        Hero Frame
+                        <Badge variant="outline" className="text-xs">Recommended</Badge>
+                      </Label>
+                      {startingImage ? (
+                        <div className="relative rounded-lg overflow-hidden border border-border/50">
+                          <img 
+                            src={startingImage} 
+                            alt="Hero frame" 
+                            className="w-full h-32 object-cover"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-2 right-2 h-6 w-6"
+                            onClick={removeStartingImage}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                          <div className="absolute bottom-2 left-2 bg-background/80 rounded px-2 py-1">
+                            <span className="text-xs text-foreground">Hero frame locked</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer bg-primary/5 hover:bg-primary/10 transition-colors">
+                          <div className="flex flex-col items-center justify-center pt-2 pb-3">
+                            {isUploading ? (
+                              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                            ) : (
+                              <>
+                                <Upload className="h-6 w-6 text-primary mb-1" />
+                                <p className="text-xs text-primary font-medium">
+                                  Upload hero frame for best results
+                                </p>
+                              </>
+                            )}
+                          </div>
+                          <input 
+                            type="file" 
+                            className="hidden" 
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            disabled={isUploading || !user}
+                          />
+                        </label>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Lock in lighting and character consistency before animating
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {type === "video" && (
                   <div className="space-y-2">
                     <Label>Starting Frame (Optional)</Label>
