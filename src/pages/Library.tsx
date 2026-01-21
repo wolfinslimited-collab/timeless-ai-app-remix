@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Image, Video, Download, Trash2, Clock, Loader2, Bot } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import failedGenerationThumb from "@/assets/failed-generation-thumb.svg";
 
 interface Generation {
   id: string;
@@ -193,23 +194,26 @@ const Library = () => {
                   {/* Thumbnail */}
                   <div className="aspect-square bg-secondary flex items-center justify-center">
                     {gen.status === "failed" ? (
-                      <div className="flex flex-col items-center justify-center text-center p-4">
-                        <div className="relative mb-3">
-                          <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center">
-                            <Bot className="h-10 w-10 text-destructive" />
-                          </div>
-                          <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-destructive flex items-center justify-center">
-                            <span className="text-destructive-foreground text-lg font-bold">!</span>
-                          </div>
-                        </div>
-                        <span className="text-sm font-medium text-destructive">Generation Failed</span>
-                        <span className="text-xs text-muted-foreground mt-1">Something went wrong</span>
-                      </div>
-                    ) : gen.thumbnail_url || gen.output_url ? (
+                      <img
+                        src={failedGenerationThumb}
+                        alt="Generation failed"
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        draggable={false}
+                      />
+                    ) : gen.type === "image" && (gen.thumbnail_url || gen.output_url) ? (
                       <img
                         src={gen.thumbnail_url || gen.output_url || ""}
                         alt={gen.title || gen.prompt}
                         className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : gen.type === "video" && gen.thumbnail_url ? (
+                      <img
+                        src={gen.thumbnail_url}
+                        alt={gen.title || gen.prompt}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
                       />
                     ) : gen.status === "pending" ? (
                       <div className="flex flex-col items-center text-muted-foreground">
@@ -220,6 +224,11 @@ const Library = () => {
                       <div className="flex flex-col items-center text-muted-foreground">
                         <Video className="h-12 w-12 mb-2" />
                         <span className="text-sm">Preview unavailable</span>
+                      </div>
+                    ) : gen.type === "music" ? (
+                      <div className="flex flex-col items-center text-muted-foreground">
+                        <Bot className="h-12 w-12 mb-2" />
+                        <span className="text-sm">Audio saved</span>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center text-muted-foreground">
