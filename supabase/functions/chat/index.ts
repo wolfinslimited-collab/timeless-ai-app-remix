@@ -26,21 +26,42 @@ const MODEL_MAPPING: Record<string, string> = {
   "llama-3.3-large": "google/gemini-2.5-pro",
 };
 
+// Models that support vision/images
+const VISION_MODELS = new Set([
+  "gemini-2.5-pro",
+  "gemini-3-pro", 
+  "gemini-3-flash",
+  "chatgpt-5.2",
+  "chatgpt-5",
+  "grok-3",
+]);
+
 // System prompts per model personality
 const SYSTEM_PROMPTS: Record<string, string> = {
-  "grok-3": "You are Grok, an AI assistant created by xAI. You are direct, witty, and have a unique perspective. You aim to be maximally helpful while being intellectually curious.",
+  "grok-3": "You are Grok, an AI assistant created by xAI. You are direct, witty, and have a unique perspective. You aim to be maximally helpful while being intellectually curious. You can analyze images when provided.",
   "grok-3-mini": "You are Grok Mini, a fast and efficient AI assistant. Be concise, helpful, and direct in your responses.",
-  "chatgpt-5.2": "You are ChatGPT, an AI assistant by OpenAI. You are helpful, harmless, and honest. Provide thoughtful, well-structured responses.",
-  "chatgpt-5": "You are ChatGPT, an AI assistant by OpenAI. You are helpful, harmless, and honest. Provide thoughtful, well-structured responses.",
+  "chatgpt-5.2": "You are ChatGPT, an AI assistant by OpenAI. You are helpful, harmless, and honest. Provide thoughtful, well-structured responses. You can analyze images when provided.",
+  "chatgpt-5": "You are ChatGPT, an AI assistant by OpenAI. You are helpful, harmless, and honest. Provide thoughtful, well-structured responses. You can analyze images when provided.",
   "chatgpt-5-mini": "You are ChatGPT Mini, a fast and efficient AI assistant. Be concise and helpful.",
-  "gemini-2.5-pro": "You are Gemini, Google's most capable AI. You excel at reasoning, analysis, and creative tasks. Provide insightful and comprehensive responses.",
-  "gemini-3-pro": "You are Gemini 3 Pro, Google's next-generation AI. You have advanced reasoning capabilities and can handle complex tasks with ease.",
-  "gemini-3-flash": "You are Gemini 3 Flash, a fast and capable AI. Provide quick, accurate responses while maintaining quality.",
+  "gemini-2.5-pro": "You are Gemini, Google's most capable AI. You excel at reasoning, analysis, and creative tasks. Provide insightful and comprehensive responses. You have excellent vision capabilities and can analyze images in detail.",
+  "gemini-3-pro": "You are Gemini 3 Pro, Google's next-generation AI. You have advanced reasoning capabilities and can handle complex tasks with ease. You have excellent vision capabilities for image analysis.",
+  "gemini-3-flash": "You are Gemini 3 Flash, a fast and capable AI. Provide quick, accurate responses while maintaining quality. You can analyze images when provided.",
   "deepseek-r1": "You are DeepSeek R1, an AI specialized in deep reasoning and analysis. Think step by step and provide thorough explanations.",
   "deepseek-v3": "You are DeepSeek V3, a powerful AI assistant. Provide helpful, accurate, and well-reasoned responses.",
   "llama-3.3": "You are Llama 3.3, an open and helpful AI assistant. Be friendly, accurate, and provide clear responses.",
   "llama-3.3-large": "You are Llama 3.3 Large, a powerful open AI model. Provide comprehensive and helpful responses to all queries.",
 };
+
+interface MessageContent {
+  type: "text" | "image_url";
+  text?: string;
+  image_url?: { url: string };
+}
+
+interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string | MessageContent[];
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -69,8 +90,37 @@ serve(async (req) => {
     // Map the requested model to Lovable AI gateway model
     const gatewayModel = MODEL_MAPPING[model] || "google/gemini-3-flash-preview";
     const systemPrompt = SYSTEM_PROMPTS[model] || "You are a helpful AI assistant. Be concise and helpful.";
+    const supportsVision = VISION_MODELS.has(model);
 
-    console.log(`Chat request - User model: ${model}, Gateway model: ${gatewayModel}`);
+    console.log(`Chat request - User model: ${model}, Gateway model: ${gatewayModel}, Vision: ${supportsVision}`);
+
+    // Check if any message contains images
+    const hasImages = messages.some((msg: ChatMessage) => 
+      Array.isArray(msg.content) && msg.content.some(c => c.type === "image_url")
+    );
+
+    if (hasImages) {
+      console.log("Request contains images");
+    }
+
+    // Process messages - keep content arrays for multimodal, convert strings for text-only
+    const processedMessages: ChatMessage[] = messages.map((msg: ChatMessage) => {
+      if (typeof msg.content === "string") {
+        return msg;
+      }
+      
+      // For models that don't support vision, extract only text
+      if (!supportsVision) {
+        const textParts = msg.content
+          .filter((c: MessageContent) => c.type === "text")
+          .map((c: MessageContent) => c.text)
+          .join("\n");
+        return { ...msg, content: textParts || "Please describe the image you wanted to share." };
+      }
+      
+      // For vision models, keep the full content array
+      return msg;
+    });
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -82,7 +132,7 @@ serve(async (req) => {
         model: gatewayModel,
         messages: [
           { role: "system", content: systemPrompt },
-          ...messages,
+          ...processedMessages,
         ],
         stream: true,
       }),

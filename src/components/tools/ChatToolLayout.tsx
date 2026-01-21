@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -13,18 +12,28 @@ import {
   Copy, 
   Check,
   Trash2,
-  Sparkles
+  Sparkles,
+  ImagePlus,
+  X
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+
+interface MessageContent {
+  type: "text" | "image_url";
+  text?: string;
+  image_url?: { url: string };
+}
 
 interface Message {
   id: string;
   role: "user" | "assistant";
-  content: string;
+  content: string | MessageContent[];
   model?: string;
   timestamp: Date;
+  images?: string[]; // For display purposes
 }
 
 interface ChatModel {
@@ -39,6 +48,16 @@ interface ChatToolLayoutProps {
   model: ChatModel;
 }
 
+// Models that support vision/images
+const VISION_MODELS = [
+  "gemini-2.5-pro",
+  "gemini-3-pro", 
+  "gemini-3-flash",
+  "chatgpt-5.2",
+  "chatgpt-5",
+  "grok-3",
+];
+
 const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -46,8 +65,13 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [pendingImages, setPendingImages] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const supportsVision = VISION_MODELS.includes(model.id);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -56,8 +80,71 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
     }
   }, [messages]);
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !user) return;
+
+    setIsUploading(true);
+    const newImages: string[] = [];
+
+    try {
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) {
+          toast({
+            variant: "destructive",
+            title: "Invalid file",
+            description: "Please upload image files only.",
+          });
+          continue;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+          toast({
+            variant: "destructive",
+            title: "File too large",
+            description: "Please upload images under 10MB.",
+          });
+          continue;
+        }
+
+        const fileExt = file.name.split('.').pop();
+        const fileName = `chat/${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('generation-inputs')
+          .upload(fileName, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('generation-inputs')
+          .getPublicUrl(fileName);
+
+        newImages.push(publicUrl);
+      }
+
+      setPendingImages(prev => [...prev, ...newImages]);
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: error.message || "Failed to upload image.",
+      });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const removePendingImage = (index: number) => {
+    setPendingImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && pendingImages.length === 0) || isLoading) return;
 
     if (!user) {
       toast({
@@ -68,18 +155,53 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
       return;
     }
 
+    // Build message content
+    let messageContent: string | MessageContent[];
+    const displayImages = [...pendingImages];
+    
+    if (pendingImages.length > 0) {
+      // Multimodal message with images
+      messageContent = [];
+      
+      // Add images first
+      for (const imageUrl of pendingImages) {
+        messageContent.push({
+          type: "image_url",
+          image_url: { url: imageUrl }
+        });
+      }
+      
+      // Add text if present
+      if (input.trim()) {
+        messageContent.push({
+          type: "text",
+          text: input.trim()
+        });
+      }
+    } else {
+      messageContent = input.trim();
+    }
+
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
-      content: input.trim(),
+      content: messageContent,
       timestamp: new Date(),
+      images: displayImages.length > 0 ? displayImages : undefined,
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInput("");
+    setPendingImages([]);
     setIsLoading(true);
 
     try {
+      // Format messages for API
+      const apiMessages = [...messages, userMessage].map(m => ({
+        role: m.role,
+        content: m.content,
+      }));
+
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
         method: "POST",
         headers: {
@@ -87,10 +209,7 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
           "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
-          messages: [...messages, userMessage].map(m => ({
-            role: m.role,
-            content: m.content,
-          })),
+          messages: apiMessages,
           model: model.id,
         }),
       });
@@ -192,6 +311,19 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
 
   const clearChat = () => {
     setMessages([]);
+    setPendingImages([]);
+  };
+
+  const getDisplayContent = (message: Message): string => {
+    if (typeof message.content === "string") {
+      return message.content;
+    }
+    // Extract text from content array
+    const textParts = message.content
+      .filter(c => c.type === "text")
+      .map(c => c.text)
+      .join("\n");
+    return textParts;
   };
 
   return (
@@ -209,7 +341,12 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
                 <Badge variant="secondary" className="text-xs">{model.badge}</Badge>
               )}
             </h1>
-            <p className="text-sm text-muted-foreground">{model.description}</p>
+            <p className="text-sm text-muted-foreground">
+              {model.description}
+              {supportsVision && (
+                <span className="ml-2 text-primary">• Supports images</span>
+              )}
+            </p>
           </div>
         </div>
         {messages.length > 0 && (
@@ -227,15 +364,21 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
             <div className="text-6xl mb-4">{model.icon}</div>
             <h2 className="text-xl font-semibold mb-2">Chat with {model.name}</h2>
             <p className="text-muted-foreground max-w-md">
-              Start a conversation with one of the most advanced AI models. Ask questions, get creative ideas, or have a discussion.
+              Start a conversation with one of the most advanced AI models. 
+              {supportsVision && " You can also share images for visual analysis."}
             </p>
             <div className="flex flex-wrap gap-2 mt-6 justify-center max-w-lg">
-              {[
+              {(supportsVision ? [
+                "Analyze this image",
+                "Describe what you see",
+                "Help me brainstorm ideas",
+                "Explain a concept",
+              ] : [
                 "Explain quantum computing",
                 "Write a poem about space",
                 "Help me brainstorm ideas",
                 "Summarize a complex topic",
-              ].map((suggestion) => (
+              ]).map((suggestion) => (
                 <Button
                   key={suggestion}
                   variant="outline"
@@ -274,18 +417,31 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
                       : "bg-secondary/50"
                   )}
                 >
+                  {/* Display images if present */}
+                  {message.images && message.images.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {message.images.map((img, idx) => (
+                        <img
+                          key={idx}
+                          src={img}
+                          alt={`Uploaded ${idx + 1}`}
+                          className="max-w-[200px] max-h-[200px] rounded-lg object-cover"
+                        />
+                      ))}
+                    </div>
+                  )}
                   <div className="whitespace-pre-wrap break-words text-sm">
-                    {message.content || (
+                    {getDisplayContent(message) || (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     )}
                   </div>
-                  {message.role === "assistant" && message.content && (
+                  {message.role === "assistant" && getDisplayContent(message) && (
                     <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/30">
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-6 px-2 text-xs"
-                        onClick={() => copyToClipboard(message.content, message.id)}
+                        onClick={() => copyToClipboard(getDisplayContent(message), message.id)}
                       >
                         {copiedId === message.id ? (
                           <Check className="h-3 w-3" />
@@ -314,21 +470,73 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
         )}
       </ScrollArea>
 
+      {/* Pending Images Preview */}
+      {pendingImages.length > 0 && (
+        <div className="px-4 py-2 border-t border-border/50 bg-secondary/30">
+          <div className="flex flex-wrap gap-2">
+            {pendingImages.map((img, idx) => (
+              <div key={idx} className="relative group">
+                <img
+                  src={img}
+                  alt={`Pending ${idx + 1}`}
+                  className="h-16 w-16 rounded-lg object-cover"
+                />
+                <button
+                  onClick={() => removePendingImage(idx)}
+                  className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Input */}
       <div className="p-4 border-t border-border/50">
         <div className="flex gap-2">
+          {/* Image Upload Button */}
+          {supportsVision && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-12 w-12 shrink-0"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading || isUploading}
+              >
+                {isUploading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <ImagePlus className="h-5 w-5" />
+                )}
+              </Button>
+            </>
+          )}
           <Textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={`Message ${model.name}...`}
+            placeholder={supportsVision 
+              ? `Message ${model.name} or share an image...` 
+              : `Message ${model.name}...`
+            }
             className="min-h-[48px] max-h-[200px] resize-none"
             disabled={isLoading}
           />
           <Button
             onClick={handleSend}
-            disabled={!input.trim() || isLoading}
+            disabled={(!input.trim() && pendingImages.length === 0) || isLoading}
             size="icon"
             className="h-12 w-12 shrink-0"
           >
