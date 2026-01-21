@@ -21,21 +21,24 @@ import {
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const POPULAR_LANGUAGES = [
-  "English",
-  "Spanish",
-  "French",
-  "German",
-  "Italian",
-  "Portuguese",
-  "Russian",
-  "Japanese",
-  "Korean",
-  "Chinese",
-  "Arabic",
-  "Hindi",
-  "Farsi",
-  "Turkish",
+// Languages supported by Fal.ai dubbing API
+const SUPPORTED_LANGUAGES = ["English", "Turkish", "Hindi"];
+
+const ALL_LANGUAGES = [
+  { name: "English", supported: true },
+  { name: "Spanish", supported: false },
+  { name: "French", supported: false },
+  { name: "German", supported: false },
+  { name: "Italian", supported: false },
+  { name: "Portuguese", supported: false },
+  { name: "Russian", supported: false },
+  { name: "Japanese", supported: false },
+  { name: "Korean", supported: false },
+  { name: "Chinese", supported: false },
+  { name: "Arabic", supported: false },
+  { name: "Hindi", supported: true },
+  { name: "Farsi", supported: false },
+  { name: "Turkish", supported: true },
 ];
 
 interface VideoInfo {
@@ -180,8 +183,8 @@ const TranslateAITool = () => {
     }
   };
 
-  const filteredLanguages = POPULAR_LANGUAGES.filter((lang) =>
-    lang.toLowerCase().includes(targetLanguage.toLowerCase())
+  const filteredLanguages = ALL_LANGUAGES.filter((lang) =>
+    lang.name.toLowerCase().includes(targetLanguage.toLowerCase())
   );
 
   // Polling logic: check generation status every 5 seconds
@@ -449,16 +452,36 @@ const TranslateAITool = () => {
                 {showLanguageDropdown && filteredLanguages.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-50 max-h-48 overflow-auto">
                     {filteredLanguages.map((lang) => (
-                      <button
-                        key={lang}
-                        className="w-full px-4 py-2.5 text-left text-sm hover:bg-secondary/50 transition-colors first:rounded-t-xl last:rounded-b-xl"
-                        onMouseDown={() => {
-                          setTargetLanguage(lang);
-                          setShowLanguageDropdown(false);
-                        }}
+                      <div
+                        key={lang.name}
+                        className="relative group"
                       >
-                        {lang}
-                      </button>
+                        <button
+                          disabled={!lang.supported}
+                          className={cn(
+                            "w-full px-4 py-2.5 text-left text-sm transition-colors first:rounded-t-xl last:rounded-b-xl",
+                            lang.supported 
+                              ? "hover:bg-secondary/50 cursor-pointer" 
+                              : "opacity-50 cursor-not-allowed"
+                          )}
+                          onMouseDown={() => {
+                            if (lang.supported) {
+                              setTargetLanguage(lang.name);
+                              setShowLanguageDropdown(false);
+                            }
+                          }}
+                        >
+                          {lang.name}
+                          {!lang.supported && (
+                            <span className="ml-2 text-xs text-muted-foreground">(coming soon)</span>
+                          )}
+                        </button>
+                        {!lang.supported && (
+                          <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1 px-2 py-1 bg-popover border border-border rounded-md text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-md">
+                            Only English, Turkish & Hindi supported
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 )}
