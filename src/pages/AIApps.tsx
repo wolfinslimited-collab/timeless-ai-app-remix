@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import TranslateAITool from "@/components/tools/TranslateAITool";
 import {
   Heart,
   Languages,
@@ -19,8 +20,10 @@ import {
   Megaphone,
   Search,
   ArrowRight,
+  ArrowLeft,
   LucideIcon,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 type AppCategory = "all" | "health" | "productivity" | "finance" | "marketing" | "security";
 
@@ -143,6 +146,7 @@ const categories: { id: AppCategory; label: string }[] = [
 
 const AIApps = () => {
   const navigate = useNavigate();
+  const { appId } = useParams();
   const [selectedCategory, setSelectedCategory] = useState<AppCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -155,9 +159,55 @@ const AIApps = () => {
   });
 
   const handleAppClick = (appId: string) => {
-    // For now, navigate to a placeholder - can be connected to actual app pages later
     navigate(`/ai-apps/${appId}`);
   };
+
+  const handleBack = () => {
+    navigate("/ai-apps");
+  };
+
+  // Render specific app tool if appId is provided
+  if (appId === "translate-ai") {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+        <div className="pt-16 px-4">
+          <Button
+            variant="ghost"
+            onClick={handleBack}
+            className="mb-4 gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to AI Apps
+          </Button>
+        </div>
+        <TranslateAITool />
+        <Footer />
+      </div>
+    );
+  }
+
+  // If appId is provided but no specific tool, redirect to main page
+  if (appId) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+        <main className="flex-1 pt-20 pb-12 flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4">Coming Soon</h2>
+            <p className="text-muted-foreground mb-6">
+              This AI app is under development. Check back soon!
+            </p>
+            <Button onClick={handleBack} className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back to AI Apps
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
