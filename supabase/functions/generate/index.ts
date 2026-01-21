@@ -287,8 +287,14 @@ const buildFalImageRequest = (args: {
   aspectRatio: string;
   model: string;
   referenceImageUrl?: string;
+  referenceImageUrls?: string[];
 }) => {
-  const { prompt, negativePrompt, aspectRatio, model, referenceImageUrl } = args;
+  const { prompt, negativePrompt, aspectRatio, model, referenceImageUrl, referenceImageUrls = [] } = args;
+  
+  // Use array if provided, otherwise fall back to single URL
+  const allReferenceImages = referenceImageUrls.length > 0 
+    ? referenceImageUrls 
+    : (referenceImageUrl ? [referenceImageUrl] : []);
   
   const input: Record<string, unknown> = {
     prompt,
@@ -314,15 +320,15 @@ const buildFalImageRequest = (args: {
   // GPT Image 1.5 uses string format for size, others use object
   if (model === "gpt-image-1.5") {
     input.size = `${size.width}x${size.height}`;
-    // GPT Image supports image input for editing
-    if (referenceImageUrl) {
-      input.image_url = referenceImageUrl;
+    // GPT Image supports image input for editing (uses first reference)
+    if (allReferenceImages.length > 0) {
+      input.image_url = allReferenceImages[0];
     }
   } else {
     input.image_size = { width: size.width, height: size.height };
-    // Flux and other models support image_url for img2img
-    if (referenceImageUrl) {
-      input.image_url = referenceImageUrl;
+    // Flux and other models support image_url for img2img (primary reference)
+    if (allReferenceImages.length > 0) {
+      input.image_url = allReferenceImages[0];
       // Flux models use strength parameter for img2img blending
       input.strength = 0.75; // Balance between reference and prompt
     }
@@ -421,7 +427,8 @@ serve(async (req) => {
       aspectRatio = "1:1", 
       quality = "720p", 
       imageUrl, 
-      referenceImageUrl,  // Reference image for image-to-image / style transfer
+      referenceImageUrl,  // Legacy single reference image (backward compatibility)
+      referenceImageUrls = [],  // Multiple reference images for style transfer
       stream = false, 
       background = false, 
       lyrics, 
@@ -860,21 +867,32 @@ serve(async (req) => {
         }
 
         try {
-          console.log(`Using Lovable AI model: ${lovableModel}${referenceImageUrl ? ' with reference image' : ''}`);
+          // Merge reference images (support both legacy single and new array)
+          const allReferenceImages = referenceImageUrls.length > 0 
+            ? referenceImageUrls 
+            : (referenceImageUrl ? [referenceImageUrl] : []);
           
-          // Build message content - include reference image if provided
+          console.log(`Using Lovable AI model: ${lovableModel}${allReferenceImages.length > 0 ? ` with ${allReferenceImages.length} reference image(s)` : ''}`);
+          
+          // Build message content - include reference images if provided
           let messageContent: unknown;
-          if (referenceImageUrl) {
-            // Image editing / style transfer mode
+          if (allReferenceImages.length > 0) {
+            // Image editing / style transfer mode with multiple references
+            const imageEntries = allReferenceImages.map((url: string) => ({
+              type: "image_url",
+              image_url: { url }
+            }));
+            
+            const referenceDescription = allReferenceImages.length === 1 
+              ? "the provided image as a style reference"
+              : `the ${allReferenceImages.length} provided images as style references, blending their visual elements`;
+            
             messageContent = [
               {
                 type: "text",
-                text: `Using the provided image as a style reference, generate a new image: ${prompt}${aspectRatio ? `. Aspect ratio: ${aspectRatio}` : ""}`
+                text: `Using ${referenceDescription}, generate a new image: ${prompt}${aspectRatio ? `. Aspect ratio: ${aspectRatio}` : ""}`
               },
-              {
-                type: "image_url",
-                image_url: { url: referenceImageUrl }
-              }
+              ...imageEntries
             ];
           } else {
             // Pure text-to-image mode
@@ -965,6 +983,7 @@ serve(async (req) => {
         aspectRatio,
         model,
         referenceImageUrl,
+        referenceImageUrls,
       });
 
       try {
