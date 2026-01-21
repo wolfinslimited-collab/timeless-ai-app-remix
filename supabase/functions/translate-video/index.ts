@@ -11,23 +11,15 @@ const CREDIT_COST = 25;
 // Fal.ai queue URL
 const FAL_QUEUE_URL = "https://queue.fal.run";
 
-// Language mapping for Fal.ai dubbing API
-const LANGUAGE_MAP: Record<string, string> = {
-  english: "en",
-  spanish: "es",
-  french: "fr",
-  german: "de",
-  italian: "it",
-  portuguese: "pt",
-  russian: "ru",
-  japanese: "ja",
-  korean: "ko",
-  chinese: "zh",
-  arabic: "ar",
-  hindi: "hi",
-  turkish: "tr",
-  farsi: "fa",
-  persian: "fa",
+// Fal.ai dubbing API currently supports a limited enum set for `target_language`.
+// Docs: https://fal.ai/models/fal-ai/dubbing/api
+const TARGET_LANGUAGE_MAP: Record<string, "english" | "turkish" | "hindi"> = {
+  english: "english",
+  en: "english",
+  turkish: "turkish",
+  tr: "turkish",
+  hindi: "hindi",
+  hi: "hindi",
 };
 
 interface TranslateRequest {
@@ -118,9 +110,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Map target language
-    const langKey = targetLanguage.toLowerCase();
-    const mappedLang = LANGUAGE_MAP[langKey] || langKey;
+    // Normalize/validate target language
+    const langKey = targetLanguage.toLowerCase().trim();
+    const mappedLang = TARGET_LANGUAGE_MAP[langKey];
+
+    if (!mappedLang) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Unsupported target language for dubbing. Currently supported: English, Turkish, Hindi.",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     console.log(`Starting video translation for user ${user.id}`);
     console.log(`YouTube URL: ${youtubeUrl}`);
