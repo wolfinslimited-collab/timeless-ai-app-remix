@@ -44,6 +44,8 @@ import DepthControlTool from "@/components/tools/DepthControlTool";
 import LensEffectsTool from "@/components/tools/LensEffectsTool";
 import ColorGradeTool from "@/components/tools/ColorGradeTool";
 import StabilizeTool from "@/components/tools/StabilizeTool";
+// Chat components
+import ChatToolLayout from "@/components/tools/ChatToolLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -315,12 +317,12 @@ const Create = () => {
   const { toast } = useToast();
   
   // Read type from URL params
-  const urlType = searchParams.get("type") as "image" | "video" | "music" | "cinema" | null;
-  const [type, setType] = useState<"image" | "video" | "music" | "cinema">(urlType || "image");
+  const urlType = searchParams.get("type") as "chat" | "image" | "video" | "music" | "cinema" | null;
+  const [type, setType] = useState<"chat" | "image" | "video" | "music" | "cinema">(urlType || "chat");
   
   // Sync type with URL params
   useEffect(() => {
-    const newType = searchParams.get("type") as "image" | "video" | "music" | "cinema" | null;
+    const newType = searchParams.get("type") as "chat" | "image" | "video" | "music" | "cinema" | null;
     if (newType && newType !== type) {
       handleTypeChange(newType);
     }
@@ -606,8 +608,12 @@ const Create = () => {
   };
 
   const handleTypeChange = (newType: string) => {
-    setType(newType as "image" | "video" | "music" | "cinema");
-    setSelectedApp("generate"); // Reset to generate when switching types
+    setType(newType as "chat" | "image" | "video" | "music" | "cinema");
+    if (newType === "chat") {
+      setSelectedApp("grok-3"); // Default to Grok 3 for chat
+    } else {
+      setSelectedApp("generate"); // Reset to generate when switching types
+    }
     if (newType === "image") {
       setModel("flux-1.1-pro");
       setAspectRatio("1:1");
@@ -619,7 +625,7 @@ const Create = () => {
       setAspectRatio("21:9");
       setSelectedMovements([]);
       setShotType("medium");
-    } else {
+    } else if (newType === "music") {
       setModel("sonauto");
     }
     setQuality("720p");
@@ -829,6 +835,39 @@ const Create = () => {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+  );
+  }
+
+  // Chat models definitions for rendering
+  const chatModels: Record<string, { id: string; name: string; description: string; icon: string; badge?: string }> = {
+    "grok-3": { id: "grok-3", name: "Grok 3", description: "xAI's most capable model", icon: "🤖", badge: "TOP" },
+    "grok-3-mini": { id: "grok-3-mini", name: "Grok 3 Mini", description: "Fast and efficient Grok", icon: "⚡", badge: "NEW" },
+    "chatgpt-5.2": { id: "chatgpt-5.2", name: "ChatGPT 5.2", description: "OpenAI's latest reasoning", icon: "💬", badge: "TOP" },
+    "chatgpt-5": { id: "chatgpt-5", name: "ChatGPT 5", description: "Powerful all-rounder", icon: "🧠" },
+    "chatgpt-5-mini": { id: "chatgpt-5-mini", name: "GPT-5 Mini", description: "Fast and cost-effective", icon: "🚀" },
+    "gemini-3-pro": { id: "gemini-3-pro", name: "Gemini 3 Pro", description: "Google's next-gen AI", icon: "✨", badge: "NEW" },
+    "gemini-3-flash": { id: "gemini-3-flash", name: "Gemini 3 Flash", description: "Fast multimodal AI", icon: "⚡" },
+    "gemini-2.5-pro": { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Top-tier reasoning", icon: "🌟" },
+    "deepseek-r1": { id: "deepseek-r1", name: "DeepSeek R1", description: "Deep reasoning model", icon: "🔬", badge: "AI" },
+    "deepseek-v3": { id: "deepseek-v3", name: "DeepSeek V3", description: "Powerful open model", icon: "🎯" },
+    "llama-3.3": { id: "llama-3.3", name: "Llama 3.3", description: "Meta's open AI model", icon: "🦙" },
+    "llama-3.3-large": { id: "llama-3.3-large", name: "Llama 3.3 Large", description: "Extended capabilities", icon: "🦙" },
+  };
+
+  // Chat - render chat interface
+  if (type === "chat") {
+    const chatModel = chatModels[selectedApp] || chatModels["grok-3"];
+    return (
+      <div className="min-h-screen bg-background">
+        <TopMenu />
+        <div className="flex">
+          <AppsSidebar currentType={type} selectedApp={selectedApp} onSelectApp={handleAppSelect} />
+          <main className="flex-1 pb-20 md:pb-0">
+            <ChatToolLayout model={chatModel} />
+          </main>
+        </div>
+        <BottomNav />
       </div>
     );
   }
