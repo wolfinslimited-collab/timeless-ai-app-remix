@@ -73,7 +73,6 @@ const LOVABLE_AI_BASE_URL = "https://ai.gateway.lovable.dev/v1/chat/completions"
 
 // Fal.ai Image Models
 const FAL_IMAGE_MODELS: Record<string, string> = {
-  "nano-banana-pro": "fal-ai/google/gemini-flash-1.5-image",
   "gpt-image-1.5": "fal-ai/gpt-image-1.5",
   "flux-1.1-pro": "fal-ai/flux-pro/v1.1",
   "flux-pro-ultra": "fal-ai/flux-pro/v1.1-ultra",
@@ -91,6 +90,7 @@ const FAL_IMAGE_MODELS: Record<string, string> = {
 // Lovable AI Image Models
 const LOVABLE_IMAGE_MODELS: Record<string, string> = {
   "nano-banana": "google/gemini-2.5-flash-image-preview",
+  "nano-banana-pro": "google/gemini-3-pro-image-preview",
 };
 
 // Fal.ai Music Models
