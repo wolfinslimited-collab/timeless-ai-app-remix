@@ -44,6 +44,7 @@ import { useToast } from "@/hooks/use-toast";
 // Image Models (Fal.ai + Lovable AI)
 const imageModels = [
   // Premium Models
+  { id: "gpt-image-1.5", name: "GPT Image 1.5", description: "OpenAI multimodal gen", badge: "TOP", credits: 10, provider: "fal" },
   { id: "nano-banana", name: "Nano Banana", description: "Google Gemini image gen", badge: "AI", credits: 4, provider: "lovable" },
   { id: "flux-1.1-pro", name: "Flux 1.1 Pro", description: "High quality creative", badge: "PRO", credits: 5, provider: "fal" },
   { id: "flux-pro-ultra", name: "Flux Pro Ultra", description: "Ultimate quality", badge: "TOP", credits: 8, provider: "fal" },
