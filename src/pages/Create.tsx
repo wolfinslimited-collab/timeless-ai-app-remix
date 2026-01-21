@@ -8,6 +8,7 @@ import TopMenu from "@/components/TopMenu";
 import Sidebar from "@/components/Sidebar";
 import BottomNav from "@/components/BottomNav";
 import AudioWaveform from "@/components/AudioWaveform";
+import CinemaStudio from "@/components/CinemaStudio";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -689,6 +690,44 @@ const Create = () => {
     );
   }
 
+  // Cinema Studio has its own layout
+  if (type === "cinema") {
+    return (
+      <div className="min-h-screen bg-background">
+        <TopMenu />
+        <div className="flex">
+          <Sidebar />
+          <main className="flex-1 pb-20 md:pb-0">
+            <CinemaStudio
+              prompt={prompt}
+              setPrompt={setPrompt}
+              startingImage={startingImage}
+              setStartingImage={setStartingImage}
+              isUploading={isUploading}
+              isGenerating={isGenerating}
+              generationError={generationError}
+              result={result}
+              currentCost={currentCost}
+              hasEnoughCredits={hasEnoughCreditsForModel(model)}
+              user={user}
+              onGenerate={handleGenerate}
+              onImageUpload={handleImageUpload}
+              selectedMovements={selectedMovements}
+              setSelectedMovements={setSelectedMovements}
+              aspectRatio={aspectRatio}
+              setAspectRatio={setAspectRatio}
+              cinematicDuration={cinematicDuration}
+              setCinematicDuration={setCinematicDuration}
+              model={model}
+              setModel={setModel}
+            />
+          </main>
+        </div>
+        <BottomNav />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <TopMenu />
@@ -1099,329 +1138,6 @@ const Create = () => {
                         </div>
                       </div>
                     )}
-                  </div>
-                )}
-
-                {/* Cinema Studio Controls */}
-                {type === "cinema" && (
-                  <div className="space-y-4">
-                    {/* Camera Movements Section */}
-                    <div className="space-y-3">
-                      <Label className="flex items-center gap-2">
-                        <Move3d className="h-4 w-4 text-primary" />
-                        Camera Movements
-                        <Badge variant="outline" className="ml-2 text-xs">
-                          {selectedMovements.length}/3
-                        </Badge>
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Stack up to 3 movements for complex camera work
-                      </p>
-                      
-                      {/* Classic Movements */}
-                      <div className="space-y-2">
-                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Classic</span>
-                        <div className="grid grid-cols-4 gap-1.5">
-                          {cameraMovements.classic.map((movement) => (
-                            <TooltipProvider key={movement.id}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    type="button"
-                                    variant={selectedMovements.includes(movement.id) ? "default" : "outline"}
-                                    size="sm"
-                                    onClick={() => toggleMovement(movement.id)}
-                                    disabled={!selectedMovements.includes(movement.id) && selectedMovements.length >= 3}
-                                    className={cn(
-                                      "flex flex-col items-center h-auto py-2 px-1 text-xs",
-                                      selectedMovements.includes(movement.id) ? "gradient-primary" : "border-border/50"
-                                    )}
-                                  >
-                                    <span>{movement.icon}</span>
-                                    <span className="text-[10px] truncate w-full text-center">{movement.label}</span>
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{movement.description}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* Dynamic Movements */}
-                      <div className="space-y-2">
-                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Dynamic</span>
-                        <div className="grid grid-cols-4 gap-1.5">
-                          {cameraMovements.dynamic.map((movement) => (
-                            <TooltipProvider key={movement.id}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    type="button"
-                                    variant={selectedMovements.includes(movement.id) ? "default" : "outline"}
-                                    size="sm"
-                                    onClick={() => toggleMovement(movement.id)}
-                                    disabled={!selectedMovements.includes(movement.id) && selectedMovements.length >= 3}
-                                    className={cn(
-                                      "flex flex-col items-center h-auto py-2 px-1 text-xs",
-                                      selectedMovements.includes(movement.id) ? "gradient-primary" : "border-border/50"
-                                    )}
-                                  >
-                                    <span>{movement.icon}</span>
-                                    <span className="text-[10px] truncate w-full text-center">{movement.label}</span>
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{movement.description}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* Specialty Movements */}
-                      <div className="space-y-2">
-                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Specialty</span>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {cameraMovements.specialty.map((movement) => (
-                            <TooltipProvider key={movement.id}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    type="button"
-                                    variant={selectedMovements.includes(movement.id) ? "default" : "outline"}
-                                    size="sm"
-                                    onClick={() => toggleMovement(movement.id)}
-                                    disabled={!selectedMovements.includes(movement.id) && selectedMovements.length >= 3}
-                                    className={cn(
-                                      "flex flex-col items-center h-auto py-2 px-1 text-xs",
-                                      selectedMovements.includes(movement.id) ? "gradient-primary" : "border-border/50"
-                                    )}
-                                  >
-                                    <span>{movement.icon}</span>
-                                    <span className="text-[10px] truncate w-full text-center">{movement.label}</span>
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{movement.description}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* Selected Movements Preview */}
-                      {selectedMovements.length > 0 && (
-                        <div className="flex flex-wrap gap-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
-                          {selectedMovements.map((id, index) => {
-                            const movement = [...cameraMovements.classic, ...cameraMovements.dynamic, ...cameraMovements.specialty]
-                              .find(m => m.id === id);
-                            return (
-                              <Badge 
-                                key={id} 
-                                variant="secondary" 
-                                className="gap-1 cursor-pointer hover:bg-destructive/20"
-                                onClick={() => toggleMovement(id)}
-                              >
-                                {index + 1}. {movement?.icon} {movement?.label}
-                                <X className="h-3 w-3 ml-1" />
-                              </Badge>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Shot Type */}
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2">
-                        <Focus className="h-4 w-4 text-primary" />
-                        Shot Type
-                      </Label>
-                      <div className="grid grid-cols-4 gap-1.5">
-                        {shotTypes.map((shot) => (
-                          <TooltipProvider key={shot.id}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  type="button"
-                                  variant={shotType === shot.id ? "default" : "outline"}
-                                  size="sm"
-                                  onClick={() => setShotType(shot.id)}
-                                  className={cn(
-                                    "flex flex-col items-center h-auto py-2 px-1 text-xs",
-                                    shotType === shot.id ? "gradient-primary" : "border-border/50"
-                                  )}
-                                >
-                                  <span>{shot.icon}</span>
-                                  <span className="text-[10px] truncate w-full text-center">{shot.label}</span>
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>{shot.description}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Camera & Lens Settings */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                          <Camera className="h-4 w-4 text-primary" />
-                          Camera Sensor
-                        </Label>
-                        <Select value={cameraSensor} onValueChange={setCameraSensor}>
-                          <SelectTrigger className="bg-secondary border-border/50 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover border-border">
-                            {cameraSensors.map((sensor) => (
-                              <SelectItem key={sensor.id} value={sensor.id}>
-                                <div className="flex flex-col">
-                                  <span className="text-xs">{sensor.label}</span>
-                                  <span className="text-[10px] text-muted-foreground">{sensor.description}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                          <Film className="h-4 w-4 text-primary" />
-                          Lens Type
-                        </Label>
-                        <Select value={lensType} onValueChange={setLensType}>
-                          <SelectTrigger className="bg-secondary border-border/50 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover border-border">
-                            {lensTypes.map((lens) => (
-                              <SelectItem key={lens.id} value={lens.id}>
-                                <div className="flex flex-col">
-                                  <span className="text-xs">{lens.label}</span>
-                                  <span className="text-[10px] text-muted-foreground">{lens.description}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    
-                    {/* Movement Intensity */}
-                    <div className="p-3 rounded-lg border border-border/50 bg-secondary space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Label>Movement Intensity</Label>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Controls how dramatic the camera movement is</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                        <span className="text-sm font-medium">{movementIntensity}%</span>
-                      </div>
-                      <Slider
-                        value={[movementIntensity]}
-                        onValueChange={([val]) => setMovementIntensity(val)}
-                        min={10}
-                        max={100}
-                        step={10}
-                        className="w-full"
-                      />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Subtle</span>
-                        <span>Dramatic</span>
-                      </div>
-                    </div>
-                    
-                    {/* Duration */}
-                    <div className="p-3 rounded-lg border border-border/50 bg-secondary space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label>Duration</Label>
-                        <span className="text-sm font-medium">{cinematicDuration}s</span>
-                      </div>
-                      <Slider
-                        value={[cinematicDuration]}
-                        onValueChange={([val]) => setCinematicDuration(val)}
-                        min={3}
-                        max={10}
-                        step={1}
-                        className="w-full"
-                      />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>3s</span>
-                        <span>10s</span>
-                      </div>
-                    </div>
-                    
-                    {/* Hero Frame Upload */}
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2">
-                        Hero Frame
-                        <Badge variant="outline" className="text-xs">Recommended</Badge>
-                      </Label>
-                      {startingImage ? (
-                        <div className="relative rounded-lg overflow-hidden border border-border/50">
-                          <img 
-                            src={startingImage} 
-                            alt="Hero frame" 
-                            className="w-full h-32 object-cover"
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-2 right-2 h-6 w-6"
-                            onClick={removeStartingImage}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                          <div className="absolute bottom-2 left-2 bg-background/80 rounded px-2 py-1">
-                            <span className="text-xs text-foreground">Hero frame locked</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer bg-primary/5 hover:bg-primary/10 transition-colors">
-                          <div className="flex flex-col items-center justify-center pt-2 pb-3">
-                            {isUploading ? (
-                              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                            ) : (
-                              <>
-                                <Upload className="h-6 w-6 text-primary mb-1" />
-                                <p className="text-xs text-primary font-medium">
-                                  Upload hero frame for best results
-                                </p>
-                              </>
-                            )}
-                          </div>
-                          <input 
-                            type="file" 
-                            className="hidden" 
-                            accept="image/*"
-                            onChange={handleImageUpload}
-                            disabled={isUploading || !user}
-                          />
-                        </label>
-                      )}
-                      <p className="text-xs text-muted-foreground">
-                        Lock in lighting and character consistency before animating
-                      </p>
-                    </div>
                   </div>
                 )}
 
