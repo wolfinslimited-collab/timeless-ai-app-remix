@@ -69,9 +69,11 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
 
   const supportsVision = VISION_MODELS.includes(model.id);
 
@@ -187,9 +189,8 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
     setInput("");
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || !user) return;
+  const uploadFiles = async (files: FileList | File[]) => {
+    if (!user) return;
 
     setIsUploading(true);
     const newImages: string[] = [];
@@ -240,9 +241,59 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
       });
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !user) return;
+    await uploadFiles(files);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (supportsVision && e.dataTransfer.types.includes('Files')) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set dragging false if we're leaving the drop zone entirely
+    if (dropZoneRef.current && !dropZoneRef.current.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (!supportsVision || !user) {
+      if (!supportsVision) {
+        toast({
+          variant: "destructive",
+          title: "Images not supported",
+          description: "This model doesn't support image analysis.",
+        });
       }
+      return;
+    }
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      await uploadFiles(files);
     }
   };
 
@@ -447,7 +498,25 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]">
+    <div 
+      className="flex h-[calc(100vh-4rem)]"
+      ref={dropZoneRef}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drag Overlay */}
+      {isDragging && supportsVision && (
+        <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+          <div className="flex flex-col items-center gap-3 p-8 rounded-2xl border-2 border-dashed border-primary bg-primary/5">
+            <ImagePlus className="h-12 w-12 text-primary" />
+            <p className="text-lg font-medium">Drop images here</p>
+            <p className="text-sm text-muted-foreground">Release to upload</p>
+          </div>
+        </div>
+      )}
+
       {/* Conversation History Sidebar */}
       <ConversationHistory
         currentConversationId={conversationId}
