@@ -8,6 +8,7 @@ export const MODEL_CREDITS: Record<string, number> = {
   "nano-banana": 4,
   
   // Image models - Fal.ai
+  "gpt-image-1.5": 10,
   "flux-1.1-pro": 5,
   "flux-pro-ultra": 8,
   "flux-dev": 3,
