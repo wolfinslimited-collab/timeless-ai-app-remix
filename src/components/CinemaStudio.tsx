@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Image,
   Video,
@@ -20,6 +22,7 @@ import {
   Download,
   RotateCcw,
   AlertCircle,
+  Play,
 } from "lucide-react";
 import {
   Popover,
@@ -128,6 +131,49 @@ const CinemaStudio = ({
   const [variationCount, setVariationCount] = useState(1);
   const [movementsOpen, setMovementsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+  const [previousGenerations, setPreviousGenerations] = useState<Array<{
+    id: string;
+    output_url: string | null;
+    thumbnail_url: string | null;
+    prompt: string;
+    created_at: string;
+  }>>([]);
+  const [loadingGenerations, setLoadingGenerations] = useState(true);
+
+  // Fetch previous cinema generations
+  useEffect(() => {
+    const fetchGenerations = async () => {
+      if (!user) {
+        setLoadingGenerations(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("generations")
+          .select("id, output_url, thumbnail_url, prompt, created_at")
+          .eq("user_id", user.id)
+          .eq("type", "cinema")
+          .eq("status", "completed")
+          .not("output_url", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(12);
+
+        if (error) throw error;
+        setPreviousGenerations(data || []);
+      } catch (err) {
+        console.error("Error fetching generations:", err);
+      } finally {
+        setLoadingGenerations(false);
+      }
+    };
+
+    fetchGenerations();
+  }, [user, result]); // Refetch when result changes (new generation)
+
+  // Use selected video or current result
+  const displayVideo = selectedVideo || result?.output_url;
 
   const toggleMovement = (id: string) => {
     if (selectedMovements.includes(id)) {
@@ -147,6 +193,56 @@ const CinemaStudio = ({
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)]">
+      {/* Gallery Grid */}
+      {user && previousGenerations.length > 0 && (
+        <div className="px-4 pt-4">
+          <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex gap-2 pb-3">
+              {previousGenerations.map((gen) => (
+                <button
+                  key={gen.id}
+                  onClick={() => setSelectedVideo(gen.output_url)}
+                  className={cn(
+                    "relative flex-shrink-0 w-40 h-24 rounded-lg overflow-hidden border-2 transition-all group",
+                    displayVideo === gen.output_url
+                      ? "border-primary ring-2 ring-primary/30"
+                      : "border-border/30 hover:border-border/60"
+                  )}
+                >
+                  {/* Thumbnail or placeholder */}
+                  {gen.thumbnail_url ? (
+                    <img
+                      src={gen.thumbnail_url}
+                      alt={gen.prompt}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-secondary/80 flex items-center justify-center">
+                      <Video className="h-6 w-6 text-muted-foreground/50" />
+                    </div>
+                  )}
+                  
+                  {/* Play button overlay */}
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="h-10 w-10 rounded-full bg-white/90 flex items-center justify-center">
+                      <Play className="h-5 w-5 text-black ml-0.5" fill="black" />
+                    </div>
+                  </div>
+                  
+                  {/* Selected indicator */}
+                  {displayVideo === gen.output_url && (
+                    <div className="absolute top-1 right-1">
+                      <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </div>
+      )}
+
       {/* Main Preview Area */}
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-4xl aspect-video rounded-2xl bg-secondary/50 border border-border/30 flex items-center justify-center overflow-hidden">
@@ -158,9 +254,9 @@ const CinemaStudio = ({
               </div>
               <p className="text-sm">Creating cinematic video...</p>
             </div>
-          ) : result?.output_url ? (
+          ) : displayVideo ? (
             <video
-              src={result.output_url}
+              src={displayVideo}
               controls
               autoPlay
               loop
@@ -196,14 +292,14 @@ const CinemaStudio = ({
       </div>
 
       {/* Download button when result is ready */}
-      {result?.output_url && !isGenerating && (
+      {displayVideo && !isGenerating && (
         <div className="flex justify-center pb-4">
           <Button
             variant="outline"
             className="gap-2 border-border/50"
             onClick={() => {
               const link = document.createElement("a");
-              link.href = result.output_url!;
+              link.href = displayVideo;
               link.download = "cinema-generation.mp4";
               link.target = "_blank";
               link.click();
