@@ -19,7 +19,9 @@ import {
   Globe,
   Coins,
   Mic,
-  MicOff
+  MicOff,
+  Volume2,
+  VolumeX
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -128,6 +130,8 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -139,6 +143,114 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
   // Check if browser supports speech recognition
   const speechRecognitionSupported = typeof window !== 'undefined' && 
     (window.SpeechRecognition || window.webkitSpeechRecognition);
+  
+  // Check if browser supports speech synthesis (TTS)
+  const speechSynthesisSupported = typeof window !== 'undefined' && 
+    'speechSynthesis' in window;
+
+  // Text-to-speech function
+  const speakText = useCallback((text: string, messageId: string) => {
+    if (!speechSynthesisSupported) {
+      toast({
+        variant: "destructive",
+        title: "Not supported",
+        description: "Text-to-speech is not supported in your browser.",
+      });
+      return;
+    }
+
+    // If already speaking this message, stop it
+    if (isSpeaking && speakingMessageId === messageId) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      setSpeakingMessageId(null);
+      return;
+    }
+
+    // Stop any current speech
+    window.speechSynthesis.cancel();
+
+    // Clean the text (remove markdown formatting)
+    const cleanText = text
+      .replace(/```[\s\S]*?```/g, 'Code block omitted.') // Remove code blocks
+      .replace(/`([^`]+)`/g, '$1') // Keep inline code content
+      .replace(/\*\*([^*]+)\*\*/g, '$1') // Bold
+      .replace(/\*([^*]+)\*/g, '$1') // Italic
+      .replace(/#{1,6}\s+/g, '') // Headers
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Links
+      .replace(/!\[([^\]]*)\]\([^)]+\)/g, 'Image: $1') // Images
+      .replace(/[-*+]\s+/g, '') // List markers
+      .replace(/\n{2,}/g, '. ') // Multiple newlines
+      .replace(/\n/g, ' ') // Single newlines
+      .trim();
+
+    if (!cleanText) {
+      toast({
+        variant: "destructive",
+        title: "Nothing to read",
+        description: "This message has no readable content.",
+      });
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    // Try to use a natural-sounding voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(
+      voice => voice.lang.startsWith('en') && (voice.name.includes('Google') || voice.name.includes('Natural') || voice.name.includes('Enhanced'))
+    ) || voices.find(voice => voice.lang.startsWith('en'));
+    
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
+    }
+
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+      setSpeakingMessageId(messageId);
+    };
+
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      setSpeakingMessageId(null);
+    };
+
+    utterance.onerror = (event) => {
+      console.error('Speech synthesis error:', event);
+      setIsSpeaking(false);
+      setSpeakingMessageId(null);
+      if (event.error !== 'canceled') {
+        toast({
+          variant: "destructive",
+          title: "Speech error",
+          description: "Failed to read the message aloud.",
+        });
+      }
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }, [isSpeaking, speakingMessageId, speechSynthesisSupported, toast]);
+
+  // Stop speaking when component unmounts or model changes
+  useEffect(() => {
+    return () => {
+      if (speechSynthesisSupported) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, [speechSynthesisSupported]);
+
+  // Stop speaking when switching conversations
+  useEffect(() => {
+    if (speechSynthesisSupported) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      setSpeakingMessageId(null);
+    }
+  }, [conversationId, model.id, speechSynthesisSupported]);
 
   // Initialize speech recognition
   useEffect(() => {
@@ -883,6 +995,27 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
                             <Copy className="h-3 w-3" />
                           )}
                         </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => speakText(getDisplayContent(message), message.id)}
+                              >
+                                {isSpeaking && speakingMessageId === message.id ? (
+                                  <VolumeX className="h-3 w-3" />
+                                ) : (
+                                  <Volume2 className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {isSpeaking && speakingMessageId === message.id ? "Stop reading" : "Read aloud"}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                         {message.model && (
                           <span className="text-xs text-muted-foreground">
                             {message.model}
