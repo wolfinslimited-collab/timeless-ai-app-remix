@@ -605,8 +605,14 @@ serve(async (req) => {
 
             sendEvent('status', { stage: 'submitting', message: 'Submitting to Fal.ai...', progress: 5 });
 
-            // Choose T2V or I2V endpoint
-            const endpoint = imageUrl ? modelConfig.i2v : modelConfig.t2v;
+            // Determine the primary image for I2V
+            // Use imageUrl if provided, otherwise use the first reference image
+            const primaryImage = imageUrl || (referenceImageUrls.length > 0 ? referenceImageUrls[0] : null);
+            
+            // Choose T2V or I2V endpoint based on whether we have an image
+            const endpoint = primaryImage ? modelConfig.i2v : modelConfig.t2v;
+            
+            console.log(`Video generation: ${primaryImage ? 'I2V' : 'T2V'} mode${referenceImageUrls.length > 0 ? `, ${referenceImageUrls.length} reference image(s)` : ''}`);
             
             const falInput = buildFalVideoRequest({
               prompt,
@@ -614,7 +620,7 @@ serve(async (req) => {
               aspectRatio,
               quality,
               duration: modelConfig.duration,
-              imageUrl,
+              imageUrl: primaryImage,
             });
 
             let taskId: string;

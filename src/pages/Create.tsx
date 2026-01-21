@@ -571,6 +571,13 @@ const Create = () => {
           duration: cinematicDuration,
         } : {};
         
+        // Determine image URL(s) for the request
+        // For cinema mode: use first reference image as primary, pass all as referenceImageUrls
+        // For video mode: use startingImage
+        const primaryImageUrl = type === "cinema" 
+          ? (cinemaReferenceImages.length > 0 ? cinemaReferenceImages[0] : null)
+          : startingImage;
+        
         const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate`, {
           method: 'POST',
           headers: {
@@ -586,7 +593,8 @@ const Create = () => {
             aspectRatio, 
             quality,
             duration: type === "video" ? videoDuration : undefined,
-            imageUrl: startingImage,
+            imageUrl: primaryImageUrl,
+            referenceImageUrls: type === "cinema" ? cinemaReferenceImages : undefined,
             stream: true,
             background: false,
             ...cinemaParams,
