@@ -79,7 +79,8 @@ const videoModels = [
 
 // Fal.ai Music Models
 const musicModels = [
-  { id: "lyria2", name: "Lyria 2", description: "Google's best music AI", badge: "TOP", credits: 12 },
+  { id: "sonauto", name: "Sonauto (Suno)", description: "Full songs with lyrics", badge: "TOP", credits: 15 },
+  { id: "lyria2", name: "Lyria 2", description: "Google's best music AI", badge: "PRO", credits: 12 },
   { id: "cassetteai", name: "CassetteAI", description: "Fast professional tracks", badge: "FAST", credits: 10 },
   { id: "stable-audio", name: "Stable Audio", description: "Open source audio gen", badge: "NEW", credits: 8 },
 ];
@@ -444,7 +445,7 @@ const Create = () => {
       setModel("wan-2.6");
       setAspectRatio("16:9");
     } else {
-      setModel("lyria2");
+      setModel("sonauto");
     }
     setQuality("720p");
     setStartingImage(null);

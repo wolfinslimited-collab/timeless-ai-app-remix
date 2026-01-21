@@ -32,6 +32,7 @@ export const MODEL_CREDITS: Record<string, number> = {
   "hunyuan-1.5": 18,
 
   // Music models - Fal.ai
+  "sonauto": 15,
   "cassetteai": 10,
   "lyria2": 12,
   "stable-audio": 8,
