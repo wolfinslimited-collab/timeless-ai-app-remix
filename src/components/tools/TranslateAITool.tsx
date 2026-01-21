@@ -15,7 +15,8 @@ import {
   Link2,
   Play,
   X,
-  ExternalLink
+  ExternalLink,
+  Copy
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -446,18 +447,27 @@ const TranslateAITool = () => {
                       Open on YouTube
                     </Button>
                   </a>
-                  <a
-                    href={`https://ssyoutube.com/watch?v=${extractVideoId(youtubeUrl)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1"
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-2"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(youtubeUrl);
+                        toast.success("YouTube link copied");
+                      } catch {
+                        toast.error("Couldn't copy link");
+                      }
+                    }}
                   >
-                    <Button variant="outline" size="sm" className="w-full gap-2">
-                      <Download className="h-3.5 w-3.5" />
-                      Download Original
-                    </Button>
-                  </a>
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy link
+                  </Button>
                 </div>
+                <p className="px-3 pb-3 text-xs text-muted-foreground">
+                  Note: downloading original YouTube videos isn’t supported inside the app.
+                </p>
               </div>
             )}
 
