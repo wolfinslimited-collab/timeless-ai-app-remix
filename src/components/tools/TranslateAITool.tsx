@@ -53,6 +53,7 @@ const TranslateAITool = () => {
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   
   const { credits, refetch, hasActiveSubscription } = useCredits();
   const creditCost = 25;
@@ -140,6 +141,38 @@ const TranslateAITool = () => {
   const clearVideo = () => {
     setYoutubeUrl("");
     setVideoInfo(null);
+  };
+
+  const handleDownloadOriginal = async () => {
+    const videoId = extractVideoId(youtubeUrl);
+    if (!videoId) {
+      toast.error("Invalid YouTube URL");
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const response = await supabase.functions.invoke("youtube-download", {
+        body: { videoId },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Download failed");
+      }
+
+      if (response.data?.downloadUrl) {
+        // Open download in new tab
+        window.open(response.data.downloadUrl, "_blank");
+        toast.success(`Opening download (${response.data.quality || "best quality"})`);
+      } else {
+        throw new Error("No download link available");
+      }
+    } catch (error) {
+      console.error("Download error:", error);
+      toast.error(error instanceof Error ? error.message : "Download failed");
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const filteredLanguages = POPULAR_LANGUAGES.filter((lang) =>
@@ -447,17 +480,20 @@ const TranslateAITool = () => {
                       Open on YouTube
                     </Button>
                   </a>
-                  <a
-                    href={`https://10downloader.com/download?v=${encodeURIComponent(youtubeUrl)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1"
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-2"
+                    onClick={handleDownloadOriginal}
+                    disabled={isDownloading}
                   >
-                    <Button variant="outline" size="sm" className="w-full gap-2">
+                    {isDownloading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
                       <Download className="h-3.5 w-3.5" />
-                      Download Original
-                    </Button>
-                  </a>
+                    )}
+                    {isDownloading ? "Fetching..." : "Download Original"}
+                  </Button>
                 </div>
               </div>
             )}
