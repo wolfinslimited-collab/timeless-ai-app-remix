@@ -152,12 +152,22 @@ const videoTemplates = [
 ];
 
 const musicTemplates = [
-  { label: "Pop Hit", prompt: "A catchy upbeat pop song about summer love, 120 BPM, major key, with synths and drums" },
   { label: "Cinematic Epic", prompt: "An epic orchestral track for a movie trailer, dramatic build-up, brass and strings, heroic theme" },
   { label: "Lo-Fi Beats", prompt: "Chill lo-fi hip hop beat for studying, vinyl crackle, soft piano, mellow drums, relaxing vibes" },
-  { label: "Electronic Dance", prompt: "High energy EDM track, 128 BPM, synth drops, powerful bass, festival anthem" },
   { label: "Acoustic Folk", prompt: "Warm acoustic folk song about traveling, fingerpicked guitar, soft vocals, storytelling" },
-  { label: "Jazz Lounge", prompt: "Smooth jazz track for a cocktail bar, saxophone solo, piano chords, walking bass, brushed drums" },
+  { label: "Ambient Chill", prompt: "Ambient atmospheric soundscape, soft pads, gentle textures, peaceful and meditative" },
+];
+
+// Genre presets for music
+const musicGenrePresets = [
+  { label: "Pop", icon: "🎤", prompt: "A catchy upbeat pop song, 120 BPM, major key, modern production with synths, drums, and hooks" },
+  { label: "Rock", icon: "🎸", prompt: "A powerful rock song with electric guitars, driving drums, bass, energetic and raw sound" },
+  { label: "Jazz", icon: "🎷", prompt: "Smooth jazz track with saxophone, piano chords, walking bass line, brushed drums, sophisticated vibe" },
+  { label: "Electronic", icon: "🎹", prompt: "Electronic dance music, 128 BPM, synthesizers, heavy bass drops, festival-ready production" },
+  { label: "Classical", icon: "🎻", prompt: "Classical orchestral piece with strings, woodwinds, brass, elegant and timeless composition" },
+  { label: "Hip-Hop", icon: "🎧", prompt: "Hip-hop beat with punchy drums, 808 bass, trap hi-hats, modern urban production" },
+  { label: "R&B", icon: "💜", prompt: "Smooth R&B track with soulful vocals, lush harmonies, groovy rhythm, romantic mood" },
+  { label: "Country", icon: "🤠", prompt: "Country song with acoustic guitar, steel guitar, fiddle, heartfelt storytelling lyrics" },
 ];
 
 const Create = () => {
@@ -677,10 +687,36 @@ const Create = () => {
             <Card className="border-border/50 bg-card">
               <CardContent className="p-6 space-y-6">
                 {/* Prompt Templates */}
+                {/* Genre Presets - Music only */}
+                {type === "music" && (
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Music className="h-4 w-4 text-primary" />
+                      Choose a genre
+                    </Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {musicGenrePresets.map((genre) => (
+                        <Button
+                          key={genre.label}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPrompt(genre.prompt)}
+                          className="flex flex-col items-center gap-1 h-auto py-3 border-border/50 hover:bg-primary/10 hover:border-primary/50"
+                        >
+                          <span className="text-lg">{genre.icon}</span>
+                          <span className="text-xs">{genre.label}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Quick templates */}
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <Lightbulb className="h-4 w-4 text-accent" />
-                    Quick templates
+                    {type === "music" ? "Style presets" : "Quick templates"}
                   </Label>
                   <div className="flex flex-wrap gap-2">
                     {currentTemplates.map((template) => (
