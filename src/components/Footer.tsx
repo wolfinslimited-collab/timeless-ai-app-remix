@@ -140,7 +140,7 @@ const Footer = () => {
         <div className="border-t border-primary-foreground/20 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="text-xs opacity-70">
             <p>© {new Date().getFullYear()} Timeless AI. All rights reserved.</p>
-            <p className="mt-1">San Francisco, CA</p>
+            <p className="mt-1">Dubai, UAE</p>
           </div>
           <div className="flex gap-6">
             {socialLinks.map((link) => (
