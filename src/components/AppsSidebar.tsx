@@ -25,18 +25,31 @@ import {
   Camera,
   Move3d,
   Focus,
-  Aperture
+  Aperture,
+  LayoutGrid,
+  Megaphone,
+  TrendingUp,
+  PenTool,
+  Pencil,
+  User,
+  MonitorPlay,
+  Blend,
+  Clock
 } from "lucide-react";
 
 export type AppId = 
   | "generate" | "upscale" | "inpainting" | "relight" | "angle" 
   | "skin-enhancer" | "background-remove" | "object-erase" | "colorize" | "style-transfer"
-  | "extend" | "interpolate" | "lip-sync"
+  | "cinema-studio" | "mixed-media" | "edit-video" | "click-to-ad" | "sora-trends" 
+  | "lip-sync" | "draw-to-video" | "sketch-to-video" | "ugc-factory" | "video-upscale"
+  | "extend" | "interpolate"
   | "vocals" | "remix" | "stems" | "master"
   | "camera-control" | "motion-path" | "depth-control" | "lens-effects";
 
+type BadgeType = "AI" | "TOP" | "NEW";
+
 // App definitions per type
-const appsByType: Record<string, { id: AppId; name: string; icon: LucideIcon; description: string; badge?: string }[]> = {
+const appsByType: Record<string, { id: AppId; name: string; icon: LucideIcon; description: string; badge?: BadgeType }[]> = {
   image: [
     { id: "generate", name: "Generate", icon: ImagePlus, description: "Create images from text", badge: "AI" },
     { id: "upscale", name: "Upscale", icon: Maximize2, description: "Enhance image resolution" },
@@ -50,12 +63,19 @@ const appsByType: Record<string, { id: AppId; name: string; icon: LucideIcon; de
     { id: "style-transfer", name: "Style Transfer", icon: Layers, description: "Apply artistic styles" },
   ],
   video: [
-    { id: "generate", name: "Generate", icon: Video, description: "Create videos from text", badge: "AI" },
-    { id: "extend", name: "Extend", icon: Film, description: "Extend video length" },
-    { id: "upscale", name: "Upscale", icon: Maximize2, description: "Enhance video resolution" },
+    { id: "generate", name: "Create Video", icon: Video, description: "Generate AI videos", badge: "AI" },
+    { id: "cinema-studio", name: "Cinema Studio Video", icon: LayoutGrid, description: "Pro video with camera movements", badge: "TOP" },
+    { id: "mixed-media", name: "Mixed Media", icon: Blend, description: "Create mixed media projects", badge: "NEW" },
+    { id: "edit-video", name: "Edit Video", icon: MonitorPlay, description: "Edit scenes, shots, elements" },
+    { id: "click-to-ad", name: "Click to Ad", icon: Megaphone, description: "Turn product URLs into video ads" },
+    { id: "sora-trends", name: "Sora 2 Trends", icon: TrendingUp, description: "Turn ideas into viral videos" },
+    { id: "lip-sync", name: "Lipsync Studio", icon: Mic, description: "Create Talking Clips" },
+    { id: "draw-to-video", name: "Draw to Video", icon: PenTool, description: "Sketch turns into a cinema" },
+    { id: "sketch-to-video", name: "Sketch to Video", icon: Pencil, description: "From sketch to video with Sora 2" },
+    { id: "ugc-factory", name: "UGC Factory", icon: User, description: "Build UGC video with avatar" },
+    { id: "video-upscale", name: "Video Upscale", icon: Maximize2, description: "Enhance video quality" },
+    { id: "extend", name: "Extend", icon: Clock, description: "Extend video length" },
     { id: "interpolate", name: "Interpolate", icon: SlidersHorizontal, description: "Smooth frame rate" },
-    { id: "lip-sync", name: "Lip Sync", icon: Mic, description: "Sync audio to video" },
-    { id: "style-transfer", name: "Style Transfer", icon: Wand2, description: "Apply video styles" },
   ],
   music: [
     { id: "generate", name: "Generate", icon: Music, description: "Create music from text", badge: "AI" },
@@ -112,7 +132,12 @@ const AppItem = ({ icon: Icon, name, description, badge, active, collapsed, onCl
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm truncate">{name}</span>
             {badge && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/20 text-primary">
+              <span className={cn(
+                "text-[10px] font-semibold px-1.5 py-0.5 rounded",
+                badge === "TOP" && "bg-[#c8ff00] text-black",
+                badge === "NEW" && "bg-[#c8ff00]/80 text-black",
+                badge === "AI" && "bg-primary/20 text-primary"
+              )}>
                 {badge}
               </span>
             )}
