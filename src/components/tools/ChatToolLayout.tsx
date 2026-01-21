@@ -571,7 +571,9 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
             </div>
           ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="text-6xl mb-4">{model.icon}</div>
+              <div className="mb-4">
+                <ModelLogo modelId={model.id} size="lg" className="h-16 w-16 p-3" />
+              </div>
               <h2 className="text-xl font-semibold mb-2">Chat with {model.name}</h2>
               <p className="text-muted-foreground max-w-md">
                 Start a conversation with one of the most advanced AI models. 
