@@ -455,8 +455,18 @@ const CinemaStudio = ({
 
       {/* Floating Bottom Toolbar - Redesigned */}
       <div className="sticky bottom-4 mx-auto w-full max-w-5xl px-4 pb-4">
-        <div className="rounded-2xl border border-border/30 bg-card/95 backdrop-blur-xl shadow-2xl p-2.5">
-          {/* Single Row Layout */}
+        <div className="rounded-2xl border border-border/30 bg-card/95 backdrop-blur-xl shadow-2xl p-3">
+          {/* Prompt Input - Full Width Row */}
+          <div className="mb-3">
+            <Input
+              placeholder={cinemaMode === "image" ? "A man in the mars, storm with a whale on the sky, detailed, cinematic" : "Describe your cinematic scene..."}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              className="w-full h-14 bg-secondary/20 border border-border/30 rounded-xl text-lg placeholder:text-muted-foreground/60 focus-visible:ring-1 focus-visible:ring-primary/50 px-4"
+            />
+          </div>
+
+          {/* Controls Row */}
           <div className="flex items-center gap-2">
             {/* Image/Video Toggle */}
             <div className="flex flex-col items-center border border-border/30 rounded-xl p-1.5 bg-secondary/30 gap-1">
@@ -555,13 +565,8 @@ const CinemaStudio = ({
               </DialogContent>
             </Dialog>
 
-            {/* Prompt Input */}
-            <Input
-              placeholder={cinemaMode === "image" ? "A man in the mars, storm with a whale on the sky, detailed, cinematic" : "Describe your cinematic scene..."}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              className="flex-1 h-12 bg-transparent border-0 text-base placeholder:text-muted-foreground/60 focus-visible:ring-0"
-            />
+            {/* Spacer to push controls to edges */}
+            <div className="flex-1" />
 
             {/* Variations Counter */}
             <div className="flex items-center gap-1 border border-border/30 rounded-xl bg-secondary/30 px-1">
