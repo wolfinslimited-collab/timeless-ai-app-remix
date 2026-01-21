@@ -45,13 +45,6 @@ const Sidebar = () => {
 
   return (
     <aside className="hidden md:flex flex-col w-64 h-screen sticky top-0 border-r border-border/50 bg-sidebar p-4">
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-3 mb-8">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary">
-          <Sparkles className="h-5 w-5 text-primary-foreground" />
-        </div>
-        <span className="text-xl font-bold">Timeless</span>
-      </div>
 
       {/* Main Nav */}
       <nav className="space-y-1 flex-1">
