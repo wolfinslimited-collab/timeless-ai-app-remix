@@ -4,25 +4,31 @@ import { useAuth } from "./useAuth";
 
 // Model-specific credit costs
 export const MODEL_CREDITS: Record<string, number> = {
-  // Image models
+  // Image models - Lovable AI
+  "nano-banana": 4,
+  
+  // Image models - Fal.ai
   "flux-1.1-pro": 5,
-  "flux-1.1-pro-ultra": 10,
-  "ideogram-v2": 5,
-  "ideogram-v2-turbo": 3,
+  "flux-pro-ultra": 8,
+  "flux-dev": 3,
+  "flux-schnell": 2,
+  "ideogram-v2": 6,
+  "stable-diffusion-3": 4,
+  "sdxl": 3,
+  "sdxl-lightning": 2,
   "recraft-v3": 5,
-  "stable-diffusion-3.5": 4,
-  "dall-e-3": 8,
-  "midjourney": 10,
+  "aura-flow": 4,
+  "playground-v2.5": 4,
   
   // Video models
   "wan-2.6": 15,
-  "kling-2.6": 22,
-  "veo-3.1": 30,
-  "sora-2-pro": 35,
-  "hailuo-2.3": 18,
-  "veo-3": 25,
-  "sora-2": 28,
+  "kling-2.6": 25,
+  "veo-3": 30,
+  "veo-3-fast": 20,
+  "hailuo-02": 18,
   "seedance-1.5": 20,
+  "luma": 22,
+  "hunyuan-1.5": 18,
 };
 
 // Legacy type-based costs (fallback)
