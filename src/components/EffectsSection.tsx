@@ -1,4 +1,4 @@
-import { Flame, Zap, Sparkles, Heart, ChevronRight } from "lucide-react";
+import { Flame, Zap, Sparkles, Heart, ChevronRight, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -12,12 +12,36 @@ const categories = [
 ];
 
 const effects = [
-  { name: "Explosion", category: "VFX", color: "from-orange-500 to-red-600" },
-  { name: "Glitch Art", category: "Viral", color: "from-cyan-500 to-blue-600" },
-  { name: "Product Reveal", category: "Commercial", color: "from-amber-500 to-yellow-600" },
-  { name: "Satisfying Loop", category: "ASMR", color: "from-pink-500 to-purple-600" },
-  { name: "Cinematic Zoom", category: "VFX", color: "from-indigo-500 to-violet-600" },
-  { name: "Trending Dance", category: "Viral", color: "from-green-500 to-emerald-600" },
+  { 
+    name: "Explosion", 
+    category: "VFX", 
+    thumbnail: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400&h=400&fit=crop",
+  },
+  { 
+    name: "Glitch Art", 
+    category: "Viral", 
+    thumbnail: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&h=400&fit=crop",
+  },
+  { 
+    name: "Product Reveal", 
+    category: "Commercial", 
+    thumbnail: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=400&fit=crop",
+  },
+  { 
+    name: "Satisfying Loop", 
+    category: "ASMR", 
+    thumbnail: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=400&fit=crop",
+  },
+  { 
+    name: "Cinematic Zoom", 
+    category: "VFX", 
+    thumbnail: "https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?w=400&h=400&fit=crop",
+  },
+  { 
+    name: "Trending Dance", 
+    category: "Viral", 
+    thumbnail: "https://images.unsplash.com/photo-1547153760-18fc86324498?w=400&h=400&fit=crop",
+  },
 ];
 
 const EffectsSection = () => {
@@ -60,15 +84,29 @@ const EffectsSection = () => {
               key={effect.name}
               className="group relative aspect-square overflow-hidden rounded-xl border border-border/50 hover:border-primary/30 transition-all"
             >
-              <div className={cn(
-                "absolute inset-0 bg-gradient-to-br opacity-80 group-hover:opacity-100 transition-opacity",
-                effect.color
-              )} />
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-3 text-center">
+              {/* Video Thumbnail */}
+              <img 
+                src={effect.thumbnail} 
+                alt={effect.name}
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+              />
+              
+              {/* Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent" />
+              
+              {/* Play Button */}
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center">
+                  <Play className="h-5 w-5 text-primary-foreground fill-current" />
+                </div>
+              </div>
+              
+              {/* Content */}
+              <div className="absolute bottom-0 left-0 right-0 p-3 text-left">
                 <span className="font-medium text-foreground text-sm">{effect.name}</span>
                 <Badge 
                   variant="outline" 
-                  className="mt-2 text-[10px] bg-background/20 border-foreground/20 text-foreground"
+                  className="mt-1.5 block w-fit text-[10px] bg-background/40 border-border/50 text-muted-foreground"
                 >
                   {effect.category}
                 </Badge>
