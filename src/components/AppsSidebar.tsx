@@ -43,7 +43,7 @@ export type AppId =
   | "cinema-studio" | "mixed-media" | "edit-video" | "click-to-ad" | "sora-trends" 
   | "lip-sync" | "draw-to-video" | "sketch-to-video" | "ugc-factory" | "video-upscale"
   | "extend" | "interpolate"
-  | "vocals" | "remix" | "stems" | "master"
+  | "vocals" | "remix" | "stems" | "master" | "sound-effects" | "audio-enhance" | "tempo-pitch"
   | "camera-control" | "motion-path" | "depth-control" | "lens-effects";
 
 type BadgeType = "AI" | "TOP" | "NEW";
@@ -78,11 +78,14 @@ const appsByType: Record<string, { id: AppId; name: string; icon: LucideIcon; de
     { id: "interpolate", name: "Interpolate", icon: SlidersHorizontal, description: "Smooth frame rate" },
   ],
   music: [
-    { id: "generate", name: "Generate", icon: Music, description: "Create music from text", badge: "AI" },
-    { id: "vocals", name: "Vocals", icon: Mic, description: "Generate vocals" },
-    { id: "remix", name: "Remix", icon: SlidersHorizontal, description: "Remix existing tracks" },
-    { id: "stems", name: "Stems", icon: Layers, description: "Separate audio stems" },
-    { id: "master", name: "Master", icon: Volume2, description: "Audio mastering" },
+    { id: "generate", name: "Generate Music", icon: Music, description: "Create music from text", badge: "AI" },
+    { id: "stems", name: "Stem Separation", icon: Layers, description: "Separate vocals, drums, bass", badge: "TOP" },
+    { id: "remix", name: "AI Remix", icon: SlidersHorizontal, description: "Remix with AI variations", badge: "NEW" },
+    { id: "vocals", name: "Voice Generator", icon: Mic, description: "Generate singing vocals" },
+    { id: "master", name: "AI Mastering", icon: Volume2, description: "Professional audio mastering" },
+    { id: "sound-effects", name: "Sound Effects", icon: Wand2, description: "Generate SFX from text" },
+    { id: "audio-enhance", name: "Audio Enhance", icon: Sparkles, description: "Clean and enhance audio" },
+    { id: "tempo-pitch", name: "Tempo & Pitch", icon: SlidersHorizontal, description: "Adjust speed and key" },
   ],
   cinema: [
     { id: "generate", name: "Generate", icon: Clapperboard, description: "Cinematic video creation", badge: "AI" },
