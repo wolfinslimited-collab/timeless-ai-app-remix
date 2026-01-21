@@ -94,6 +94,7 @@ serve(async (req) => {
       );
     }
 
+    const userId = user.id;
     const results = [];
 
     async function refundCreditsIfNeeded(generation: any) {
@@ -103,7 +104,7 @@ serve(async (req) => {
       const { data: profile } = await supabase
         .from("profiles")
         .select("credits, subscription_status")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .single();
 
       const status = profile?.subscription_status ?? null;
@@ -113,7 +114,7 @@ serve(async (req) => {
       await supabase
         .from("profiles")
         .update({ credits: (profile?.credits || 0) + creditsToRefund })
-        .eq("user_id", user.id);
+        .eq("user_id", userId);
     }
 
     for (const gen of pendingGenerations) {
