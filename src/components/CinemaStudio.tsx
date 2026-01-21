@@ -516,54 +516,110 @@ const CinemaStudio = ({
                     )}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-xl">
+                <DialogContent className="sm:max-w-lg">
                   <DialogHeader>
                     <DialogTitle className="text-xl font-semibold">Reference Frames</DialogTitle>
                   </DialogHeader>
                   <p className="text-sm text-muted-foreground">
-                    Add up to {MAX_REFERENCE_IMAGES} reference images to guide lighting, style, and character consistency.
+                    Add start and end frames to guide video generation with consistent style and motion.
                   </p>
                   
-                  {/* Upload Area */}
-                  {referenceImages.length < MAX_REFERENCE_IMAGES && (
-                    <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-primary/40 rounded-xl cursor-pointer bg-primary/5 hover:bg-primary/10 hover:border-primary/60 transition-all mt-4">
-                      <div className="flex flex-col items-center justify-center">
-                        {isUploading && uploadingIndex === referenceImages.length ? (
-                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        ) : (
-                          <>
-                            <Upload className="h-8 w-8 text-primary mb-2" />
-                            <p className="text-sm text-primary font-medium">Add Frame</p>
-                          </>
-                        )}
+                  {/* Two Column Layout: Start Frame & End Frame */}
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    {/* Start Frame */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-green-500" />
+                        <Label className="text-sm font-medium">Start Frame</Label>
                       </div>
-                      <input type="file" className="hidden" accept="image/*" onChange={(e) => onImageUpload(e, referenceImages.length)} disabled={isUploading || !user} />
-                    </label>
-                  )}
-
-                  {/* Uploaded Frames Grid */}
-                  {referenceImages.length > 0 ? (
-                    <div className="grid grid-cols-4 gap-3 mt-4">
-                      {referenceImages.map((img, index) => (
-                        <div key={index} className="relative rounded-lg overflow-hidden border border-border/50 aspect-square group">
-                          <img src={img} alt={`Reference ${index + 1}`} className="w-full h-full object-cover" />
+                      {referenceImages[0] ? (
+                        <div className="relative rounded-xl overflow-hidden border border-border/50 aspect-video group">
+                          <img src={referenceImages[0]} alt="Start Frame" className="w-full h-full object-cover" />
                           <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                             <Button
                               variant="destructive"
                               size="icon"
-                              className="h-7 w-7"
-                              onClick={() => setReferenceImages(referenceImages.filter((_, i) => i !== index))}
+                              className="h-8 w-8"
+                              onClick={() => {
+                                const newImages = [...referenceImages];
+                                newImages[0] = '';
+                                setReferenceImages(newImages.filter(Boolean));
+                              }}
                             >
                               <X className="h-4 w-4" />
                             </Button>
                           </div>
-                          <Badge className="absolute bottom-1 left-1 text-[10px] px-1.5" variant="secondary">{index + 1}</Badge>
+                          <Badge className="absolute top-2 left-2 text-[10px] px-2" variant="secondary">START</Badge>
                         </div>
-                      ))}
+                      ) : (
+                        <label className="flex flex-col items-center justify-center aspect-video border-2 border-dashed border-green-500/40 rounded-xl cursor-pointer bg-green-500/5 hover:bg-green-500/10 hover:border-green-500/60 transition-all">
+                          <div className="flex flex-col items-center justify-center">
+                            {isUploading && uploadingIndex === 0 ? (
+                              <Loader2 className="h-6 w-6 animate-spin text-green-500" />
+                            ) : (
+                              <>
+                                <Upload className="h-6 w-6 text-green-500 mb-1" />
+                                <p className="text-xs text-green-500 font-medium">Add Start</p>
+                              </>
+                            )}
+                          </div>
+                          <input type="file" className="hidden" accept="image/*" onChange={(e) => onImageUpload(e, 0)} disabled={isUploading || !user} />
+                        </label>
+                      )}
+                      <p className="text-[11px] text-muted-foreground text-center">First frame of your video</p>
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center py-4">No frames added yet.</p>
-                  )}
+
+                    {/* End Frame */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-red-500" />
+                        <Label className="text-sm font-medium">End Frame</Label>
+                      </div>
+                      {referenceImages[1] ? (
+                        <div className="relative rounded-xl overflow-hidden border border-border/50 aspect-video group">
+                          <img src={referenceImages[1]} alt="End Frame" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => {
+                                const newImages = [...referenceImages];
+                                newImages.splice(1, 1);
+                                setReferenceImages(newImages);
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <Badge className="absolute top-2 left-2 text-[10px] px-2" variant="secondary">END</Badge>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center aspect-video border-2 border-dashed border-red-500/40 rounded-xl cursor-pointer bg-red-500/5 hover:bg-red-500/10 hover:border-red-500/60 transition-all">
+                          <div className="flex flex-col items-center justify-center">
+                            {isUploading && uploadingIndex === 1 ? (
+                              <Loader2 className="h-6 w-6 animate-spin text-red-500" />
+                            ) : (
+                              <>
+                                <Upload className="h-6 w-6 text-red-500 mb-1" />
+                                <p className="text-xs text-red-500 font-medium">Add End</p>
+                              </>
+                            )}
+                          </div>
+                          <input type="file" className="hidden" accept="image/*" onChange={(e) => onImageUpload(e, 1)} disabled={isUploading || !user} />
+                        </label>
+                      )}
+                      <p className="text-[11px] text-muted-foreground text-center">Last frame of your video</p>
+                    </div>
+                  </div>
+
+                  {/* Info Note */}
+                  <div className="flex items-start gap-2 mt-2 p-3 rounded-lg bg-secondary/30 border border-border/30">
+                    <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-muted-foreground">
+                      The AI will generate motion between your start and end frames, maintaining style consistency throughout the video.
+                    </p>
+                  </div>
                 </DialogContent>
               </Dialog>
             </div>
