@@ -332,9 +332,28 @@ const Create = () => {
   }, [searchParams]);
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
-  const [model, setModel] = useState("flux-1.1-pro");
+  // Load saved models from localStorage
+  const getSavedModel = (genType: string): string => {
+    const saved = localStorage.getItem(`timeless_${genType}_model`);
+    const defaults: Record<string, string> = {
+      image: "flux-1.1-pro",
+      video: "wan-2.6",
+      cinema: "wan-2.6-cinema",
+      music: "sonauto",
+    };
+    return saved || defaults[genType] || "flux-1.1-pro";
+  };
+
+  const [model, setModel] = useState(() => getSavedModel(urlType || "image"));
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const [quality, setQuality] = useState("720p");
+
+  // Persist model selection to localStorage
+  useEffect(() => {
+    if (type === "image" || type === "video" || type === "cinema" || type === "music") {
+      localStorage.setItem(`timeless_${type}_model`, model);
+    }
+  }, [model, type]);
   const [startingImage, setStartingImage] = useState<string | null>(null);
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -690,18 +709,18 @@ const Create = () => {
       setSelectedApp("generate"); // Reset to generate when switching types
     }
     if (newType === "image") {
-      setModel("flux-1.1-pro");
+      setModel(getSavedModel("image"));
       setAspectRatio("1:1");
     } else if (newType === "video") {
-      setModel("wan-2.6");
+      setModel(getSavedModel("video"));
       setAspectRatio("16:9");
     } else if (newType === "cinema") {
-      setModel("wan-2.6-cinema");
+      setModel(getSavedModel("cinema"));
       setAspectRatio("21:9");
       setSelectedMovements([]);
       setShotType("medium");
     } else if (newType === "music") {
-      setModel("sonauto");
+      setModel(getSavedModel("music"));
     }
     setQuality("720p");
     setStartingImage(null);
