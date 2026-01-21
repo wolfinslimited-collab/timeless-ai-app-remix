@@ -47,11 +47,12 @@ const Footer = () => {
   ];
 
   const socialLinks = [
-    { label: "X / Twitter", href: "#" },
-    { label: "Youtube", href: "#" },
-    { label: "Instagram", href: "#" },
-    { label: "LinkedIn", href: "#" },
-    { label: "TikTok", href: "#" },
+    { label: "X / Twitter", href: "https://twitter.com/timaborowiec" },
+    { label: "Youtube", href: "https://youtube.com/@timelessai" },
+    { label: "Instagram", href: "https://instagram.com/timelessai" },
+    { label: "LinkedIn", href: "https://linkedin.com/company/timelessai" },
+    { label: "TikTok", href: "https://tiktok.com/@timelessai" },
+    { label: "Discord", href: "https://discord.gg/lovable-dev" },
   ];
 
   return (
@@ -137,9 +138,10 @@ const Footer = () => {
 
         {/* Bottom Bar */}
         <div className="border-t border-primary-foreground/20 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-xs opacity-70">
-            © {new Date().getFullYear()} Timeless. All rights reserved.
-          </p>
+          <div className="text-xs opacity-70">
+            <p>© {new Date().getFullYear()} Timeless AI. All rights reserved.</p>
+            <p className="mt-1">San Francisco, CA</p>
+          </div>
           <div className="flex gap-6">
             {socialLinks.map((link) => (
               <a
