@@ -1311,31 +1311,9 @@ const Create = () => {
                   </div>
                 )}
 
-                {/* Quick templates */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Lightbulb className="h-4 w-4 text-accent" />
-                    {type === "music" ? "Style presets" : "Quick templates"}
-                  </Label>
-                  <div className="flex flex-wrap gap-2">
-                    {currentTemplates.map((template) => (
-                      <Button
-                        key={template.label}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPrompt(template.prompt)}
-                        className="text-xs border-border/50 hover:bg-primary/10 hover:border-primary/50"
-                      >
-                        {template.label}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Prompt Input */}
-                <div className="space-y-2">
-                  <Label htmlFor="prompt">
+                {/* Combined Prompt Section */}
+                <div className="space-y-3">
+                  <Label htmlFor="prompt" className="text-base">
                     {type === "music" ? "Describe your song" : `Describe your ${type}`}
                   </Label>
                   <Textarea
@@ -1349,14 +1327,28 @@ const Create = () => {
                     }
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
-                    className="min-h-[120px] bg-secondary border-border/50 resize-none"
+                    className="min-h-[140px] bg-secondary border-border/50 resize-none text-base"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    {type === "music" 
-                      ? "Include genre, mood, tempo, and instruments for best results"
-                      : "Be specific and descriptive for best results"
-                    }
-                  </p>
+                  
+                  {/* Quick templates inline */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Lightbulb className="h-3 w-3" />
+                      Try:
+                    </span>
+                    {currentTemplates.slice(0, 4).map((template) => (
+                      <Button
+                        key={template.label}
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPrompt(template.prompt)}
+                        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-primary/10"
+                      >
+                        {template.label}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Negative Prompt - not for music */}
