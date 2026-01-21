@@ -65,7 +65,7 @@ const Sidebar = () => {
 
   return (
     <aside className={cn(
-      "hidden md:flex flex-col h-screen sticky top-0 border-r border-border/50 bg-sidebar p-4 transition-all duration-300",
+      "hidden md:flex flex-col h-[calc(100vh-4rem)] sticky top-16 border-r border-border/50 bg-sidebar p-4 transition-all duration-300",
       collapsed ? "w-[72px]" : "w-64"
     )}>
       {/* Collapse Toggle */}
