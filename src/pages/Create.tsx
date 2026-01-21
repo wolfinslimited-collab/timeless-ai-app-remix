@@ -1957,52 +1957,50 @@ const Create = () => {
                     Download {type === "video" ? "Video" : type === "music" ? "Music" : "Image"}
                   </Button>
                 )}
+
+                {/* Your Videos Section - Inside preview column for video page */}
+                {type === "video" && user && (
+                  <div className="mt-6 pt-6 border-t border-border/50">
+                    <div className="flex items-center justify-between mb-4">
+                      <Label className="flex items-center gap-2">
+                        <Video className="h-4 w-4 text-primary" />
+                        Your Videos
+                      </Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate("/library")}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        View All
+                      </Button>
+                    </div>
+                    
+                    {isLoadingVideos ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      </div>
+                    ) : userVideos.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                        <Video className="h-10 w-10 mb-2 opacity-50" />
+                        <p className="text-sm">No videos yet</p>
+                        <p className="text-xs">Generate your first video above!</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {userVideos.slice(0, 6).map((video) => (
+                          <GenerationCard
+                            key={video.id}
+                            gen={video}
+                            onDelete={deleteUserVideo}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
-
-            {/* Your Videos Section - Video page only */}
-            {type === "video" && user && (
-              <Card className="border-border/50 bg-card">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <Label className="flex items-center gap-2">
-                      <Video className="h-4 w-4 text-primary" />
-                      Your Videos
-                    </Label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigate("/library")}
-                      className="text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      View All
-                    </Button>
-                  </div>
-                  
-                  {isLoadingVideos ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                    </div>
-                  ) : userVideos.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                      <Video className="h-10 w-10 mb-2 opacity-50" />
-                      <p className="text-sm">No videos yet</p>
-                      <p className="text-xs">Generate your first video above!</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {userVideos.slice(0, 6).map((video) => (
-                        <GenerationCard
-                          key={video.id}
-                          gen={video}
-                          onDelete={deleteUserVideo}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
         </main>
