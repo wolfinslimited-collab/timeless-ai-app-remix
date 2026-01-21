@@ -194,8 +194,9 @@ const buildFalImageRequest = (args: {
   prompt: string;
   negativePrompt?: string;
   aspectRatio: string;
+  model: string;
 }) => {
-  const { prompt, negativePrompt, aspectRatio } = args;
+  const { prompt, negativePrompt, aspectRatio, model } = args;
   
   const input: Record<string, unknown> = {
     prompt,
@@ -217,7 +218,13 @@ const buildFalImageRequest = (args: {
   };
   
   const size = sizeMap[aspectRatio] || sizeMap["1:1"];
-  input.image_size = { width: size.width, height: size.height };
+  
+  // GPT Image 1.5 uses string format for size, others use object
+  if (model === "gpt-image-1.5") {
+    input.size = `${size.width}x${size.height}`;
+  } else {
+    input.image_size = { width: size.width, height: size.height };
+  }
   
   return input;
 };
@@ -743,6 +750,7 @@ serve(async (req) => {
         prompt,
         negativePrompt,
         aspectRatio,
+        model,
       });
 
       try {
