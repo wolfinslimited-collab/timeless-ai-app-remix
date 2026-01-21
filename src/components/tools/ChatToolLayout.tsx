@@ -224,7 +224,7 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
         }
 
         const fileExt = file.name.split('.').pop();
-        const fileName = `chat/${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const fileName = `${user.id}/chat/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from('generation-inputs')
