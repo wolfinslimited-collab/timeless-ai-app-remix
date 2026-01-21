@@ -40,6 +40,7 @@ const TopMenu = () => {
   const location = useLocation();
 
   const navItems = [
+    { label: "AI Apps", path: "/create?type=image" },
     { label: "Chat", path: "/create?type=chat" },
     { label: "Image", path: "/create?type=image" },
     { label: "Video", path: "/create?type=video" },
