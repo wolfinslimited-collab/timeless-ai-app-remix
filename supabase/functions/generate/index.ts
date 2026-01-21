@@ -35,9 +35,10 @@ const MODEL_CREDITS: Record<string, number> = {
   "luma": 22,
   "hunyuan-1.5": 18,
 
-  // Music models - Fal.ai (Suno via Sonauto)
-  "suno-v4": 12,
-  "suno-v4-clips": 8,
+  // Music models - Fal.ai
+  "cassetteai": 10,
+  "lyria2": 12,
+  "stable-audio": 8,
 };
 
 // Fallback costs
@@ -89,44 +90,39 @@ const LOVABLE_IMAGE_MODELS: Record<string, string> = {
   "nano-banana": "google/gemini-2.5-flash-image-preview",
 };
 
-// Fal.ai Music Models (Suno via Sonauto)
+// Fal.ai Music Models
 type FalMusicModelConfig = {
   endpoint: string;
   maxPollingTime: number;
 };
 
 const FAL_MUSIC_MODELS: Record<string, FalMusicModelConfig> = {
-  "suno-v4": {
-    endpoint: "cassetteai/suno/v4",
-    maxPollingTime: 300,
+  "cassetteai": {
+    endpoint: "cassetteai/music-generator",
+    maxPollingTime: 120,
   },
-  "suno-v4-clips": {
-    endpoint: "cassetteai/suno/v4/clips",
+  "lyria2": {
+    endpoint: "fal-ai/lyria2",
     maxPollingTime: 180,
+  },
+  "stable-audio": {
+    endpoint: "fal-ai/stable-audio",
+    maxPollingTime: 120,
   },
 };
 
 // Build Fal.ai music request
 const buildFalMusicRequest = (args: {
   prompt: string;
-  lyrics?: string;
-  instrumental?: boolean;
+  model: string;
   duration?: number;
 }) => {
-  const { prompt, lyrics, instrumental, duration } = args;
+  const { prompt, duration } = args;
   
   const input: Record<string, unknown> = {
     prompt,
-    make_instrumental: instrumental ?? false,
+    duration: duration ?? 30,
   };
-  
-  if (lyrics && !instrumental) {
-    input.lyrics = lyrics;
-  }
-  
-  if (duration) {
-    input.duration = duration;
-  }
   
   return input;
 };
@@ -948,8 +944,7 @@ serve(async (req) => {
 
       const falInput = buildFalMusicRequest({
         prompt,
-        lyrics,
-        instrumental,
+        model,
       });
 
       try {
@@ -967,7 +962,9 @@ serve(async (req) => {
           
           if (status.status === "COMPLETED") {
             const result = await getFalResult(musicConfig.endpoint, requestId, FAL_API_KEY);
-            const audioUrl = (result as any).audio?.url || (result as any).audio_url;
+            console.log("Music result:", JSON.stringify(result));
+            // CassetteAI returns audio_file.url, Lyria2/Stable Audio may use audio.url or audio_url
+            const audioUrl = (result as any).audio_file?.url || (result as any).audio?.url || (result as any).audio_url || (result as any).output?.url;
             
             if (audioUrl) {
               await supabase.from("generations").insert({

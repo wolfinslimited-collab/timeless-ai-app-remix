@@ -76,10 +76,11 @@ const videoModels = [
   { id: "hunyuan-1.5", name: "Hunyuan 1.5", description: "Tencent video model", badge: "NEW", credits: 18 },
 ];
 
-// Fal.ai Music Models (Suno via Sonauto)
+// Fal.ai Music Models
 const musicModels = [
-  { id: "suno-v4", name: "Suno V4", description: "Full songs with lyrics", badge: "TOP", credits: 12 },
-  { id: "suno-v4-clips", name: "Suno V4 Clips", description: "Short music clips", badge: "FAST", credits: 8 },
+  { id: "lyria2", name: "Lyria 2", description: "Google's best music AI", badge: "TOP", credits: 12 },
+  { id: "cassetteai", name: "CassetteAI", description: "Fast professional tracks", badge: "FAST", credits: 10 },
+  { id: "stable-audio", name: "Stable Audio", description: "Open source audio gen", badge: "NEW", credits: 8 },
 ];
 
 const VIDEO_DEFAULT_ASPECT_RATIOS = ["16:9", "9:16", "1:1"];
@@ -432,7 +433,7 @@ const Create = () => {
       setModel("wan-2.6");
       setAspectRatio("16:9");
     } else {
-      setModel("suno-v4");
+      setModel("lyria2");
     }
     setQuality("720p");
     setStartingImage(null);

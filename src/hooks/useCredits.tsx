@@ -32,8 +32,9 @@ export const MODEL_CREDITS: Record<string, number> = {
   "hunyuan-1.5": 18,
 
   // Music models - Fal.ai
-  "suno-v4": 12,
-  "suno-v4-clips": 8,
+  "cassetteai": 10,
+  "lyria2": 12,
+  "stable-audio": 8,
 };
 
 // Legacy type-based costs (fallback)
