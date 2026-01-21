@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import TopMenu from "@/components/TopMenu";
-import Footer from "@/components/Footer";
+// Footer removed from AI Apps pages
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -186,7 +186,6 @@ const AIApps = () => {
             <TranslateAITool />
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
@@ -208,7 +207,6 @@ const AIApps = () => {
             </Button>
           </div>
         </main>
-        <Footer />
       </div>
     );
   }
@@ -324,7 +322,7 @@ const AIApps = () => {
         </div>
       </main>
 
-      <Footer />
+      
     </div>
   );
 };
