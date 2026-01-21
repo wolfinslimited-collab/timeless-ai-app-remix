@@ -37,6 +37,13 @@ import MasteringTool from "@/components/tools/MasteringTool";
 import SoundEffectsTool from "@/components/tools/SoundEffectsTool";
 import AudioEnhanceTool from "@/components/tools/AudioEnhanceTool";
 import TempoPitchTool from "@/components/tools/TempoPitchTool";
+// Cinema Tool components
+import CameraControlTool from "@/components/tools/CameraControlTool";
+import MotionPathTool from "@/components/tools/MotionPathTool";
+import DepthControlTool from "@/components/tools/DepthControlTool";
+import LensEffectsTool from "@/components/tools/LensEffectsTool";
+import ColorGradeTool from "@/components/tools/ColorGradeTool";
+import StabilizeTool from "@/components/tools/StabilizeTool";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -712,6 +719,26 @@ const Create = () => {
     }
   };
 
+  // Render cinema tool component based on selected app
+  const renderCinemaTool = () => {
+    switch (selectedApp) {
+      case "camera-control":
+        return <CameraControlTool />;
+      case "motion-path":
+        return <MotionPathTool />;
+      case "depth-control":
+        return <DepthControlTool />;
+      case "lens-effects":
+        return <LensEffectsTool />;
+      case "color-grade":
+        return <ColorGradeTool />;
+      case "stabilize":
+        return <StabilizeTool />;
+      default:
+        return null;
+    }
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
@@ -806,8 +833,28 @@ const Create = () => {
     );
   }
 
-  // Cinema Studio has its own layout
+  // Cinema Studio - render tools or main studio
   if (type === "cinema") {
+    // Render cinema tool if not on "generate"
+    if (selectedApp !== "generate") {
+      const toolComponent = renderCinemaTool();
+      if (toolComponent) {
+        return (
+          <div className="min-h-screen bg-background">
+            <TopMenu />
+            <div className="flex">
+              <AppsSidebar currentType={type} selectedApp={selectedApp} onSelectApp={handleAppSelect} />
+              <main className="flex-1 pb-20 md:pb-0">
+                {toolComponent}
+              </main>
+            </div>
+            <BottomNav />
+          </div>
+        );
+      }
+    }
+    
+    // Default Cinema Studio layout
     return (
       <div className="min-h-screen bg-background">
         <TopMenu />

@@ -44,7 +44,7 @@ export type AppId =
   | "lip-sync" | "draw-to-video" | "sketch-to-video" | "ugc-factory" | "video-upscale"
   | "extend" | "interpolate"
   | "vocals" | "remix" | "stems" | "master" | "sound-effects" | "audio-enhance" | "tempo-pitch"
-  | "camera-control" | "motion-path" | "depth-control" | "lens-effects";
+  | "camera-control" | "motion-path" | "depth-control" | "lens-effects" | "color-grade" | "stabilize";
 
 type BadgeType = "AI" | "TOP" | "NEW";
 
@@ -88,11 +88,13 @@ const appsByType: Record<string, { id: AppId; name: string; icon: LucideIcon; de
     { id: "tempo-pitch", name: "Tempo & Pitch", icon: SlidersHorizontal, description: "Adjust speed and key" },
   ],
   cinema: [
-    { id: "generate", name: "Generate", icon: Clapperboard, description: "Cinematic video creation", badge: "AI" },
-    { id: "camera-control", name: "Camera Control", icon: Camera, description: "Precise camera movements" },
-    { id: "motion-path", name: "Motion Path", icon: Move3d, description: "Custom motion paths" },
+    { id: "generate", name: "Cinema Studio", icon: Clapperboard, description: "Cinematic video creation", badge: "AI" },
+    { id: "camera-control", name: "Camera Control", icon: Camera, description: "Precise camera movements", badge: "TOP" },
+    { id: "motion-path", name: "Motion Path", icon: Move3d, description: "Custom motion paths", badge: "NEW" },
     { id: "depth-control", name: "Depth Control", icon: Focus, description: "Control depth of field" },
     { id: "lens-effects", name: "Lens Effects", icon: Aperture, description: "Cinematic lens effects" },
+    { id: "color-grade", name: "Color Grade", icon: Palette, description: "Professional color grading" },
+    { id: "stabilize", name: "Stabilize", icon: RotateCcw, description: "AI video stabilization" },
   ],
 };
 
