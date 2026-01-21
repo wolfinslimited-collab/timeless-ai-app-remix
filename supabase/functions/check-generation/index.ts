@@ -18,11 +18,17 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     
     const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader || '' } }
+      global: { headers: { Authorization: authHeader } }
     });
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -34,7 +40,14 @@ serve(async (req) => {
       );
     }
 
-    const { generationId } = await req.json();
+     // Body is optional; UI sometimes sends `{}`.
+     let generationId: string | undefined;
+     try {
+       const body = await req.json();
+       generationId = body?.generationId;
+     } catch {
+       generationId = undefined;
+     }
 
     // If specific generationId provided, check that one; otherwise check all pending
     let pendingGenerations;
@@ -59,7 +72,8 @@ serve(async (req) => {
         .from("generations")
         .select("*")
         .eq("user_id", user.id)
-        .eq("status", "pending")
+        // Include legacy stuck items (older Translate AI used `processing` without task_id)
+        .in("status", ["pending", "processing"])
         .order("created_at", { ascending: false });
       
       if (error) {
@@ -83,7 +97,49 @@ serve(async (req) => {
     const results = [];
 
     for (const gen of pendingGenerations) {
-      if (!gen.task_id || gen.status !== "pending") {
+      // Handle legacy Translate AI records that can never complete (no task_id)
+      if (!gen.task_id) {
+        const isLegacyTranslate = gen.model === "translate-ai" && gen.provider_endpoint === "translate-video";
+        if (gen.status === "processing" && isLegacyTranslate) {
+          console.warn(`Legacy translate-ai generation without task_id: ${gen.id}. Marking failed.`);
+
+          // Refund credits for non-subscribers
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("credits, subscription_status")
+            .eq("user_id", user.id)
+            .single();
+
+          if (profile && profile.subscription_status !== 'active') {
+            await supabase
+              .from("profiles")
+              .update({ credits: (profile.credits || 0) + (gen.credits_used || 0) })
+              .eq("user_id", user.id);
+          }
+
+          await supabase
+            .from("generations")
+            .update({ status: "failed" })
+            .eq("id", gen.id);
+
+          results.push({
+            id: gen.id,
+            status: "failed",
+            changed: true,
+            credits_refunded: gen.credits_used || 0,
+            error: "This was a legacy Translate job and cannot be recovered. Please re-run the translation.",
+            prompt: gen.prompt,
+            model: gen.model,
+          });
+          continue;
+        }
+
+        results.push({ id: gen.id, status: gen.status, changed: false });
+        continue;
+      }
+
+      // Only poll provider for pending items
+      if (gen.status !== "pending") {
         results.push({ id: gen.id, status: gen.status, changed: false });
         continue;
       }
@@ -121,19 +177,39 @@ serve(async (req) => {
         console.log(`Fal.ai status for ${gen.id}:`, JSON.stringify(statusData));
 
         if (statusData.status === "COMPLETED") {
-          // Get result
-          const resultResp = await fetch(`${FAL_BASE_URL}/${basePath}/requests/${gen.task_id}`, {
+          // Get result (use provider-supplied response_url when available)
+          const responseUrl = statusData.response_url || `${FAL_BASE_URL}/${basePath}/requests/${gen.task_id}`;
+          const resultResp = await fetch(responseUrl, {
             headers: { "Authorization": `Key ${FAL_API_KEY}` }
           });
           
           if (resultResp.ok) {
-            const result = await resultResp.json();
-            console.log(`Fal.ai result for ${gen.id}:`, JSON.stringify(result));
-            
-            const videoUrl = result.video?.url;
-            const imageUrl = result.images?.[0]?.url;
-            const outputUrl = videoUrl || imageUrl;
-            const thumbnailUrl = result.thumbnail?.url || outputUrl;
+            const raw = await resultResp.text();
+            console.log(`Fal.ai result raw for ${gen.id}:`, raw);
+
+            let result: any = null;
+            try {
+              result = JSON.parse(raw);
+            } catch {
+              result = null;
+            }
+
+            // Dubbing endpoints sometimes vary response shape; try multiple known locations.
+            const outputUrl =
+              result?.video?.url ||
+              result?.output?.video?.url ||
+              result?.result?.video?.url ||
+              result?.data?.video?.url ||
+              result?.video_url ||
+              result?.output_url ||
+              result?.url ||
+              result?.video;
+
+            const thumbnailUrl =
+              result?.thumbnail?.url ||
+              result?.video?.thumbnail_url ||
+              result?.output?.thumbnail_url ||
+              outputUrl;
 
             if (outputUrl) {
               await supabase
@@ -158,7 +234,18 @@ serve(async (req) => {
               results.push({ id: gen.id, status: "pending", changed: false, provider_status: "COMPLETED_NO_OUTPUT" });
             }
           } else {
-            results.push({ id: gen.id, status: "pending", changed: false, provider_status: "RESULT_FETCH_FAILED" });
+            const errorText = await resultResp.text().catch(() => "");
+            console.error(
+              `Fal.ai result fetch failed for ${gen.id}: HTTP ${resultResp.status}. Body: ${errorText}`
+            );
+            // Keep pending; some providers briefly report COMPLETED before response is available.
+            results.push({
+              id: gen.id,
+              status: "pending",
+              changed: false,
+              provider_status: `RESULT_FETCH_FAILED_${resultResp.status}`,
+              error: errorText,
+            });
           }
         } else if (statusData.status === "FAILED") {
           // Refund credits
