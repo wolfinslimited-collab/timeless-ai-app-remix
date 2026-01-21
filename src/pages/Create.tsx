@@ -60,7 +60,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Image, 
+  Image as ImageIcon,
   Video, 
   Sparkles, 
   Loader2, 
@@ -335,6 +335,7 @@ const Create = () => {
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const [quality, setQuality] = useState("720p");
   const [startingImage, setStartingImage] = useState<string | null>(null);
+  const [referenceImage, setReferenceImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   
@@ -805,6 +806,64 @@ const Create = () => {
     setStartingImage(null);
   };
 
+  const handleReferenceImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        variant: "destructive",
+        title: "Invalid file",
+        description: "Please upload an image file.",
+      });
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "File too large",
+        description: "Please upload an image under 10MB.",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/ref-${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('generation-inputs')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('generation-inputs')
+        .getPublicUrl(fileName);
+
+      setReferenceImage(publicUrl);
+      toast({
+        title: "Reference uploaded",
+        description: "Your reference image is ready for generation.",
+      });
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: error.message || "Failed to upload image.",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeReferenceImage = () => {
+    setReferenceImage(null);
+  };
+
   const currentModels = type === "image" ? imageModels : type === "video" ? videoModels : type === "cinema" ? cinemaModels : musicModels;
   const currentTemplates = type === "image" ? imageTemplates : type === "video" ? videoTemplates : type === "cinema" ? cinemaTemplates : musicTemplates;
   
@@ -1197,6 +1256,66 @@ const Create = () => {
                     />
                     <p className="text-xs text-muted-foreground">
                       Describe what to avoid in the generated content
+                    </p>
+                  </div>
+                )}
+
+                {/* Reference Image - Image generation only */}
+                {type === "image" && (
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <ImageIcon className="h-4 w-4 text-primary" />
+                      Reference Image
+                      <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+                    </Label>
+                    {referenceImage ? (
+                      <div className="relative rounded-lg overflow-hidden border border-primary/30 bg-primary/5">
+                        <img 
+                          src={referenceImage} 
+                          alt="Reference" 
+                          className="w-full h-32 object-cover"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-2 right-2 h-6 w-6"
+                          onClick={removeReferenceImage}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                        <div className="absolute bottom-2 left-2 bg-background/80 rounded px-2 py-1">
+                          <span className="text-xs text-foreground flex items-center gap-1">
+                            <Star className="h-3 w-3 text-amber-500 fill-amber-500" />
+                            Reference mode
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer bg-primary/5 hover:bg-primary/10 transition-colors">
+                        <div className="flex flex-col items-center justify-center pt-2 pb-3">
+                          {isUploading ? (
+                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                          ) : (
+                            <>
+                              <Upload className="h-6 w-6 text-primary mb-1" />
+                              <p className="text-xs text-muted-foreground">
+                                Upload reference for style guidance
+                              </p>
+                            </>
+                          )}
+                        </div>
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          accept="image/*"
+                          onChange={handleReferenceImageUpload}
+                          disabled={isUploading || !user}
+                        />
+                      </label>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      AI will use this as style inspiration for your generation
                     </p>
                   </div>
                 )}
@@ -1700,7 +1819,7 @@ const Create = () => {
                   ) : (
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       {type === "image" ? (
-                        <Image className="h-12 w-12" />
+                        <ImageIcon className="h-12 w-12" />
                       ) : type === "video" ? (
                         <Video className="h-12 w-12" />
                       ) : (
