@@ -170,7 +170,7 @@ const Library = () => {
                 <div
                   key={gen.id}
                   className={`group relative rounded-xl border bg-card overflow-hidden transition-all ${
-                    gen.status === "failed" 
+                    gen.status === "failed" || (gen.status === "completed" && !gen.output_url && !gen.thumbnail_url)
                       ? "border-destructive/50 hover:border-destructive" 
                       : gen.status === "pending"
                       ? "border-yellow-500/50 hover:border-yellow-500"
@@ -193,7 +193,7 @@ const Library = () => {
 
                   {/* Thumbnail */}
                   <div className="aspect-square bg-secondary flex items-center justify-center">
-                    {gen.status === "failed" ? (
+                    {gen.status === "failed" || (gen.status === "completed" && !gen.output_url && !gen.thumbnail_url) ? (
                       <img
                         src={failedGenerationThumb}
                         alt="Generation failed"
@@ -201,34 +201,27 @@ const Library = () => {
                         loading="lazy"
                         draggable={false}
                       />
-                    ) : gen.type === "image" && (gen.thumbnail_url || gen.output_url) ? (
+                    ) : gen.status === "pending" ? (
+                      <div className="flex flex-col items-center text-muted-foreground">
+                        <Loader2 className="h-12 w-12 mb-2 animate-spin" />
+                        <span className="text-sm">Processing...</span>
+                      </div>
+                    ) : gen.type === "music" && gen.output_url ? (
+                      <div className="flex flex-col items-center text-muted-foreground">
+                        <Bot className="h-12 w-12 mb-2" />
+                        <span className="text-sm">Audio saved</span>
+                      </div>
+                    ) : gen.thumbnail_url || gen.output_url ? (
                       <img
                         src={gen.thumbnail_url || gen.output_url || ""}
                         alt={gen.title || gen.prompt}
                         className="w-full h-full object-cover"
                         loading="lazy"
                       />
-                    ) : gen.type === "video" && gen.thumbnail_url ? (
-                      <img
-                        src={gen.thumbnail_url}
-                        alt={gen.title || gen.prompt}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : gen.status === "pending" ? (
-                      <div className="flex flex-col items-center text-muted-foreground">
-                        <Loader2 className="h-12 w-12 mb-2 animate-spin" />
-                        <span className="text-sm">Processing...</span>
-                      </div>
                     ) : gen.type === "video" ? (
                       <div className="flex flex-col items-center text-muted-foreground">
                         <Video className="h-12 w-12 mb-2" />
                         <span className="text-sm">Preview unavailable</span>
-                      </div>
-                    ) : gen.type === "music" ? (
-                      <div className="flex flex-col items-center text-muted-foreground">
-                        <Bot className="h-12 w-12 mb-2" />
-                        <span className="text-sm">Audio saved</span>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center text-muted-foreground">
@@ -265,7 +258,7 @@ const Library = () => {
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span className="capitalize">{gen.model}</span>
                       <span>•</span>
-                      {gen.status === "failed" ? (
+                      {gen.status === "failed" || (gen.status === "completed" && !gen.output_url && !gen.thumbnail_url) ? (
                         <span className="inline-flex items-center gap-1 text-destructive font-medium">
                           <Bot className="h-3 w-3" />
                           Generation failed
