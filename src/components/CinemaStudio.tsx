@@ -455,9 +455,9 @@ const CinemaStudio = ({
 
       {/* Floating Bottom Toolbar - Redesigned */}
       <div className="sticky bottom-4 mx-auto w-full max-w-5xl px-4 pb-4">
-        <div className="rounded-2xl border border-border/30 bg-card/95 backdrop-blur-xl shadow-2xl p-3">
+        <div className="rounded-2xl border border-border/30 bg-card/95 backdrop-blur-xl shadow-2xl p-4">
           {/* Prompt Input - Full Width Row */}
-          <div className="mb-3">
+          <div className="mb-4">
             <Input
               placeholder={cinemaMode === "image" ? "A man in the mars, storm with a whale on the sky, detailed, cinematic" : "Describe your cinematic scene..."}
               value={prompt}
@@ -467,369 +467,373 @@ const CinemaStudio = ({
           </div>
 
           {/* Controls Row */}
-          <div className="flex items-center gap-2">
-            {/* Image/Video Toggle */}
-            <div className="flex flex-col items-center border border-border/30 rounded-xl p-1.5 bg-secondary/30 gap-1">
-              <button
-                className={cn(
-                  "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all",
-                  cinemaMode === "image" 
-                    ? "bg-foreground/10 text-foreground" 
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => setCinemaMode("image")}
-              >
-                <Image className="h-4 w-4" />
-                <span className="text-[10px]">Image</span>
-              </button>
-              <button
-                className={cn(
-                  "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all",
-                  cinemaMode === "video" 
-                    ? "bg-foreground/10 text-foreground" 
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => setCinemaMode("video")}
-              >
-                <Video className="h-4 w-4" />
-                <span className="text-[10px]">Video</span>
-              </button>
+          <div className="flex items-center gap-3">
+            {/* Left Group: Mode Toggle + Reference */}
+            <div className="flex items-center gap-2">
+              {/* Image/Video Toggle */}
+              <div className="flex items-center border border-border/30 rounded-xl p-1 bg-secondary/30 gap-0.5">
+                <button
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all text-sm",
+                    cinemaMode === "image" 
+                      ? "bg-foreground/10 text-foreground" 
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setCinemaMode("image")}
+                >
+                  <Image className="h-4 w-4" />
+                  Image
+                </button>
+                <button
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all text-sm",
+                    cinemaMode === "video" 
+                      ? "bg-foreground/10 text-foreground" 
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setCinemaMode("video")}
+                >
+                  <Video className="h-4 w-4" />
+                  Video
+                </button>
+              </div>
+
+              {/* Reference Frames Button */}
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "h-10 w-10 rounded-xl border border-border/30 bg-secondary/30",
+                      referenceImages.length > 0 && "border-primary/50 bg-primary/10"
+                    )}
+                  >
+                    {referenceImages.length > 0 ? (
+                      <span className="text-xs font-medium">+{referenceImages.length}</span>
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-xl">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl font-semibold">Reference Frames</DialogTitle>
+                  </DialogHeader>
+                  <p className="text-sm text-muted-foreground">
+                    Add up to {MAX_REFERENCE_IMAGES} reference images to guide lighting, style, and character consistency.
+                  </p>
+                  
+                  {/* Upload Area */}
+                  {referenceImages.length < MAX_REFERENCE_IMAGES && (
+                    <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-primary/40 rounded-xl cursor-pointer bg-primary/5 hover:bg-primary/10 hover:border-primary/60 transition-all mt-4">
+                      <div className="flex flex-col items-center justify-center">
+                        {isUploading && uploadingIndex === referenceImages.length ? (
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        ) : (
+                          <>
+                            <Upload className="h-8 w-8 text-primary mb-2" />
+                            <p className="text-sm text-primary font-medium">Add Frame</p>
+                          </>
+                        )}
+                      </div>
+                      <input type="file" className="hidden" accept="image/*" onChange={(e) => onImageUpload(e, referenceImages.length)} disabled={isUploading || !user} />
+                    </label>
+                  )}
+
+                  {/* Uploaded Frames Grid */}
+                  {referenceImages.length > 0 ? (
+                    <div className="grid grid-cols-4 gap-3 mt-4">
+                      {referenceImages.map((img, index) => (
+                        <div key={index} className="relative rounded-lg overflow-hidden border border-border/50 aspect-square group">
+                          <img src={img} alt={`Reference ${index + 1}`} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => setReferenceImages(referenceImages.filter((_, i) => i !== index))}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <Badge className="absolute bottom-1 left-1 text-[10px] px-1.5" variant="secondary">{index + 1}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">No frames added yet.</p>
+                  )}
+                </DialogContent>
+              </Dialog>
             </div>
 
-            {/* Reference Frames Button */}
-            <Dialog>
-              <DialogTrigger asChild>
+            {/* Center Group: Variations, Aspect Ratio, Quality */}
+            <div className="flex items-center gap-2 flex-1 justify-center">
+              {/* Variations Counter */}
+              <div className="flex items-center gap-1 border border-border/30 rounded-xl bg-secondary/30 h-10 px-1">
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "h-11 w-11 rounded-xl border border-border/30 bg-secondary/30",
-                    referenceImages.length > 0 && "border-primary/50 bg-primary/10"
-                  )}
+                  size="sm"
+                  className="h-8 w-8 p-0 hover:bg-foreground/10"
+                  onClick={() => setVariationCount(Math.max(1, variationCount - 1))}
+                  disabled={variationCount <= 1}
                 >
-                  {referenceImages.length > 0 ? (
-                    <span className="text-xs font-medium">+{referenceImages.length}</span>
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
+                  <Minus className="h-3 w-3" />
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-xl">
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-semibold">Reference Frames</DialogTitle>
-                </DialogHeader>
-                <p className="text-sm text-muted-foreground">
-                  Add up to {MAX_REFERENCE_IMAGES} reference images to guide lighting, style, and character consistency.
-                </p>
-                
-                {/* Upload Area */}
-                {referenceImages.length < MAX_REFERENCE_IMAGES && (
-                  <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-primary/40 rounded-xl cursor-pointer bg-primary/5 hover:bg-primary/10 hover:border-primary/60 transition-all mt-4">
-                    <div className="flex flex-col items-center justify-center">
-                      {isUploading && uploadingIndex === referenceImages.length ? (
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                      ) : (
-                        <>
-                          <Upload className="h-8 w-8 text-primary mb-2" />
-                          <p className="text-sm text-primary font-medium">Add Frame</p>
-                        </>
-                      )}
-                    </div>
-                    <input type="file" className="hidden" accept="image/*" onChange={(e) => onImageUpload(e, referenceImages.length)} disabled={isUploading || !user} />
-                  </label>
-                )}
+                <span className="text-sm font-medium w-8 text-center">{variationCount}/4</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 hover:bg-foreground/10"
+                  onClick={() => setVariationCount(Math.min(4, variationCount + 1))}
+                  disabled={variationCount >= 4}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
 
-                {/* Uploaded Frames Grid */}
-                {referenceImages.length > 0 ? (
-                  <div className="grid grid-cols-4 gap-3 mt-4">
-                    {referenceImages.map((img, index) => (
-                      <div key={index} className="relative rounded-lg overflow-hidden border border-border/50 aspect-square group">
-                        <img src={img} alt={`Reference ${index + 1}`} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => setReferenceImages(referenceImages.filter((_, i) => i !== index))}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <Badge className="absolute bottom-1 left-1 text-[10px] px-1.5" variant="secondary">{index + 1}</Badge>
-                      </div>
+              {/* Aspect Ratio */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="h-10 gap-1.5 border border-border/30 rounded-xl bg-secondary/30 px-3"
+                  >
+                    <span className="text-muted-foreground">⬜</span>
+                    <span className="text-sm">{aspectRatio}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-40 p-2 bg-popover border border-border z-50" align="center" side="top">
+                  <div className="space-y-1">
+                    {aspectRatios.map((ratio) => (
+                      <Button
+                        key={ratio}
+                        variant={aspectRatio === ratio ? "secondary" : "ghost"}
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => setAspectRatio(ratio)}
+                      >
+                        {ratio}
+                      </Button>
                     ))}
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">No frames added yet.</p>
-                )}
-              </DialogContent>
-            </Dialog>
+                </PopoverContent>
+              </Popover>
 
-            {/* Spacer to push controls to edges */}
-            <div className="flex-1" />
-
-            {/* Variations Counter */}
-            <div className="flex items-center gap-1 border border-border/30 rounded-xl bg-secondary/30 px-1">
+              {/* Quality */}
               <Button
                 variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-foreground/10"
-                onClick={() => setVariationCount(Math.max(1, variationCount - 1))}
-                disabled={variationCount <= 1}
+                className="h-10 gap-1.5 border border-border/30 rounded-xl bg-secondary/30 px-3"
               >
-                <Minus className="h-3 w-3" />
-              </Button>
-              <span className="text-sm font-medium w-8 text-center">{variationCount}/4</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-foreground/10"
-                onClick={() => setVariationCount(Math.min(4, variationCount + 1))}
-                disabled={variationCount >= 4}
-              >
-                <Plus className="h-3 w-3" />
+                <span className="text-muted-foreground">♡</span>
+                <span className="text-sm">2K</span>
               </Button>
             </div>
 
-            {/* Aspect Ratio */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="h-11 gap-1.5 border border-border/30 rounded-xl bg-secondary/30 px-3"
-                >
-                  <span className="text-muted-foreground">⬜</span>
-                  <span className="text-sm">{aspectRatio}</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-40 p-2" align="center" side="top">
-                <div className="space-y-1">
-                  {aspectRatios.map((ratio) => (
-                    <Button
-                      key={ratio}
-                      variant={aspectRatio === ratio ? "secondary" : "ghost"}
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={() => setAspectRatio(ratio)}
-                    >
-                      {ratio}
-                    </Button>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            {/* Quality */}
-            <Button
-              variant="ghost"
-              className="h-11 gap-1.5 border border-border/30 rounded-xl bg-secondary/30 px-3"
-            >
-              <span className="text-muted-foreground">♡</span>
-              <span className="text-sm">2K</span>
-            </Button>
-
-            {/* Camera Settings Card */}
-            <Popover open={cameraSettingsOpen} onOpenChange={setCameraSettingsOpen}>
-              <PopoverTrigger asChild>
-                <button className="flex items-center gap-3 h-11 px-3 rounded-xl border border-primary/50 bg-primary/5 hover:bg-primary/10 transition-all">
-                  <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-lg bg-secondary/50 flex items-center justify-center">
-                      <span className="text-lg">📹</span>
+            {/* Right Group: Camera Settings + Generate */}
+            <div className="flex items-center gap-2">
+              {/* Camera Settings Card */}
+              <Popover open={cameraSettingsOpen} onOpenChange={setCameraSettingsOpen}>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-2 h-10 px-3 rounded-xl border border-primary/50 bg-primary/5 hover:bg-primary/10 transition-all">
+                    <div className="h-7 w-7 rounded-lg bg-secondary/50 flex items-center justify-center">
+                      <span className="text-sm">📹</span>
                     </div>
                     <div className="text-left">
-                      <p className="text-xs font-medium text-foreground">{selectedCamera.name}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {selectedLens.name.split(" ")[0]} {selectedLens.name.split(" ")[1]}, {selectedFocalLength}mm, {selectedAperture}
+                      <p className="text-xs font-medium text-foreground leading-tight">{selectedCamera.name}</p>
+                      <p className="text-[10px] text-muted-foreground leading-tight">
+                        {selectedLens.name.split(" ")[0]}, {selectedFocalLength}mm, {selectedAperture}
                       </p>
                     </div>
-                  </div>
-                  {selectedStyle && (
-                    <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                  )}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[560px] p-0" align="end" side="top">
-                <div className="bg-card rounded-xl overflow-hidden">
-                  {/* Tabs */}
-                  <div className="flex items-center gap-2 p-3 border-b border-border/30">
-                    {(["all", "recommended", "saved"] as const).map((tab) => (
-                      <Button
-                        key={tab}
-                        variant={cameraSettingsTab === tab ? "secondary" : "ghost"}
-                        size="sm"
-                        className={cn(
-                          "h-8 px-4 rounded-full capitalize",
-                          cameraSettingsTab === tab && "bg-foreground text-background"
-                        )}
-                        onClick={() => setCameraSettingsTab(tab)}
-                      >
-                        {tab === "all" ? "All" : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                      </Button>
-                    ))}
-                  </div>
-
-                  {/* Quick Presets Row */}
-                  <div className="p-4 border-b border-border/30">
-                    <ScrollArea className="w-full">
-                      <div className="flex gap-3 pb-2">
-                        {cameraPresets.slice(0, 4).map((cam, idx) => (
-                          <button
-                            key={cam.id}
-                            onClick={() => { setSelectedCamera(cam); setSelectedStyle(null); }}
-                            className={cn(
-                              "flex-shrink-0 flex items-center gap-3 p-2 rounded-xl border transition-all",
-                              selectedCamera.id === cam.id
-                                ? "border-primary/50 bg-primary/10"
-                                : "border-border/30 bg-secondary/30 hover:bg-secondary/50"
-                            )}
-                          >
-                            <div className="h-10 w-10 rounded-lg bg-secondary/50 flex items-center justify-center">
-                              <span className="text-xl">📹</span>
-                            </div>
-                            <div className="h-10 w-10 rounded-lg bg-secondary/50 flex items-center justify-center">
-                              <span className="text-xl">🔭</span>
-                            </div>
-                            <span className="text-2xl font-light text-muted-foreground">{focalLengths[idx + 1] || "24"}</span>
-                            <div className="h-8 w-8 rounded-full border-2 border-muted-foreground/40 flex items-center justify-center">
-                              <div className="h-3 w-3 rounded-full bg-muted-foreground/30" />
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                      <ScrollBar orientation="horizontal" />
-                    </ScrollArea>
-                  </div>
-
-                  {/* Camera Settings Grid */}
-                  <div className="p-4 space-y-4">
-                    <div className="grid grid-cols-4 gap-4">
-                      {/* Camera */}
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground uppercase tracking-wide text-center block">Camera</Label>
-                        <div className="bg-secondary/30 rounded-xl p-4 border border-border/30 flex flex-col items-center">
-                          <div className="h-14 w-14 rounded-xl bg-secondary/50 flex items-center justify-center mb-3">
-                            <span className="text-3xl">📹</span>
-                          </div>
-                          <Badge variant="outline" className="text-[10px] mb-2">{selectedCamera.type}</Badge>
-                          <p className="text-xs font-medium text-center">{selectedCamera.name}</p>
-                        </div>
-                        <Select value={selectedCamera.id} onValueChange={(v) => { setSelectedCamera(cameraPresets.find(c => c.id === v) || cameraPresets[0]); setSelectedStyle(null); }}>
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {cameraPresets.map((cam) => (
-                              <SelectItem key={cam.id} value={cam.id} className="text-xs">{cam.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Lens */}
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground uppercase tracking-wide text-center block">Lens</Label>
-                        <div className="bg-secondary/30 rounded-xl p-4 border border-border/30 flex flex-col items-center">
-                          <div className="h-14 w-14 rounded-xl bg-secondary/50 flex items-center justify-center mb-3">
-                            <span className="text-3xl">🔭</span>
-                          </div>
-                          <Badge variant="outline" className="text-[10px] mb-2">{selectedLens.type}</Badge>
-                          <p className="text-xs font-medium text-center">{selectedLens.name.split(" ").slice(0, 2).join(" ")}</p>
-                        </div>
-                        <Select value={selectedLens.id} onValueChange={(v) => { setSelectedLens(lensPresets.find(l => l.id === v) || lensPresets[0]); setSelectedStyle(null); }}>
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {lensPresets.map((lens) => (
-                              <SelectItem key={lens.id} value={lens.id} className="text-xs">{lens.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Focal Length */}
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground uppercase tracking-wide text-center block">Focal Length</Label>
-                        <div className="bg-secondary/30 rounded-xl p-4 border border-border/30 flex flex-col items-center">
-                          <div className="h-14 flex items-center justify-center mb-3">
-                            <span className="text-4xl font-bold">{selectedFocalLength}</span>
-                          </div>
-                          <Badge variant="outline" className="text-[10px] mb-2">mm</Badge>
-                          <p className="text-xs font-medium text-center invisible">placeholder</p>
-                        </div>
-                        <Select value={selectedFocalLength} onValueChange={(v) => { setSelectedFocalLength(v); setSelectedStyle(null); }}>
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {focalLengths.map((fl) => (
-                              <SelectItem key={fl} value={fl} className="text-xs">{fl}mm</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Aperture */}
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground uppercase tracking-wide text-center block">Aperture</Label>
-                        <div className="bg-secondary/30 rounded-xl p-4 border border-border/30 flex flex-col items-center">
-                          <div className="h-14 flex items-center justify-center mb-3">
-                            <div className="h-12 w-12 rounded-full border-4 border-foreground/50 flex items-center justify-center">
-                              <div className="h-5 w-5 rounded-full bg-foreground/20" />
-                            </div>
-                          </div>
-                          <Badge variant="outline" className="text-[10px] mb-2">{selectedAperture}</Badge>
-                          <p className="text-xs font-medium text-center invisible">placeholder</p>
-                        </div>
-                        <Select value={selectedAperture} onValueChange={(v) => { setSelectedAperture(v); setSelectedStyle(null); }}>
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {apertures.map((ap) => (
-                              <SelectItem key={ap} value={ap} className="text-xs">{ap}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    {selectedStyle && (
+                      <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[560px] p-0 bg-popover border border-border z-50" align="end" side="top">
+                  <div className="bg-card rounded-xl overflow-hidden">
+                    {/* Tabs */}
+                    <div className="flex items-center gap-2 p-3 border-b border-border/30">
+                      {(["all", "recommended", "saved"] as const).map((tab) => (
+                        <Button
+                          key={tab}
+                          variant={cameraSettingsTab === tab ? "secondary" : "ghost"}
+                          size="sm"
+                          className={cn(
+                            "h-8 px-4 rounded-full capitalize",
+                            cameraSettingsTab === tab && "bg-foreground text-background"
+                          )}
+                          onClick={() => setCameraSettingsTab(tab)}
+                        >
+                          {tab === "all" ? "All" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                        </Button>
+                      ))}
                     </div>
 
-                    {/* Save Setup Button */}
-                    <div className="flex justify-center pt-2">
-                      <Button variant="outline" size="sm" className="gap-2 rounded-full border-border/50">
-                        <Plus className="h-3.5 w-3.5" />
-                        Save setup
-                      </Button>
+                    {/* Quick Presets Row */}
+                    <div className="p-4 border-b border-border/30">
+                      <ScrollArea className="w-full">
+                        <div className="flex gap-3 pb-2">
+                          {cameraPresets.slice(0, 4).map((cam, idx) => (
+                            <button
+                              key={cam.id}
+                              onClick={() => { setSelectedCamera(cam); setSelectedStyle(null); }}
+                              className={cn(
+                                "flex-shrink-0 flex items-center gap-3 p-2 rounded-xl border transition-all",
+                                selectedCamera.id === cam.id
+                                  ? "border-primary/50 bg-primary/10"
+                                  : "border-border/30 bg-secondary/30 hover:bg-secondary/50"
+                              )}
+                            >
+                              <div className="h-10 w-10 rounded-lg bg-secondary/50 flex items-center justify-center">
+                                <span className="text-xl">📹</span>
+                              </div>
+                              <div className="h-10 w-10 rounded-lg bg-secondary/50 flex items-center justify-center">
+                                <span className="text-xl">🔭</span>
+                              </div>
+                              <span className="text-2xl font-light text-muted-foreground">{focalLengths[idx + 1] || "24"}</span>
+                              <div className="h-8 w-8 rounded-full border-2 border-muted-foreground/40 flex items-center justify-center">
+                                <div className="h-3 w-3 rounded-full bg-muted-foreground/30" />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                        <ScrollBar orientation="horizontal" />
+                      </ScrollArea>
+                    </div>
+
+                    {/* Camera Settings Grid */}
+                    <div className="p-4 space-y-4">
+                      <div className="grid grid-cols-4 gap-4">
+                        {/* Camera */}
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wide text-center block">Camera</Label>
+                          <div className="bg-secondary/30 rounded-xl p-4 border border-border/30 flex flex-col items-center">
+                            <div className="h-14 w-14 rounded-xl bg-secondary/50 flex items-center justify-center mb-3">
+                              <span className="text-3xl">📹</span>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] mb-2">{selectedCamera.type}</Badge>
+                            <p className="text-xs font-medium text-center">{selectedCamera.name}</p>
+                          </div>
+                          <Select value={selectedCamera.id} onValueChange={(v) => { setSelectedCamera(cameraPresets.find(c => c.id === v) || cameraPresets[0]); setSelectedStyle(null); }}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover border border-border z-50">
+                              {cameraPresets.map((cam) => (
+                                <SelectItem key={cam.id} value={cam.id} className="text-xs">{cam.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Lens */}
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wide text-center block">Lens</Label>
+                          <div className="bg-secondary/30 rounded-xl p-4 border border-border/30 flex flex-col items-center">
+                            <div className="h-14 w-14 rounded-xl bg-secondary/50 flex items-center justify-center mb-3">
+                              <span className="text-3xl">🔭</span>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] mb-2">{selectedLens.type}</Badge>
+                            <p className="text-xs font-medium text-center">{selectedLens.name.split(" ").slice(0, 2).join(" ")}</p>
+                          </div>
+                          <Select value={selectedLens.id} onValueChange={(v) => { setSelectedLens(lensPresets.find(l => l.id === v) || lensPresets[0]); setSelectedStyle(null); }}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover border border-border z-50">
+                              {lensPresets.map((lens) => (
+                                <SelectItem key={lens.id} value={lens.id} className="text-xs">{lens.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Focal Length */}
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wide text-center block">Focal Length</Label>
+                          <div className="bg-secondary/30 rounded-xl p-4 border border-border/30 flex flex-col items-center">
+                            <div className="h-14 flex items-center justify-center mb-3">
+                              <span className="text-4xl font-bold">{selectedFocalLength}</span>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] mb-2">mm</Badge>
+                            <p className="text-xs font-medium text-center invisible">placeholder</p>
+                          </div>
+                          <Select value={selectedFocalLength} onValueChange={(v) => { setSelectedFocalLength(v); setSelectedStyle(null); }}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover border border-border z-50">
+                              {focalLengths.map((fl) => (
+                                <SelectItem key={fl} value={fl} className="text-xs">{fl}mm</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Aperture */}
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wide text-center block">Aperture</Label>
+                          <div className="bg-secondary/30 rounded-xl p-4 border border-border/30 flex flex-col items-center">
+                            <div className="h-14 flex items-center justify-center mb-3">
+                              <div className="h-12 w-12 rounded-full border-4 border-foreground/50 flex items-center justify-center">
+                                <div className="h-5 w-5 rounded-full bg-foreground/20" />
+                              </div>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] mb-2">{selectedAperture}</Badge>
+                            <p className="text-xs font-medium text-center invisible">placeholder</p>
+                          </div>
+                          <Select value={selectedAperture} onValueChange={(v) => { setSelectedAperture(v); setSelectedStyle(null); }}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover border border-border z-50">
+                              {apertures.map((ap) => (
+                                <SelectItem key={ap} value={ap} className="text-xs">{ap}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Save Setup Button */}
+                      <div className="flex justify-center pt-2">
+                        <Button variant="outline" size="sm" className="gap-2 rounded-full border-border/50">
+                          <Plus className="h-3.5 w-3.5" />
+                          Save setup
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </PopoverContent>
-            </Popover>
+                </PopoverContent>
+              </Popover>
 
-            {/* Generate Button */}
-            <Button
-              onClick={onGenerate}
-              disabled={isGenerating || !prompt.trim() || (user && !hasEnoughCredits)}
-              className="h-11 px-6 rounded-xl bg-[#c8e600] hover:bg-[#b8d600] text-black font-bold gap-2 text-sm"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  GENERATE
-                  <Sparkles className="h-4 w-4" />
-                  <span className="font-normal">{currentCost}</span>
-                </>
-              )}
-            </Button>
+              {/* Generate Button */}
+              <Button
+                onClick={onGenerate}
+                disabled={isGenerating || !prompt.trim() || (user && !hasEnoughCredits)}
+                className="h-10 px-5 rounded-xl bg-[#c8e600] hover:bg-[#b8d600] text-black font-bold gap-2 text-sm"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    GENERATE
+                    <Sparkles className="h-4 w-4" />
+                    <span className="font-normal">{currentCost}</span>
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
           {/* Video Mode Extra Controls */}
           {cinemaMode === "video" && (
-            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/20">
+            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border/20">
               {/* Movements Popover */}
               <Popover open={movementsOpen} onOpenChange={setMovementsOpen}>
                 <PopoverTrigger asChild>
@@ -837,15 +841,15 @@ const CinemaStudio = ({
                     variant="ghost"
                     size="sm"
                     className={cn(
-                      "h-8 gap-1.5 rounded-lg text-xs",
-                      selectedMovements.length > 0 && "bg-primary/10 text-primary"
+                      "h-9 gap-2 rounded-xl text-sm border border-border/30 bg-secondary/30",
+                      selectedMovements.length > 0 && "border-primary/50 bg-primary/10 text-primary"
                     )}
                   >
-                    <Move3d className="h-3.5 w-3.5" />
+                    <Move3d className="h-4 w-4" />
                     {getMovementLabel()}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-3" align="start" side="top">
+                <PopoverContent className="w-80 p-3 bg-popover border border-border z-50" align="start" side="top">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium">Camera Movements</Label>
@@ -896,12 +900,12 @@ const CinemaStudio = ({
               {/* Duration */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 gap-1.5 rounded-lg text-xs">
-                    <Clock className="h-3.5 w-3.5" />
+                  <Button variant="ghost" size="sm" className="h-9 gap-2 rounded-xl text-sm border border-border/30 bg-secondary/30">
+                    <Clock className="h-4 w-4" />
                     {cinematicDuration}s
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-40 p-2" align="start" side="top">
+                <PopoverContent className="w-40 p-2 bg-popover border border-border z-50" align="start" side="top">
                   <div className="space-y-1">
                     {durations.map((d) => (
                       <Button
@@ -922,10 +926,13 @@ const CinemaStudio = ({
               <Button
                 variant="ghost"
                 size="sm"
-                className={cn("h-8 gap-1.5 rounded-lg text-xs", soundEnabled && "bg-primary/10 text-primary")}
+                className={cn(
+                  "h-9 gap-2 rounded-xl text-sm border border-border/30 bg-secondary/30",
+                  soundEnabled && "border-primary/50 bg-primary/10 text-primary"
+                )}
                 onClick={() => setSoundEnabled(!soundEnabled)}
               >
-                {soundEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
                 Sound {soundEnabled ? "On" : "Off"}
               </Button>
 
@@ -934,8 +941,8 @@ const CinemaStudio = ({
               {/* Settings */}
               <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 gap-1.5 rounded-lg text-xs">
-                    <Settings className="h-3.5 w-3.5" />
+                  <Button variant="ghost" size="sm" className="h-9 w-9 rounded-xl border border-border/30 bg-secondary/30">
+                    <Settings className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md">
@@ -949,7 +956,7 @@ const CinemaStudio = ({
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-popover border border-border z-50">
                           {cinemaModels.map((m) => (
                             <SelectItem key={m.id} value={m.id}>
                               {m.name} ({m.credits} credits)
