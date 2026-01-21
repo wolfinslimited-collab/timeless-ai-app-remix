@@ -50,12 +50,12 @@ const GenerationCard = ({ gen, onDelete }: GenerationCardProps) => {
       )}
 
       {/* Thumbnail */}
-      <div className="aspect-square bg-secondary flex items-center justify-center">
+      <div className="aspect-video bg-secondary flex items-center justify-center overflow-hidden">
         {isFailed ? (
           <img
             src={failedGenerationThumb}
             alt="Generation failed"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
             loading="lazy"
             draggable={false}
           />
@@ -72,7 +72,7 @@ const GenerationCard = ({ gen, onDelete }: GenerationCardProps) => {
         ) : gen.type === "video" && hasValidUrl ? (
           <video
             src={gen.thumbnail_url || gen.output_url || ""}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
             muted
             playsInline
             preload="metadata"
@@ -82,7 +82,7 @@ const GenerationCard = ({ gen, onDelete }: GenerationCardProps) => {
           <img
             src={gen.thumbnail_url || gen.output_url || ""}
             alt={gen.title || gen.prompt}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
             loading="lazy"
             onError={() => setImageError(true)}
           />
