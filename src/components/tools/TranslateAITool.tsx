@@ -231,9 +231,8 @@ const TranslateAITool = () => {
             {/* Header */}
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" />
-                <span className="text-primary font-bold">AI</span>
-                <span className="font-bold text-foreground">FLUX</span>
+                <Languages className="h-5 w-5 text-primary" />
+                <span className="font-bold text-foreground">Translate AI</span>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/50 border border-border/50">
                 <Zap className="h-4 w-4 text-yellow-500" />
