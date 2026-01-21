@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import TopMenu from "@/components/TopMenu";
 import Sidebar from "@/components/Sidebar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
@@ -95,10 +96,13 @@ const Library = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
+    <div className="min-h-screen bg-background">
+      <TopMenu />
 
-      <main className="flex-1 pb-20 md:pb-0">
+      <div className="flex">
+        <Sidebar />
+
+        <main className="flex-1 pb-20 md:pb-0">
         <div className="max-w-7xl mx-auto p-6">
           {/* Header */}
           <div className="mb-8">
@@ -267,7 +271,8 @@ const Library = () => {
             </div>
           )}
         </div>
-      </main>
+        </main>
+      </div>
 
       <BottomNav />
     </div>
