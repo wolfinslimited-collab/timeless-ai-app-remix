@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,6 +25,22 @@ const MODEL_MAPPING: Record<string, string> = {
   // Llama models - map to fast models
   "llama-3.3": "google/gemini-2.5-flash",
   "llama-3.3-large": "google/gemini-2.5-pro",
+};
+
+// Credit costs per model
+const MODEL_CREDITS: Record<string, number> = {
+  "grok-3": 3,
+  "grok-3-mini": 1,
+  "chatgpt-5.2": 4,
+  "chatgpt-5": 3,
+  "chatgpt-5-mini": 1,
+  "gemini-2.5-pro": 2,
+  "gemini-3-pro": 3,
+  "gemini-3-flash": 1,
+  "deepseek-r1": 3,
+  "deepseek-v3": 2,
+  "llama-3.3": 1,
+  "llama-3.3-large": 2,
 };
 
 // Models that support vision/images
@@ -121,6 +138,65 @@ serve(async (req) => {
       );
     }
 
+    // Initialize Supabase client for credit management
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get user from authorization header
+    const authHeader = req.headers.get("authorization");
+    let userId: string | null = null;
+    let hasActiveSubscription = false;
+
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      
+      if (authError) {
+        console.error("Auth error:", authError);
+      } else if (user) {
+        userId = user.id;
+        
+        // Check subscription status and credits
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("credits, subscription_status")
+          .eq("user_id", userId)
+          .single();
+
+        if (profileError) {
+          console.error("Profile fetch error:", profileError);
+        } else if (profile) {
+          hasActiveSubscription = profile.subscription_status === "active";
+          const creditCost = MODEL_CREDITS[model] || 1;
+
+          // Check credits if not subscribed
+          if (!hasActiveSubscription) {
+            if (profile.credits < creditCost) {
+              return new Response(
+                JSON.stringify({ error: "Insufficient credits. Please purchase more credits to continue." }),
+                { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
+
+            // Deduct credits
+            const { error: updateError } = await supabase
+              .from("profiles")
+              .update({ credits: profile.credits - creditCost })
+              .eq("user_id", userId);
+
+            if (updateError) {
+              console.error("Credit deduction error:", updateError);
+            } else {
+              console.log(`Deducted ${creditCost} credits from user ${userId}, remaining: ${profile.credits - creditCost}`);
+            }
+          } else {
+            console.log(`User ${userId} has active subscription, skipping credit deduction`);
+          }
+        }
+      }
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
 
@@ -210,6 +286,24 @@ serve(async (req) => {
       const status = response.status;
       const text = await response.text();
       console.error("AI gateway error:", status, text);
+
+      // Refund credits on error if we deducted them
+      if (userId && !hasActiveSubscription) {
+        const creditCost = MODEL_CREDITS[model] || 1;
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("credits")
+          .eq("user_id", userId)
+          .single();
+        
+        if (profile) {
+          await supabase
+            .from("profiles")
+            .update({ credits: profile.credits + creditCost })
+            .eq("user_id", userId);
+          console.log(`Refunded ${creditCost} credits to user ${userId} due to API error`);
+        }
+      }
 
       if (status === 429) {
         return new Response(

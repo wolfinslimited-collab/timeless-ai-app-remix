@@ -16,11 +16,13 @@ import {
   Sparkles,
   ImagePlus,
   X,
-  Globe
+  Globe,
+  Coins
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+import { useCredits, MODEL_CREDITS } from "@/hooks/useCredits";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -67,6 +69,7 @@ const VISION_MODELS = [
 
 const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
   const { user } = useAuth();
+  const { credits, hasActiveSubscription, refetch: refetchCredits } = useCredits();
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -321,6 +324,17 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
       return;
     }
 
+    // Check credits (unless subscribed)
+    const creditCost = MODEL_CREDITS[model.id] || 1;
+    if (!hasActiveSubscription && (credits === null || credits < creditCost)) {
+      toast({
+        variant: "destructive",
+        title: "Insufficient credits",
+        description: `This model requires ${creditCost} credits. Please purchase more credits to continue.`,
+      });
+      return;
+    }
+
     // Build message content
     let messageContent: string | MessageContent[];
     const displayImages = [...pendingImages];
@@ -375,11 +389,14 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
         content: m.content,
       }));
 
+      // Get auth token for credit deduction
+      const { data: { session } } = await supabase.auth.getSession();
+
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          "Authorization": `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
           messages: apiMessages,
@@ -458,6 +475,9 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
       if (currentConvId && assistantContent) {
         await saveMessage(currentConvId, "assistant", assistantContent);
       }
+      
+      // Refetch credits after successful message
+      refetchCredits();
     } catch (error: any) {
       console.error("Chat error:", error);
       toast({
@@ -855,9 +875,20 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
               )}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground text-center mt-2">
-            AI can make mistakes. Consider checking important information.
-          </p>
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Coins className="h-3 w-3" />
+              <span>
+                {hasActiveSubscription 
+                  ? "Unlimited (Pro)" 
+                  : `${MODEL_CREDITS[model.id] || 1} credits per message`
+                }
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              AI can make mistakes. Consider checking important information.
+            </p>
+          </div>
         </div>
       </div>
     </div>
