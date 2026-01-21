@@ -144,6 +144,8 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const lastSpeechTimeRef = useRef<number>(0);
+  const pauseCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const supportsVision = VISION_MODELS.includes(model.id);
   
@@ -285,7 +287,41 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
         setInterimTranscript(interimTranscript);
         
         if (finalTranscript) {
-          setInput(prev => prev + finalTranscript);
+          const now = Date.now();
+          const timeSinceLastSpeech = now - lastSpeechTimeRef.current;
+          lastSpeechTimeRef.current = now;
+          
+          setInput(prev => {
+            // Determine punctuation based on pause duration
+            let separator = '';
+            if (prev.length > 0) {
+              const lastChar = prev.trim().slice(-1);
+              const endsWithPunctuation = /[.!?,;:]/.test(lastChar);
+              
+              if (!endsWithPunctuation) {
+                if (timeSinceLastSpeech > 2000) {
+                  // Long pause (>2s) = new sentence
+                  separator = '. ';
+                } else if (timeSinceLastSpeech > 800) {
+                  // Medium pause (0.8-2s) = comma
+                  separator = ', ';
+                } else {
+                  // Short pause = just space
+                  separator = ' ';
+                }
+              } else {
+                separator = ' ';
+              }
+            }
+            
+            // Capitalize first letter after period
+            let processedTranscript = finalTranscript.trim();
+            if (separator === '. ' || prev.length === 0) {
+              processedTranscript = processedTranscript.charAt(0).toUpperCase() + processedTranscript.slice(1);
+            }
+            
+            return prev + separator + processedTranscript;
+          });
           setInterimTranscript(""); // Clear interim when we get final
         }
       };
