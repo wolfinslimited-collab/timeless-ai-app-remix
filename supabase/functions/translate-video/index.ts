@@ -170,11 +170,12 @@ Deno.serve(async (req) => {
     // Step 1: Get direct video download URL using cobalt.tools API (more reliable than RapidAPI for YouTube)
     console.log(`Fetching direct download URL for video: ${videoId}`);
 
-    // Try cobalt.tools first - it's free and very reliable
+    // Try cobalt.tools first - it's free and usually more reliable than direct YouTube CDN URLs
     let directVideoUrl: string | null = null;
     
     try {
-      const cobaltResponse = await fetch("https://api.cobalt.tools/", {
+      // Cobalt API docs: https://github.com/imputnet/cobalt/blob/main/docs/api.md
+      const cobaltResponse = await fetch("https://api.cobalt.tools/api/json", {
         method: "POST",
         headers: {
           "Accept": "application/json",
@@ -182,26 +183,43 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           url: youtubeUrl,
-          downloadMode: "auto",
-          filenameStyle: "basic",
+          // Keep the staged file smaller to avoid edge runtime memory limits.
+          vCodec: "h264",
+          vQuality: "480",
+          aFormat: "best",
+          filenamePattern: "basic",
         }),
       });
 
-      if (cobaltResponse.ok) {
-        const cobaltData = await cobaltResponse.json();
-        console.log("Cobalt response status:", cobaltData.status);
-        
-        if (cobaltData.status === "redirect" || cobaltData.status === "tunnel") {
+      const cobaltText = await cobaltResponse.text();
+
+      if (!cobaltResponse.ok) {
+        console.log("Cobalt API returned:", cobaltResponse.status, cobaltText.slice(0, 500));
+      } else {
+        let cobaltData: any = null;
+        try {
+          cobaltData = JSON.parse(cobaltText);
+        } catch {
+          console.log("Cobalt returned non-JSON:", cobaltText.slice(0, 500));
+        }
+
+        if (cobaltData?.status) {
+          console.log("Cobalt response status:", cobaltData.status);
+        }
+
+        if (cobaltData?.status === "redirect" || cobaltData?.status === "stream") {
           directVideoUrl = cobaltData.url;
           console.log("Got direct URL from cobalt.tools");
-        } else if (cobaltData.status === "picker" && cobaltData.picker?.length > 0) {
+        } else if (cobaltData?.status === "picker" && Array.isArray(cobaltData.picker) && cobaltData.picker.length > 0) {
           // Multiple options available, pick the video one
           const videoOption = cobaltData.picker.find((p: any) => p.type === "video") || cobaltData.picker[0];
           directVideoUrl = videoOption?.url;
           console.log("Got picker URL from cobalt.tools");
+        } else if (cobaltData?.status === "error") {
+          console.log("Cobalt error:", cobaltData.text || cobaltText.slice(0, 500));
+        } else if (cobaltData?.status === "rate-limit") {
+          console.log("Cobalt rate-limited; falling back.");
         }
-      } else {
-        console.log("Cobalt API returned:", cobaltResponse.status);
       }
     } catch (cobaltErr) {
       console.log("Cobalt.tools failed, will try fallback:", cobaltErr);
@@ -273,15 +291,19 @@ Deno.serve(async (req) => {
 
     const videoFetchResp = await fetch(directVideoUrl, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "video/mp4,video/*;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
+        // These help for some YouTube CDN links; harmless for cobalt URLs.
         "Referer": "https://www.youtube.com/",
+        "Origin": "https://www.youtube.com",
       },
     });
 
     if (!videoFetchResp.ok) {
-      console.error("Failed to download MP4:", videoFetchResp.status);
+      const errText = await videoFetchResp.text().catch(() => "");
+      console.error("Failed to download MP4:", videoFetchResp.status, errText.slice(0, 500));
       return new Response(
         JSON.stringify({ error: "Failed to download the source video. The video may be geo-restricted or protected." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
