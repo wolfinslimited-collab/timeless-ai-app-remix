@@ -1963,9 +1963,9 @@ const Create = () => {
             {/* Your Videos Section - Video page only */}
             {type === "video" && user && (
               <Card className="border-border/50 bg-card">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <Label className="flex items-center gap-2">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="flex items-center gap-2 text-sm">
                       <Video className="h-4 w-4 text-primary" />
                       Your Videos
                     </Label>
@@ -1973,25 +1973,27 @@ const Create = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => navigate("/library")}
-                      className="text-xs text-muted-foreground hover:text-foreground"
+                      className="text-xs text-muted-foreground hover:text-foreground h-7 px-2"
                     >
                       View All
                     </Button>
                   </div>
                   
                   {isLoadingVideos ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
                     </div>
                   ) : userVideos.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                      <Video className="h-10 w-10 mb-2 opacity-50" />
-                      <p className="text-sm">No videos yet</p>
-                      <p className="text-xs">Generate your first video above!</p>
+                    <div className="flex items-center gap-3 py-3 px-3 rounded-lg bg-secondary/50 text-muted-foreground">
+                      <Video className="h-8 w-8 opacity-50 shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium">No videos yet</p>
+                        <p className="text-xs">Generate your first video above!</p>
+                      </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {userVideos.slice(0, 6).map((video) => (
+                    <div className="grid grid-cols-2 gap-2">
+                      {userVideos.slice(0, 4).map((video) => (
                         <GenerationCard
                           key={video.id}
                           gen={video}
