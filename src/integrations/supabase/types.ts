@@ -82,6 +82,7 @@ export type Database = {
           folder_id: string | null
           id: string
           model: string
+          pinned: boolean
           title: string | null
           updated_at: string
           user_id: string
@@ -91,6 +92,7 @@ export type Database = {
           folder_id?: string | null
           id?: string
           model: string
+          pinned?: boolean
           title?: string | null
           updated_at?: string
           user_id: string
@@ -100,6 +102,7 @@ export type Database = {
           folder_id?: string | null
           id?: string
           model?: string
+          pinned?: boolean
           title?: string | null
           updated_at?: string
           user_id?: string

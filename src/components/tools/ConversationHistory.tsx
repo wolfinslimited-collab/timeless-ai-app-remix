@@ -18,7 +18,9 @@ import {
   MoreHorizontal,
   Pencil,
   FolderInput,
-  GripVertical
+  GripVertical,
+  Pin,
+  PinOff
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -69,6 +71,7 @@ interface Conversation {
   created_at: string;
   updated_at: string;
   folder_id: string | null;
+  pinned: boolean;
 }
 
 interface ChatFolder {
@@ -135,6 +138,7 @@ interface DraggableConversationProps {
   onSelect: () => void;
   onDelete: (e: React.MouseEvent) => void;
   onMoveToFolder: (folderId: string | null) => void;
+  onTogglePin: () => void;
   highlightMatch: (title: string) => React.ReactNode;
 }
 
@@ -147,6 +151,7 @@ const DraggableConversation = ({
   onSelect,
   onDelete,
   onMoveToFolder,
+  onTogglePin,
   highlightMatch,
 }: DraggableConversationProps) => {
   const {
@@ -189,7 +194,11 @@ const DraggableConversation = ({
         >
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </div>
-        <MessageSquare className="h-4 w-4 shrink-0" />
+        {conv.pinned ? (
+          <Pin className="h-4 w-4 shrink-0 text-primary" />
+        ) : (
+          <MessageSquare className="h-4 w-4 shrink-0" />
+        )}
         <div className="flex-1 min-w-0 pr-6">
           <p className="truncate font-medium">
             {highlightMatch(conv.title || "New conversation")}
@@ -208,33 +217,50 @@ const DraggableConversation = ({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={onTogglePin}>
+            {conv.pinned ? (
+              <>
+                <PinOff className="h-4 w-4 mr-2" />
+                Unpin
+              </>
+            ) : (
+              <>
+                <Pin className="h-4 w-4 mr-2" />
+                Pin to top
+              </>
+            )}
+          </DropdownMenuItem>
           {folders.length > 0 && (
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <FolderInput className="h-4 w-4 mr-2" />
-                Move to folder
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {conv.folder_id && (
-                  <DropdownMenuItem onClick={() => onMoveToFolder(null)}>
-                    <X className="h-4 w-4 mr-2" />
-                    Remove from folder
-                  </DropdownMenuItem>
-                )}
-                {conv.folder_id && folders.length > 0 && <DropdownMenuSeparator />}
-                {folders.map(folder => (
-                  <DropdownMenuItem 
-                    key={folder.id} 
-                    onClick={() => onMoveToFolder(folder.id)}
-                    disabled={conv.folder_id === folder.id}
-                  >
-                    <Folder className="h-4 w-4 mr-2" style={{ color: folder.color }} />
-                    {folder.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <FolderInput className="h-4 w-4 mr-2" />
+                  Move to folder
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {conv.folder_id && (
+                    <DropdownMenuItem onClick={() => onMoveToFolder(null)}>
+                      <X className="h-4 w-4 mr-2" />
+                      Remove from folder
+                    </DropdownMenuItem>
+                  )}
+                  {conv.folder_id && folders.length > 0 && <DropdownMenuSeparator />}
+                  {folders.map(folder => (
+                    <DropdownMenuItem 
+                      key={folder.id} 
+                      onClick={() => onMoveToFolder(folder.id)}
+                      disabled={conv.folder_id === folder.id}
+                    >
+                      <Folder className="h-4 w-4 mr-2" style={{ color: folder.color }} />
+                      {folder.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </>
           )}
+          <DropdownMenuSeparator />
           <DropdownMenuItem 
             onClick={(e) => {
               e.stopPropagation();
@@ -413,9 +439,16 @@ const ConversationHistory = ({
     );
   }, [conversations, searchQuery]);
 
-  // Group conversations by time period (only unfiled ones)
+  // Get pinned conversations (unfiled only, sorted by updated_at)
+  const pinnedConversations = useMemo(() => {
+    return filteredConversations
+      .filter(c => c.pinned && !c.folder_id)
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+  }, [filteredConversations]);
+
+  // Group conversations by time period (only unfiled + not pinned)
   const groupedConversations = useMemo(() => {
-    const unfiledConvs = filteredConversations.filter(c => !c.folder_id);
+    const unfiledConvs = filteredConversations.filter(c => !c.folder_id && !c.pinned);
     const groups: Record<TimeGroup, Conversation[]> = {
       today: [],
       yesterday: [],
@@ -512,6 +545,27 @@ const ConversationHistory = ({
       );
     } catch (error) {
       console.error("Failed to move conversation:", error);
+    }
+  };
+
+  const togglePin = async (convId: string) => {
+    try {
+      const conv = conversations.find(c => c.id === convId);
+      if (!conv) return;
+
+      const newPinned = !conv.pinned;
+      const { error } = await supabase
+        .from("conversations")
+        .update({ pinned: newPinned })
+        .eq("id", convId);
+
+      if (error) throw error;
+
+      setConversations(prev => 
+        prev.map(c => c.id === convId ? { ...c, pinned: newPinned } : c)
+      );
+    } catch (error) {
+      console.error("Failed to toggle pin:", error);
     }
   };
 
@@ -834,12 +888,41 @@ const ConversationHistory = ({
                             onSelect={() => onSelectConversation(conv.id)}
                             onDelete={(e) => deleteConversation(conv.id, e)}
                             onMoveToFolder={(folderId) => moveToFolder(conv.id, folderId)}
+                            onTogglePin={() => togglePin(conv.id)}
                             highlightMatch={highlightMatch}
                           />
                         ))}
                       </DroppableFolder>
                     );
                   })}
+
+                  {/* Pinned conversations section */}
+                  {pinnedConversations.length > 0 && (
+                    <div className="mb-2">
+                      <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
+                        <Pin className="h-3 w-3 text-primary" />
+                        <span className="font-medium uppercase tracking-wider">Pinned</span>
+                        <span className="ml-auto">{pinnedConversations.length}</span>
+                      </div>
+                      <div className="mt-1 space-y-0.5">
+                        {pinnedConversations.map(conv => (
+                          <DraggableConversation
+                            key={conv.id}
+                            conv={conv}
+                            currentConversationId={currentConversationId}
+                            searchQuery={searchQuery}
+                            folders={folders}
+                            deletingId={deletingId}
+                            onSelect={() => onSelectConversation(conv.id)}
+                            onDelete={(e) => deleteConversation(conv.id, e)}
+                            onMoveToFolder={(folderId) => moveToFolder(conv.id, folderId)}
+                            onTogglePin={() => togglePin(conv.id)}
+                            highlightMatch={highlightMatch}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Time-grouped conversations */}
                   <UnfiledDropZone isOver={overId === "unfiled"}>
@@ -877,6 +960,7 @@ const ConversationHistory = ({
                                   onSelect={() => onSelectConversation(conv.id)}
                                   onDelete={(e) => deleteConversation(conv.id, e)}
                                   onMoveToFolder={(folderId) => moveToFolder(conv.id, folderId)}
+                                  onTogglePin={() => togglePin(conv.id)}
                                   highlightMatch={highlightMatch}
                                 />
                               ))}
