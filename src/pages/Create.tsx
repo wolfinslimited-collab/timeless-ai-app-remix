@@ -1961,40 +1961,30 @@ const Create = () => {
             </Card>
 
             {/* Your Videos Section - Video page only */}
-            {type === "video" && (
-              <Card className="border-border/50 bg-card mt-4">
+            {type === "video" && user && (
+              <Card className="border-border/50 bg-card">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <Label className="flex items-center gap-2 text-sm">
                       <Video className="h-4 w-4 text-primary" />
                       Your Videos
                     </Label>
-                    {user && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => navigate("/library")}
-                        className="text-xs text-muted-foreground hover:text-foreground h-7 px-2"
-                      >
-                        View All
-                      </Button>
-                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate("/library")}
+                      className="text-xs text-muted-foreground hover:text-foreground h-7 px-2"
+                    >
+                      View All
+                    </Button>
                   </div>
                   
-                  {!user ? (
-                    <div className="flex items-center gap-3 py-4 px-3 rounded-lg bg-secondary/50 text-muted-foreground">
-                      <Video className="h-8 w-8 opacity-50 shrink-0" />
-                      <div>
-                        <p className="text-sm font-medium">Sign in to see your videos</p>
-                        <p className="text-xs">Your generated videos will appear here</p>
-                      </div>
-                    </div>
-                  ) : isLoadingVideos ? (
-                    <div className="flex items-center justify-center py-6">
+                  {isLoadingVideos ? (
+                    <div className="flex items-center justify-center py-4">
                       <Loader2 className="h-5 w-5 animate-spin text-primary" />
                     </div>
                   ) : userVideos.length === 0 ? (
-                    <div className="flex items-center gap-3 py-4 px-3 rounded-lg bg-secondary/50 text-muted-foreground">
+                    <div className="flex items-center gap-3 py-3 px-3 rounded-lg bg-secondary/50 text-muted-foreground">
                       <Video className="h-8 w-8 opacity-50 shrink-0" />
                       <div>
                         <p className="text-sm font-medium">No videos yet</p>
@@ -2002,7 +1992,7 @@ const Create = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2">
                       {userVideos.slice(0, 4).map((video) => (
                         <GenerationCard
                           key={video.id}
