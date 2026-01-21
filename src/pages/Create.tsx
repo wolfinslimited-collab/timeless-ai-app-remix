@@ -1731,7 +1731,18 @@ const Create = () => {
               <CardContent className="p-6">
                 <Label className="mb-4 block">Preview</Label>
                 
-                <div className="aspect-video rounded-xl bg-secondary border border-border/50 flex items-center justify-center overflow-hidden">
+                <div className={cn(
+                  "rounded-xl bg-secondary border border-border/50 flex items-center justify-center overflow-hidden",
+                  // Dynamic aspect ratio based on type and selection
+                  type === "image" ? (
+                    aspectRatio === "1:1" ? "aspect-square" :
+                    aspectRatio === "16:9" ? "aspect-video" :
+                    aspectRatio === "9:16" ? "aspect-[9/16] max-h-[500px]" :
+                    aspectRatio === "4:3" ? "aspect-[4/3]" :
+                    aspectRatio === "3:4" ? "aspect-[3/4] max-h-[500px]" :
+                    "aspect-video"
+                  ) : "aspect-video"
+                )}>
                   {isGenerating ? (
                     <div className="flex flex-col items-center gap-4 text-muted-foreground w-full px-8">
                       <div className="relative">
@@ -1798,7 +1809,7 @@ const Create = () => {
                       <img 
                         src={result.output_url} 
                         alt="Generated image"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                       />
                     )
                   ) : generationError ? (
