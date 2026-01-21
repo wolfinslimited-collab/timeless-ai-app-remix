@@ -21,15 +21,15 @@ const TopMenu = () => {
   const location = useLocation();
 
   const navItems = [
-    { label: "Home", path: "/" },
-    { label: "Create", path: "/create" },
-    { label: "Library", path: "/library" },
-    { label: "Pricing", path: "/pricing" },
+    { label: "Image", path: "/create?type=image" },
+    { label: "Video", path: "/create?type=video" },
+    { label: "Music", path: "/create?type=music" },
+    { label: "Cinema Studio", path: "/create?type=cinema" },
   ];
 
   const isActive = (path: string) => {
-    if (path === "/") return location.pathname === "/";
-    return location.pathname.startsWith(path);
+    const currentUrl = location.pathname + location.search;
+    return currentUrl === path || currentUrl.startsWith(path);
   };
 
   return (
