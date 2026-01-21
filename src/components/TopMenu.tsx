@@ -45,7 +45,7 @@ const TopMenu = () => {
     { label: "Video", path: "/create?type=video" },
     { label: "Music", path: "/create?type=music" },
     { label: "Cinema Studio", path: "/create?type=cinema" },
-    { label: "AI Apps", path: "/create?type=image" },
+    { label: "AI Apps", path: "/ai-apps" },
   ];
 
   const isActive = (path: string) => {
