@@ -226,43 +226,52 @@ const VIDEO_MODEL_CAPABILITIES: Record<
   {
     aspectRatios?: string[];
     qualities?: string[];
+    durations?: number[];
     slow?: boolean;
     requiresImage?: boolean;
   }
 > = {
   "wan-2.6": { 
     aspectRatios: ["16:9", "9:16", "1:1"],
-    qualities: ["480p", "720p"]
+    qualities: ["480p", "720p"],
+    durations: [3, 5, 7]
   },
   "kling-2.6": { 
     aspectRatios: ["16:9", "9:16", "1:1"],
     qualities: ["720p", "1080p"],
+    durations: [5, 10],
     slow: true
   },
   "veo-3": { 
     aspectRatios: ["16:9", "9:16"],
     qualities: ["720p", "1080p"],
+    durations: [5, 8],
     slow: true 
   },
   "veo-3-fast": { 
     aspectRatios: ["16:9", "9:16"],
-    qualities: ["720p", "1080p"]
+    qualities: ["720p", "1080p"],
+    durations: [5, 8]
   },
   "hailuo-02": { 
     aspectRatios: ["16:9", "9:16", "1:1"],
-    qualities: ["720p"]
+    qualities: ["720p"],
+    durations: [5, 6]
   },
   "seedance-1.5": { 
     aspectRatios: ["16:9", "9:16", "1:1"],
-    qualities: ["480p", "720p"]
+    qualities: ["480p", "720p"],
+    durations: [5, 10]
   },
   "luma": { 
     aspectRatios: ["16:9", "9:16", "1:1"],
-    qualities: ["720p", "1080p"]
+    qualities: ["720p", "1080p"],
+    durations: [5, 9]
   },
   "hunyuan-1.5": { 
     aspectRatios: ["16:9", "9:16", "1:1"],
-    qualities: ["480p", "720p", "1080p"]
+    qualities: ["480p", "720p", "1080p"],
+    durations: [5, 10]
   },
 };
 
@@ -359,6 +368,7 @@ const Create = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingRefIndex, setUploadingRefIndex] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [videoDuration, setVideoDuration] = useState(5);
   
   // Music-specific state
   const [lyrics, setLyrics] = useState("");
@@ -457,6 +467,8 @@ const Create = () => {
     VIDEO_MODEL_CAPABILITIES[model]?.aspectRatios ?? VIDEO_DEFAULT_ASPECT_RATIOS;
   const allowedVideoQualities =
     VIDEO_MODEL_CAPABILITIES[model]?.qualities ?? VIDEO_DEFAULT_QUALITIES;
+  const allowedVideoDurations =
+    VIDEO_MODEL_CAPABILITIES[model]?.durations ?? [5];
 
 
   useEffect(() => {
@@ -468,6 +480,10 @@ const Create = () => {
 
     if (!allowedVideoQualities.includes(quality)) {
       setQuality(allowedVideoQualities[0]);
+    }
+
+    if (!allowedVideoDurations.includes(videoDuration)) {
+      setVideoDuration(allowedVideoDurations[0]);
     }
     // Only react to model/type changes; user selections are constrained by UI.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -566,7 +582,8 @@ const Create = () => {
             type: type === "cinema" ? "video" : type, // Backend treats cinema as video with extra params
             model: type === "cinema" ? model.replace("-cinema", "") : model, // Use base video model
             aspectRatio, 
-            quality, 
+            quality,
+            duration: type === "video" ? videoDuration : undefined,
             imageUrl: startingImage,
             stream: true,
             background: false,
@@ -1795,6 +1812,30 @@ const Create = () => {
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Higher quality = more credits (multiplier shown)
+                    </p>
+                  </div>
+                )}
+
+                {/* Duration Selection - Video only */}
+                {type === "video" && (
+                  <div className="space-y-2">
+                    <Label>Duration</Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {allowedVideoDurations.map((d) => (
+                        <Button
+                          key={d}
+                          type="button"
+                          variant={videoDuration === d ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setVideoDuration(d)}
+                          className={videoDuration === d ? "gradient-primary" : "border-border/50"}
+                        >
+                          {d}s
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Video length in seconds
                     </p>
                   </div>
                 )}
