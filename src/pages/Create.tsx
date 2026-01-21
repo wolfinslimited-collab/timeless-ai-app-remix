@@ -39,8 +39,13 @@ import {
   Play,
   RefreshCw,
   Music,
-  Pause
+  Pause,
+  ChevronDown,
+  Info
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -199,6 +204,11 @@ const Create = () => {
   // Music-specific state
   const [lyrics, setLyrics] = useState("");
   const [isInstrumental, setIsInstrumental] = useState(false);
+  const [vocalGender, setVocalGender] = useState<"male" | "female">("female");
+  const [weirdness, setWeirdness] = useState(50);
+  const [styleInfluence, setStyleInfluence] = useState(50);
+  const [duration, setDuration] = useState(30);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   
@@ -394,6 +404,10 @@ const Create = () => {
         if (type === "music") {
           body.lyrics = lyrics.trim() || undefined;
           body.instrumental = isInstrumental;
+          body.vocalGender = vocalGender;
+          body.weirdness = weirdness;
+          body.styleInfluence = styleInfluence;
+          body.duration = duration;
         } else {
           body.negativePrompt = negativePrompt.trim() || undefined;
           body.imageUrl = startingImage;
@@ -801,23 +815,184 @@ const Create = () => {
                   </div>
                 )}
 
-                {/* Instrumental Toggle - Music only */}
+                {/* Advanced Options - Music only */}
                 {type === "music" && (
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-secondary">
-                    <div>
-                      <Label htmlFor="instrumental" className="cursor-pointer">Instrumental Only</Label>
-                      <p className="text-xs text-muted-foreground">Generate music without vocals</p>
-                    </div>
+                  <div className="space-y-3">
                     <Button
-                      id="instrumental"
                       type="button"
-                      variant={isInstrumental ? "default" : "outline"}
+                      variant="ghost"
                       size="sm"
-                      onClick={() => setIsInstrumental(!isInstrumental)}
-                      className={isInstrumental ? "gradient-primary" : "border-border/50"}
+                      onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+                      className="w-full justify-between text-muted-foreground hover:text-foreground"
                     >
-                      {isInstrumental ? "On" : "Off"}
+                      <span className="flex items-center gap-2">
+                        <Wand2 className="h-4 w-4" />
+                        Advanced Options
+                      </span>
+                      <ChevronDown className={cn(
+                        "h-4 w-4 transition-transform",
+                        showAdvancedOptions && "rotate-180"
+                      )} />
                     </Button>
+                    
+                    {showAdvancedOptions && (
+                      <div className="space-y-3 animate-fade-in">
+                        {/* Instrumental Toggle */}
+                        <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-secondary">
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor="instrumental" className="cursor-pointer">Instrumental Only</Label>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Generate music without vocals</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                          <Switch
+                            id="instrumental"
+                            checked={isInstrumental}
+                            onCheckedChange={setIsInstrumental}
+                          />
+                        </div>
+
+                        {/* Vocal Gender - only when not instrumental */}
+                        {!isInstrumental && (
+                          <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-secondary">
+                            <div className="flex items-center gap-2">
+                              <Label>Vocal Gender</Label>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Choose the voice type for vocals</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                type="button"
+                                variant={vocalGender === "male" ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setVocalGender("male")}
+                                className={cn(
+                                  "text-xs",
+                                  vocalGender === "male" ? "gradient-primary" : "border-border/50"
+                                )}
+                              >
+                                Male
+                              </Button>
+                              <Button
+                                type="button"
+                                variant={vocalGender === "female" ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setVocalGender("female")}
+                                className={cn(
+                                  "text-xs",
+                                  vocalGender === "female" ? "gradient-primary" : "border-border/50"
+                                )}
+                              >
+                                Female
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Duration */}
+                        <div className="p-3 rounded-lg border border-border/50 bg-secondary space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Label>Duration</Label>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Length of the generated track</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                            <span className="text-sm font-medium">{duration}s</span>
+                          </div>
+                          <Slider
+                            value={[duration]}
+                            onValueChange={([val]) => setDuration(val)}
+                            min={15}
+                            max={120}
+                            step={15}
+                            className="w-full"
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>15s</span>
+                            <span>120s</span>
+                          </div>
+                        </div>
+
+                        {/* Weirdness */}
+                        <div className="p-3 rounded-lg border border-border/50 bg-secondary space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Label>Weirdness</Label>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Higher values create more experimental sounds</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                            <span className="text-sm font-medium">{weirdness}%</span>
+                          </div>
+                          <Slider
+                            value={[weirdness]}
+                            onValueChange={([val]) => setWeirdness(val)}
+                            min={0}
+                            max={100}
+                            step={5}
+                            className="w-full"
+                          />
+                        </div>
+
+                        {/* Style Influence */}
+                        <div className="p-3 rounded-lg border border-border/50 bg-secondary space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Label>Style Influence</Label>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>How closely to follow genre conventions</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                            <span className="text-sm font-medium">{styleInfluence}%</span>
+                          </div>
+                          <Slider
+                            value={[styleInfluence]}
+                            onValueChange={([val]) => setStyleInfluence(val)}
+                            min={0}
+                            max={100}
+                            step={5}
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
