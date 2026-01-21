@@ -96,26 +96,34 @@ serve(async (req) => {
 
     const results = [];
 
+    async function refundCreditsIfNeeded(generation: any) {
+      const creditsToRefund = Number(generation?.credits_used ?? 0);
+      if (!creditsToRefund || creditsToRefund <= 0) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("credits, subscription_status")
+        .eq("user_id", user.id)
+        .single();
+
+      const status = profile?.subscription_status ?? null;
+      const isSubscribed = status === "active" || status === "trialing";
+      if (isSubscribed) return;
+
+      await supabase
+        .from("profiles")
+        .update({ credits: (profile?.credits || 0) + creditsToRefund })
+        .eq("user_id", user.id);
+    }
+
     for (const gen of pendingGenerations) {
       // Handle legacy Translate AI records that can never complete (no task_id)
       if (!gen.task_id) {
-        const isLegacyTranslate = gen.model === "translate-ai" && gen.provider_endpoint === "translate-video";
+        const isLegacyTranslate = gen.provider_endpoint === "translate-video";
         if (gen.status === "processing" && isLegacyTranslate) {
           console.warn(`Legacy translate-ai generation without task_id: ${gen.id}. Marking failed.`);
 
-          // Refund credits for non-subscribers
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("credits, subscription_status")
-            .eq("user_id", user.id)
-            .single();
-
-          if (profile && profile.subscription_status !== 'active') {
-            await supabase
-              .from("profiles")
-              .update({ credits: (profile.credits || 0) + (gen.credits_used || 0) })
-              .eq("user_id", user.id);
-          }
+          await refundCreditsIfNeeded(gen);
 
           await supabase
             .from("generations")
@@ -138,8 +146,8 @@ serve(async (req) => {
         continue;
       }
 
-      // Only poll provider for pending items
-      if (gen.status !== "pending") {
+      // Only poll provider for active items
+      if (!['pending', 'processing'].includes(gen.status)) {
         results.push({ id: gen.id, status: gen.status, changed: false });
         continue;
       }
@@ -238,29 +246,36 @@ serve(async (req) => {
             console.error(
               `Fal.ai result fetch failed for ${gen.id}: HTTP ${resultResp.status}. Body: ${errorText}`
             );
-            // Keep pending; some providers briefly report COMPLETED before response is available.
-            results.push({
-              id: gen.id,
-              status: "pending",
-              changed: false,
-              provider_status: `RESULT_FETCH_FAILED_${resultResp.status}`,
-              error: errorText,
-            });
+
+            // Permanent failures (e.g. invalid input) should not stay stuck in pending.
+            if ([400, 401, 403, 404, 422].includes(resultResp.status)) {
+              await refundCreditsIfNeeded(gen);
+              await supabase
+                .from("generations")
+                .update({ status: "failed" })
+                .eq("id", gen.id);
+
+              results.push({
+                id: gen.id,
+                status: "failed",
+                changed: true,
+                credits_refunded: gen.credits_used,
+                provider_status: `RESULT_FETCH_FAILED_${resultResp.status}`,
+                error: errorText,
+              });
+            } else {
+              // Keep pending; some providers briefly report COMPLETED before response is available.
+              results.push({
+                id: gen.id,
+                status: "pending",
+                changed: false,
+                provider_status: `RESULT_FETCH_FAILED_${resultResp.status}`,
+                error: errorText,
+              });
+            }
           }
         } else if (statusData.status === "FAILED") {
-          // Refund credits
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("credits, subscription_status")
-            .eq("user_id", user.id)
-            .single();
-
-          if (profile && profile.subscription_status !== 'active') {
-            await supabase
-              .from("profiles")
-              .update({ credits: (profile.credits || 0) + gen.credits_used })
-              .eq("user_id", user.id);
-          }
+          await refundCreditsIfNeeded(gen);
 
           await supabase
             .from("generations")
