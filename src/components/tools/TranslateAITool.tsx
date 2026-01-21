@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,9 +13,14 @@ import {
   Video,
   Languages,
   Zap,
-  Link2
+  Link2,
+  Play,
+  Clock,
+  X,
+  ExternalLink
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const POPULAR_LANGUAGES = [
   "English",
@@ -32,6 +37,13 @@ const POPULAR_LANGUAGES = [
   "Hindi",
 ];
 
+interface VideoInfo {
+  title: string;
+  thumbnail: string;
+  channelName: string;
+  duration?: string;
+}
+
 const TranslateAITool = () => {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [targetLanguage, setTargetLanguage] = useState("");
@@ -40,6 +52,8 @@ const TranslateAITool = () => {
   const [progress, setProgress] = useState(0);
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   
   const { credits, refetch, hasActiveSubscription } = useCredits();
   const creditCost = 25;
@@ -53,6 +67,83 @@ const TranslateAITool = () => {
   const isValidYoutubeUrl = (url: string) => {
     const pattern = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/)|youtu\.be\/)/;
     return pattern.test(url);
+  };
+
+  const extractVideoId = (url: string): string | null => {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([^&\s?]+)/,
+      /youtube\.com\/embed\/([^&\s?]+)/,
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    return null;
+  };
+
+  const fetchVideoInfo = useCallback(async (url: string) => {
+    if (!isValidYoutubeUrl(url)) {
+      setVideoInfo(null);
+      return;
+    }
+
+    const videoId = extractVideoId(url);
+    if (!videoId) {
+      setVideoInfo(null);
+      return;
+    }
+
+    setIsLoadingPreview(true);
+
+    try {
+      // Use YouTube oEmbed API to get video info
+      const response = await fetch(
+        `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch video info");
+      }
+
+      const data = await response.json();
+
+      setVideoInfo({
+        title: data.title,
+        thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+        channelName: data.author_name,
+      });
+    } catch (error) {
+      console.error("Error fetching video info:", error);
+      // Fallback: just show thumbnail without title
+      setVideoInfo({
+        title: "YouTube Video",
+        thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+        channelName: "",
+      });
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  }, []);
+
+  // Debounced URL change handler
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (youtubeUrl.trim()) {
+        fetchVideoInfo(youtubeUrl);
+      } else {
+        setVideoInfo(null);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [youtubeUrl, fetchVideoInfo]);
+
+  const clearVideo = () => {
+    setYoutubeUrl("");
+    setVideoInfo(null);
   };
 
   const filteredLanguages = POPULAR_LANGUAGES.filter((lang) =>
@@ -167,7 +258,76 @@ const TranslateAITool = () => {
                   onChange={(e) => setYoutubeUrl(e.target.value)}
                   className="pl-11 h-14 bg-secondary/30 border-border/50 text-foreground placeholder:text-muted-foreground/50 rounded-xl"
                 />
+                {youtubeUrl && (
+                  <button
+                    onClick={clearVideo}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-secondary/50 hover:bg-secondary flex items-center justify-center transition-colors"
+                  >
+                    <X className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                )}
               </div>
+
+              {/* Video Preview */}
+              {isLoadingPreview && (
+                <div className="rounded-xl border border-border/50 bg-secondary/30 p-4 animate-in fade-in duration-300">
+                  <div className="flex gap-4">
+                    <Skeleton className="w-32 h-20 rounded-lg flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {videoInfo && !isLoadingPreview && (
+                <div className="rounded-xl border border-border/50 bg-secondary/30 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex gap-4 p-3">
+                    {/* Thumbnail */}
+                    <div className="relative w-36 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-secondary">
+                      <img
+                        src={videoInfo.thumbnail}
+                        alt={videoInfo.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // Fallback to lower quality thumbnail
+                          const videoId = extractVideoId(youtubeUrl);
+                          if (videoId) {
+                            e.currentTarget.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                          }
+                        }}
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity">
+                        <div className="h-10 w-10 rounded-full bg-primary/90 flex items-center justify-center">
+                          <Play className="h-5 w-5 text-primary-foreground ml-0.5" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Video Info */}
+                    <div className="flex-1 min-w-0 py-1">
+                      <h4 className="font-medium text-sm text-foreground line-clamp-2 leading-tight mb-1">
+                        {videoInfo.title}
+                      </h4>
+                      {videoInfo.channelName && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {videoInfo.channelName}
+                        </p>
+                      )}
+                      <a
+                        href={youtubeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Open on YouTube
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Language & Voice Row */}
