@@ -42,14 +42,31 @@ Deno.serve(async (req) => {
       );
     }
 
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!serviceRoleKey) {
+      console.error("SUPABASE_SERVICE_ROLE_KEY not configured");
+      return new Response(
+        JSON.stringify({ error: "Backend not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Auth-scoped client: validate user token
+    const supabaseAuthClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    // Admin client: perform DB + Storage operations reliably (RLS bypass)
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseAuthClient.auth.getUser(token);
 
     if (authError || !user) {
       return new Response(
@@ -77,7 +94,7 @@ Deno.serve(async (req) => {
     }
 
     // Check user credits
-    const { data: profile, error: profileError } = await supabaseClient
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("credits, subscription_status")
       .eq("user_id", user.id)
@@ -216,9 +233,100 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("Direct video URL obtained, submitting to Fal.ai dubbing...");
+    // Step 2: Upload the MP4 to our public storage so Fal.ai can reliably fetch it.
+    // (Many YouTube-derived URLs are short-lived or blocked for non-browser clients.)
+    console.log("Direct video URL obtained. Downloading and uploading to storage...");
 
-    // Step 2: Submit to Fal.ai queue for dubbing with the direct URL
+    const videoFetchResp = await fetch(directVideoUrl, {
+      headers: {
+        // Some hosts block generic user agents.
+        "User-Agent":
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "*/*",
+      },
+    });
+
+    if (!videoFetchResp.ok) {
+      const errText = await videoFetchResp.text().catch(() => "");
+      console.error(
+        "Failed to download MP4 from direct URL:",
+        videoFetchResp.status,
+        errText
+      );
+      return new Response(
+        JSON.stringify({ error: "Failed to download the source video for translation" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const contentType = videoFetchResp.headers.get("content-type") || "";
+    const contentLength = Number(videoFetchResp.headers.get("content-length") || "0");
+
+    // Prevent excessive memory use in edge runtime
+    const MAX_BYTES = 80 * 1024 * 1024; // 80MB
+    if (contentLength && contentLength > MAX_BYTES) {
+      console.error("Video too large to process:", contentLength);
+      return new Response(
+        JSON.stringify({
+          error:
+            "This video is too large to process right now. Please try a shorter or lower-quality video.",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (contentType && !contentType.includes("video")) {
+      console.warn("Unexpected content-type for MP4 download:", contentType);
+    }
+
+    const videoBytes = await videoFetchResp.arrayBuffer();
+    if (videoBytes.byteLength > MAX_BYTES) {
+      console.error("Video too large after download:", videoBytes.byteLength);
+      return new Response(
+        JSON.stringify({
+          error:
+            "This video is too large to process right now. Please try a shorter or lower-quality video.",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const objectPath = `translate-ai/${user.id}/${videoId}-${Date.now()}.mp4`;
+    const uploadBody = new Blob([videoBytes], { type: "video/mp4" });
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from("generation-inputs")
+      .upload(objectPath, uploadBody, {
+        contentType: "video/mp4",
+        cacheControl: "3600",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Storage upload error:", uploadError);
+      return new Response(
+        JSON.stringify({ error: "Failed to stage the video for translation" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { data: publicData } = supabaseAdmin.storage
+      .from("generation-inputs")
+      .getPublicUrl(objectPath);
+
+    const stableVideoUrl = publicData?.publicUrl;
+    if (!stableVideoUrl) {
+      console.error("Failed to get public URL for uploaded video");
+      return new Response(
+        JSON.stringify({ error: "Failed to stage the video for translation" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Uploaded staged video URL:", stableVideoUrl);
+    console.log("Submitting to Fal.ai dubbing...");
+
+    // Step 3: Submit to Fal.ai queue for dubbing with the stable public URL
     const falResponse = await fetch(`${FAL_QUEUE_URL}/fal-ai/dubbing`, {
       method: "POST",
       headers: {
@@ -226,7 +334,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        video_url: directVideoUrl,
+        video_url: stableVideoUrl,
         target_language: mappedLang,
         do_lipsync: true,
       }),
@@ -255,7 +363,7 @@ Deno.serve(async (req) => {
     }
 
     // Create generation record with task_id for polling
-    const { data: generation, error: genError } = await supabaseClient
+    const { data: generation, error: genError } = await supabaseAdmin
       .from("generations")
       .insert({
         user_id: user.id,
@@ -277,7 +385,7 @@ Deno.serve(async (req) => {
 
     // Deduct credits after successful submission
     if (!hasActiveSubscription) {
-      const { error: creditError } = await supabaseClient
+      const { error: creditError } = await supabaseAdmin
         .from("profiles")
         .update({ credits: (profile.credits ?? 0) - CREDIT_COST })
         .eq("user_id", user.id);
