@@ -54,6 +54,11 @@ const TranslateAITool = () => {
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+
+  // Polling state
+  const [activeGenerationId, setActiveGenerationId] = useState<string | null>(null);
+  const [pollingStatus, setPollingStatus] = useState<"idle" | "polling" | "completed" | "failed">("idle");
+  const [pollError, setPollError] = useState<string | null>(null);
   
   const { credits, refetch, hasActiveSubscription } = useCredits();
   const creditCost = 25;
@@ -179,6 +184,62 @@ const TranslateAITool = () => {
     lang.toLowerCase().includes(targetLanguage.toLowerCase())
   );
 
+  // Polling logic: check generation status every 5 seconds
+  useEffect(() => {
+    if (!activeGenerationId || pollingStatus !== "polling") return;
+
+    let cancelled = false;
+    const pollInterval = 5000; // 5 seconds
+
+    const poll = async () => {
+      try {
+        const response = await supabase.functions.invoke("check-generation", {
+          body: { generationId: activeGenerationId },
+        });
+
+        if (cancelled) return;
+
+        if (response.error) {
+          console.error("Polling error:", response.error);
+          return;
+        }
+
+        const result = response.data?.results?.[0];
+        if (!result) return;
+
+        if (result.status === "completed" && result.output_url) {
+          setOutputUrl(result.output_url);
+          setPollingStatus("completed");
+          setActiveGenerationId(null);
+          setIsProcessing(false);
+          toast.success("Translation complete!");
+          refetch();
+        } else if (result.status === "failed") {
+          setPollingStatus("failed");
+          setPollError(result.error || "Translation failed");
+          setActiveGenerationId(null);
+          setIsProcessing(false);
+          toast.error(result.error || "Translation failed");
+          refetch();
+        }
+        // If still pending/processing, keep polling
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    };
+
+    // Initial poll
+    poll();
+
+    // Set up interval
+    const intervalId = setInterval(poll, pollInterval);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [activeGenerationId, pollingStatus, refetch]);
+
   const handleProcess = async () => {
     if (!youtubeUrl.trim()) {
       toast.error("Please enter a YouTube URL");
@@ -208,6 +269,8 @@ const TranslateAITool = () => {
 
     setIsProcessing(true);
     setOutputUrl(null);
+    setPollingStatus("idle");
+    setPollError(null);
 
     try {
       const response = await supabase.functions.invoke("translate-video", {
@@ -222,18 +285,29 @@ const TranslateAITool = () => {
         throw new Error(response.error.message || "Translation failed");
       }
 
-      if (response.data?.status === "processing") {
-        toast.success("Video is being processed! Check your Library for results.");
+      if (response.data?.status === "processing" && response.data?.generationId) {
+        // Start polling for status
+        setActiveGenerationId(response.data.generationId);
+        setPollingStatus("polling");
+        toast.info("Translation started! We'll show the result here when ready.");
         refetch();
       } else if (response.data?.outputUrl) {
         setOutputUrl(response.data.outputUrl);
+        setPollingStatus("completed");
+        setIsProcessing(false);
         toast.success("Translation complete!");
+        refetch();
+      } else {
+        // Fallback: no generationId returned
+        setIsProcessing(false);
+        toast.success("Video is being processed! Check your Library for results.");
         refetch();
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Translation failed");
-    } finally {
       setIsProcessing(false);
+      setPollingStatus("failed");
+      setPollError(error instanceof Error ? error.message : "Translation failed");
+      toast.error(error instanceof Error ? error.message : "Translation failed");
     }
   };
 
@@ -500,13 +574,26 @@ const TranslateAITool = () => {
 
             {/* Translated Output */}
             <div className="aspect-video rounded-xl border border-border bg-secondary/50 flex items-center justify-center overflow-hidden">
-              {isProcessing ? (
+              {isProcessing || pollingStatus === "polling" ? (
                 <div className="flex flex-col items-center gap-4 text-muted-foreground">
                   <div className="relative">
                     <div className="h-16 w-16 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
                     <Sparkles className="h-6 w-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                   </div>
-                  <p className="text-sm">Translating video...</p>
+                  <div className="text-center">
+                    <p className="text-sm font-medium">Translating video...</p>
+                    <p className="text-xs text-muted-foreground mt-1">This may take a few minutes</p>
+                  </div>
+                </div>
+              ) : pollingStatus === "failed" ? (
+                <div className="flex flex-col items-center gap-3 text-destructive">
+                  <X className="h-12 w-12 opacity-70" />
+                  <div className="text-center px-4">
+                    <p className="text-sm font-medium">Translation failed</p>
+                    {pollError && (
+                      <p className="text-xs text-muted-foreground mt-1 max-w-xs">{pollError}</p>
+                    )}
+                  </div>
                 </div>
               ) : outputUrl ? (
                 <video
