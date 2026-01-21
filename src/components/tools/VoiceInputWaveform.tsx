@@ -148,6 +148,11 @@ const VoiceInputWaveform = ({
           (targetValue - smoothedDataRef.current[i]) * lerpFactor;
       }
 
+      // Get computed colors from CSS variables
+      const computedStyle = getComputedStyle(canvas);
+      const foregroundColor = computedStyle.getPropertyValue('--foreground').trim() || '0 0% 98%';
+      const primaryColor = computedStyle.getPropertyValue('--primary').trim() || '262 83% 58%';
+
       // Draw glow layer
       ctx.save();
       ctx.filter = 'blur(8px)';
@@ -160,10 +165,7 @@ const VoiceInputWaveform = ({
         const x = startX + i * (barWidth + barSpacing);
         const halfHeight = barHeight / 2;
 
-        // Gradient based on intensity
-        const hue = 0; // Use primary color
-        const lightness = 50 + value * 20;
-        ctx.fillStyle = `hsl(var(--primary))`;
+        ctx.fillStyle = `hsl(${primaryColor})`;
 
         // Top bar
         ctx.beginPath();
@@ -190,9 +192,9 @@ const VoiceInputWaveform = ({
         
         // Dynamic opacity based on value
         const alpha = 0.6 + value * 0.4;
-        gradient.addColorStop(0, `hsl(var(--foreground) / ${alpha * 0.7})`);
-        gradient.addColorStop(0.5, `hsl(var(--foreground) / ${alpha})`);
-        gradient.addColorStop(1, `hsl(var(--foreground) / ${alpha * 0.7})`);
+        gradient.addColorStop(0, `hsla(${foregroundColor}, ${alpha * 0.7})`);
+        gradient.addColorStop(0.5, `hsla(${foregroundColor}, ${alpha})`);
+        gradient.addColorStop(1, `hsla(${foregroundColor}, ${alpha * 0.7})`);
         
         ctx.fillStyle = gradient;
 
@@ -210,7 +212,8 @@ const VoiceInputWaveform = ({
       // Draw center line
       const avgValue = smoothedDataRef.current.reduce((a, b) => a + b, 0) / numBars;
       if (avgValue < 0.15) {
-        ctx.strokeStyle = `hsl(var(--foreground) / ${0.15 + Math.sin(timeRef.current * 3) * 0.05})`;
+        const lineAlpha = 0.15 + Math.sin(timeRef.current * 3) * 0.05;
+        ctx.strokeStyle = `hsla(${foregroundColor}, ${lineAlpha})`;
         ctx.lineWidth = 1;
         ctx.setLineDash([]);
         ctx.beginPath();
