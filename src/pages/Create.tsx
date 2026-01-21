@@ -9,7 +9,7 @@ import AppsSidebar, { AppId } from "@/components/AppsSidebar";
 import BottomNav from "@/components/BottomNav";
 import AudioWaveform from "@/components/AudioWaveform";
 import CinemaStudio from "@/components/CinemaStudio";
-// Tool components
+// Image Tool components
 import UpscaleTool from "@/components/tools/UpscaleTool";
 import BackgroundRemoveTool from "@/components/tools/BackgroundRemoveTool";
 import RelightTool from "@/components/tools/RelightTool";
@@ -18,6 +18,17 @@ import SkinEnhancerTool from "@/components/tools/SkinEnhancerTool";
 import ColorizeTool from "@/components/tools/ColorizeTool";
 import StyleTransferTool from "@/components/tools/StyleTransferTool";
 import InpaintingTool from "@/components/tools/InpaintingTool";
+// Video Tool components
+import VideoUpscaleTool from "@/components/tools/VideoUpscaleTool";
+import LipSyncTool from "@/components/tools/LipSyncTool";
+import ExtendVideoTool from "@/components/tools/ExtendVideoTool";
+import InterpolateTool from "@/components/tools/InterpolateTool";
+import SketchToVideoTool from "@/components/tools/SketchToVideoTool";
+import DrawToVideoTool from "@/components/tools/DrawToVideoTool";
+import SoraTrendsTool from "@/components/tools/SoraTrendsTool";
+import ClickToAdTool from "@/components/tools/ClickToAdTool";
+import UGCFactoryTool from "@/components/tools/UGCFactoryTool";
+import MixedMediaTool from "@/components/tools/MixedMediaTool";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -643,6 +654,34 @@ const Create = () => {
     }
   };
 
+  // Render video tool component based on selected app
+  const renderVideoTool = () => {
+    switch (selectedApp) {
+      case "video-upscale":
+        return <VideoUpscaleTool />;
+      case "lip-sync":
+        return <LipSyncTool />;
+      case "extend":
+        return <ExtendVideoTool />;
+      case "interpolate":
+        return <InterpolateTool />;
+      case "sketch-to-video":
+        return <SketchToVideoTool />;
+      case "draw-to-video":
+        return <DrawToVideoTool />;
+      case "sora-trends":
+        return <SoraTrendsTool />;
+      case "click-to-ad":
+        return <ClickToAdTool />;
+      case "ugc-factory":
+        return <UGCFactoryTool />;
+      case "mixed-media":
+        return <MixedMediaTool />;
+      default:
+        return null;
+    }
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
@@ -773,6 +812,25 @@ const Create = () => {
         <BottomNav />
       </div>
     );
+  }
+
+  // Render video tool if not on "generate"
+  if (type === "video" && selectedApp !== "generate" && selectedApp !== "cinema-studio") {
+    const toolComponent = renderVideoTool();
+    if (toolComponent) {
+      return (
+        <div className="min-h-screen bg-background">
+          <TopMenu />
+          <div className="flex">
+            <AppsSidebar currentType={type} selectedApp={selectedApp} onSelectApp={handleAppSelect} />
+            <main className="flex-1 pb-20 md:pb-0">
+              {toolComponent}
+            </main>
+          </div>
+          <BottomNav />
+        </div>
+      );
+    }
   }
 
   // Render image tool if not on "generate"
