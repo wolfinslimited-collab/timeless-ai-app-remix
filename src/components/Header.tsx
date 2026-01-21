@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useCredits } from "@/hooks/useCredits";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-
+import logo from "@/assets/logo.png";
 const Header = () => {
   const { user } = useAuth();
   const { credits, loading: creditsLoading } = useCredits();
@@ -16,9 +16,7 @@ const Header = () => {
       <div className="container flex h-16 items-center justify-between px-4">
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-primary">
-            <span className="text-lg font-bold text-primary-foreground">T</span>
-          </div>
+          <img src={logo} alt="Timeless logo" className="h-9 w-9 object-contain" />
           <span className="text-xl font-bold">Timeless</span>
         </div>
 
