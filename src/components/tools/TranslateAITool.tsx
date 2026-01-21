@@ -411,8 +411,57 @@ const TranslateAITool = () => {
           </div>
 
           {/* Output Section */}
-          <div className="space-y-2">
+          <div className="space-y-4">
             <Label>Output</Label>
+            
+            {/* Original Video Preview in Output */}
+            {videoInfo && (
+              <div className="rounded-xl border border-border bg-secondary/50 overflow-hidden">
+                <div className="flex gap-4 p-3">
+                  <div className="relative w-24 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-secondary">
+                    <img
+                      src={videoInfo.thumbnail}
+                      alt={videoInfo.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0 py-1">
+                    <h4 className="font-medium text-xs text-foreground line-clamp-2 leading-tight">
+                      {videoInfo.title}
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {videoInfo.channelName}
+                    </p>
+                  </div>
+                </div>
+                <div className="border-t border-border px-3 py-2 flex gap-2">
+                  <a
+                    href={youtubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1"
+                  >
+                    <Button variant="outline" size="sm" className="w-full gap-2">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Open on YouTube
+                    </Button>
+                  </a>
+                  <a
+                    href={`https://www.y2mate.com/youtube/${extractVideoId(youtubeUrl)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1"
+                  >
+                    <Button variant="outline" size="sm" className="w-full gap-2">
+                      <Download className="h-3.5 w-3.5" />
+                      Download Original
+                    </Button>
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {/* Translated Output */}
             <div className="aspect-video rounded-xl border border-border bg-secondary/50 flex items-center justify-center overflow-hidden">
               {isProcessing ? (
                 <div className="flex flex-col items-center gap-4 text-muted-foreground">
@@ -437,10 +486,10 @@ const TranslateAITool = () => {
               )}
             </div>
 
-            {/* Download Button */}
+            {/* Download Translated Video Button */}
             {outputUrl && (
               <Button
-                variant="outline"
+                variant="default"
                 className="w-full gap-2"
                 onClick={() => {
                   const link = document.createElement("a");
@@ -451,7 +500,7 @@ const TranslateAITool = () => {
                 }}
               >
                 <Download className="h-4 w-4" />
-                Download Video
+                Download Translated Video
               </Button>
             )}
           </div>
