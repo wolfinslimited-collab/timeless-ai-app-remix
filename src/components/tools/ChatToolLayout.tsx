@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Send, 
   Loader2, 
-  Bot, 
   User, 
   Copy, 
   Check,
@@ -23,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import ConversationHistory from "./ConversationHistory";
+import ChatMessageSkeleton from "./ChatMessageSkeleton";
 
 interface MessageContent {
   type: "text" | "image_url";
@@ -599,7 +599,16 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
             </div>
           ) : (
             <div className="space-y-4">
-              {messages.map((message) => (
+              {messages.map((message, index) => {
+                const isLastMessage = index === messages.length - 1;
+                const isStreamingEmpty = message.role === "assistant" && !getDisplayContent(message);
+                
+                // Show skeleton for streaming empty assistant message
+                if (isStreamingEmpty && isLastMessage && isLoading) {
+                  return <ChatMessageSkeleton key={message.id} modelIcon={model.icon} />;
+                }
+                
+                return (
                 <div
                   key={message.id}
                   className={cn(
@@ -609,8 +618,8 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
                 >
                   {message.role === "assistant" && (
                     <Avatar className="h-8 w-8 shrink-0">
-                      <AvatarFallback className="bg-primary/10 text-primary">
-                        <Bot className="h-4 w-4" />
+                      <AvatarFallback className="bg-primary/10 text-lg">
+                        {model.icon}
                       </AvatarFallback>
                     </Avatar>
                   )}
@@ -693,9 +702,7 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
                           >
                             {getDisplayContent(message)}
                           </ReactMarkdown>
-                        ) : (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        )
+                        ) : null
                       ) : (
                         <span className="whitespace-pre-wrap break-words">
                           {getDisplayContent(message) || <Loader2 className="h-4 w-4 animate-spin" />}
@@ -732,7 +739,8 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
                     </Avatar>
                   )}
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </ScrollArea>
