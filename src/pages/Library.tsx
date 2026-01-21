@@ -5,10 +5,10 @@ import TopMenu from "@/components/TopMenu";
 import Sidebar from "@/components/Sidebar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
-import { Image, Video, Download, Trash2, Clock, Loader2, Bot } from "lucide-react";
+import { Image, Video, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import failedGenerationThumb from "@/assets/failed-generation-thumb.svg";
+import GenerationCard from "@/components/GenerationCard";
 
 interface Generation {
   id: string;
@@ -104,180 +104,78 @@ const Library = () => {
         <Sidebar />
 
         <main className="flex-1 pb-20 md:pb-0">
-        <div className="max-w-7xl mx-auto p-6">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Your Library</h1>
-            <p className="text-muted-foreground">
-              All your AI-generated creations in one place
-            </p>
-          </div>
-
-          {/* Filters */}
-          <div className="flex gap-2 mb-6">
-            <Button
-              variant={filter === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFilter("all")}
-              className={filter === "all" ? "gradient-primary text-primary-foreground" : "border-border/50"}
-            >
-              All
-            </Button>
-            <Button
-              variant={filter === "image" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFilter("image")}
-              className={filter === "image" ? "gradient-primary text-primary-foreground" : "border-border/50"}
-            >
-              <Image className="h-4 w-4 mr-1" />
-              Images
-            </Button>
-            <Button
-              variant={filter === "video" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFilter("video")}
-              className={filter === "video" ? "gradient-primary text-primary-foreground" : "border-border/50"}
-            >
-              <Video className="h-4 w-4 mr-1" />
-              Videos
-            </Button>
-          </div>
-
-          {/* Content */}
-          {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : filteredGenerations.length === 0 ? (
-            <div className="text-center py-20">
-              <div className="mx-auto w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-4">
-                <Image className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">No creations yet</h3>
-              <p className="text-muted-foreground mb-4">
-                Start creating amazing AI content
+          <div className="max-w-7xl mx-auto p-6">
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold mb-2">Your Library</h1>
+              <p className="text-muted-foreground">
+                All your AI-generated creations in one place
               </p>
-              <Button 
-                onClick={() => navigate("/")}
-                className="gradient-primary text-primary-foreground"
+            </div>
+
+            {/* Filters */}
+            <div className="flex gap-2 mb-6">
+              <Button
+                variant={filter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilter("all")}
+                className={filter === "all" ? "gradient-primary text-primary-foreground" : "border-border/50"}
               >
-                Start Creating
+                All
+              </Button>
+              <Button
+                variant={filter === "image" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilter("image")}
+                className={filter === "image" ? "gradient-primary text-primary-foreground" : "border-border/50"}
+              >
+                <Image className="h-4 w-4 mr-1" />
+                Images
+              </Button>
+              <Button
+                variant={filter === "video" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilter("video")}
+                className={filter === "video" ? "gradient-primary text-primary-foreground" : "border-border/50"}
+              >
+                <Video className="h-4 w-4 mr-1" />
+                Videos
               </Button>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredGenerations.map((gen) => (
-                <div
-                  key={gen.id}
-                  className={`group relative rounded-xl border bg-card overflow-hidden transition-all ${
-                    gen.status === "failed" || (gen.status === "completed" && !gen.output_url && !gen.thumbnail_url)
-                      ? "border-destructive/50 hover:border-destructive" 
-                      : gen.status === "pending"
-                      ? "border-yellow-500/50 hover:border-yellow-500"
-                      : "border-border/50 hover:border-primary/30"
-                  }`}
-                >
-                  {/* Status Badge */}
-                  {gen.status === "pending" && (
-                    <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-yellow-500/90 text-black rounded-full px-2 py-1">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      <span className="text-xs font-medium">Generating</span>
-                    </div>
-                  )}
-                  {gen.status === "pending" && (
-                    <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-yellow-500/90 text-black rounded-full px-2 py-1">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      <span className="text-xs font-medium">Generating</span>
-                    </div>
-                  )}
 
-                  {/* Thumbnail */}
-                  <div className="aspect-square bg-secondary flex items-center justify-center">
-                    {gen.status === "failed" || (gen.status === "completed" && !gen.output_url && !gen.thumbnail_url) ? (
-                      <img
-                        src={failedGenerationThumb}
-                        alt="Generation failed"
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        draggable={false}
-                      />
-                    ) : gen.status === "pending" ? (
-                      <div className="flex flex-col items-center text-muted-foreground">
-                        <Loader2 className="h-12 w-12 mb-2 animate-spin" />
-                        <span className="text-sm">Processing...</span>
-                      </div>
-                    ) : gen.type === "music" && gen.output_url ? (
-                      <div className="flex flex-col items-center text-muted-foreground">
-                        <Bot className="h-12 w-12 mb-2" />
-                        <span className="text-sm">Audio saved</span>
-                      </div>
-                    ) : gen.thumbnail_url || gen.output_url ? (
-                      <img
-                        src={gen.thumbnail_url || gen.output_url || ""}
-                        alt={gen.title || gen.prompt}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : gen.type === "video" ? (
-                      <div className="flex flex-col items-center text-muted-foreground">
-                        <Video className="h-12 w-12 mb-2" />
-                        <span className="text-sm">Preview unavailable</span>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center text-muted-foreground">
-                        <Image className="h-12 w-12 mb-2" />
-                        <span className="text-sm">Preview unavailable</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions overlay */}
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      className="h-8 w-8 bg-background/80 backdrop-blur-sm"
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="destructive"
-                      className="h-8 w-8"
-                      onClick={() => deleteGeneration(gen.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  {/* Info */}
-                  <div className="p-4">
-                    <p className="text-sm font-medium line-clamp-1 mb-1">
-                      {gen.title || gen.prompt}
-                    </p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="capitalize">{gen.model}</span>
-                      <span>•</span>
-                      {gen.status === "failed" || (gen.status === "completed" && !gen.output_url && !gen.thumbnail_url) ? (
-                        <span className="inline-flex items-center gap-1 text-destructive font-medium">
-                          <Bot className="h-3 w-3" />
-                          Generation failed
-                        </span>
-                      ) : gen.status === "pending" ? (
-                        <span className="text-yellow-500 font-medium">Processing</span>
-                      ) : (
-                        <>
-                          <Clock className="h-3 w-3" />
-                          <span>{new Date(gen.created_at).toLocaleDateString()}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
+            {/* Content */}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : filteredGenerations.length === 0 ? (
+              <div className="text-center py-20">
+                <div className="mx-auto w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-4">
+                  <Image className="h-8 w-8 text-muted-foreground" />
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+                <h3 className="text-lg font-semibold mb-2">No creations yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Start creating amazing AI content
+                </p>
+                <Button 
+                  onClick={() => navigate("/")}
+                  className="gradient-primary text-primary-foreground"
+                >
+                  Start Creating
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredGenerations.map((gen) => (
+                  <GenerationCard 
+                    key={gen.id} 
+                    gen={gen} 
+                    onDelete={deleteGeneration} 
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </main>
       </div>
 
