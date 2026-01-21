@@ -121,9 +121,13 @@ const buildFalMusicRequest = (args: {
   prompt: string;
   model: string;
   lyrics?: string;
+  instrumental?: boolean;
+  vocalGender?: string;
+  weirdness?: number;
+  styleInfluence?: number;
   duration?: number;
 }) => {
-  const { prompt, model, lyrics, duration } = args;
+  const { prompt, model, lyrics, instrumental, vocalGender, weirdness, styleInfluence, duration } = args;
   
   // Sonauto uses different parameters
   if (model === "sonauto") {
@@ -132,13 +136,35 @@ const buildFalMusicRequest = (args: {
       duration: duration ?? 30,
     };
     // Sonauto supports lyrics_prompt for song lyrics
-    if (lyrics) {
+    if (lyrics && !instrumental) {
       input.lyrics_prompt = lyrics;
+    }
+    if (instrumental) {
+      input.make_instrumental = true;
+    }
+    // Add style parameters if available
+    if (typeof weirdness === 'number') {
+      input.weirdness = weirdness / 100; // Convert to 0-1 range
+    }
+    if (typeof styleInfluence === 'number') {
+      input.prompt_influence = styleInfluence / 100; // Convert to 0-1 range
     }
     return input;
   }
   
-  // Default format for other models
+  // Lyria2 specific parameters
+  if (model === "lyria2") {
+    const input: Record<string, unknown> = {
+      prompt,
+      duration: duration ?? 30,
+    };
+    if (instrumental) {
+      input.instrumental = true;
+    }
+    return input;
+  }
+  
+  // Default format for other models (CassetteAI, Stable Audio)
   const input: Record<string, unknown> = {
     prompt,
     duration: duration ?? 30,
@@ -374,7 +400,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, negativePrompt, type, model, aspectRatio = "1:1", quality = "720p", imageUrl, stream = false, background = false, lyrics, instrumental } = await req.json();
+    const { prompt, negativePrompt, type, model, aspectRatio = "1:1", quality = "720p", imageUrl, stream = false, background = false, lyrics, instrumental, vocalGender, weirdness, styleInfluence, duration: musicDuration } = await req.json();
 
     // SSE streaming response for real-time progress (video)
     if (stream && type === "video") {
@@ -966,6 +992,11 @@ serve(async (req) => {
         prompt,
         model,
         lyrics,
+        instrumental,
+        vocalGender,
+        weirdness,
+        styleInfluence,
+        duration: musicDuration,
       });
 
       try {
