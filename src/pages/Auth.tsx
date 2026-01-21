@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, Loader2, Mail, Lock, AlertCircle } from "lucide-react";
+import { Loader2, Mail, Lock, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import logo from "@/assets/logo.png";
 
 const emailSchema = z.string().email("Please enter a valid email address");
 const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
@@ -92,7 +93,7 @@ const Auth = () => {
     } else {
       toast({
         title: "Account created!",
-        description: "Welcome to Higgsfield. Start creating!",
+        description: "Welcome to Timeless. Start creating!",
       });
       navigate("/");
     }
@@ -108,11 +109,9 @@ const Auth = () => {
 
       <Card className="w-full max-w-md border-border/50 bg-card/80 backdrop-blur-xl">
         <CardHeader className="text-center space-y-4">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl gradient-primary">
-            <Sparkles className="h-7 w-7 text-primary-foreground" />
-          </div>
+          <img src={logo} alt="Timeless" className="mx-auto h-16 w-16 object-contain" />
           <div>
-            <CardTitle className="text-2xl font-bold">Welcome to Higgsfield</CardTitle>
+            <CardTitle className="text-2xl font-bold">Welcome to Timeless</CardTitle>
             <CardDescription className="text-muted-foreground">
               Create stunning AI videos and images
             </CardDescription>

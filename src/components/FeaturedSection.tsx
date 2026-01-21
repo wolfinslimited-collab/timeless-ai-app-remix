@@ -10,7 +10,7 @@ const featuredItems = [
     gradient: "from-violet-600 to-purple-600",
   },
   {
-    title: "Higgsfield Canvas",
+    title: "Timeless Canvas",
     description: "Full control over image editing with AI",
     tag: "New",
     gradient: "from-blue-600 to-cyan-600",
