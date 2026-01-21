@@ -33,7 +33,7 @@ const models = [
   },
   {
     name: "Nano Banana Pro",
-    provider: "Higgsfield",
+    provider: "Timeless",
     type: "Image",
     badge: "∞",
     credits: "Unlimited",
