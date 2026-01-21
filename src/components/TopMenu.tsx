@@ -1,4 +1,21 @@
-import { Search, Bell, Crown, Coins, Menu, Sparkles, Plus } from "lucide-react";
+import { 
+  Search, 
+  Bell, 
+  Crown, 
+  Coins, 
+  Menu, 
+  Sparkles, 
+  Plus,
+  Home,
+  Users,
+  Library,
+  User,
+  Settings,
+  HelpCircle,
+  LogOut,
+  LogIn,
+  CreditCard
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,6 +29,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 
 const TopMenu = () => {
@@ -128,33 +146,64 @@ const TopMenu = () => {
                 </Avatar>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 bg-popover border-border">
+            <DropdownMenuContent align="end" className="w-64 bg-popover border-border">
               {user ? (
                 <>
-                  <div className="px-3 py-2">
+                  <div className="px-3 py-3">
                     <p className="text-sm font-medium">{user.email}</p>
                     <p className="text-xs text-muted-foreground">
                       {hasActiveSubscription ? "Pro Member" : "Free Plan"}
                     </p>
                   </div>
                   <DropdownMenuSeparator />
+                  
+                  <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Navigate</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => navigate("/")}>
+                    <Home className="h-4 w-4 mr-2" />
+                    Home
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/library")}>
+                    <Library className="h-4 w-4 mr-2" />
                     My Library
                   </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Users className="h-4 w-4 mr-2" />
+                    Community
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Account</DropdownMenuLabel>
+                  <DropdownMenuItem>
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/subscription")}>
+                    <CreditCard className="h-4 w-4 mr-2" />
                     Subscription
                   </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <HelpCircle className="h-4 w-4 mr-2" />
+                    Help & FAQ
+                  </DropdownMenuItem>
+                  
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
+                    <LogOut className="h-4 w-4 mr-2" />
                     Sign Out
                   </DropdownMenuItem>
                 </>
               ) : (
                 <>
                   <DropdownMenuItem onClick={() => navigate("/auth")}>
+                    <LogIn className="h-4 w-4 mr-2" />
                     Sign In
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/auth")}>
+                    <Sparkles className="h-4 w-4 mr-2" />
                     Create Account
                   </DropdownMenuItem>
                 </>
