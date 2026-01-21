@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
+import { useToast } from "./use-toast";
 
 // Model-specific credit costs
 export const MODEL_CREDITS: Record<string, number> = {
@@ -81,17 +82,24 @@ export const getModelCost = (model: string, quality?: string): number => {
   return baseCost;
 };
 
+const LOW_CREDITS_THRESHOLD = 10;
+
 export const useCredits = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [credits, setCredits] = useState<number | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const previousCredits = useRef<number | null>(null);
+  const hasShownLowCreditsWarning = useRef(false);
 
   const fetchCredits = async () => {
     if (!user) {
       setCredits(null);
       setSubscriptionStatus(null);
       setLoading(false);
+      previousCredits.current = null;
+      hasShownLowCreditsWarning.current = false;
       return;
     }
 
@@ -103,7 +111,27 @@ export const useCredits = () => {
         .single();
 
       if (error) throw error;
-      setCredits(data?.credits ?? 0);
+      const newCredits = data?.credits ?? 0;
+      const isSubscribed = data?.subscription_status === 'active';
+      
+      // Check for low credits warning (only if not subscribed)
+      if (!isSubscribed && newCredits < LOW_CREDITS_THRESHOLD) {
+        // Show warning if credits just dropped below threshold OR on first load when low
+        const wasAboveThreshold = previousCredits.current !== null && previousCredits.current >= LOW_CREDITS_THRESHOLD;
+        const isFirstLoadWithLowCredits = previousCredits.current === null && !hasShownLowCreditsWarning.current;
+        
+        if (wasAboveThreshold || isFirstLoadWithLowCredits) {
+          hasShownLowCreditsWarning.current = true;
+          toast({
+            variant: "destructive",
+            title: "Low credits warning",
+            description: `You have ${newCredits} credits remaining. Consider purchasing more to continue using premium features.`,
+          });
+        }
+      }
+      
+      previousCredits.current = newCredits;
+      setCredits(newCredits);
       setSubscriptionStatus(data?.subscription_status ?? null);
     } catch (error) {
       console.error("Error fetching credits:", error);
