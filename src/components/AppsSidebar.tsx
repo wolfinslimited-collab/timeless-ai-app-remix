@@ -3,7 +3,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChevronLeft, ChevronRight, LucideIcon } from "lucide-react";
-import { 
+import ModelLogo from "@/components/ModelLogo";
+import {
   ImagePlus, 
   Maximize2, 
   Paintbrush, 
@@ -51,20 +52,20 @@ export type AppId =
 
 type BadgeType = "AI" | "TOP" | "NEW";
 
-// Chat model definitions with custom icons
-const chatApps: { id: AppId; name: string; iconEmoji: string; description: string; badge?: BadgeType }[] = [
-  { id: "grok-3", name: "Grok 3", iconEmoji: "🤖", description: "xAI's most capable model", badge: "TOP" },
-  { id: "grok-3-mini", name: "Grok 3 Mini", iconEmoji: "⚡", description: "Fast and efficient Grok", badge: "NEW" },
-  { id: "chatgpt-5.2", name: "ChatGPT 5.2", iconEmoji: "💬", description: "OpenAI's latest reasoning", badge: "TOP" },
-  { id: "chatgpt-5", name: "ChatGPT 5", iconEmoji: "🧠", description: "Powerful all-rounder" },
-  { id: "chatgpt-5-mini", name: "GPT-5 Mini", iconEmoji: "🚀", description: "Fast and cost-effective" },
-  { id: "gemini-3-pro", name: "Gemini 3 Pro", iconEmoji: "✨", description: "Google's next-gen AI", badge: "NEW" },
-  { id: "gemini-3-flash", name: "Gemini 3 Flash", iconEmoji: "⚡", description: "Fast multimodal AI" },
-  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", iconEmoji: "🌟", description: "Top-tier reasoning" },
-  { id: "deepseek-r1", name: "DeepSeek R1", iconEmoji: "🔬", description: "Deep reasoning model", badge: "AI" },
-  { id: "deepseek-v3", name: "DeepSeek V3", iconEmoji: "🎯", description: "Powerful open model" },
-  { id: "llama-3.3", name: "Llama 3.3", iconEmoji: "🦙", description: "Meta's open AI model" },
-  { id: "llama-3.3-large", name: "Llama 3.3 Large", iconEmoji: "🦙", description: "Extended capabilities" },
+// Chat model definitions - using model IDs for logos
+const chatApps: { id: AppId; name: string; description: string; badge?: BadgeType }[] = [
+  { id: "grok-3", name: "Grok 3", description: "xAI's most capable model", badge: "TOP" },
+  { id: "grok-3-mini", name: "Grok 3 Mini", description: "Fast and efficient Grok", badge: "NEW" },
+  { id: "chatgpt-5.2", name: "ChatGPT 5.2", description: "OpenAI's latest reasoning", badge: "TOP" },
+  { id: "chatgpt-5", name: "ChatGPT 5", description: "Powerful all-rounder" },
+  { id: "chatgpt-5-mini", name: "GPT-5 Mini", description: "Fast and cost-effective" },
+  { id: "gemini-3-pro", name: "Gemini 3 Pro", description: "Google's next-gen AI", badge: "NEW" },
+  { id: "gemini-3-flash", name: "Gemini 3 Flash", description: "Fast multimodal AI" },
+  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Top-tier reasoning" },
+  { id: "deepseek-r1", name: "DeepSeek R1", description: "Deep reasoning model", badge: "AI" },
+  { id: "deepseek-v3", name: "DeepSeek V3", description: "Powerful open model" },
+  { id: "llama-3.3", name: "Llama 3.3", description: "Meta's open AI model" },
+  { id: "llama-3.3-large", name: "Llama 3.3 Large", description: "Extended capabilities" },
 ];
 
 // App definitions per type
@@ -134,7 +135,7 @@ interface AppItemProps {
 }
 
 interface ChatAppItemProps {
-  iconEmoji: string;
+  modelId: string;
   name: string;
   description: string;
   badge?: string;
@@ -197,7 +198,7 @@ const AppItem = ({ icon: Icon, name, description, badge, active, collapsed, onCl
   return content;
 };
 
-const ChatAppItem = ({ iconEmoji, name, description, badge, active, collapsed, onClick }: ChatAppItemProps) => {
+const ChatAppItem = ({ modelId, name, description, badge, active, collapsed, onClick }: ChatAppItemProps) => {
   const content = (
     <button
       onClick={onClick}
@@ -205,16 +206,11 @@ const ChatAppItem = ({ iconEmoji, name, description, badge, active, collapsed, o
         "flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all text-left group",
         collapsed && "justify-center px-2",
         active 
-          ? "bg-primary/10 text-primary" 
+          ? "bg-primary/10 text-primary border border-primary/30" 
           : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
       )}
     >
-      <div className={cn(
-        "flex items-center justify-center h-8 w-8 rounded-lg transition-colors shrink-0 text-lg",
-        active ? "bg-primary/20" : "bg-secondary/50 group-hover:bg-secondary"
-      )}>
-        {iconEmoji}
-      </div>
+      <ModelLogo modelId={modelId} size="md" />
       {!collapsed && (
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -305,7 +301,7 @@ const AppsSidebar = ({ currentType, selectedApp = "generate", onSelectApp }: App
             chatApps.map((app) => (
               <ChatAppItem
                 key={app.id}
-                iconEmoji={app.iconEmoji}
+                modelId={app.id}
                 name={app.name}
                 description={app.description}
                 badge={app.badge}
