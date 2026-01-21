@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.music-tools]
 verify_jwt = false
+
+[functions.cinema-tools]
+verify_jwt = false
