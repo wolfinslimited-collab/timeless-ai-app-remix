@@ -30,12 +30,17 @@ export const MODEL_CREDITS: Record<string, number> = {
   "seedance-1.5": 20,
   "luma": 22,
   "hunyuan-1.5": 18,
+
+  // Music models - Fal.ai
+  "suno-v4": 12,
+  "suno-v4-clips": 8,
 };
 
 // Legacy type-based costs (fallback)
 export const CREDIT_COSTS = {
   image: 5,
   video: 15,
+  music: 10,
 } as const;
 
 // Quality multipliers for video
