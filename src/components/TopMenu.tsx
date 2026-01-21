@@ -60,10 +60,9 @@ const TopMenu = () => {
           {/* Logo */}
           <button 
             onClick={() => navigate("/")}
-            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+            className="flex items-center hover:opacity-80 transition-opacity"
           >
-            <img src={logo} alt="Timeless logo" className="h-9 w-9 object-contain" />
-            <span className="text-xl font-bold hidden sm:block">Timeless</span>
+            <img src={logo} alt="Timeless" className="h-9 w-9 object-contain" />
           </button>
 
           {/* Desktop Navigation */}
