@@ -28,8 +28,15 @@ import {
   Aperture
 } from "lucide-react";
 
+export type AppId = 
+  | "generate" | "upscale" | "inpainting" | "relight" | "angle" 
+  | "skin-enhancer" | "background-remove" | "object-erase" | "colorize" | "style-transfer"
+  | "extend" | "interpolate" | "lip-sync"
+  | "vocals" | "remix" | "stems" | "master"
+  | "camera-control" | "motion-path" | "depth-control" | "lens-effects";
+
 // App definitions per type
-const appsByType: Record<string, { id: string; name: string; icon: LucideIcon; description: string; badge?: string }[]> = {
+const appsByType: Record<string, { id: AppId; name: string; icon: LucideIcon; description: string; badge?: string }[]> = {
   image: [
     { id: "generate", name: "Generate", icon: ImagePlus, description: "Create images from text", badge: "AI" },
     { id: "upscale", name: "Upscale", icon: Maximize2, description: "Enhance image resolution" },
@@ -68,8 +75,8 @@ const appsByType: Record<string, { id: string; name: string; icon: LucideIcon; d
 
 interface AppsSidebarProps {
   currentType: "image" | "video" | "music" | "cinema";
-  selectedApp?: string;
-  onSelectApp?: (appId: string) => void;
+  selectedApp?: AppId;
+  onSelectApp?: (appId: AppId) => void;
 }
 
 interface AppItemProps {
