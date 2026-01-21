@@ -69,6 +69,15 @@ const GenerationCard = ({ gen, onDelete }: GenerationCardProps) => {
             <Music className="h-12 w-12 mb-2" />
             <span className="text-sm">Audio saved</span>
           </div>
+        ) : gen.type === "video" && hasValidUrl ? (
+          <video
+            src={gen.thumbnail_url || gen.output_url || ""}
+            className="w-full h-full object-cover"
+            muted
+            playsInline
+            preload="metadata"
+            onError={() => setImageError(true)}
+          />
         ) : hasValidUrl ? (
           <img
             src={gen.thumbnail_url || gen.output_url || ""}
