@@ -32,14 +32,14 @@ serve(async (req) => {
 
     console.log(`Fetching download links for video: ${videoId}`);
 
-    // Using ytjar API on RapidAPI (reliable YouTube downloader)
+    // Using YTStream API on RapidAPI (reliable YouTube downloader)
     const response = await fetch(
-      `https://ytjar.p.rapidapi.com/download?id=${videoId}`,
+      `https://ytstream-download-youtube-videos.p.rapidapi.com/dl?id=${videoId}`,
       {
         method: 'GET',
         headers: {
           'x-rapidapi-key': rapidApiKey,
-          'x-rapidapi-host': 'ytjar.p.rapidapi.com',
+          'x-rapidapi-host': 'ytstream-download-youtube-videos.p.rapidapi.com',
         },
       }
     );
@@ -54,39 +54,58 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log('Download API response:', JSON.stringify(data).substring(0, 500));
+    console.log('Download API response keys:', Object.keys(data));
 
-    // Extract the best video download URL
+    // Extract the best video download URL from YTStream response
     let downloadUrl = null;
     let quality = null;
 
-    // Try to find the best quality video with audio
-    if (data.formats && Array.isArray(data.formats)) {
-      // Prefer formats with both video and audio
-      const withAudio = data.formats.filter((f: any) => 
-        f.hasVideo && f.hasAudio && f.url
+    // YTStream returns formats in different structure
+    // Check for adaptiveFormats or formats array
+    const formats = data.adaptiveFormats || data.formats || [];
+    
+    if (Array.isArray(formats) && formats.length > 0) {
+      // Find video+audio formats (typically in formats array)
+      const videoFormats = formats.filter((f: any) => 
+        f.mimeType?.startsWith('video/') && f.url
       );
       
-      if (withAudio.length > 0) {
-        // Sort by quality (height) descending
-        withAudio.sort((a: any, b: any) => (b.height || 0) - (a.height || 0));
-        downloadUrl = withAudio[0].url;
-        quality = withAudio[0].qualityLabel || `${withAudio[0].height}p`;
+      if (videoFormats.length > 0) {
+        // Sort by quality (height or qualityLabel) descending
+        videoFormats.sort((a: any, b: any) => {
+          const heightA = a.height || parseInt(a.qualityLabel) || 0;
+          const heightB = b.height || parseInt(b.qualityLabel) || 0;
+          return heightB - heightA;
+        });
+        downloadUrl = videoFormats[0].url;
+        quality = videoFormats[0].qualityLabel || `${videoFormats[0].height}p`;
       }
     }
 
-    // Fallback to direct URL if available
-    if (!downloadUrl && data.url) {
-      downloadUrl = data.url;
-      quality = data.quality || 'unknown';
+    // Fallback: check for direct link property
+    if (!downloadUrl && data.link) {
+      downloadUrl = data.link;
+      quality = 'best';
+    }
+
+    // Another fallback: check for links array
+    if (!downloadUrl && data.links && Array.isArray(data.links)) {
+      const mp4Links = data.links.filter((l: any) => l.mimeType?.includes('video'));
+      if (mp4Links.length > 0) {
+        downloadUrl = mp4Links[0].url;
+        quality = mp4Links[0].qualityLabel || 'video';
+      }
     }
 
     if (!downloadUrl) {
+      console.log('No download URL found in response:', JSON.stringify(data).substring(0, 500));
       return new Response(
         JSON.stringify({ error: 'No download link available for this video' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log(`Found download URL with quality: ${quality}`);
 
     return new Response(
       JSON.stringify({ 
