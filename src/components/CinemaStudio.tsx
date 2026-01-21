@@ -560,7 +560,7 @@ const CinemaStudio = ({
               placeholder={cinemaMode === "image" ? "A man in the mars, storm with a whale on the sky, detailed, cinematic" : "Describe your cinematic scene..."}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              className="flex-1 h-12 bg-transparent border-0 text-base placeholder:text-muted-foreground/60 focus-visible:ring-0"
+              className="flex-1 min-w-[300px] h-12 bg-transparent border-0 text-base placeholder:text-muted-foreground/60 focus-visible:ring-0"
             />
 
             {/* Variations Counter */}
