@@ -8,8 +8,27 @@ const corsHeaders = {
 
 const CREDIT_COST = 25;
 
-// Fal.ai endpoints for video processing
+// Fal.ai queue URL
 const FAL_QUEUE_URL = "https://queue.fal.run";
+
+// Language mapping for Fal.ai dubbing API
+const LANGUAGE_MAP: Record<string, string> = {
+  english: "en",
+  spanish: "es",
+  french: "fr",
+  german: "de",
+  italian: "it",
+  portuguese: "pt",
+  russian: "ru",
+  japanese: "ja",
+  korean: "ko",
+  chinese: "zh",
+  arabic: "ar",
+  hindi: "hi",
+  turkish: "tr",
+  farsi: "fa",
+  persian: "fa",
+};
 
 interface TranslateRequest {
   youtubeUrl: string;
@@ -99,14 +118,17 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Map target language
+    const langKey = targetLanguage.toLowerCase();
+    const mappedLang = LANGUAGE_MAP[langKey] || langKey;
+
     console.log(`Starting video translation for user ${user.id}`);
     console.log(`YouTube URL: ${youtubeUrl}`);
-    console.log(`Target Language: ${targetLanguage}`);
+    console.log(`Target Language: ${targetLanguage} -> ${mappedLang}`);
     console.log(`Voice Type: ${voiceType}`);
 
-    // Submit to Fal.ai queue for video translation
-    // Using the video-to-video translation/dubbing workflow
-    const falResponse = await fetch(`${FAL_QUEUE_URL}/fal-ai/sync-lip/video-to-video`, {
+    // Submit to Fal.ai queue for dubbing
+    const falResponse = await fetch(`${FAL_QUEUE_URL}/fal-ai/dubbing`, {
       method: "POST",
       headers: {
         "Authorization": `Key ${falApiKey}`,
@@ -114,22 +136,54 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         video_url: youtubeUrl,
-        target_language: targetLanguage.toLowerCase(),
-        voice_gender: voiceType,
-        sync_lips: true,
+        target_language: mappedLang,
+        do_lipsync: true,
       }),
     });
 
+    const responseText = await falResponse.text();
+    console.log("Fal.ai initial response:", responseText);
+
     if (!falResponse.ok) {
-      const errorText = await falResponse.text();
-      console.error("Fal.ai error:", errorText);
-      
-      // Fallback: Try alternative endpoint for video processing
-      // For now, we'll create a placeholder generation record
-      // In production, you'd integrate with a proper video translation API
+      console.error("Fal.ai error:", falResponse.status, responseText);
+      return new Response(
+        JSON.stringify({ error: "Failed to start video translation" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Deduct credits
+    let falData;
+    try {
+      falData = JSON.parse(responseText);
+    } catch {
+      console.error("Failed to parse Fal.ai response");
+      return new Response(
+        JSON.stringify({ error: "Invalid response from translation service" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Create generation record with task_id for polling
+    const { data: generation, error: genError } = await supabaseClient
+      .from("generations")
+      .insert({
+        user_id: user.id,
+        type: "video",
+        model: "translate-ai",
+        prompt: `Translate video to ${targetLanguage} with ${voiceType} voice`,
+        status: "pending",
+        credits_used: hasActiveSubscription ? 0 : CREDIT_COST,
+        provider_endpoint: "fal-ai/dubbing",
+        task_id: falData.request_id || null,
+      })
+      .select()
+      .single();
+
+    if (genError) {
+      console.error("Generation insert error:", genError);
+    }
+
+    // Deduct credits after successful submission
     if (!hasActiveSubscription) {
       const { error: creditError } = await supabaseClient
         .from("profiles")
@@ -141,32 +195,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Create generation record
-    const { data: generation, error: genError } = await supabaseClient
-      .from("generations")
-      .insert({
-        user_id: user.id,
-        type: "video",
-        model: "translate-ai",
-        prompt: `Translate video to ${targetLanguage} with ${voiceType} voice`,
-        status: "processing",
-        credits_used: hasActiveSubscription ? 0 : CREDIT_COST,
-        provider_endpoint: "translate-video",
-      })
-      .select()
-      .single();
-
-    if (genError) {
-      console.error("Generation insert error:", genError);
-    }
-
-    console.log(`Video translation queued for user ${user.id}, generation ID: ${generation?.id}`);
+    console.log(`Video translation queued, request_id: ${falData.request_id}, generation ID: ${generation?.id}`);
 
     return new Response(
       JSON.stringify({
         status: "processing",
-        message: "Video translation started. This may take a few minutes.",
+        message: "Video translation started. Check your Library for results.",
         generationId: generation?.id,
+        requestId: falData.request_id,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
