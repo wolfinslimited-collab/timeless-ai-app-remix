@@ -27,6 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import ConversationHistory from "./ConversationHistory";
 import ChatMessageSkeleton from "./ChatMessageSkeleton";
 import ModelLogo, { getModelEmoji } from "@/components/ModelLogo";
+import CodeBlock from "./CodeBlock";
 
 interface MessageContent {
   type: "text" | "image_url";
@@ -649,21 +650,27 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             components={{
-                              pre: ({ children }) => (
-                                <pre className="bg-background/50 rounded-lg p-3 my-2 overflow-x-auto text-xs">
-                                  {children}
-                                </pre>
-                              ),
-                              code: ({ className, children, ...props }) => {
-                                const isInline = !className;
-                                return isInline ? (
-                                  <code className="bg-background/50 px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
-                                    {children}
-                                  </code>
-                                ) : (
-                                  <code className={cn("font-mono", className)} {...props}>
-                                    {children}
-                                  </code>
+                              pre: ({ children }) => <>{children}</>,
+                              code: ({ className, children, node, ...props }) => {
+                                const match = /language-(\w+)/.exec(className || "");
+                                const isCodeBlock = node?.position?.start.line !== node?.position?.end.line || 
+                                  (typeof children === "string" && children.includes("\n"));
+                                
+                                // Check if this is inside a pre tag (code block vs inline)
+                                const isInline = !match && !isCodeBlock;
+                                
+                                if (isInline) {
+                                  return (
+                                    <code className="bg-background/50 px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
+                                      {children}
+                                    </code>
+                                  );
+                                }
+                                
+                                return (
+                                  <CodeBlock language={match?.[1]}>
+                                    {String(children).replace(/\n$/, "")}
+                                  </CodeBlock>
                                 );
                               },
                               ul: ({ children }) => (
