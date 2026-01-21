@@ -286,8 +286,9 @@ const buildFalImageRequest = (args: {
   negativePrompt?: string;
   aspectRatio: string;
   model: string;
+  referenceImageUrl?: string;
 }) => {
-  const { prompt, negativePrompt, aspectRatio, model } = args;
+  const { prompt, negativePrompt, aspectRatio, model, referenceImageUrl } = args;
   
   const input: Record<string, unknown> = {
     prompt,
@@ -313,8 +314,18 @@ const buildFalImageRequest = (args: {
   // GPT Image 1.5 uses string format for size, others use object
   if (model === "gpt-image-1.5") {
     input.size = `${size.width}x${size.height}`;
+    // GPT Image supports image input for editing
+    if (referenceImageUrl) {
+      input.image_url = referenceImageUrl;
+    }
   } else {
     input.image_size = { width: size.width, height: size.height };
+    // Flux and other models support image_url for img2img
+    if (referenceImageUrl) {
+      input.image_url = referenceImageUrl;
+      // Flux models use strength parameter for img2img blending
+      input.strength = 0.75; // Balance between reference and prompt
+    }
   }
   
   return input;
@@ -410,6 +421,7 @@ serve(async (req) => {
       aspectRatio = "1:1", 
       quality = "720p", 
       imageUrl, 
+      referenceImageUrl,  // Reference image for image-to-image / style transfer
       stream = false, 
       background = false, 
       lyrics, 
@@ -848,7 +860,26 @@ serve(async (req) => {
         }
 
         try {
-          console.log(`Using Lovable AI model: ${lovableModel}`);
+          console.log(`Using Lovable AI model: ${lovableModel}${referenceImageUrl ? ' with reference image' : ''}`);
+          
+          // Build message content - include reference image if provided
+          let messageContent: unknown;
+          if (referenceImageUrl) {
+            // Image editing / style transfer mode
+            messageContent = [
+              {
+                type: "text",
+                text: `Using the provided image as a style reference, generate a new image: ${prompt}${aspectRatio ? `. Aspect ratio: ${aspectRatio}` : ""}`
+              },
+              {
+                type: "image_url",
+                image_url: { url: referenceImageUrl }
+              }
+            ];
+          } else {
+            // Pure text-to-image mode
+            messageContent = `Generate an image: ${prompt}${aspectRatio ? `. Aspect ratio: ${aspectRatio}` : ""}`;
+          }
           
           const response = await fetch(LOVABLE_AI_BASE_URL, {
             method: "POST",
@@ -861,7 +892,7 @@ serve(async (req) => {
               messages: [
                 {
                   role: "user",
-                  content: `Generate an image: ${prompt}${aspectRatio ? `. Aspect ratio: ${aspectRatio}` : ""}`
+                  content: messageContent
                 }
               ],
               modalities: ["image", "text"]
@@ -926,11 +957,14 @@ serve(async (req) => {
         );
       }
 
+      console.log(`Using Fal.ai model: ${model}${referenceImageUrl ? ' with reference image' : ''}`);
+      
       const falInput = buildFalImageRequest({
         prompt,
         negativePrompt,
         aspectRatio,
         model,
+        referenceImageUrl,
       });
 
       try {

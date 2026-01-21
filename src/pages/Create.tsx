@@ -571,6 +571,10 @@ const Create = () => {
         } else {
           body.negativePrompt = negativePrompt.trim() || undefined;
           body.imageUrl = startingImage;
+          // Pass reference image for image-to-image / style transfer
+          if (type === "image" && referenceImage) {
+            body.referenceImageUrl = referenceImage;
+          }
         }
 
         const { data, error } = await supabase.functions.invoke("generate", { body });
