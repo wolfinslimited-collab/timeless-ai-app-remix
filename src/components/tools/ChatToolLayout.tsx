@@ -15,8 +15,11 @@ import {
   Trash2,
   Sparkles,
   ImagePlus,
-  X
+  X,
+  Globe
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -72,6 +75,7 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -378,6 +382,7 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
         body: JSON.stringify({
           messages: apiMessages,
           model: model.id,
+          webSearch: webSearchEnabled,
         }),
       });
 
@@ -796,14 +801,39 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
                 </Button>
               </>
             )}
+            {/* Web Search Toggle */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className={cn(
+                    "flex items-center gap-2 px-3 h-12 rounded-lg border transition-colors",
+                    webSearchEnabled 
+                      ? "border-primary bg-primary/10" 
+                      : "border-border/50 bg-secondary/30"
+                  )}>
+                    <Globe className={cn("h-4 w-4", webSearchEnabled ? "text-primary" : "text-muted-foreground")} />
+                    <Switch
+                      checked={webSearchEnabled}
+                      onCheckedChange={setWebSearchEnabled}
+                      className="data-[state=checked]:bg-primary"
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Live web search for real-time data (Bitcoin, weather, news)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <Textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={supportsVision 
-                ? `Message ${model.name} or share an image...` 
-                : `Message ${model.name}...`
+              placeholder={webSearchEnabled 
+                ? `Search the web: Bitcoin price, latest news...` 
+                : (supportsVision 
+                  ? `Message ${model.name} or share an image...` 
+                  : `Message ${model.name}...`)
               }
               className="min-h-[48px] max-h-[200px] resize-none"
               disabled={isLoading}

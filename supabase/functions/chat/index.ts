@@ -63,13 +63,56 @@ interface ChatMessage {
   content: string | MessageContent[];
 }
 
+// Handle Perplexity web search request
+async function handleWebSearch(messages: ChatMessage[], PERPLEXITY_API_KEY: string): Promise<Response> {
+  console.log("Using Perplexity for web search");
+  
+  // Extract the last user message for the search
+  const lastUserMessage = messages.filter(m => m.role === "user").pop();
+  const query = typeof lastUserMessage?.content === "string" 
+    ? lastUserMessage.content 
+    : (lastUserMessage?.content as MessageContent[])?.find(c => c.type === "text")?.text || "";
+
+  const response = await fetch("https://api.perplexity.ai/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${PERPLEXITY_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "sonar",
+      messages: [
+        { 
+          role: "system", 
+          content: "You are a helpful assistant with real-time web search capabilities. Provide accurate, up-to-date information with sources. For live data like prices, weather, news, always search and provide current values with timestamps. Format responses clearly with markdown."
+        },
+        ...messages.filter(m => m.role !== "system").map(m => ({
+          role: m.role,
+          content: typeof m.content === "string" ? m.content : 
+            (m.content as MessageContent[]).filter(c => c.type === "text").map(c => c.text).join("\n")
+        }))
+      ],
+      stream: true,
+    }),
+  });
+
+  if (!response.ok) {
+    const status = response.status;
+    const text = await response.text();
+    console.error("Perplexity API error:", status, text);
+    throw new Error(`Perplexity error: ${status}`);
+  }
+
+  return response;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { messages, model } = await req.json();
+    const { messages, model, webSearch } = await req.json();
     
     if (!messages || !Array.isArray(messages)) {
       return new Response(
@@ -79,6 +122,26 @@ serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
+
+    // If web search is enabled and Perplexity is configured, use it
+    if (webSearch && PERPLEXITY_API_KEY) {
+      try {
+        const perplexityResponse = await handleWebSearch(messages, PERPLEXITY_API_KEY);
+        return new Response(perplexityResponse.body, {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+          },
+        });
+      } catch (error) {
+        console.error("Perplexity error, falling back to Lovable AI:", error);
+        // Fall through to Lovable AI
+      }
+    }
+
     if (!LOVABLE_API_KEY) {
       console.error("LOVABLE_API_KEY is not configured");
       return new Response(
@@ -89,10 +152,15 @@ serve(async (req) => {
 
     // Map the requested model to Lovable AI gateway model
     const gatewayModel = MODEL_MAPPING[model] || "google/gemini-3-flash-preview";
-    const systemPrompt = SYSTEM_PROMPTS[model] || "You are a helpful AI assistant. Be concise and helpful.";
+    let systemPrompt = SYSTEM_PROMPTS[model] || "You are a helpful AI assistant. Be concise and helpful.";
     const supportsVision = VISION_MODELS.has(model);
 
-    console.log(`Chat request - User model: ${model}, Gateway model: ${gatewayModel}, Vision: ${supportsVision}`);
+    // If web search was requested but Perplexity isn't available, add context
+    if (webSearch && !PERPLEXITY_API_KEY) {
+      systemPrompt += "\n\nNote: The user has requested live web data, but you don't have real-time internet access. Inform them that live data features are not currently available, and provide your best knowledge with a note about potential outdatedness.";
+    }
+
+    console.log(`Chat request - User model: ${model}, Gateway model: ${gatewayModel}, Vision: ${supportsVision}, WebSearch: ${webSearch}`);
 
     // Check if any message contains images
     const hasImages = messages.some((msg: ChatMessage) => 
