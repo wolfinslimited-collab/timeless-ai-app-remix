@@ -2046,7 +2046,7 @@ const Create = () => {
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 gap-4">
-                        {userVideos.slice(0, 6).map((video) => (
+                        {userVideos.slice(0, 3).map((video) => (
                           <GenerationCard
                             key={video.id}
                             gen={video}
