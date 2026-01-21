@@ -12,10 +12,8 @@ import {
   Globe, 
   Video,
   Languages,
-  Zap,
   Link2,
   Play,
-  Clock,
   X,
   ExternalLink
 } from "lucide-react";
@@ -41,7 +39,6 @@ interface VideoInfo {
   title: string;
   thumbnail: string;
   channelName: string;
-  duration?: string;
 }
 
 const TranslateAITool = () => {
@@ -49,7 +46,6 @@ const TranslateAITool = () => {
   const [targetLanguage, setTargetLanguage] = useState("");
   const [voiceType, setVoiceType] = useState<"male" | "female">("male");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
@@ -99,7 +95,6 @@ const TranslateAITool = () => {
     setIsLoadingPreview(true);
 
     try {
-      // Use YouTube oEmbed API to get video info
       const response = await fetch(
         `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
       );
@@ -117,7 +112,6 @@ const TranslateAITool = () => {
       });
     } catch (error) {
       console.error("Error fetching video info:", error);
-      // Fallback: just show thumbnail without title
       setVideoInfo({
         title: "YouTube Video",
         thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
@@ -128,7 +122,6 @@ const TranslateAITool = () => {
     }
   }, []);
 
-  // Debounced URL change handler
   useEffect(() => {
     const timer = setTimeout(() => {
       if (youtubeUrl.trim()) {
@@ -178,13 +171,7 @@ const TranslateAITool = () => {
     }
 
     setIsProcessing(true);
-    setProgress(0);
     setOutputUrl(null);
-
-    // Simulate progress for UX
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => Math.min(prev + Math.random() * 10, 90));
-    }, 2000);
 
     try {
       const response = await supabase.functions.invoke("translate-video", {
@@ -195,24 +182,19 @@ const TranslateAITool = () => {
         },
       });
 
-      clearInterval(progressInterval);
-
       if (response.error) {
         throw new Error(response.error.message || "Translation failed");
       }
 
       if (response.data?.status === "processing") {
-        setProgress(100);
         toast.success("Video is being processed! Check your Library for results.");
         refetch();
       } else if (response.data?.outputUrl) {
-        setProgress(100);
         setOutputUrl(response.data.outputUrl);
         toast.success("Translation complete!");
         refetch();
       }
     } catch (error) {
-      clearInterval(progressInterval);
       toast.error(error instanceof Error ? error.message : "Translation failed");
     } finally {
       setIsProcessing(false);
@@ -222,45 +204,46 @@ const TranslateAITool = () => {
   const canProcess = youtubeUrl.trim() && targetLanguage.trim() && isValidYoutubeUrl(youtubeUrl);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center p-4 md:p-8">
-        <div className="w-full max-w-xl">
-          {/* Card */}
-          <div className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm p-6 md:p-8 shadow-xl">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Languages className="h-5 w-5 text-primary" />
-                <span className="font-bold text-foreground">Translate AI</span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/50 border border-border/50">
-                <Zap className="h-4 w-4 text-yellow-500" />
-                <span className="text-sm font-medium">{credits ?? 0} cr</span>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-8">
-              Video Translation Engine
-            </p>
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="p-6 border-b border-border/50">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Languages className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Translate AI</h1>
+            <p className="text-muted-foreground text-sm">Translate YouTube video audio to any language</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 mt-3">
+          <span className="text-sm text-muted-foreground">Cost:</span>
+          <span className="text-sm font-medium text-primary">{creditCost} credits</span>
+        </div>
+      </div>
 
-            {/* Source Video Input */}
-            <div className="space-y-3 mb-6">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Video className="h-4 w-4" />
-                <span className="uppercase tracking-wide text-xs font-medium">Source Video</span>
-              </div>
+      <div className="flex-1 p-6 overflow-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-6xl mx-auto">
+          {/* Input Section */}
+          <div className="space-y-6">
+            {/* YouTube URL Input */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Video className="h-4 w-4 text-muted-foreground" />
+                YouTube URL
+              </Label>
               <div className="relative">
-                <Link2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="https://youtube.com/watch?v=..."
                   value={youtubeUrl}
                   onChange={(e) => setYoutubeUrl(e.target.value)}
-                  className="pl-11 h-14 bg-secondary/30 border-border/50 text-foreground placeholder:text-muted-foreground/50 rounded-xl"
+                  className="pl-10 bg-secondary/50"
                 />
                 {youtubeUrl && (
                   <button
                     onClick={clearVideo}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-secondary/50 hover:bg-secondary flex items-center justify-center transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-secondary hover:bg-secondary/80 flex items-center justify-center transition-colors"
                   >
                     <X className="h-3 w-3 text-muted-foreground" />
                   </button>
@@ -269,7 +252,7 @@ const TranslateAITool = () => {
 
               {/* Video Preview */}
               {isLoadingPreview && (
-                <div className="rounded-xl border border-border/50 bg-secondary/30 p-4 animate-in fade-in duration-300">
+                <div className="rounded-xl border border-border bg-secondary/50 p-4">
                   <div className="flex gap-4">
                     <Skeleton className="w-32 h-20 rounded-lg flex-shrink-0" />
                     <div className="flex-1 space-y-2">
@@ -281,16 +264,14 @@ const TranslateAITool = () => {
               )}
 
               {videoInfo && !isLoadingPreview && (
-                <div className="rounded-xl border border-border/50 bg-secondary/30 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="rounded-xl border border-border bg-secondary/50 overflow-hidden">
                   <div className="flex gap-4 p-3">
-                    {/* Thumbnail */}
-                    <div className="relative w-36 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-secondary">
+                    <div className="relative w-32 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-secondary">
                       <img
                         src={videoInfo.thumbnail}
                         alt={videoInfo.title}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          // Fallback to lower quality thumbnail
                           const videoId = extractVideoId(youtubeUrl);
                           if (videoId) {
                             e.currentTarget.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
@@ -298,19 +279,17 @@ const TranslateAITool = () => {
                         }}
                       />
                       <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity">
-                        <div className="h-10 w-10 rounded-full bg-primary/90 flex items-center justify-center">
-                          <Play className="h-5 w-5 text-primary-foreground ml-0.5" />
+                        <div className="h-8 w-8 rounded-full bg-primary/90 flex items-center justify-center">
+                          <Play className="h-4 w-4 text-primary-foreground ml-0.5" />
                         </div>
                       </div>
                     </div>
-
-                    {/* Video Info */}
                     <div className="flex-1 min-w-0 py-1">
-                      <h4 className="font-medium text-sm text-foreground line-clamp-2 leading-tight mb-1">
+                      <h4 className="font-medium text-sm text-foreground line-clamp-2 leading-tight">
                         {videoInfo.title}
                       </h4>
                       {videoInfo.channelName && (
-                        <p className="text-xs text-muted-foreground truncate">
+                        <p className="text-xs text-muted-foreground mt-1 truncate">
                           {videoInfo.channelName}
                         </p>
                       )}
@@ -318,7 +297,7 @@ const TranslateAITool = () => {
                         href={youtubeUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
                       >
                         <ExternalLink className="h-3 w-3" />
                         Open on YouTube
@@ -327,153 +306,155 @@ const TranslateAITool = () => {
                   </div>
                 </div>
               )}
+
+              {!videoInfo && !isLoadingPreview && !youtubeUrl && (
+                <div className="aspect-video rounded-xl border-2 border-dashed border-border/50 bg-secondary/30 flex flex-col items-center justify-center gap-3">
+                  <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Video className="h-7 w-7 text-primary" />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-medium text-foreground">Paste YouTube URL</p>
+                    <p className="text-xs text-muted-foreground">Supports videos and shorts</p>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Language & Voice Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-              {/* Target Language */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Globe className="h-4 w-4" />
-                  <span className="uppercase tracking-wide text-xs font-medium">Target Language</span>
-                </div>
-                <div className="relative">
-                  <Input
-                    placeholder="Type any language..."
-                    value={targetLanguage}
-                    onChange={(e) => {
-                      setTargetLanguage(e.target.value);
-                      setShowLanguageDropdown(true);
-                    }}
-                    onFocus={() => setShowLanguageDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowLanguageDropdown(false), 200)}
-                    className="h-12 bg-secondary/30 border-border/50 text-foreground placeholder:text-muted-foreground/50 rounded-xl"
-                  />
-                  {showLanguageDropdown && filteredLanguages.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border/50 rounded-xl shadow-lg z-10 max-h-48 overflow-auto">
-                      {filteredLanguages.map((lang) => (
-                        <button
-                          key={lang}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-secondary/50 transition-colors first:rounded-t-xl last:rounded-b-xl"
-                          onMouseDown={() => {
-                            setTargetLanguage(lang);
-                            setShowLanguageDropdown(false);
-                          }}
-                        >
-                          {lang}
-                        </button>
-                      ))}
-                    </div>
+            {/* Target Language */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                Target Language
+              </Label>
+              <div className="relative">
+                <Input
+                  placeholder="Type or select a language..."
+                  value={targetLanguage}
+                  onChange={(e) => {
+                    setTargetLanguage(e.target.value);
+                    setShowLanguageDropdown(true);
+                  }}
+                  onFocus={() => setShowLanguageDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowLanguageDropdown(false), 200)}
+                  className="bg-secondary/50"
+                />
+                {showLanguageDropdown && filteredLanguages.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-50 max-h-48 overflow-auto">
+                    {filteredLanguages.map((lang) => (
+                      <button
+                        key={lang}
+                        className="w-full px-4 py-2.5 text-left text-sm hover:bg-secondary/50 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                        onMouseDown={() => {
+                          setTargetLanguage(lang);
+                          setShowLanguageDropdown(false);
+                        }}
+                      >
+                        {lang}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Voice Type */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Languages className="h-4 w-4 text-muted-foreground" />
+                Voice Type
+              </Label>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setVoiceType("male")}
+                  className={cn(
+                    "flex-1 h-11 rounded-xl border text-sm font-medium transition-all",
+                    voiceType === "male"
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
                   )}
-                </div>
-              </div>
-
-              {/* Audio Voice */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Languages className="h-4 w-4" />
-                  <span className="uppercase tracking-wide text-xs font-medium">Audio Voice</span>
-                </div>
-                <div className="flex rounded-xl overflow-hidden border border-border/50 bg-secondary/30 h-12">
-                  <button
-                    onClick={() => setVoiceType("male")}
-                    className={cn(
-                      "flex-1 text-sm font-medium transition-all",
-                      voiceType === "male"
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    MALE
-                  </button>
-                  <button
-                    onClick={() => setVoiceType("female")}
-                    className={cn(
-                      "flex-1 text-sm font-medium transition-all",
-                      voiceType === "female"
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    FEMALE
-                  </button>
-                </div>
+                >
+                  Male Voice
+                </button>
+                <button
+                  onClick={() => setVoiceType("female")}
+                  className={cn(
+                    "flex-1 h-11 rounded-xl border text-sm font-medium transition-all",
+                    voiceType === "female"
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                  )}
+                >
+                  Female Voice
+                </button>
               </div>
             </div>
-
-            {/* Progress Bar */}
-            {isProcessing && (
-              <div className="mb-6">
-                <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                  <span>Processing video...</span>
-                  <span>{Math.round(progress)}%</span>
-                </div>
-                <div className="h-2 bg-secondary/50 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary transition-all duration-500 ease-out"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
-            )}
 
             {/* Process Button */}
             <Button
               onClick={handleProcess}
               disabled={isProcessing || !canProcess || !hasEnoughCreditsForTool(creditCost)}
-              className="w-full h-14 text-base font-semibold gap-2 rounded-xl bg-primary hover:bg-primary/90"
+              className="w-full gap-2"
               size="lg"
             >
               {isProcessing ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  Analyzing Video...
+                  Processing...
                 </>
               ) : (
                 <>
-                  ANALYZE VIDEO
-                  <Zap className="h-5 w-5" />
+                  <Sparkles className="h-5 w-5" />
+                  Translate ({creditCost} credits)
                 </>
               )}
             </Button>
-
-            {/* Credits info */}
-            <p className="text-center text-xs text-muted-foreground mt-4">
-              Cost: {creditCost} credits per translation
-            </p>
           </div>
 
           {/* Output Section */}
-          {outputUrl && (
-            <div className="mt-6 rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm p-6 shadow-xl">
-              <div className="flex items-center justify-between mb-4">
-                <Label className="text-lg font-semibold">Translated Video</Label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => {
-                    const link = document.createElement("a");
-                    link.href = outputUrl;
-                    link.download = `translated-video-${targetLanguage.toLowerCase()}.mp4`;
-                    link.target = "_blank";
-                    link.click();
-                  }}
-                >
-                  <Download className="h-4 w-4" />
-                  Download
-                </Button>
-              </div>
-              <div className="aspect-video rounded-xl overflow-hidden border border-border bg-secondary/50">
+          <div className="space-y-2">
+            <Label>Output</Label>
+            <div className="aspect-video rounded-xl border border-border bg-secondary/50 flex items-center justify-center overflow-hidden">
+              {isProcessing ? (
+                <div className="flex flex-col items-center gap-4 text-muted-foreground">
+                  <div className="relative">
+                    <div className="h-16 w-16 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+                    <Sparkles className="h-6 w-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                  </div>
+                  <p className="text-sm">Translating video...</p>
+                </div>
+              ) : outputUrl ? (
                 <video
                   src={outputUrl}
                   controls
                   autoPlay
                   className="w-full h-full object-contain"
                 />
-              </div>
+              ) : (
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <Video className="h-12 w-12 opacity-50" />
+                  <p className="text-sm">Translated video will appear here</p>
+                </div>
+              )}
             </div>
-          )}
+
+            {/* Download Button */}
+            {outputUrl && (
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => {
+                  const link = document.createElement("a");
+                  link.href = outputUrl;
+                  link.download = `translated-video-${targetLanguage.toLowerCase()}.mp4`;
+                  link.target = "_blank";
+                  link.click();
+                }}
+              >
+                <Download className="h-4 w-4" />
+                Download Video
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
