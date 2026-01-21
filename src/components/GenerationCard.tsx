@@ -71,8 +71,9 @@ const GenerationCard = ({ gen, onDelete }: GenerationCardProps) => {
           </div>
         ) : gen.type === "video" && hasValidUrl ? (
           <video
-            src={gen.thumbnail_url || gen.output_url || ""}
+            src={gen.output_url || gen.thumbnail_url || ""}
             className="w-full h-full object-contain"
+            controls
             muted
             playsInline
             preload="metadata"
