@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import Header from "@/components/Header";
+import TopMenu from "@/components/TopMenu";
 import Footer from "@/components/Footer";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -170,18 +170,22 @@ const AIApps = () => {
   if (appId === "translate-ai") {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <Header />
-        <div className="pt-16 px-4">
-          <Button
-            variant="ghost"
-            onClick={handleBack}
-            className="mb-4 gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to AI Apps
-          </Button>
+        <TopMenu />
+        <div className="flex-1 flex flex-col">
+          <div className="px-4 py-4">
+            <Button
+              variant="ghost"
+              onClick={handleBack}
+              className="gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to AI Apps
+            </Button>
+          </div>
+          <div className="flex-1">
+            <TranslateAITool />
+          </div>
         </div>
-        <TranslateAITool />
         <Footer />
       </div>
     );
@@ -191,8 +195,8 @@ const AIApps = () => {
   if (appId) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <Header />
-        <main className="flex-1 pt-20 pb-12 flex items-center justify-center">
+        <TopMenu />
+        <main className="flex-1 pt-6 pb-12 flex items-center justify-center">
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-4">Coming Soon</h2>
             <p className="text-muted-foreground mb-6">
@@ -211,9 +215,9 @@ const AIApps = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header />
+      <TopMenu />
       
-      <main className="flex-1 pt-20 pb-12">
+      <main className="flex-1 pt-6 pb-12">
         <div className="container mx-auto px-4 max-w-7xl">
           {/* Hero Section */}
           <div className="text-center mb-12">
