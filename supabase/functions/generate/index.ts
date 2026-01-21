@@ -6,14 +6,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Model-specific credit costs (Fal.ai models)
+// Model-specific credit costs (Fal.ai + Lovable AI models)
 const MODEL_CREDITS: Record<string, number> = {
-  // Image models
+  // Image models - Lovable AI
+  "nano-banana": 4,
+  
+  // Image models - Fal.ai
   "flux-1.1-pro": 5,
+  "flux-pro-ultra": 8,
   "flux-dev": 3,
   "flux-schnell": 2,
+  "ideogram-v2": 6,
   "stable-diffusion-3": 4,
+  "sdxl": 3,
+  "sdxl-lightning": 2,
   "recraft-v3": 5,
+  "aura-flow": 4,
+  "playground-v2.5": 4,
   
   // Video models
   "wan-2.6": 15,
@@ -50,13 +59,27 @@ const getModelCost = (model: string, type: string, quality?: string): number => 
 // Fal.ai API configuration
 const FAL_BASE_URL = "https://queue.fal.run";
 
+// Lovable AI configuration
+const LOVABLE_AI_BASE_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+
 // Fal.ai Image Models
 const FAL_IMAGE_MODELS: Record<string, string> = {
   "flux-1.1-pro": "fal-ai/flux-pro/v1.1",
+  "flux-pro-ultra": "fal-ai/flux-pro/v1.1-ultra",
   "flux-dev": "fal-ai/flux/dev",
   "flux-schnell": "fal-ai/flux/schnell",
+  "ideogram-v2": "fal-ai/ideogram/v2",
   "stable-diffusion-3": "fal-ai/stable-diffusion-v3-medium",
+  "sdxl": "fal-ai/fast-sdxl",
+  "sdxl-lightning": "fal-ai/fast-lightning-sdxl",
   "recraft-v3": "fal-ai/recraft-v3",
+  "aura-flow": "fal-ai/aura-flow",
+  "playground-v2.5": "fal-ai/playground-v25",
+};
+
+// Lovable AI Image Models
+const LOVABLE_IMAGE_MODELS: Record<string, string> = {
+  "nano-banana": "google/gemini-2.5-flash-image-preview",
 };
 
 // Fal.ai Video Models with text-to-video and image-to-video endpoints
@@ -621,6 +644,88 @@ serve(async (req) => {
 
     // IMAGE GENERATION
     if (type === "image") {
+      // Check if it's a Lovable AI model (e.g., Nano Banana)
+      const lovableModel = LOVABLE_IMAGE_MODELS[model];
+      if (lovableModel) {
+        const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+        if (!LOVABLE_API_KEY) {
+          if (!hasActiveSubscription) {
+            await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+          }
+          return new Response(
+            JSON.stringify({ error: "LOVABLE_API_KEY not configured" }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        try {
+          console.log(`Using Lovable AI model: ${lovableModel}`);
+          
+          const response = await fetch(LOVABLE_AI_BASE_URL, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: lovableModel,
+              messages: [
+                {
+                  role: "user",
+                  content: `Generate an image: ${prompt}${aspectRatio ? `. Aspect ratio: ${aspectRatio}` : ""}`
+                }
+              ],
+              modalities: ["image", "text"]
+            })
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Lovable AI error: ${errorText}`);
+          }
+
+          const data = await response.json();
+          const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+          if (!imageUrl) {
+            throw new Error("No image generated from Lovable AI");
+          }
+
+          // Save to generations
+          await supabase.from("generations").insert({
+            user_id: user.id,
+            prompt: prompt,
+            type: type,
+            model: model,
+            status: "completed",
+            output_url: imageUrl,
+            thumbnail_url: imageUrl,
+            credits_used: creditCost,
+            provider_endpoint: `lovable:${lovableModel}`,
+          });
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              result: { type: 'image', output_url: imageUrl },
+              credits_remaining: hasActiveSubscription ? currentCredits : currentCredits - creditCost
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+
+        } catch (error) {
+          if (!hasActiveSubscription) {
+            await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+          }
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          return new Response(
+            JSON.stringify({ error: errorMessage }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+
+      // Fal.ai image models
       const imageEndpoint = FAL_IMAGE_MODELS[model];
       if (!imageEndpoint) {
         if (!hasActiveSubscription) {

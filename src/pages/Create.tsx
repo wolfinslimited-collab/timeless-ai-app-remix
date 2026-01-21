@@ -41,13 +41,24 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-// Fal.ai Image Models
+// Image Models (Fal.ai + Lovable AI)
 const imageModels = [
-  { id: "flux-1.1-pro", name: "Flux 1.1 Pro", description: "High quality creative", badge: "PRO", credits: 5 },
-  { id: "flux-dev", name: "Flux Dev", description: "Fast development model", badge: "FAST", credits: 3 },
-  { id: "flux-schnell", name: "Flux Schnell", description: "Ultra fast generation", badge: "FAST", credits: 2 },
-  { id: "stable-diffusion-3", name: "SD 3 Medium", description: "Stable Diffusion 3", badge: "NEW", credits: 4 },
-  { id: "recraft-v3", name: "Recraft V3", description: "Design & illustration", badge: "PRO", credits: 5 },
+  // Premium Models
+  { id: "nano-banana", name: "Nano Banana", description: "Google Gemini image gen", badge: "AI", credits: 4, provider: "lovable" },
+  { id: "flux-1.1-pro", name: "Flux 1.1 Pro", description: "High quality creative", badge: "PRO", credits: 5, provider: "fal" },
+  { id: "flux-pro-ultra", name: "Flux Pro Ultra", description: "Ultimate quality", badge: "TOP", credits: 8, provider: "fal" },
+  { id: "ideogram-v2", name: "Ideogram V2", description: "Best for text in images", badge: "TOP", credits: 6, provider: "fal" },
+  { id: "recraft-v3", name: "Recraft V3", description: "Design & illustration", badge: "PRO", credits: 5, provider: "fal" },
+  // Fast Models
+  { id: "flux-dev", name: "Flux Dev", description: "Fast development model", badge: "FAST", credits: 3, provider: "fal" },
+  { id: "flux-schnell", name: "Flux Schnell", description: "Ultra fast generation", badge: "FAST", credits: 2, provider: "fal" },
+  // Stable Diffusion
+  { id: "stable-diffusion-3", name: "SD 3 Medium", description: "Stable Diffusion 3", badge: "NEW", credits: 4, provider: "fal" },
+  { id: "sdxl", name: "SDXL", description: "High-res Stable Diffusion", badge: "HD", credits: 3, provider: "fal" },
+  { id: "sdxl-lightning", name: "SDXL Lightning", description: "Fast SDXL variant", badge: "FAST", credits: 2, provider: "fal" },
+  // Specialized
+  { id: "aura-flow", name: "Aura Flow", description: "Artistic flow model", badge: "ART", credits: 4, provider: "fal" },
+  { id: "playground-v2.5", name: "Playground v2.5", description: "Aesthetic focused", badge: "ART", credits: 4, provider: "fal" },
 ];
 
 // Fal.ai Video Models
