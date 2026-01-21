@@ -255,7 +255,13 @@ const TranslateAITool = () => {
     }
 
     if (!targetLanguage.trim()) {
-      toast.error("Please enter a target language");
+      toast.error("Please select a target language");
+      return;
+    }
+
+    // Validate that the selected language is supported
+    if (!SUPPORTED_LANGUAGES.includes(targetLanguage)) {
+      toast.error(`"${targetLanguage}" is not supported. Please choose English, Turkish, or Hindi.`);
       return;
     }
 
@@ -314,7 +320,8 @@ const TranslateAITool = () => {
     }
   };
 
-  const canProcess = youtubeUrl.trim() && targetLanguage.trim() && isValidYoutubeUrl(youtubeUrl);
+  const isLanguageSupported = SUPPORTED_LANGUAGES.includes(targetLanguage);
+  const canProcess = youtubeUrl.trim() && targetLanguage.trim() && isValidYoutubeUrl(youtubeUrl) && isLanguageSupported;
 
   return (
     <div className="flex flex-col h-full">
