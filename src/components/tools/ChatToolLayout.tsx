@@ -60,6 +60,11 @@ interface SpeechRecognitionAlternative {
   confidence: number;
 }
 
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+  message: string;
+}
+
 interface SpeechRecognition extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
@@ -68,7 +73,7 @@ interface SpeechRecognition extends EventTarget {
   stop(): void;
   abort(): void;
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: Event) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
   onend: (() => void) | null;
   onstart: (() => void) | null;
 }
@@ -285,13 +290,36 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
         }
       };
 
-      recognitionRef.current.onerror = (event) => {
-        console.error('Speech recognition error:', event);
+      recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error('Speech recognition error:', event.error, event.message);
         setIsListening(false);
+        setInterimTranscript("");
+        
+        // Handle specific error types gracefully
+        if (event.error === 'no-speech') {
+          // User didn't say anything - not a real error, just silently end
+          return;
+        }
+        
+        if (event.error === 'aborted') {
+          // User cancelled - no need to show error
+          return;
+        }
+        
+        // Show user-friendly error messages for other errors
+        let errorMessage = "Could not recognize speech. Please try again.";
+        if (event.error === 'network') {
+          errorMessage = "Network error. Please check your internet connection.";
+        } else if (event.error === 'not-allowed') {
+          errorMessage = "Microphone access denied. Please allow microphone permissions.";
+        } else if (event.error === 'audio-capture') {
+          errorMessage = "No microphone found. Please connect a microphone.";
+        }
+        
         toast({
           variant: "destructive",
           title: "Voice input error",
-          description: "Could not recognize speech. Please try again.",
+          description: errorMessage,
         });
       };
 
