@@ -6,6 +6,7 @@ import { useCredits, getModelCost } from "@/hooks/useCredits";
 import { useBackgroundGenerations } from "@/hooks/useBackgroundGenerations";
 import Sidebar from "@/components/Sidebar";
 import BottomNav from "@/components/BottomNav";
+import AudioWaveform from "@/components/AudioWaveform";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -997,22 +998,29 @@ const Create = () => {
                         className="w-full h-full object-contain"
                       />
                     ) : type === "music" ? (
-                      <div className="flex flex-col items-center gap-6 p-8 w-full">
+                      <div className="flex flex-col items-center gap-4 p-6 w-full">
                         <div className="relative">
                           <div className={cn(
-                            "h-24 w-24 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center",
+                            "h-16 w-16 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center",
                             isAudioPlaying && "animate-pulse"
                           )}>
-                            <Music className="h-12 w-12 text-primary" />
+                            <Music className="h-8 w-8 text-primary" />
                           </div>
                           {isAudioPlaying && (
                             <div className="absolute -inset-2 rounded-full border-2 border-primary/50 animate-ping" />
                           )}
                         </div>
-                        <div className="text-center">
-                          <p className="text-sm font-medium text-foreground mb-1">Music Generated!</p>
-                          <p className="text-xs text-muted-foreground">Click play to listen</p>
-                        </div>
+                        
+                        <p className="text-sm font-medium text-foreground">Music Generated!</p>
+                        
+                        {/* Waveform Visualization */}
+                        <AudioWaveform
+                          audioUrl={result.output_url}
+                          isPlaying={isAudioPlaying}
+                          onPlayPause={toggleAudioPlayback}
+                          className="w-full max-w-xs"
+                        />
+                        
                         <Button
                           onClick={toggleAudioPlayback}
                           className="gap-2 gradient-primary"
