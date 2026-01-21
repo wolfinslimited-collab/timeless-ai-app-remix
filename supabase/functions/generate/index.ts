@@ -36,6 +36,7 @@ const MODEL_CREDITS: Record<string, number> = {
   "hunyuan-1.5": 18,
 
   // Music models - Fal.ai
+  "sonauto": 15,
   "cassetteai": 10,
   "lyria2": 12,
   "stable-audio": 8,
@@ -97,6 +98,10 @@ type FalMusicModelConfig = {
 };
 
 const FAL_MUSIC_MODELS: Record<string, FalMusicModelConfig> = {
+  "sonauto": {
+    endpoint: "sonauto/v2/text-to-music",
+    maxPollingTime: 300,
+  },
   "cassetteai": {
     endpoint: "cassetteai/music-generator",
     maxPollingTime: 120,
@@ -115,10 +120,25 @@ const FAL_MUSIC_MODELS: Record<string, FalMusicModelConfig> = {
 const buildFalMusicRequest = (args: {
   prompt: string;
   model: string;
+  lyrics?: string;
   duration?: number;
 }) => {
-  const { prompt, duration } = args;
+  const { prompt, model, lyrics, duration } = args;
   
+  // Sonauto uses different parameters
+  if (model === "sonauto") {
+    const input: Record<string, unknown> = {
+      prompt,
+      duration: duration ?? 30,
+    };
+    // Sonauto supports lyrics_prompt for song lyrics
+    if (lyrics) {
+      input.lyrics_prompt = lyrics;
+    }
+    return input;
+  }
+  
+  // Default format for other models
   const input: Record<string, unknown> = {
     prompt,
     duration: duration ?? 30,
@@ -945,6 +965,7 @@ serve(async (req) => {
       const falInput = buildFalMusicRequest({
         prompt,
         model,
+        lyrics,
       });
 
       try {
