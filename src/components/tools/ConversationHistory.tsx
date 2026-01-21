@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   MessageSquare, 
@@ -7,7 +8,9 @@ import {
   Trash2, 
   Loader2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Search,
+  X
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -40,6 +43,18 @@ const ConversationHistory = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // Filter conversations based on search query
+  const filteredConversations = useMemo(() => {
+    if (!searchQuery.trim()) return conversations;
+    
+    const query = searchQuery.toLowerCase();
+    return conversations.filter(conv => 
+      conv.title?.toLowerCase().includes(query)
+    );
+  }, [conversations, searchQuery]);
 
   useEffect(() => {
     if (user) {
@@ -102,6 +117,27 @@ const ConversationHistory = ({
     return format(date, "MMM d");
   };
 
+  // Highlight matching text in title
+  const highlightMatch = (title: string) => {
+    if (!searchQuery.trim()) return title;
+    
+    const query = searchQuery.toLowerCase();
+    const lowerTitle = title.toLowerCase();
+    const matchIndex = lowerTitle.indexOf(query);
+    
+    if (matchIndex === -1) return title;
+    
+    return (
+      <>
+        {title.slice(0, matchIndex)}
+        <span className="bg-primary/30 rounded px-0.5">
+          {title.slice(matchIndex, matchIndex + searchQuery.length)}
+        </span>
+        {title.slice(matchIndex + searchQuery.length)}
+      </>
+    );
+  };
+
   if (!user) return null;
 
   if (isCollapsed) {
@@ -136,6 +172,17 @@ const ConversationHistory = ({
           <Button
             variant="ghost"
             size="icon"
+            className={cn("h-7 w-7", isSearchOpen && "bg-secondary")}
+            onClick={() => {
+              setIsSearchOpen(!isSearchOpen);
+              if (isSearchOpen) setSearchQuery("");
+            }}
+          >
+            <Search className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             className="h-7 w-7"
             onClick={onNewConversation}
           >
@@ -152,21 +199,56 @@ const ConversationHistory = ({
         </div>
       </div>
 
+      {/* Search Input */}
+      {isSearchOpen && (
+        <div className="p-2 border-b border-border/50">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search conversations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 pl-8 pr-8 text-sm"
+              autoFocus
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-0.5 top-1/2 -translate-y-1/2 h-6 w-6"
+                onClick={() => setSearchQuery("")}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Conversations List */}
       <ScrollArea className="flex-1">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
-        ) : conversations.length === 0 ? (
+        ) : filteredConversations.length === 0 ? (
           <div className="p-4 text-center text-sm text-muted-foreground">
             <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>No conversations yet</p>
-            <p className="text-xs mt-1">Start chatting to save history</p>
+            {searchQuery ? (
+              <>
+                <p>No matches found</p>
+                <p className="text-xs mt-1">Try a different search term</p>
+              </>
+            ) : (
+              <>
+                <p>No conversations yet</p>
+                <p className="text-xs mt-1">Start chatting to save history</p>
+              </>
+            )}
           </div>
         ) : (
           <div className="p-2 space-y-1">
-            {conversations.map((conv) => (
+            {filteredConversations.map((conv) => (
               <button
                 key={conv.id}
                 onClick={() => onSelectConversation(conv.id)}
@@ -181,7 +263,7 @@ const ConversationHistory = ({
                   <MessageSquare className="h-4 w-4 shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <p className="truncate font-medium">
-                      {conv.title || "New conversation"}
+                      {highlightMatch(conv.title || "New conversation")}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatDate(conv.updated_at)}
