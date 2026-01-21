@@ -447,7 +447,7 @@ const TranslateAITool = () => {
                     </Button>
                   </a>
                   <a
-                    href={`https://www.y2mate.com/youtube/${extractVideoId(youtubeUrl)}`}
+                    href={`https://ssyoutube.com/watch?v=${extractVideoId(youtubeUrl)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1"
