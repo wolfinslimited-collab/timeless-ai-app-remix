@@ -107,13 +107,23 @@ const VoiceInputWaveform = ({
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
+    // Avoid compounding scales if this effect re-runs
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
     const numBars = 48;
     const lerpFactor = 0.15; // Smoothing factor for interpolation
+
+    // Canvas doesn't support modern space-separated CSS color syntax, so convert
+    // our Tailwind-style HSL variables (e.g. "0 0% 98%") into comma syntax.
+    const rootStyle = getComputedStyle(document.documentElement);
+    const foregroundVar =
+      rootStyle.getPropertyValue("--foreground").trim() || "0 0% 98%";
+    const primaryVar = rootStyle.getPropertyValue("--primary").trim() || "265 90% 65%";
+    const foregroundCsv = foregroundVar.replace(/\s+/g, ", ");
+    const primaryCsv = primaryVar.replace(/\s+/g, ", ");
 
     const draw = () => {
       animationRef.current = requestAnimationFrame(draw);
@@ -148,11 +158,6 @@ const VoiceInputWaveform = ({
           (targetValue - smoothedDataRef.current[i]) * lerpFactor;
       }
 
-      // Get computed colors from CSS variables
-      const computedStyle = getComputedStyle(canvas);
-      const foregroundColor = computedStyle.getPropertyValue('--foreground').trim() || '0 0% 98%';
-      const primaryColor = computedStyle.getPropertyValue('--primary').trim() || '262 83% 58%';
-
       // Draw glow layer
       ctx.save();
       ctx.filter = 'blur(8px)';
@@ -165,7 +170,7 @@ const VoiceInputWaveform = ({
         const x = startX + i * (barWidth + barSpacing);
         const halfHeight = barHeight / 2;
 
-        ctx.fillStyle = `hsl(${primaryColor})`;
+        ctx.fillStyle = `hsl(${primaryCsv})`;
 
         // Top bar
         ctx.beginPath();
@@ -192,9 +197,9 @@ const VoiceInputWaveform = ({
         
         // Dynamic opacity based on value
         const alpha = 0.6 + value * 0.4;
-        gradient.addColorStop(0, `hsla(${foregroundColor}, ${alpha * 0.7})`);
-        gradient.addColorStop(0.5, `hsla(${foregroundColor}, ${alpha})`);
-        gradient.addColorStop(1, `hsla(${foregroundColor}, ${alpha * 0.7})`);
+        gradient.addColorStop(0, `hsla(${foregroundCsv}, ${alpha * 0.7})`);
+        gradient.addColorStop(0.5, `hsla(${foregroundCsv}, ${alpha})`);
+        gradient.addColorStop(1, `hsla(${foregroundCsv}, ${alpha * 0.7})`);
         
         ctx.fillStyle = gradient;
 
@@ -213,7 +218,7 @@ const VoiceInputWaveform = ({
       const avgValue = smoothedDataRef.current.reduce((a, b) => a + b, 0) / numBars;
       if (avgValue < 0.15) {
         const lineAlpha = 0.15 + Math.sin(timeRef.current * 3) * 0.05;
-        ctx.strokeStyle = `hsla(${foregroundColor}, ${lineAlpha})`;
+        ctx.strokeStyle = `hsla(${foregroundCsv}, ${lineAlpha})`;
         ctx.lineWidth = 1;
         ctx.setLineDash([]);
         ctx.beginPath();
