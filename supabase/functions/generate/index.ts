@@ -34,12 +34,17 @@ const MODEL_CREDITS: Record<string, number> = {
   "seedance-1.5": 20,
   "luma": 22,
   "hunyuan-1.5": 18,
+
+  // Music models - Fal.ai (Suno via Sonauto)
+  "suno-v4": 12,
+  "suno-v4-clips": 8,
 };
 
 // Fallback costs
 const DEFAULT_CREDITS = {
   image: 5,
   video: 15,
+  music: 10,
 };
 
 // Quality multipliers
@@ -82,6 +87,48 @@ const FAL_IMAGE_MODELS: Record<string, string> = {
 // Lovable AI Image Models
 const LOVABLE_IMAGE_MODELS: Record<string, string> = {
   "nano-banana": "google/gemini-2.5-flash-image-preview",
+};
+
+// Fal.ai Music Models (Suno via Sonauto)
+type FalMusicModelConfig = {
+  endpoint: string;
+  maxPollingTime: number;
+};
+
+const FAL_MUSIC_MODELS: Record<string, FalMusicModelConfig> = {
+  "suno-v4": {
+    endpoint: "cassetteai/suno/v4",
+    maxPollingTime: 300,
+  },
+  "suno-v4-clips": {
+    endpoint: "cassetteai/suno/v4/clips",
+    maxPollingTime: 180,
+  },
+};
+
+// Build Fal.ai music request
+const buildFalMusicRequest = (args: {
+  prompt: string;
+  lyrics?: string;
+  instrumental?: boolean;
+  duration?: number;
+}) => {
+  const { prompt, lyrics, instrumental, duration } = args;
+  
+  const input: Record<string, unknown> = {
+    prompt,
+    make_instrumental: instrumental ?? false,
+  };
+  
+  if (lyrics && !instrumental) {
+    input.lyrics = lyrics;
+  }
+  
+  if (duration) {
+    input.duration = duration;
+  }
+  
+  return input;
 };
 
 // Fal.ai Video Models with text-to-video and image-to-video endpoints
@@ -311,7 +358,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, negativePrompt, type, model, aspectRatio = "1:1", quality = "720p", imageUrl, stream = false, background = false } = await req.json();
+    const { prompt, negativePrompt, type, model, aspectRatio = "1:1", quality = "720p", imageUrl, stream = false, background = false, lyrics, instrumental } = await req.json();
 
     // SSE streaming response for real-time progress (video)
     if (stream && type === "video") {
@@ -872,6 +919,95 @@ serve(async (req) => {
             taskId: requestId,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+
+      } catch (error) {
+        if (!hasActiveSubscription) {
+          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+        }
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        return new Response(
+          JSON.stringify({ error: errorMessage }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // MUSIC GENERATION
+    if (type === "music") {
+      const musicConfig = FAL_MUSIC_MODELS[model];
+      if (!musicConfig) {
+        if (!hasActiveSubscription) {
+          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+        }
+        return new Response(
+          JSON.stringify({ error: `Unknown music model: ${model}` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const falInput = buildFalMusicRequest({
+        prompt,
+        lyrics,
+        instrumental,
+      });
+
+      try {
+        const { requestId } = await submitToFal(musicConfig.endpoint, falInput, FAL_API_KEY);
+        
+        // Poll for result
+        const maxAttempts = 90;
+        const pollInterval = 2000;
+        
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          
+          const status = await checkFalStatus(musicConfig.endpoint, requestId, FAL_API_KEY);
+          console.log(`Music poll attempt ${attempt + 1}: status=${status.status}`);
+          
+          if (status.status === "COMPLETED") {
+            const result = await getFalResult(musicConfig.endpoint, requestId, FAL_API_KEY);
+            const audioUrl = (result as any).audio?.url || (result as any).audio_url;
+            
+            if (audioUrl) {
+              await supabase.from("generations").insert({
+                user_id: user.id,
+                prompt: prompt,
+                type: type,
+                model: model,
+                status: "completed",
+                output_url: audioUrl,
+                credits_used: creditCost,
+                provider_endpoint: `fal:${musicConfig.endpoint}`,
+              });
+
+              return new Response(
+                JSON.stringify({
+                  success: true,
+                  result: { type: 'music', output_url: audioUrl },
+                  credits_remaining: hasActiveSubscription ? currentCredits : currentCredits - creditCost
+                }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+          } else if (status.status === "FAILED") {
+            if (!hasActiveSubscription) {
+              await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+            }
+            return new Response(
+              JSON.stringify({ error: status.error || "Music generation failed" }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+
+        // Timeout
+        if (!hasActiveSubscription) {
+          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+        }
+        return new Response(
+          JSON.stringify({ error: "Music generation timed out" }),
+          { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
 
       } catch (error) {

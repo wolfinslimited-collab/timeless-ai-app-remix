@@ -36,7 +36,9 @@ import {
   RotateCcw,
   AlertCircle,
   Play,
-  RefreshCw
+  RefreshCw,
+  Music,
+  Pause
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -72,6 +74,12 @@ const videoModels = [
   { id: "seedance-1.5", name: "Seedance 1.5", description: "With audio support", badge: "NEW", credits: 20 },
   { id: "luma", name: "Luma Dream Machine", description: "Creative video", badge: "PRO", credits: 22 },
   { id: "hunyuan-1.5", name: "Hunyuan 1.5", description: "Tencent video model", badge: "NEW", credits: 18 },
+];
+
+// Fal.ai Music Models (Suno via Sonauto)
+const musicModels = [
+  { id: "suno-v4", name: "Suno V4", description: "Full songs with lyrics", badge: "TOP", credits: 12 },
+  { id: "suno-v4-clips", name: "Suno V4 Clips", description: "Short music clips", badge: "FAST", credits: 8 },
 ];
 
 const VIDEO_DEFAULT_ASPECT_RATIOS = ["16:9", "9:16", "1:1"];
@@ -141,6 +149,15 @@ const videoTemplates = [
   { label: "Talking Portrait", prompt: "Professional talking head video, person speaking directly to camera, clean background, natural expressions" },
 ];
 
+const musicTemplates = [
+  { label: "Pop Hit", prompt: "A catchy upbeat pop song about summer love, 120 BPM, major key, with synths and drums" },
+  { label: "Cinematic Epic", prompt: "An epic orchestral track for a movie trailer, dramatic build-up, brass and strings, heroic theme" },
+  { label: "Lo-Fi Beats", prompt: "Chill lo-fi hip hop beat for studying, vinyl crackle, soft piano, mellow drums, relaxing vibes" },
+  { label: "Electronic Dance", prompt: "High energy EDM track, 128 BPM, synth drops, powerful bass, festival anthem" },
+  { label: "Acoustic Folk", prompt: "Warm acoustic folk song about traveling, fingerpicked guitar, soft vocals, storytelling" },
+  { label: "Jazz Lounge", prompt: "Smooth jazz track for a cocktail bar, saxophone solo, piano chords, walking bass, brushed drums" },
+];
+
 const Create = () => {
   const { user, loading } = useAuth();
   const { credits, loading: creditsLoading, refetch: refetchCredits, hasEnoughCreditsForModel, hasActiveSubscription } = useCredits();
@@ -156,7 +173,7 @@ const Create = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [type, setType] = useState<"image" | "video">("image");
+  const [type, setType] = useState<"image" | "video" | "music">("image");
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [model, setModel] = useState("flux-1.1-pro");
@@ -165,6 +182,12 @@ const Create = () => {
   const [startingImage, setStartingImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  
+  // Music-specific state
+  const [lyrics, setLyrics] = useState("");
+  const [isInstrumental, setIsInstrumental] = useState(false);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
@@ -346,10 +369,24 @@ const Create = () => {
           }
         }
       } else {
-        // Non-streaming for images
-        const { data, error } = await supabase.functions.invoke("generate", {
-          body: { prompt, negativePrompt: negativePrompt.trim() || undefined, type, model, aspectRatio, quality, imageUrl: startingImage }
-        });
+        // Non-streaming for images and music
+        const body: Record<string, unknown> = { 
+          prompt, 
+          type, 
+          model, 
+          aspectRatio, 
+          quality, 
+        };
+        
+        if (type === "music") {
+          body.lyrics = lyrics.trim() || undefined;
+          body.instrumental = isInstrumental;
+        } else {
+          body.negativePrompt = negativePrompt.trim() || undefined;
+          body.imageUrl = startingImage;
+        }
+
+        const { data, error } = await supabase.functions.invoke("generate", { body });
 
         if (error) {
           throw new Error(error.message);
@@ -367,7 +404,7 @@ const Create = () => {
         
         toast({
           title: "Generation complete!",
-          description: `Your image has been created. ${data.credits_remaining} credits remaining.`,
+          description: `Your ${type} has been created. ${data.credits_remaining} credits remaining.`,
         });
       }
 
@@ -387,12 +424,27 @@ const Create = () => {
   };
 
   const handleTypeChange = (newType: string) => {
-    setType(newType as "image" | "video");
-    setModel(newType === "image" ? "flux-1.1-pro" : "wan-2.6");
-    setAspectRatio(newType === "image" ? "1:1" : "16:9");
+    setType(newType as "image" | "video" | "music");
+    if (newType === "image") {
+      setModel("flux-1.1-pro");
+      setAspectRatio("1:1");
+    } else if (newType === "video") {
+      setModel("wan-2.6");
+      setAspectRatio("16:9");
+    } else {
+      setModel("suno-v4");
+    }
     setQuality("720p");
     setStartingImage(null);
     setResult(null);
+    setLyrics("");
+    setIsInstrumental(false);
+    // Clean up audio
+    if (audioElement) {
+      audioElement.pause();
+      setAudioElement(null);
+    }
+    setIsAudioPlaying(false);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -453,7 +505,25 @@ const Create = () => {
     setStartingImage(null);
   };
 
-  const currentModels = type === "image" ? imageModels : videoModels;
+  const currentModels = type === "image" ? imageModels : type === "video" ? videoModels : musicModels;
+  const currentTemplates = type === "image" ? imageTemplates : type === "video" ? videoTemplates : musicTemplates;
+
+  const toggleAudioPlayback = () => {
+    if (audioElement) {
+      if (isAudioPlaying) {
+        audioElement.pause();
+      } else {
+        audioElement.play();
+      }
+      setIsAudioPlaying(!isAudioPlaying);
+    } else if (result?.output_url) {
+      const audio = new Audio(result.output_url);
+      audio.addEventListener('ended', () => setIsAudioPlaying(false));
+      audio.play();
+      setAudioElement(audio);
+      setIsAudioPlaying(true);
+    }
+  };
 
   if (loading) {
     return (
@@ -575,19 +645,26 @@ const Create = () => {
 
           {/* Type Selector */}
           <Tabs value={type} onValueChange={handleTypeChange} className="mb-6">
-            <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+            <TabsList className="grid w-full grid-cols-3 max-w-lg mx-auto">
               <TabsTrigger value="image" className="gap-2">
                 <Image className="h-4 w-4" />
                 Image
-                <Badge variant="secondary" className="ml-1 text-xs">
-                  3-10 credits
+                <Badge variant="secondary" className="ml-1 text-xs hidden sm:inline-flex">
+                  2-10
                 </Badge>
               </TabsTrigger>
               <TabsTrigger value="video" className="gap-2">
                 <Video className="h-4 w-4" />
                 Video
-                <Badge variant="secondary" className="ml-1 text-xs">
-                  8-30 credits
+                <Badge variant="secondary" className="ml-1 text-xs hidden sm:inline-flex">
+                  8-30
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="music" className="gap-2">
+                <Music className="h-4 w-4" />
+                Music
+                <Badge variant="secondary" className="ml-1 text-xs hidden sm:inline-flex">
+                  8-12
                 </Badge>
               </TabsTrigger>
             </TabsList>
@@ -604,7 +681,7 @@ const Create = () => {
                     Quick templates
                   </Label>
                   <div className="flex flex-wrap gap-2">
-                    {(type === "image" ? imageTemplates : videoTemplates).map((template) => (
+                    {currentTemplates.map((template) => (
                       <Button
                         key={template.label}
                         type="button"
@@ -621,39 +698,89 @@ const Create = () => {
 
                 {/* Prompt Input */}
                 <div className="space-y-2">
-                  <Label htmlFor="prompt">Describe your {type}</Label>
+                  <Label htmlFor="prompt">
+                    {type === "music" ? "Describe your song" : `Describe your ${type}`}
+                  </Label>
                   <Textarea
                     id="prompt"
-                    placeholder={type === "image" 
-                      ? "A majestic dragon flying over a neon-lit cyberpunk city at sunset, 4K cinematic..." 
-                      : "A short cinematic video of waves crashing on a tropical beach during golden hour..."
+                    placeholder={
+                      type === "image" 
+                        ? "A majestic dragon flying over a neon-lit cyberpunk city at sunset, 4K cinematic..." 
+                        : type === "video"
+                        ? "A short cinematic video of waves crashing on a tropical beach during golden hour..."
+                        : "An upbeat pop song about summer adventures, 120 BPM, with catchy synth hooks..."
                     }
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     className="min-h-[120px] bg-secondary border-border/50 resize-none"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Be specific and descriptive for best results
+                    {type === "music" 
+                      ? "Include genre, mood, tempo, and instruments for best results"
+                      : "Be specific and descriptive for best results"
+                    }
                   </p>
                 </div>
 
-                {/* Negative Prompt */}
-                <div className="space-y-2">
-                  <Label htmlFor="negative-prompt" className="flex items-center gap-2">
-                    Negative prompt
-                    <span className="text-xs text-muted-foreground font-normal">(optional)</span>
-                  </Label>
-                  <Textarea
-                    id="negative-prompt"
-                    placeholder="blur, low quality, distorted, watermark, text..."
-                    value={negativePrompt}
-                    onChange={(e) => setNegativePrompt(e.target.value)}
-                    className="min-h-[60px] bg-secondary border-border/50 resize-none"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Describe what to avoid in the generated content
-                  </p>
-                </div>
+                {/* Negative Prompt - not for music */}
+                {type !== "music" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="negative-prompt" className="flex items-center gap-2">
+                      Negative prompt
+                      <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+                    </Label>
+                    <Textarea
+                      id="negative-prompt"
+                      placeholder="blur, low quality, distorted, watermark, text..."
+                      value={negativePrompt}
+                      onChange={(e) => setNegativePrompt(e.target.value)}
+                      className="min-h-[60px] bg-secondary border-border/50 resize-none"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Describe what to avoid in the generated content
+                    </p>
+                  </div>
+                )}
+
+                {/* Lyrics Input - Music only */}
+                {type === "music" && !isInstrumental && (
+                  <div className="space-y-2">
+                    <Label htmlFor="lyrics" className="flex items-center gap-2">
+                      Custom Lyrics
+                      <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+                    </Label>
+                    <Textarea
+                      id="lyrics"
+                      placeholder="Verse 1:&#10;Walking down the street...&#10;&#10;Chorus:&#10;This is the life I want..."
+                      value={lyrics}
+                      onChange={(e) => setLyrics(e.target.value)}
+                      className="min-h-[100px] bg-secondary border-border/50 resize-none"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Leave empty for AI-generated lyrics based on your prompt
+                    </p>
+                  </div>
+                )}
+
+                {/* Instrumental Toggle - Music only */}
+                {type === "music" && (
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-secondary">
+                    <div>
+                      <Label htmlFor="instrumental" className="cursor-pointer">Instrumental Only</Label>
+                      <p className="text-xs text-muted-foreground">Generate music without vocals</p>
+                    </div>
+                    <Button
+                      id="instrumental"
+                      type="button"
+                      variant={isInstrumental ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setIsInstrumental(!isInstrumental)}
+                      className={isInstrumental ? "gradient-primary" : "border-border/50"}
+                    >
+                      {isInstrumental ? "On" : "Off"}
+                    </Button>
+                  </div>
+                )}
 
                 {/* Starting Image Upload - Video only */}
                 {type === "video" && (
@@ -734,39 +861,41 @@ const Create = () => {
                   </Select>
                 </div>
 
-                {/* Aspect Ratio Selection */}
-                <div className="space-y-2">
-                  <Label>Aspect Ratio</Label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {(type === "image"
-                      ? ["1:1", "16:9", "9:16", "4:3"]
-                      : ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"]
-                    ).map((ratio) => {
-                      const disabled =
-                        type === "video" && !allowedVideoAspectRatios.includes(ratio);
+                {/* Aspect Ratio Selection - not for music */}
+                {type !== "music" && (
+                  <div className="space-y-2">
+                    <Label>Aspect Ratio</Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {(type === "image"
+                        ? ["1:1", "16:9", "9:16", "4:3"]
+                        : ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"]
+                      ).map((ratio) => {
+                        const disabled =
+                          type === "video" && !allowedVideoAspectRatios.includes(ratio);
 
-                      return (
-                        <Button
-                          key={ratio}
-                          type="button"
-                          variant={aspectRatio === ratio ? "default" : "outline"}
-                          size="sm"
-                          disabled={disabled}
-                          onClick={() => setAspectRatio(ratio)}
-                          className={cn(
-                            aspectRatio === ratio
-                              ? "gradient-primary"
-                              : "border-border/50",
-                            disabled && "opacity-40 cursor-not-allowed"
-                          )}
-                          title={disabled ? `Not available for this model` : ratio}
-                        >
-                          {ratio}
-                        </Button>
-                      );
-                    })}
+                        return (
+                          <Button
+                            key={ratio}
+                            type="button"
+                            variant={aspectRatio === ratio ? "default" : "outline"}
+                            size="sm"
+                            disabled={disabled}
+                            onClick={() => setAspectRatio(ratio)}
+                            className={cn(
+                              aspectRatio === ratio
+                                ? "gradient-primary"
+                                : "border-border/50",
+                              disabled && "opacity-40 cursor-not-allowed"
+                            )}
+                            title={disabled ? `Not available for this model` : ratio}
+                          >
+                            {ratio}
+                          </Button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Quality Selection - Video only */}
                 {type === "video" && (
@@ -812,7 +941,7 @@ const Create = () => {
                   ) : (
                     <>
                       <Wand2 className="h-5 w-5" />
-                      Generate {type === "image" ? "Image" : "Video"}
+                      Generate {type === "image" ? "Image" : type === "video" ? "Video" : "Music"}
                       <span className="text-primary-foreground/80 text-sm">
                         ({currentCost} credits)
                       </span>
@@ -854,7 +983,7 @@ const Create = () => {
                       </div>
                       
                       <p className="text-sm">
-                        {type === "video" ? "Generating video..." : "Generating image..."}
+                        {type === "video" ? "Generating video..." : type === "music" ? "Composing music..." : "Generating image..."}
                       </p>
                     </div>
                   ) : result?.output_url ? (
@@ -866,6 +995,41 @@ const Create = () => {
                         loop
                         className="w-full h-full object-contain"
                       />
+                    ) : type === "music" ? (
+                      <div className="flex flex-col items-center gap-6 p-8 w-full">
+                        <div className="relative">
+                          <div className={cn(
+                            "h-24 w-24 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center",
+                            isAudioPlaying && "animate-pulse"
+                          )}>
+                            <Music className="h-12 w-12 text-primary" />
+                          </div>
+                          {isAudioPlaying && (
+                            <div className="absolute -inset-2 rounded-full border-2 border-primary/50 animate-ping" />
+                          )}
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-medium text-foreground mb-1">Music Generated!</p>
+                          <p className="text-xs text-muted-foreground">Click play to listen</p>
+                        </div>
+                        <Button
+                          onClick={toggleAudioPlayback}
+                          className="gap-2 gradient-primary"
+                          size="lg"
+                        >
+                          {isAudioPlaying ? (
+                            <>
+                              <Pause className="h-5 w-5" />
+                              Pause
+                            </>
+                          ) : (
+                            <>
+                              <Play className="h-5 w-5" />
+                              Play
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     ) : (
                       <img 
                         src={result.output_url} 
@@ -896,8 +1060,10 @@ const Create = () => {
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       {type === "image" ? (
                         <Image className="h-12 w-12" />
-                      ) : (
+                      ) : type === "video" ? (
                         <Video className="h-12 w-12" />
+                      ) : (
+                        <Music className="h-12 w-12" />
                       )}
                       <p className="text-sm">Your creation will appear here</p>
                     </div>
@@ -911,13 +1077,13 @@ const Create = () => {
                     onClick={() => {
                       const link = document.createElement('a');
                       link.href = result.output_url!;
-                      link.download = type === "video" ? 'generation.mp4' : 'generation.png';
+                      link.download = type === "video" ? 'generation.mp4' : type === "music" ? 'generation.mp3' : 'generation.png';
                       link.target = '_blank';
                       link.click();
                     }}
                   >
                     <Download className="h-4 w-4" />
-                    Download {type === "video" ? "Video" : "Image"}
+                    Download {type === "video" ? "Video" : type === "music" ? "Music" : "Image"}
                   </Button>
                 )}
               </CardContent>
