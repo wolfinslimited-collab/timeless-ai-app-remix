@@ -416,6 +416,7 @@ const Create = () => {
         .from("generations")
         .select("*")
         .eq("type", "video")
+        .neq("model", "Translate-Ai")
         .order("created_at", { ascending: false })
         .limit(12);
 
