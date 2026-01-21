@@ -101,6 +101,101 @@ const lensPresets = [
 const focalLengths = ["14", "18", "24", "28", "35", "50", "65", "85", "100", "135"];
 const apertures = ["f/1.4", "f/2", "f/2.8", "f/4", "f/5.6", "f/8", "f/11", "f/16"];
 
+// Cinematography Style Presets
+interface StylePreset {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  cameraId: string;
+  lensId: string;
+  focalLength: string;
+  aperture: string;
+}
+
+const stylePresets: StylePreset[] = [
+  {
+    id: "cinematic-drama",
+    name: "Cinematic Drama",
+    description: "Deep bokeh, warm tones, intimate framing",
+    icon: "🎬",
+    cameraId: "arri-alexa-35",
+    lensId: "cooke-anamorphic",
+    focalLength: "50",
+    aperture: "f/1.4",
+  },
+  {
+    id: "documentary",
+    name: "Documentary",
+    description: "Sharp focus, natural look, wide depth",
+    icon: "📽️",
+    cameraId: "sony-venice",
+    lensId: "zeiss-supreme",
+    focalLength: "24",
+    aperture: "f/5.6",
+  },
+  {
+    id: "action",
+    name: "Action",
+    description: "Dynamic, punchy, fast-paced visuals",
+    icon: "💥",
+    cameraId: "red-komodo",
+    lensId: "arri-signature-prime",
+    focalLength: "18",
+    aperture: "f/2.8",
+  },
+  {
+    id: "horror",
+    name: "Horror",
+    description: "Dark, distorted, unsettling atmosphere",
+    icon: "👻",
+    cameraId: "blackmagic-ursa",
+    lensId: "atlas-orion",
+    focalLength: "28",
+    aperture: "f/2",
+  },
+  {
+    id: "commercial",
+    name: "Commercial",
+    description: "Clean, bright, product-focused",
+    icon: "✨",
+    cameraId: "arri-alexa-mini",
+    lensId: "leica-summilux",
+    focalLength: "85",
+    aperture: "f/4",
+  },
+  {
+    id: "vintage",
+    name: "Vintage Film",
+    description: "Soft, nostalgic, classic Hollywood",
+    icon: "🎞️",
+    cameraId: "arri-alexa-35",
+    lensId: "panavision-primo",
+    focalLength: "35",
+    aperture: "f/2.8",
+  },
+  {
+    id: "music-video",
+    name: "Music Video",
+    description: "Stylized, high contrast, artistic",
+    icon: "🎵",
+    cameraId: "red-komodo",
+    lensId: "cooke-anamorphic",
+    focalLength: "35",
+    aperture: "f/1.4",
+  },
+  {
+    id: "portrait",
+    name: "Portrait",
+    description: "Flattering, soft background, sharp subject",
+    icon: "👤",
+    cameraId: "canon-c70",
+    lensId: "arri-signature-prime",
+    focalLength: "85",
+    aperture: "f/1.4",
+  },
+];
+
 interface CinemaStudioProps {
   prompt: string;
   setPrompt: (value: string) => void;
@@ -173,6 +268,16 @@ const CinemaStudio = ({
   const [selectedLens, setSelectedLens] = useState(lensPresets[0]);
   const [selectedFocalLength, setSelectedFocalLength] = useState("35");
   const [selectedAperture, setSelectedAperture] = useState("f/4");
+  const [selectedStyle, setSelectedStyle] = useState<StylePreset | null>(null);
+
+  // Apply style preset
+  const applyStylePreset = (preset: StylePreset) => {
+    setSelectedStyle(preset);
+    setSelectedCamera(cameraPresets.find(c => c.id === preset.cameraId) || cameraPresets[0]);
+    setSelectedLens(lensPresets.find(l => l.id === preset.lensId) || lensPresets[0]);
+    setSelectedFocalLength(preset.focalLength);
+    setSelectedAperture(preset.aperture);
+  };
 
   // Fetch previous cinema generations
   useEffect(() => {
@@ -596,11 +701,17 @@ const CinemaStudio = ({
                       size="sm"
                       className="h-8 gap-2 border-primary/50 bg-primary/10 text-foreground"
                     >
-                      <span className="text-xs">📹</span>
-                      {selectedCamera.name}
-                      <span className="text-muted-foreground text-xs">
-                        {selectedLens.name.split(" ")[0]}, {selectedFocalLength}mm, {selectedAperture}
-                      </span>
+                      <span className="text-xs">{selectedStyle?.icon || "📹"}</span>
+                      {selectedStyle ? (
+                        <span className="font-medium">{selectedStyle.name}</span>
+                      ) : (
+                        <>
+                          {selectedCamera.name}
+                          <span className="text-muted-foreground text-xs">
+                            {selectedLens.name.split(" ")[0]}, {selectedFocalLength}mm, {selectedAperture}
+                          </span>
+                        </>
+                      )}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[500px] p-0" align="start" side="top">
@@ -625,107 +736,137 @@ const CinemaStudio = ({
 
                       {/* Camera Settings Grid */}
                       <div className="p-4 space-y-4">
-                        <div className="grid grid-cols-4 gap-3">
-                          {/* Camera */}
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Camera</Label>
-                            <div className="bg-secondary/50 rounded-xl p-3 border border-border/30">
-                              <div className="h-12 flex items-center justify-center mb-2">
-                                <span className="text-3xl">📹</span>
-                              </div>
-                              <Badge variant="outline" className="w-full justify-center text-[10px]">
-                                {selectedCamera.type}
-                              </Badge>
+                        {/* Style Presets Row */}
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Quick Styles</Label>
+                          <ScrollArea className="w-full">
+                            <div className="flex gap-2 pb-2">
+                              {stylePresets.map((preset) => (
+                                <button
+                                  key={preset.id}
+                                  onClick={() => applyStylePreset(preset)}
+                                  className={cn(
+                                    "flex-shrink-0 flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all min-w-[90px]",
+                                    selectedStyle?.id === preset.id
+                                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                                      : "border-border/30 bg-secondary/30 hover:bg-secondary/60 hover:border-border/50"
+                                  )}
+                                >
+                                  <span className="text-2xl">{preset.icon}</span>
+                                  <span className="text-[10px] font-medium text-foreground whitespace-nowrap">{preset.name}</span>
+                                </button>
+                              ))}
                             </div>
-                            <Select value={selectedCamera.id} onValueChange={(v) => setSelectedCamera(cameraPresets.find(c => c.id === v) || cameraPresets[0])}>
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {cameraPresets.map((cam) => (
-                                  <SelectItem key={cam.id} value={cam.id} className="text-xs">
-                                    {cam.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                            <ScrollBar orientation="horizontal" />
+                          </ScrollArea>
+                          {selectedStyle && (
+                            <p className="text-xs text-muted-foreground italic">{selectedStyle.description}</p>
+                          )}
+                        </div>
 
-                          {/* Lens */}
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Lens</Label>
-                            <div className="bg-secondary/50 rounded-xl p-3 border border-border/30">
-                              <div className="h-12 flex items-center justify-center mb-2">
-                                <span className="text-3xl">🔭</span>
-                              </div>
-                              <Badge variant="outline" className="w-full justify-center text-[10px]">
-                                {selectedLens.type}
-                              </Badge>
-                            </div>
-                            <Select value={selectedLens.id} onValueChange={(v) => setSelectedLens(lensPresets.find(l => l.id === v) || lensPresets[0])}>
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {lensPresets.map((lens) => (
-                                  <SelectItem key={lens.id} value={lens.id} className="text-xs">
-                                    {lens.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          {/* Focal Length */}
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Focal Length</Label>
-                            <div className="bg-secondary/50 rounded-xl p-3 border border-border/30">
-                              <div className="h-12 flex items-center justify-center mb-2">
-                                <span className="text-3xl font-bold">{selectedFocalLength}</span>
-                              </div>
-                              <Badge variant="outline" className="w-full justify-center text-[10px]">
-                                mm
-                              </Badge>
-                            </div>
-                            <Select value={selectedFocalLength} onValueChange={setSelectedFocalLength}>
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {focalLengths.map((fl) => (
-                                  <SelectItem key={fl} value={fl} className="text-xs">
-                                    {fl}mm
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          {/* Aperture */}
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Aperture</Label>
-                            <div className="bg-secondary/50 rounded-xl p-3 border border-border/30">
-                              <div className="h-12 flex items-center justify-center mb-2">
-                                <div className="h-10 w-10 rounded-full border-4 border-foreground/60 flex items-center justify-center">
-                                  <div className="h-4 w-4 rounded-full bg-foreground/30" />
+                        <div className="border-t border-border/30 pt-4">
+                          <div className="grid grid-cols-4 gap-3">
+                            {/* Camera */}
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Camera</Label>
+                              <div className="bg-secondary/50 rounded-xl p-3 border border-border/30">
+                                <div className="h-12 flex items-center justify-center mb-2">
+                                  <span className="text-3xl">📹</span>
                                 </div>
+                                <Badge variant="outline" className="w-full justify-center text-[10px]">
+                                  {selectedCamera.type}
+                                </Badge>
                               </div>
-                              <Badge variant="outline" className="w-full justify-center text-[10px]">
-                                {selectedAperture}
-                              </Badge>
+                              <Select value={selectedCamera.id} onValueChange={(v) => { setSelectedCamera(cameraPresets.find(c => c.id === v) || cameraPresets[0]); setSelectedStyle(null); }}>
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {cameraPresets.map((cam) => (
+                                    <SelectItem key={cam.id} value={cam.id} className="text-xs">
+                                      {cam.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
-                            <Select value={selectedAperture} onValueChange={setSelectedAperture}>
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {apertures.map((ap) => (
-                                  <SelectItem key={ap} value={ap} className="text-xs">
-                                    {ap}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+
+                            {/* Lens */}
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Lens</Label>
+                              <div className="bg-secondary/50 rounded-xl p-3 border border-border/30">
+                                <div className="h-12 flex items-center justify-center mb-2">
+                                  <span className="text-3xl">🔭</span>
+                                </div>
+                                <Badge variant="outline" className="w-full justify-center text-[10px]">
+                                  {selectedLens.type}
+                                </Badge>
+                              </div>
+                              <Select value={selectedLens.id} onValueChange={(v) => { setSelectedLens(lensPresets.find(l => l.id === v) || lensPresets[0]); setSelectedStyle(null); }}>
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {lensPresets.map((lens) => (
+                                    <SelectItem key={lens.id} value={lens.id} className="text-xs">
+                                      {lens.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Focal Length */}
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Focal Length</Label>
+                              <div className="bg-secondary/50 rounded-xl p-3 border border-border/30">
+                                <div className="h-12 flex items-center justify-center mb-2">
+                                  <span className="text-3xl font-bold">{selectedFocalLength}</span>
+                                </div>
+                                <Badge variant="outline" className="w-full justify-center text-[10px]">
+                                  mm
+                                </Badge>
+                              </div>
+                              <Select value={selectedFocalLength} onValueChange={(v) => { setSelectedFocalLength(v); setSelectedStyle(null); }}>
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {focalLengths.map((fl) => (
+                                    <SelectItem key={fl} value={fl} className="text-xs">
+                                      {fl}mm
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Aperture */}
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Aperture</Label>
+                              <div className="bg-secondary/50 rounded-xl p-3 border border-border/30">
+                                <div className="h-12 flex items-center justify-center mb-2">
+                                  <div className="h-10 w-10 rounded-full border-4 border-foreground/60 flex items-center justify-center">
+                                    <div className="h-4 w-4 rounded-full bg-foreground/30" />
+                                  </div>
+                                </div>
+                                <Badge variant="outline" className="w-full justify-center text-[10px]">
+                                  {selectedAperture}
+                                </Badge>
+                              </div>
+                              <Select value={selectedAperture} onValueChange={(v) => { setSelectedAperture(v); setSelectedStyle(null); }}>
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {apertures.map((ap) => (
+                                    <SelectItem key={ap} value={ap} className="text-xs">
+                                      {ap}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
                         </div>
 
