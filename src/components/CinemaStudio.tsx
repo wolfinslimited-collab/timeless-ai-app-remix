@@ -504,46 +504,53 @@ const CinemaStudio = ({
                   )}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-lg">
+              <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
-                  <DialogTitle>Reference Frames</DialogTitle>
+                  <DialogTitle className="text-xl font-semibold">Reference Frames</DialogTitle>
                 </DialogHeader>
                 <p className="text-sm text-muted-foreground">
                   Add up to {MAX_REFERENCE_IMAGES} reference images to guide lighting, style, and character consistency.
                 </p>
-                <div className="grid grid-cols-2 gap-3 py-4">
-                  {referenceImages.map((img, index) => (
-                    <div key={index} className="relative rounded-lg overflow-hidden border border-border/50 aspect-video">
-                      <img src={img} alt={`Reference ${index + 1}`} className="w-full h-full object-cover" />
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-2 right-2 h-6 w-6"
-                        onClick={() => setReferenceImages(referenceImages.filter((_, i) => i !== index))}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                      <Badge className="absolute bottom-2 left-2 text-[10px]" variant="secondary">{index + 1}</Badge>
+                
+                {/* Upload Area */}
+                {referenceImages.length < MAX_REFERENCE_IMAGES && (
+                  <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-primary/40 rounded-xl cursor-pointer bg-primary/5 hover:bg-primary/10 hover:border-primary/60 transition-all mt-4">
+                    <div className="flex flex-col items-center justify-center">
+                      {isUploading && uploadingIndex === referenceImages.length ? (
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      ) : (
+                        <>
+                          <Upload className="h-8 w-8 text-primary mb-2" />
+                          <p className="text-sm text-primary font-medium">Add Frame</p>
+                        </>
+                      )}
                     </div>
-                  ))}
-                  {referenceImages.length < MAX_REFERENCE_IMAGES && (
-                    <label className="flex flex-col items-center justify-center aspect-video border-2 border-dashed border-primary/30 rounded-lg cursor-pointer bg-primary/5 hover:bg-primary/10 transition-colors">
-                      <div className="flex flex-col items-center justify-center">
-                        {isUploading && uploadingIndex === referenceImages.length ? (
-                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                        ) : (
-                          <>
-                            <Upload className="h-6 w-6 text-primary mb-1" />
-                            <p className="text-xs text-primary font-medium">Add Frame</p>
-                          </>
-                        )}
+                    <input type="file" className="hidden" accept="image/*" onChange={(e) => onImageUpload(e, referenceImages.length)} disabled={isUploading || !user} />
+                  </label>
+                )}
+
+                {/* Uploaded Frames Grid */}
+                {referenceImages.length > 0 ? (
+                  <div className="grid grid-cols-4 gap-3 mt-4">
+                    {referenceImages.map((img, index) => (
+                      <div key={index} className="relative rounded-lg overflow-hidden border border-border/50 aspect-square group">
+                        <img src={img} alt={`Reference ${index + 1}`} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => setReferenceImages(referenceImages.filter((_, i) => i !== index))}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <Badge className="absolute bottom-1 left-1 text-[10px] px-1.5" variant="secondary">{index + 1}</Badge>
                       </div>
-                      <input type="file" className="hidden" accept="image/*" onChange={(e) => onImageUpload(e, referenceImages.length)} disabled={isUploading || !user} />
-                    </label>
-                  )}
-                </div>
-                {referenceImages.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center pb-2">No frames added yet.</p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">No frames added yet.</p>
                 )}
               </DialogContent>
             </Dialog>
