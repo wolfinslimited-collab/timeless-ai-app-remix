@@ -199,9 +199,10 @@ const stylePresets: StylePreset[] = [
 interface CinemaStudioProps {
   prompt: string;
   setPrompt: (value: string) => void;
-  startingImage: string | null;
-  setStartingImage: (value: string | null) => void;
+  referenceImages: string[];
+  setReferenceImages: (value: string[]) => void;
   isUploading: boolean;
+  uploadingIndex: number | null;
   isGenerating: boolean;
   generationError: string | null;
   result: { output_url?: string } | null;
@@ -209,7 +210,7 @@ interface CinemaStudioProps {
   hasEnoughCredits: boolean;
   user: any;
   onGenerate: () => void;
-  onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onImageUpload: (e: React.ChangeEvent<HTMLInputElement>, index: number) => void;
   // Cinema-specific state
   selectedMovements: string[];
   setSelectedMovements: (value: string[]) => void;
@@ -221,12 +222,15 @@ interface CinemaStudioProps {
   setModel: (value: string) => void;
 }
 
+const MAX_REFERENCE_IMAGES = 4;
+
 const CinemaStudio = ({
   prompt,
   setPrompt,
-  startingImage,
-  setStartingImage,
+  referenceImages,
+  setReferenceImages,
   isUploading,
+  uploadingIndex,
   isGenerating,
   generationError,
   result,
@@ -625,7 +629,7 @@ const CinemaStudio = ({
                   )}
                 </Button>
 
-                {/* End Frame Button */}
+                {/* Reference Frames Button */}
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button
@@ -633,48 +637,55 @@ const CinemaStudio = ({
                       size="sm"
                       className={cn(
                         "h-8 gap-1.5 border-border/50 bg-secondary/50 hover:bg-secondary",
-                        startingImage && "border-primary/50 bg-primary/10"
+                        referenceImages.length > 0 && "border-primary/50 bg-primary/10"
                       )}
                     >
                       <Plus className="h-3.5 w-3.5" />
-                      {startingImage ? "Frame Set" : "End Frame"}
+                      {referenceImages.length > 0 ? `${referenceImages.length} Frame${referenceImages.length > 1 ? 's' : ''}` : "Frames"}
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-md">
+                  <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
-                      <DialogTitle>Starting Frame</DialogTitle>
+                      <DialogTitle>Reference Frames</DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      {startingImage ? (
-                        <div className="relative rounded-lg overflow-hidden border border-border/50">
+                    <p className="text-sm text-muted-foreground">
+                      Add up to {MAX_REFERENCE_IMAGES} reference images to guide lighting, style, and character consistency.
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 py-4">
+                      {/* Existing images */}
+                      {referenceImages.map((img, index) => (
+                        <div key={index} className="relative rounded-lg overflow-hidden border border-border/50 aspect-video">
                           <img
-                            src={startingImage}
-                            alt="Starting frame"
-                            className="w-full h-48 object-cover"
+                            src={img}
+                            alt={`Reference ${index + 1}`}
+                            className="w-full h-full object-cover"
                           />
                           <Button
                             variant="destructive"
                             size="icon"
-                            className="absolute top-2 right-2 h-8 w-8"
-                            onClick={() => setStartingImage(null)}
+                            className="absolute top-2 right-2 h-6 w-6"
+                            onClick={() => {
+                              setReferenceImages(referenceImages.filter((_, i) => i !== index));
+                            }}
                           >
-                            <X className="h-4 w-4" />
+                            <X className="h-3 w-3" />
                           </Button>
+                          <Badge className="absolute bottom-2 left-2 text-[10px]" variant="secondary">
+                            {index + 1}
+                          </Badge>
                         </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer bg-primary/5 hover:bg-primary/10 transition-colors">
+                      ))}
+                      
+                      {/* Add new image slot */}
+                      {referenceImages.length < MAX_REFERENCE_IMAGES && (
+                        <label className="flex flex-col items-center justify-center aspect-video border-2 border-dashed border-primary/30 rounded-lg cursor-pointer bg-primary/5 hover:bg-primary/10 transition-colors">
                           <div className="flex flex-col items-center justify-center">
-                            {isUploading ? (
-                              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            {isUploading && uploadingIndex === referenceImages.length ? (
+                              <Loader2 className="h-6 w-6 animate-spin text-primary" />
                             ) : (
                               <>
-                                <Upload className="h-8 w-8 text-primary mb-2" />
-                                <p className="text-sm text-primary font-medium">
-                                  Upload starting frame
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  Lock in lighting and character consistency
-                                </p>
+                                <Upload className="h-6 w-6 text-primary mb-1" />
+                                <p className="text-xs text-primary font-medium">Add Frame</p>
                               </>
                             )}
                           </div>
@@ -682,12 +693,17 @@ const CinemaStudio = ({
                             type="file"
                             className="hidden"
                             accept="image/*"
-                            onChange={onImageUpload}
+                            onChange={(e) => onImageUpload(e, referenceImages.length)}
                             disabled={isUploading || !user}
                           />
                         </label>
                       )}
                     </div>
+                    {referenceImages.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center pb-2">
+                        No frames added yet. Upload images to lock in your visual style.
+                      </p>
+                    )}
                   </DialogContent>
                 </Dialog>
               </>
