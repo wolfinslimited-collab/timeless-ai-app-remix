@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.validate-models]
 verify_jwt = false
+
+[functions.image-tools]
+verify_jwt = false

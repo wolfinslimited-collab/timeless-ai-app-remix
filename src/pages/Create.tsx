@@ -5,10 +5,19 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCredits, getModelCost } from "@/hooks/useCredits";
 import { useBackgroundGenerations } from "@/hooks/useBackgroundGenerations";
 import TopMenu from "@/components/TopMenu";
-import AppsSidebar from "@/components/AppsSidebar";
+import AppsSidebar, { AppId } from "@/components/AppsSidebar";
 import BottomNav from "@/components/BottomNav";
 import AudioWaveform from "@/components/AudioWaveform";
 import CinemaStudio from "@/components/CinemaStudio";
+// Tool components
+import UpscaleTool from "@/components/tools/UpscaleTool";
+import BackgroundRemoveTool from "@/components/tools/BackgroundRemoveTool";
+import RelightTool from "@/components/tools/RelightTool";
+import AngleTool from "@/components/tools/AngleTool";
+import SkinEnhancerTool from "@/components/tools/SkinEnhancerTool";
+import ColorizeTool from "@/components/tools/ColorizeTool";
+import StyleTransferTool from "@/components/tools/StyleTransferTool";
+import InpaintingTool from "@/components/tools/InpaintingTool";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -318,6 +327,9 @@ const Create = () => {
   const [movementIntensity, setMovementIntensity] = useState(50);
   const [cinematicDuration, setCinematicDuration] = useState(5);
   
+  // Selected app in sidebar
+  const [selectedApp, setSelectedApp] = useState<AppId>("generate");
+  
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
 
@@ -569,6 +581,7 @@ const Create = () => {
 
   const handleTypeChange = (newType: string) => {
     setType(newType as "image" | "video" | "music" | "cinema");
+    setSelectedApp("generate"); // Reset to generate when switching types
     if (newType === "image") {
       setModel("flux-1.1-pro");
       setAspectRatio("1:1");
@@ -594,6 +607,40 @@ const Create = () => {
       setAudioElement(null);
     }
     setIsAudioPlaying(false);
+  };
+
+  const handleAppSelect = (appId: AppId) => {
+    setSelectedApp(appId);
+  };
+
+  const handleBackToGenerate = () => {
+    setSelectedApp("generate");
+  };
+
+  // Render tool component based on selected app
+  const renderImageTool = () => {
+    switch (selectedApp) {
+      case "upscale":
+        return <UpscaleTool onBack={handleBackToGenerate} />;
+      case "inpainting":
+        return <InpaintingTool onBack={handleBackToGenerate} mode="inpainting" />;
+      case "object-erase":
+        return <InpaintingTool onBack={handleBackToGenerate} mode="object-erase" />;
+      case "relight":
+        return <RelightTool onBack={handleBackToGenerate} />;
+      case "angle":
+        return <AngleTool onBack={handleBackToGenerate} />;
+      case "skin-enhancer":
+        return <SkinEnhancerTool onBack={handleBackToGenerate} />;
+      case "background-remove":
+        return <BackgroundRemoveTool onBack={handleBackToGenerate} />;
+      case "colorize":
+        return <ColorizeTool onBack={handleBackToGenerate} />;
+      case "style-transfer":
+        return <StyleTransferTool onBack={handleBackToGenerate} />;
+      default:
+        return null;
+    }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -696,7 +743,7 @@ const Create = () => {
       <div className="min-h-screen bg-background">
         <TopMenu />
         <div className="flex">
-          <AppsSidebar currentType={type} />
+          <AppsSidebar currentType={type} selectedApp={selectedApp} onSelectApp={handleAppSelect} />
           <main className="flex-1 pb-20 md:pb-0">
             <CinemaStudio
               prompt={prompt}
@@ -728,12 +775,31 @@ const Create = () => {
     );
   }
 
+  // Render image tool if not on "generate"
+  if (type === "image" && selectedApp !== "generate") {
+    const toolComponent = renderImageTool();
+    if (toolComponent) {
+      return (
+        <div className="min-h-screen bg-background">
+          <TopMenu />
+          <div className="flex">
+            <AppsSidebar currentType={type} selectedApp={selectedApp} onSelectApp={handleAppSelect} />
+            <main className="flex-1 pb-20 md:pb-0">
+              {toolComponent}
+            </main>
+          </div>
+          <BottomNav />
+        </div>
+      );
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <TopMenu />
 
       <div className="flex">
-        <AppsSidebar currentType={type} />
+        <AppsSidebar currentType={type} selectedApp={selectedApp} onSelectApp={handleAppSelect} />
 
         <main className="flex-1 pb-20 md:pb-0">
         <div className="max-w-4xl mx-auto p-6">
