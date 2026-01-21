@@ -207,18 +207,16 @@ const TranslateAITool = () => {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-6 border-b border-border/50">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+        <div className="flex flex-col items-center text-center">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
             <Languages className="h-5 w-5 text-primary" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold">Translate AI</h1>
-            <p className="text-muted-foreground text-sm">Translate YouTube video audio to any language</p>
+          <h1 className="text-2xl font-bold">Translate AI</h1>
+          <p className="text-muted-foreground text-sm">Translate YouTube video audio to any language</p>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-sm text-muted-foreground">Cost:</span>
+            <span className="text-sm font-medium text-primary">{creditCost} credits</span>
           </div>
-        </div>
-        <div className="flex items-center gap-2 mt-3">
-          <span className="text-sm text-muted-foreground">Cost:</span>
-          <span className="text-sm font-medium text-primary">{creditCost} credits</span>
         </div>
       </div>
 
