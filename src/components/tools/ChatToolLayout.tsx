@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import ConversationHistory from "./ConversationHistory";
 import ChatMessageSkeleton from "./ChatMessageSkeleton";
+import ModelLogo, { getModelEmoji } from "@/components/ModelLogo";
 
 interface MessageContent {
   type: "text" | "image_url";
@@ -537,9 +538,7 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border/50">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-primary/10 text-2xl">
-              {model.icon}
-            </div>
+            <ModelLogo modelId={model.id} size="lg" />
             <div>
               <h1 className="font-semibold text-lg flex items-center gap-2">
                 {model.name}
@@ -610,7 +609,7 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
                 
                 // Show skeleton for streaming empty assistant message
                 if (isStreamingEmpty && isLastMessage && isLoading) {
-                  return <ChatMessageSkeleton key={message.id} modelIcon={model.icon} />;
+                  return <ChatMessageSkeleton key={message.id} modelId={model.id} />;
                 }
                 
                 return (
@@ -622,11 +621,7 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
                   )}
                 >
                   {message.role === "assistant" && (
-                    <Avatar className="h-8 w-8 shrink-0">
-                      <AvatarFallback className="bg-primary/10 text-lg">
-                        {model.icon}
-                      </AvatarFallback>
-                    </Avatar>
+                    <ModelLogo modelId={model.id} size="md" />
                   )}
                   <div
                     className={cn(
