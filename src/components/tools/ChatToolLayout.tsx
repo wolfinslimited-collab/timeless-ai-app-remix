@@ -1,0 +1,350 @@
+import { useState, useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Send, 
+  Loader2, 
+  Bot, 
+  User, 
+  Copy, 
+  Check,
+  Trash2,
+  Sparkles
+} from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  model?: string;
+  timestamp: Date;
+}
+
+interface ChatModel {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  badge?: string;
+}
+
+interface ChatToolLayoutProps {
+  model: ChatModel;
+}
+
+const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Sign in required",
+        description: "Please sign in to use the chat.",
+      });
+      return;
+    }
+
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: input.trim(),
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInput("");
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: [...messages, userMessage].map(m => ({
+            role: m.role,
+            content: m.content,
+          })),
+          model: model.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        if (response.status === 429) {
+          throw new Error("Rate limit exceeded. Please wait a moment and try again.");
+        }
+        if (response.status === 402) {
+          throw new Error("Credits required. Please add credits to continue.");
+        }
+        throw new Error(errorData?.error || `Error: ${response.status}`);
+      }
+
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      
+      let assistantContent = "";
+      const assistantId = crypto.randomUUID();
+      
+      // Add empty assistant message
+      setMessages(prev => [...prev, {
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        model: model.name,
+        timestamp: new Date(),
+      }]);
+
+      if (reader) {
+        let buffer = "";
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          
+          // Process SSE lines
+          let newlineIndex: number;
+          while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+            let line = buffer.slice(0, newlineIndex);
+            buffer = buffer.slice(newlineIndex + 1);
+
+            if (line.endsWith("\r")) line = line.slice(0, -1);
+            if (line.startsWith(":") || line.trim() === "") continue;
+            if (!line.startsWith("data: ")) continue;
+
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === "[DONE]") break;
+
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+              if (content) {
+                assistantContent += content;
+                setMessages(prev => 
+                  prev.map(m => 
+                    m.id === assistantId 
+                      ? { ...m, content: assistantContent }
+                      : m
+                  )
+                );
+              }
+            } catch {
+              // Incomplete JSON, will retry with more data
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error("Chat error:", error);
+      toast({
+        variant: "destructive",
+        title: "Chat failed",
+        description: error.message || "Something went wrong.",
+      });
+      // Remove the user message if there was an error
+      setMessages(prev => prev.slice(0, -1));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const copyToClipboard = async (text: string, id: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const clearChat = () => {
+    setMessages([]);
+  };
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-border/50">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-primary/10 text-2xl">
+            {model.icon}
+          </div>
+          <div>
+            <h1 className="font-semibold text-lg flex items-center gap-2">
+              {model.name}
+              {model.badge && (
+                <Badge variant="secondary" className="text-xs">{model.badge}</Badge>
+              )}
+            </h1>
+            <p className="text-sm text-muted-foreground">{model.description}</p>
+          </div>
+        </div>
+        {messages.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={clearChat}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Clear
+          </Button>
+        )}
+      </div>
+
+      {/* Messages */}
+      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <div className="text-6xl mb-4">{model.icon}</div>
+            <h2 className="text-xl font-semibold mb-2">Chat with {model.name}</h2>
+            <p className="text-muted-foreground max-w-md">
+              Start a conversation with one of the most advanced AI models. Ask questions, get creative ideas, or have a discussion.
+            </p>
+            <div className="flex flex-wrap gap-2 mt-6 justify-center max-w-lg">
+              {[
+                "Explain quantum computing",
+                "Write a poem about space",
+                "Help me brainstorm ideas",
+                "Summarize a complex topic",
+              ].map((suggestion) => (
+                <Button
+                  key={suggestion}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setInput(suggestion)}
+                >
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  {suggestion}
+                </Button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={cn(
+                  "flex gap-3",
+                  message.role === "user" ? "justify-end" : "justify-start"
+                )}
+              >
+                {message.role === "assistant" && (
+                  <Avatar className="h-8 w-8 shrink-0">
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      <Bot className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+                <div
+                  className={cn(
+                    "max-w-[80%] rounded-2xl px-4 py-2.5",
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary/50"
+                  )}
+                >
+                  <div className="whitespace-pre-wrap break-words text-sm">
+                    {message.content || (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    )}
+                  </div>
+                  {message.role === "assistant" && message.content && (
+                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/30">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => copyToClipboard(message.content, message.id)}
+                      >
+                        {copiedId === message.id ? (
+                          <Check className="h-3 w-3" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </Button>
+                      {message.model && (
+                        <span className="text-xs text-muted-foreground">
+                          {message.model}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {message.role === "user" && (
+                  <Avatar className="h-8 w-8 shrink-0">
+                    <AvatarFallback className="bg-secondary">
+                      <User className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+
+      {/* Input */}
+      <div className="p-4 border-t border-border/50">
+        <div className="flex gap-2">
+          <Textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={`Message ${model.name}...`}
+            className="min-h-[48px] max-h-[200px] resize-none"
+            disabled={isLoading}
+          />
+          <Button
+            onClick={handleSend}
+            disabled={!input.trim() || isLoading}
+            size="icon"
+            className="h-12 w-12 shrink-0"
+          >
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Send className="h-5 w-5" />
+            )}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground text-center mt-2">
+          AI can make mistakes. Consider checking important information.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default ChatToolLayout;

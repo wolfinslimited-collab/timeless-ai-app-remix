@@ -39,6 +39,7 @@ const TopMenu = () => {
   const location = useLocation();
 
   const navItems = [
+    { label: "Chat", path: "/create?type=chat" },
     { label: "Image", path: "/create?type=image" },
     { label: "Video", path: "/create?type=video" },
     { label: "Music", path: "/create?type=music" },
