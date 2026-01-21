@@ -85,7 +85,8 @@ import {
   Camera,
   Focus,
   Film,
-  Move3d
+  Move3d,
+  Star
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
@@ -1461,10 +1462,25 @@ const Create = () => {
                     </SelectTrigger>
                     <SelectContent className="bg-popover border-border">
                       {currentModels.map((m) => (
-                        <SelectItem key={m.id} value={m.id}>
+                        <SelectItem 
+                          key={m.id} 
+                          value={m.id}
+                          className={cn(
+                            m.badge === "TOP" && "relative bg-gradient-to-r from-primary/5 to-amber-500/5"
+                          )}
+                        >
                           <div className="flex items-center gap-2">
-                            <Zap className="h-4 w-4 text-primary" />
-                            <span>{m.name}</span>
+                            {m.badge === "TOP" ? (
+                              <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                            ) : (
+                              <Zap className="h-4 w-4 text-primary" />
+                            )}
+                            <span className={cn(m.badge === "TOP" && "font-medium")}>{m.name}</span>
+                            {m.badge === "TOP" && (
+                              <Badge className="ml-1 text-[10px] px-1.5 py-0 bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0">
+                                TOP
+                              </Badge>
+                            )}
                             <Badge variant="outline" className="ml-1 text-xs px-1.5 py-0">
                               {m.credits}
                             </Badge>
