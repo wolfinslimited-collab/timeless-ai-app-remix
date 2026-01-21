@@ -4,10 +4,8 @@ import {
   Wand2, 
   Brush, 
   Sparkles, 
-  Scissors, 
   ArrowUpCircle, 
   Mic,
-  User,
   ChevronRight
 } from "lucide-react";
 import ToolCard from "./ToolCard";
@@ -21,7 +19,7 @@ const tools = [
     icon: <Image className="h-6 w-6 text-emerald-400" />,
     badge: "top" as const,
     gradient: "bg-emerald-500/20",
-    action: "image",
+    action: "/create?type=image",
   },
   {
     title: "Create Video",
@@ -29,7 +27,7 @@ const tools = [
     icon: <Video className="h-6 w-6 text-blue-400" />,
     badge: "top" as const,
     gradient: "bg-blue-500/20",
-    action: "video",
+    action: "/create?type=video",
   },
   {
     title: "Create Music",
@@ -37,54 +35,44 @@ const tools = [
     icon: <Mic className="h-6 w-6 text-orange-400" />,
     badge: "new" as const,
     gradient: "bg-orange-500/20",
-    action: "music",
+    action: "/create?type=music",
   },
   {
-    title: "Motion Control",
-    description: "Precise control of character actions up to 30 seconds",
+    title: "Cinema Studio",
+    description: "Professional cinematic video creation",
     icon: <Wand2 className="h-6 w-6 text-purple-400" />,
     badge: "new" as const,
     gradient: "bg-purple-500/20",
-  },
-  {
-    title: "Edit Image",
-    description: "Brush areas to edit images with AI",
-    icon: <Brush className="h-6 w-6 text-pink-400" />,
-    gradient: "bg-pink-500/20",
-  },
-  {
-    title: "Nano Banana Pro",
-    description: "Best 4K image model ever",
-    icon: <Sparkles className="h-6 w-6 text-amber-400" />,
-    badge: "unlimited" as const,
-    gradient: "bg-amber-500/20",
-    action: "image",
-  },
-  {
-    title: "Kling Video Edit",
-    description: "Advanced video editing with AI",
-    icon: <Scissors className="h-6 w-6 text-cyan-400" />,
-    badge: "pro" as const,
-    gradient: "bg-cyan-500/20",
+    action: "/create?type=cinema",
   },
   {
     title: "Upscale",
     description: "Enhance media quality to 4K",
     icon: <ArrowUpCircle className="h-6 w-6 text-indigo-400" />,
     gradient: "bg-indigo-500/20",
+    action: "/create?type=image&app=upscale",
+  },
+  {
+    title: "Inpainting",
+    description: "Brush areas to edit images with AI",
+    icon: <Brush className="h-6 w-6 text-pink-400" />,
+    gradient: "bg-pink-500/20",
+    action: "/create?type=image&app=inpainting",
   },
   {
     title: "Lipsync Studio",
     description: "Create talking clips with AI",
     icon: <Mic className="h-6 w-6 text-rose-400" />,
     gradient: "bg-rose-500/20",
+    action: "/create?type=video&app=lipsync",
   },
   {
-    title: "Soul ID",
-    description: "Create unique AI characters",
-    icon: <User className="h-6 w-6 text-teal-400" />,
-    badge: "new" as const,
-    gradient: "bg-teal-500/20",
+    title: "AI Chat",
+    description: "Chat with powerful AI models",
+    icon: <Sparkles className="h-6 w-6 text-amber-400" />,
+    badge: "top" as const,
+    gradient: "bg-amber-500/20",
+    action: "/create?type=chat",
   },
 ];
 
@@ -93,7 +81,7 @@ const ToolsGrid = () => {
 
   const handleToolClick = (action?: string) => {
     if (action) {
-      navigate(`/create?type=${action}`);
+      navigate(action);
     }
   };
 
