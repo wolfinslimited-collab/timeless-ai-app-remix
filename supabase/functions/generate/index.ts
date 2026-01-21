@@ -400,7 +400,96 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, negativePrompt, type, model, aspectRatio = "1:1", quality = "720p", imageUrl, stream = false, background = false, lyrics, instrumental, vocalGender, weirdness, styleInfluence, duration: musicDuration } = await req.json();
+    const { 
+      prompt: rawPrompt, 
+      negativePrompt, 
+      type, 
+      model, 
+      aspectRatio = "1:1", 
+      quality = "720p", 
+      imageUrl, 
+      stream = false, 
+      background = false, 
+      lyrics, 
+      instrumental, 
+      vocalGender, 
+      weirdness, 
+      styleInfluence, 
+      duration: musicDuration,
+      // Cinema Studio parameters
+      cameraMovements = [],
+      shotType,
+      cameraSensor,
+      lensType,
+      movementIntensity,
+      duration: cinemaDuration,
+    } = await req.json();
+    
+    // Build enhanced prompt for cinema mode
+    let prompt = rawPrompt;
+    if (cameraMovements && cameraMovements.length > 0) {
+      const movementLabels: Record<string, string> = {
+        "static": "static camera",
+        "dolly-in": "smooth dolly in toward subject",
+        "dolly-out": "smooth dolly out from subject",
+        "pan-left": "pan left",
+        "pan-right": "pan right",
+        "tilt-up": "tilt up",
+        "tilt-down": "tilt down",
+        "zoom-in": "zoom in",
+        "zoom-out": "zoom out",
+        "crash-zoom": "dramatic crash zoom",
+        "dolly-zoom": "vertigo dolly zoom effect",
+        "tracking-left": "tracking shot moving left",
+        "tracking-right": "tracking shot moving right",
+        "arc-left": "arc around subject to the left",
+        "arc-right": "arc around subject to the right",
+        "crane-up": "crane shot moving up",
+        "crane-down": "crane shot moving down",
+        "handheld": "handheld camera with natural shake",
+        "360-orbit": "360 degree orbit around subject",
+        "fpv-drone": "FPV drone sweep",
+        "bullet-time": "bullet time frozen spin effect",
+      };
+      
+      const shotLabels: Record<string, string> = {
+        "extreme-wide": "extreme wide shot",
+        "wide": "wide shot",
+        "medium-wide": "medium wide shot",
+        "medium": "medium shot",
+        "medium-close": "medium close-up",
+        "close-up": "close-up",
+        "extreme-close": "extreme close-up",
+      };
+      
+      const sensorLabels: Record<string, string> = {
+        "digital-cinema": "shot on digital cinema camera",
+        "arri-alexa": "shot on ARRI Alexa 35",
+        "red-komodo": "shot on RED Komodo",
+        "film-35mm": "shot on 35mm film with grain",
+        "film-16mm": "shot on 16mm film with heavy grain",
+        "vhs": "VHS aesthetic with analog artifacts",
+      };
+      
+      const lensLabels: Record<string, string> = {
+        "12mm": "12mm ultra wide lens",
+        "24mm": "24mm wide lens",
+        "35mm": "35mm standard lens",
+        "50mm": "50mm lens",
+        "85mm": "85mm portrait lens with bokeh",
+        "135mm": "135mm telephoto with compression",
+      };
+      
+      // Build cinematic prompt enhancement
+      const movements = cameraMovements.map((m: string) => movementLabels[m] || m).join(", then ");
+      const shot = shotLabels[shotType] || "medium shot";
+      const sensor = sensorLabels[cameraSensor] || "";
+      const lens = lensLabels[lensType] || "";
+      const intensityDesc = movementIntensity > 70 ? "dramatic" : movementIntensity > 40 ? "smooth" : "subtle";
+      
+      prompt = `Cinematic ${shot}, ${intensityDesc} camera movement: ${movements}. ${lens}. ${sensor}. ${rawPrompt}`;
+      console.log(`Cinema prompt enhanced: ${prompt}`);
+    }
 
     // SSE streaming response for real-time progress (video)
     if (stream && type === "video") {

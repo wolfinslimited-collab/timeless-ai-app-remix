@@ -36,6 +36,12 @@ export const MODEL_CREDITS: Record<string, number> = {
   "cassetteai": 10,
   "lyria2": 12,
   "stable-audio": 8,
+
+  // Cinema Studio models
+  "wan-2.6-cinema": 20,
+  "kling-2.6-cinema": 30,
+  "veo-3-cinema": 35,
+  "luma-cinema": 28,
 };
 
 // Legacy type-based costs (fallback)
@@ -43,6 +49,7 @@ export const CREDIT_COSTS = {
   image: 5,
   video: 15,
   music: 10,
+  cinema: 25,
 } as const;
 
 // Quality multipliers for video
