@@ -26,10 +26,12 @@ const VoiceInputWaveform = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isSpeechActive, setIsSpeechActive] = useState(false);
   
   // Smoothed values for interpolation
   const smoothedDataRef = useRef<number[]>([]);
   const timeRef = useRef(0);
+  const speechActiveRef = useRef(false);
 
   // Initialize audio context and microphone stream
   const initializeAudio = useCallback(async () => {
@@ -220,6 +222,14 @@ const VoiceInputWaveform = ({
 
       // Draw center line
       const avgValue = smoothedDataRef.current.reduce((a, b) => a + b, 0) / numBars;
+      
+      // Update speech active state based on audio levels
+      const isSpeaking = avgValue > 0.15;
+      if (isSpeaking !== speechActiveRef.current) {
+        speechActiveRef.current = isSpeaking;
+        setIsSpeechActive(isSpeaking);
+      }
+      
       if (avgValue < 0.15) {
         const lineAlpha = 0.15 + Math.sin(timeRef.current * 3) * 0.05;
         ctx.strokeStyle = `hsla(${foregroundCsv}, ${lineAlpha})`;
@@ -289,7 +299,10 @@ const VoiceInputWaveform = ({
         {/* Confirm button */}
         <Button
           size="icon"
-          className="h-10 w-10 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 shadow-md"
+          className={cn(
+            "h-10 w-10 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 shadow-md",
+            isSpeechActive && "animate-pulse ring-2 ring-primary/50 ring-offset-2 ring-offset-secondary"
+          )}
           onClick={onConfirm}
         >
           <Check className="h-5 w-5" />
