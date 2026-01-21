@@ -92,6 +92,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -1330,13 +1331,13 @@ const Create = () => {
                     className="min-h-[140px] bg-secondary border-border/50 resize-none text-base"
                   />
                   
-                  {/* Quick templates inline */}
+                  {/* Quick templates inline with popover for more */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs text-muted-foreground flex items-center gap-1">
                       <Lightbulb className="h-3 w-3" />
                       Try:
                     </span>
-                    {currentTemplates.slice(0, 4).map((template) => (
+                    {currentTemplates.slice(0, 3).map((template) => (
                       <Button
                         key={template.label}
                         type="button"
@@ -1348,6 +1349,40 @@ const Create = () => {
                         {template.label}
                       </Button>
                     ))}
+                    {currentTemplates.length > 3 && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-primary/10"
+                          >
+                            +{currentTemplates.length - 3} more
+                            <ChevronDown className="h-3 w-3 ml-1" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-2 bg-popover border-border" align="start">
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground px-2 py-1">
+                              All Templates
+                            </p>
+                            {currentTemplates.map((template) => (
+                              <Button
+                                key={template.label}
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setPrompt(template.prompt)}
+                                className="w-full justify-start h-8 px-2 text-sm hover:bg-primary/10"
+                              >
+                                {template.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    )}
                   </div>
                 </div>
 
