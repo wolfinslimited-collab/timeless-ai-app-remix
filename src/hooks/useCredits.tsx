@@ -42,6 +42,20 @@ export const MODEL_CREDITS: Record<string, number> = {
   "kling-2.6-cinema": 30,
   "veo-3-cinema": 35,
   "luma-cinema": 28,
+
+  // Chat models
+  "grok-3": 3,
+  "grok-3-mini": 1,
+  "chatgpt-5.2": 4,
+  "chatgpt-5": 3,
+  "chatgpt-5-mini": 1,
+  "gemini-2.5-pro": 2,
+  "gemini-3-pro": 3,
+  "gemini-3-flash": 1,
+  "deepseek-r1": 3,
+  "deepseek-v3": 2,
+  "llama-3.3": 1,
+  "llama-3.3-large": 2,
 };
 
 // Legacy type-based costs (fallback)
