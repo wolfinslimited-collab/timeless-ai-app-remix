@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits, getModelCost } from "@/hooks/useCredits";
@@ -18,7 +18,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -275,9 +275,20 @@ const Create = () => {
     hasPending 
   } = useBackgroundGenerations();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   
-  const [type, setType] = useState<"image" | "video" | "music" | "cinema">("image");
+  // Read type from URL params
+  const urlType = searchParams.get("type") as "image" | "video" | "music" | "cinema" | null;
+  const [type, setType] = useState<"image" | "video" | "music" | "cinema">(urlType || "image");
+  
+  // Sync type with URL params
+  useEffect(() => {
+    const newType = searchParams.get("type") as "image" | "video" | "music" | "cinema" | null;
+    if (newType && newType !== type) {
+      handleTypeChange(newType);
+    }
+  }, [searchParams]);
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [model, setModel] = useState("flux-1.1-pro");
@@ -791,39 +802,6 @@ const Create = () => {
             </p>
           </div>
 
-          {/* Type Selector */}
-          <Tabs value={type} onValueChange={handleTypeChange} className="mb-6">
-            <TabsList className="grid w-full grid-cols-4 max-w-2xl mx-auto">
-              <TabsTrigger value="image" className="gap-2">
-                <Image className="h-4 w-4" />
-                <span className="hidden sm:inline">Image</span>
-                <Badge variant="secondary" className="ml-1 text-xs hidden md:inline-flex">
-                  2-10
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="video" className="gap-2">
-                <Video className="h-4 w-4" />
-                <span className="hidden sm:inline">Video</span>
-                <Badge variant="secondary" className="ml-1 text-xs hidden md:inline-flex">
-                  8-30
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="music" className="gap-2">
-                <Music className="h-4 w-4" />
-                <span className="hidden sm:inline">Music</span>
-                <Badge variant="secondary" className="ml-1 text-xs hidden md:inline-flex">
-                  8-15
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="cinema" className="gap-2">
-                <Clapperboard className="h-4 w-4" />
-                <span className="hidden sm:inline">Cinema</span>
-                <Badge variant="secondary" className="ml-1 text-xs hidden md:inline-flex">
-                  20-35
-                </Badge>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
 
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Input Panel */}
