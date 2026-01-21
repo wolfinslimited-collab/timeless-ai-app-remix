@@ -2045,7 +2045,7 @@ const Create = () => {
                         <p className="text-xs">Generate your first video above!</p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 gap-4">
                         {userVideos.slice(0, 6).map((video) => (
                           <GenerationCard
                             key={video.id}
