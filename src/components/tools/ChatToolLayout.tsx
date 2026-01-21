@@ -17,7 +17,9 @@ import {
   ImagePlus,
   X,
   Globe,
-  Coins
+  Coins,
+  Mic,
+  MicOff
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -30,6 +32,50 @@ import ConversationHistory from "./ConversationHistory";
 import ChatMessageSkeleton from "./ChatMessageSkeleton";
 import ModelLogo, { getModelEmoji } from "@/components/ModelLogo";
 import CodeBlock from "./CodeBlock";
+
+// Web Speech API types
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: Event) => void) | null;
+  onend: (() => void) | null;
+  onstart: (() => void) | null;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
+  }
+}
 
 interface MessageContent {
   type: "text" | "image_url";
@@ -81,12 +127,97 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const supportsVision = VISION_MODELS.includes(model.id);
+  
+  // Check if browser supports speech recognition
+  const speechRecognitionSupported = typeof window !== 'undefined' && 
+    (window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (speechRecognitionSupported) {
+      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognitionAPI();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = 'en-US';
+
+      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+        let finalTranscript = '';
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        if (finalTranscript) {
+          setInput(prev => prev + finalTranscript);
+        } else if (interimTranscript) {
+          // Show interim results in a different way if needed
+        }
+      };
+
+      recognitionRef.current.onerror = (event) => {
+        console.error('Speech recognition error:', event);
+        setIsListening(false);
+        toast({
+          variant: "destructive",
+          title: "Voice input error",
+          description: "Could not recognize speech. Please try again.",
+        });
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+    };
+  }, [speechRecognitionSupported, toast]);
+
+  const toggleVoiceInput = useCallback(() => {
+    if (!speechRecognitionSupported) {
+      toast({
+        variant: "destructive",
+        title: "Not supported",
+        description: "Voice input is not supported in your browser.",
+      });
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current?.start();
+        setIsListening(true);
+      } catch (error) {
+        console.error('Error starting speech recognition:', error);
+        toast({
+          variant: "destructive",
+          title: "Microphone error",
+          description: "Please allow microphone access to use voice input.",
+        });
+      }
+    }
+  }, [isListening, speechRecognitionSupported, toast]);
 
   // Reset conversation when model changes
   useEffect(() => {
@@ -848,16 +979,44 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            {/* Voice Input Button */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={isListening ? "default" : "outline"}
+                    size="icon"
+                    className={cn(
+                      "h-12 w-12 shrink-0 transition-colors",
+                      isListening && "bg-destructive hover:bg-destructive/90 animate-pulse"
+                    )}
+                    onClick={toggleVoiceInput}
+                    disabled={isLoading}
+                  >
+                    {isListening ? (
+                      <MicOff className="h-5 w-5" />
+                    ) : (
+                      <Mic className="h-5 w-5" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isListening ? "Stop listening" : "Voice input"}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <Textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={webSearchEnabled 
-                ? `Search the web: Bitcoin price, latest news...` 
-                : (supportsVision 
-                  ? `Message ${model.name} or share an image...` 
-                  : `Message ${model.name}...`)
+              placeholder={isListening 
+                ? "Listening..." 
+                : (webSearchEnabled 
+                  ? `Search the web: Bitcoin price, latest news...` 
+                  : (supportsVision 
+                    ? `Message ${model.name} or share an image...` 
+                    : `Message ${model.name}...`))
               }
               className="min-h-[48px] max-h-[200px] resize-none"
               disabled={isLoading}
