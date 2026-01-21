@@ -36,9 +36,10 @@ const MODEL_CONFIG: Record<string, {
   "grok-3-mini": { logo: xLogo, bgColor: "bg-white dark:bg-white", invert: false },
   
   // ChatGPT/OpenAI models - OpenAI logo
-  "chatgpt-5.2": { logo: openaiLogo, bgColor: "bg-black dark:bg-white" },
-  "chatgpt-5": { logo: openaiLogo, bgColor: "bg-black dark:bg-white" },
-  "chatgpt-5-mini": { logo: openaiLogo, bgColor: "bg-black dark:bg-white" },
+  // NOTE: The OpenAI SVG is black by default; invert it so it stays visible on dark backgrounds.
+  "chatgpt-5.2": { logo: openaiLogo, bgColor: "bg-black dark:bg-white", invert: true },
+  "chatgpt-5": { logo: openaiLogo, bgColor: "bg-black dark:bg-white", invert: true },
+  "chatgpt-5-mini": { logo: openaiLogo, bgColor: "bg-black dark:bg-white", invert: true },
   
   // Gemini models - Google Gemini logo
   "gemini-3-pro": { logo: geminiLogo, bgColor: "bg-white dark:bg-slate-800" },
@@ -56,7 +57,7 @@ const MODEL_CONFIG: Record<string, {
 
 const ModelLogo = ({ modelId, size = "md", className }: ModelLogoProps) => {
   const config = MODEL_CONFIG[modelId] || { logo: openaiLogo, bgColor: "bg-primary/10" };
-  const { logo, bgColor } = config;
+  const { logo, bgColor, invert } = config;
   
   return (
     <div
@@ -72,7 +73,8 @@ const ModelLogo = ({ modelId, size = "md", className }: ModelLogoProps) => {
         alt={`${modelId} logo`}
         className={cn(
           "object-contain",
-          iconSizeClasses[size]
+          iconSizeClasses[size],
+          invert && "invert"
         )}
       />
     </div>
