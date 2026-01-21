@@ -16,6 +16,7 @@ import {
   LogIn,
   CreditCard
 } from "lucide-react";
+import logo from "@/assets/logo.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -61,9 +62,7 @@ const TopMenu = () => {
             onClick={() => navigate("/")}
             className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-primary">
-              <Sparkles className="h-5 w-5 text-primary-foreground" />
-            </div>
+            <img src={logo} alt="Timeless logo" className="h-9 w-9 object-contain" />
             <span className="text-xl font-bold hidden sm:block">Timeless</span>
           </button>
 
