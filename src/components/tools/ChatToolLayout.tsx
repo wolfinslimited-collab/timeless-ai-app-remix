@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -20,6 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import ConversationHistory from "./ConversationHistory";
 
 interface MessageContent {
   type: "text" | "image_url";
@@ -33,7 +34,7 @@ interface Message {
   content: string | MessageContent[];
   model?: string;
   timestamp: Date;
-  images?: string[]; // For display purposes
+  images?: string[];
 }
 
 interface ChatModel {
@@ -48,7 +49,6 @@ interface ChatToolLayoutProps {
   model: ChatModel;
 }
 
-// Models that support vision/images
 const VISION_MODELS = [
   "gemini-2.5-pro",
   "gemini-3-pro", 
@@ -67,11 +67,19 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [pendingImages, setPendingImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const supportsVision = VISION_MODELS.includes(model.id);
+
+  // Reset conversation when model changes
+  useEffect(() => {
+    setConversationId(null);
+    setMessages([]);
+  }, [model.id]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -79,6 +87,105 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const loadConversation = useCallback(async (id: string) => {
+    if (!user) return;
+
+    setIsLoadingConversation(true);
+    try {
+      const { data: messagesData, error } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("conversation_id", id)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      const loadedMessages: Message[] = (messagesData || []).map((m) => ({
+        id: m.id,
+        role: m.role as "user" | "assistant",
+        content: m.content as string | MessageContent[],
+        timestamp: new Date(m.created_at),
+        images: m.images || undefined,
+      }));
+
+      setMessages(loadedMessages);
+      setConversationId(id);
+    } catch (error) {
+      console.error("Failed to load conversation:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to load conversation",
+        description: "Please try again.",
+      });
+    } finally {
+      setIsLoadingConversation(false);
+    }
+  }, [user, toast]);
+
+  const createConversation = async (firstMessage: string): Promise<string | null> => {
+    if (!user) return null;
+
+    try {
+      // Generate title from first message (first 50 chars)
+      const title = firstMessage.slice(0, 50) + (firstMessage.length > 50 ? "..." : "");
+
+      const { data, error } = await supabase
+        .from("conversations")
+        .insert({
+          user_id: user.id,
+          model: model.id,
+          title,
+        })
+        .select("id")
+        .single();
+
+      if (error) throw error;
+      return data.id;
+    } catch (error) {
+      console.error("Failed to create conversation:", error);
+      return null;
+    }
+  };
+
+  const saveMessage = async (
+    convId: string,
+    role: "user" | "assistant",
+    content: string | MessageContent[],
+    images?: string[]
+  ) => {
+    try {
+      await supabase.from("chat_messages").insert({
+        conversation_id: convId,
+        role,
+        content: content as any,
+        images: images || [],
+      });
+
+      // Update conversation's updated_at
+      await supabase
+        .from("conversations")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", convId);
+    } catch (error) {
+      console.error("Failed to save message:", error);
+    }
+  };
+
+  const handleSelectConversation = (id: string | null) => {
+    if (id) {
+      loadConversation(id);
+    } else {
+      handleNewConversation();
+    }
+  };
+
+  const handleNewConversation = () => {
+    setConversationId(null);
+    setMessages([]);
+    setPendingImages([]);
+    setInput("");
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -158,28 +265,21 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
     // Build message content
     let messageContent: string | MessageContent[];
     const displayImages = [...pendingImages];
+    const textContent = input.trim();
     
     if (pendingImages.length > 0) {
-      // Multimodal message with images
       messageContent = [];
-      
-      // Add images first
       for (const imageUrl of pendingImages) {
         messageContent.push({
           type: "image_url",
           image_url: { url: imageUrl }
         });
       }
-      
-      // Add text if present
-      if (input.trim()) {
-        messageContent.push({
-          type: "text",
-          text: input.trim()
-        });
+      if (textContent) {
+        messageContent.push({ type: "text", text: textContent });
       }
     } else {
-      messageContent = input.trim();
+      messageContent = textContent;
     }
 
     const userMessage: Message = {
@@ -195,8 +295,22 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
     setPendingImages([]);
     setIsLoading(true);
 
+    // Create conversation if needed
+    let currentConvId = conversationId;
+    if (!currentConvId) {
+      const firstMessageText = textContent || "Image conversation";
+      currentConvId = await createConversation(firstMessageText);
+      if (currentConvId) {
+        setConversationId(currentConvId);
+      }
+    }
+
+    // Save user message
+    if (currentConvId) {
+      await saveMessage(currentConvId, "user", messageContent, displayImages);
+    }
+
     try {
-      // Format messages for API
       const apiMessages = [...messages, userMessage].map(m => ({
         role: m.role,
         content: m.content,
@@ -225,14 +339,12 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
         throw new Error(errorData?.error || `Error: ${response.status}`);
       }
 
-      // Handle streaming response
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       
       let assistantContent = "";
       const assistantId = crypto.randomUUID();
       
-      // Add empty assistant message
       setMessages(prev => [...prev, {
         id: assistantId,
         role: "assistant",
@@ -250,7 +362,6 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
 
           buffer += decoder.decode(value, { stream: true });
           
-          // Process SSE lines
           let newlineIndex: number;
           while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
             let line = buffer.slice(0, newlineIndex);
@@ -277,10 +388,15 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
                 );
               }
             } catch {
-              // Incomplete JSON, will retry with more data
+              // Incomplete JSON
             }
           }
         }
+      }
+
+      // Save assistant message
+      if (currentConvId && assistantContent) {
+        await saveMessage(currentConvId, "assistant", assistantContent);
       }
     } catch (error: any) {
       console.error("Chat error:", error);
@@ -289,7 +405,6 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
         title: "Chat failed",
         description: error.message || "Something went wrong.",
       });
-      // Remove the user message if there was an error
       setMessages(prev => prev.slice(0, -1));
     } finally {
       setIsLoading(false);
@@ -309,16 +424,21 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const clearChat = () => {
-    setMessages([]);
-    setPendingImages([]);
+  const clearChat = async () => {
+    if (conversationId) {
+      try {
+        await supabase.from("conversations").delete().eq("id", conversationId);
+      } catch (error) {
+        console.error("Failed to delete conversation:", error);
+      }
+    }
+    handleNewConversation();
   };
 
   const getDisplayContent = (message: Message): string => {
     if (typeof message.content === "string") {
       return message.content;
     }
-    // Extract text from content array
     const textParts = message.content
       .filter(c => c.type === "text")
       .map(c => c.text)
@@ -327,229 +447,242 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border/50">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-primary/10 text-2xl">
-            {model.icon}
-          </div>
-          <div>
-            <h1 className="font-semibold text-lg flex items-center gap-2">
-              {model.name}
-              {model.badge && (
-                <Badge variant="secondary" className="text-xs">{model.badge}</Badge>
-              )}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {model.description}
-              {supportsVision && (
-                <span className="ml-2 text-primary">• Supports images</span>
-              )}
-            </p>
-          </div>
-        </div>
-        {messages.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={clearChat}>
-            <Trash2 className="h-4 w-4 mr-2" />
-            Clear
-          </Button>
-        )}
-      </div>
+    <div className="flex h-[calc(100vh-4rem)]">
+      {/* Conversation History Sidebar */}
+      <ConversationHistory
+        currentConversationId={conversationId}
+        currentModel={model.id}
+        onSelectConversation={handleSelectConversation}
+        onNewConversation={handleNewConversation}
+      />
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="text-6xl mb-4">{model.icon}</div>
-            <h2 className="text-xl font-semibold mb-2">Chat with {model.name}</h2>
-            <p className="text-muted-foreground max-w-md">
-              Start a conversation with one of the most advanced AI models. 
-              {supportsVision && " You can also share images for visual analysis."}
-            </p>
-            <div className="flex flex-wrap gap-2 mt-6 justify-center max-w-lg">
-              {(supportsVision ? [
-                "Analyze this image",
-                "Describe what you see",
-                "Help me brainstorm ideas",
-                "Explain a concept",
-              ] : [
-                "Explain quantum computing",
-                "Write a poem about space",
-                "Help me brainstorm ideas",
-                "Summarize a complex topic",
-              ]).map((suggestion) => (
-                <Button
-                  key={suggestion}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => setInput(suggestion)}
+      {/* Main Chat Area */}
+      <div className="flex flex-col flex-1 max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border/50">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-primary/10 text-2xl">
+              {model.icon}
+            </div>
+            <div>
+              <h1 className="font-semibold text-lg flex items-center gap-2">
+                {model.name}
+                {model.badge && (
+                  <Badge variant="secondary" className="text-xs">{model.badge}</Badge>
+                )}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {model.description}
+                {supportsVision && (
+                  <span className="ml-2 text-primary">• Supports images</span>
+                )}
+              </p>
+            </div>
+          </div>
+          {messages.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearChat}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clear
+            </Button>
+          )}
+        </div>
+
+        {/* Messages */}
+        <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+          {isLoadingConversation ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <div className="text-6xl mb-4">{model.icon}</div>
+              <h2 className="text-xl font-semibold mb-2">Chat with {model.name}</h2>
+              <p className="text-muted-foreground max-w-md">
+                Start a conversation with one of the most advanced AI models. 
+                {supportsVision && " You can also share images for visual analysis."}
+              </p>
+              <div className="flex flex-wrap gap-2 mt-6 justify-center max-w-lg">
+                {(supportsVision ? [
+                  "Analyze this image",
+                  "Describe what you see",
+                  "Help me brainstorm ideas",
+                  "Explain a concept",
+                ] : [
+                  "Explain quantum computing",
+                  "Write a poem about space",
+                  "Help me brainstorm ideas",
+                  "Summarize a complex topic",
+                ]).map((suggestion) => (
+                  <Button
+                    key={suggestion}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => setInput(suggestion)}
+                  >
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    {suggestion}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={cn(
+                    "flex gap-3",
+                    message.role === "user" ? "justify-end" : "justify-start"
+                  )}
                 >
-                  <Sparkles className="h-3 w-3 mr-1" />
-                  {suggestion}
-                </Button>
+                  {message.role === "assistant" && (
+                    <Avatar className="h-8 w-8 shrink-0">
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        <Bot className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  <div
+                    className={cn(
+                      "max-w-[80%] rounded-2xl px-4 py-2.5",
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary/50"
+                    )}
+                  >
+                    {message.images && message.images.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {message.images.map((img, idx) => (
+                          <img
+                            key={idx}
+                            src={img}
+                            alt={`Uploaded ${idx + 1}`}
+                            className="max-w-[200px] max-h-[200px] rounded-lg object-cover"
+                          />
+                        ))}
+                      </div>
+                    )}
+                    <div className="whitespace-pre-wrap break-words text-sm">
+                      {getDisplayContent(message) || (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+                    </div>
+                    {message.role === "assistant" && getDisplayContent(message) && (
+                      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/30">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => copyToClipboard(getDisplayContent(message), message.id)}
+                        >
+                          {copiedId === message.id ? (
+                            <Check className="h-3 w-3" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
+                        {message.model && (
+                          <span className="text-xs text-muted-foreground">
+                            {message.model}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {message.role === "user" && (
+                    <Avatar className="h-8 w-8 shrink-0">
+                      <AvatarFallback className="bg-secondary">
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+
+        {/* Pending Images Preview */}
+        {pendingImages.length > 0 && (
+          <div className="px-4 py-2 border-t border-border/50 bg-secondary/30">
+            <div className="flex flex-wrap gap-2">
+              {pendingImages.map((img, idx) => (
+                <div key={idx} className="relative group">
+                  <img
+                    src={img}
+                    alt={`Pending ${idx + 1}`}
+                    className="h-16 w-16 rounded-lg object-cover"
+                  />
+                  <button
+                    onClick={() => removePendingImage(idx)}
+                    className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
               ))}
             </div>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  "flex gap-3",
-                  message.role === "user" ? "justify-end" : "justify-start"
-                )}
-              >
-                {message.role === "assistant" && (
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      <Bot className="h-4 w-4" />
-                    </AvatarFallback>
-                  </Avatar>
-                )}
-                <div
-                  className={cn(
-                    "max-w-[80%] rounded-2xl px-4 py-2.5",
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary/50"
-                  )}
-                >
-                  {/* Display images if present */}
-                  {message.images && message.images.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {message.images.map((img, idx) => (
-                        <img
-                          key={idx}
-                          src={img}
-                          alt={`Uploaded ${idx + 1}`}
-                          className="max-w-[200px] max-h-[200px] rounded-lg object-cover"
-                        />
-                      ))}
-                    </div>
-                  )}
-                  <div className="whitespace-pre-wrap break-words text-sm">
-                    {getDisplayContent(message) || (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    )}
-                  </div>
-                  {message.role === "assistant" && getDisplayContent(message) && (
-                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/30">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-xs"
-                        onClick={() => copyToClipboard(getDisplayContent(message), message.id)}
-                      >
-                        {copiedId === message.id ? (
-                          <Check className="h-3 w-3" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                      </Button>
-                      {message.model && (
-                        <span className="text-xs text-muted-foreground">
-                          {message.model}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {message.role === "user" && (
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarFallback className="bg-secondary">
-                      <User className="h-4 w-4" />
-                    </AvatarFallback>
-                  </Avatar>
-                )}
-              </div>
-            ))}
-          </div>
         )}
-      </ScrollArea>
 
-      {/* Pending Images Preview */}
-      {pendingImages.length > 0 && (
-        <div className="px-4 py-2 border-t border-border/50 bg-secondary/30">
-          <div className="flex flex-wrap gap-2">
-            {pendingImages.map((img, idx) => (
-              <div key={idx} className="relative group">
-                <img
-                  src={img}
-                  alt={`Pending ${idx + 1}`}
-                  className="h-16 w-16 rounded-lg object-cover"
+        {/* Input */}
+        <div className="p-4 border-t border-border/50">
+          <div className="flex gap-2">
+            {supportsVision && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  className="hidden"
                 />
-                <button
-                  onClick={() => removePendingImage(idx)}
-                  className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-12 w-12 shrink-0"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isLoading || isUploading}
                 >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Input */}
-      <div className="p-4 border-t border-border/50">
-        <div className="flex gap-2">
-          {/* Image Upload Button */}
-          {supportsVision && (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-12 w-12 shrink-0"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading || isUploading}
-              >
-                {isUploading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <ImagePlus className="h-5 w-5" />
-                )}
-              </Button>
-            </>
-          )}
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={supportsVision 
-              ? `Message ${model.name} or share an image...` 
-              : `Message ${model.name}...`
-            }
-            className="min-h-[48px] max-h-[200px] resize-none"
-            disabled={isLoading}
-          />
-          <Button
-            onClick={handleSend}
-            disabled={(!input.trim() && pendingImages.length === 0) || isLoading}
-            size="icon"
-            className="h-12 w-12 shrink-0"
-          >
-            {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Send className="h-5 w-5" />
+                  {isUploading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <ImagePlus className="h-5 w-5" />
+                  )}
+                </Button>
+              </>
             )}
-          </Button>
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={supportsVision 
+                ? `Message ${model.name} or share an image...` 
+                : `Message ${model.name}...`
+              }
+              className="min-h-[48px] max-h-[200px] resize-none"
+              disabled={isLoading}
+            />
+            <Button
+              onClick={handleSend}
+              disabled={(!input.trim() && pendingImages.length === 0) || isLoading}
+              size="icon"
+              className="h-12 w-12 shrink-0"
+            >
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Send className="h-5 w-5" />
+              )}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            AI can make mistakes. Consider checking important information.
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground text-center mt-2">
-          AI can make mistakes. Consider checking important information.
-        </p>
       </div>
     </div>
   );
