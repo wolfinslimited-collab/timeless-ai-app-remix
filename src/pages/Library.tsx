@@ -266,15 +266,16 @@ const Library = () => {
                       <span className="capitalize">{gen.model}</span>
                       <span>•</span>
                       {gen.status === "failed" ? (
-                        <span className="text-destructive font-medium">Failed</span>
+                        <span className="inline-flex items-center gap-1 text-destructive font-medium">
+                          <Bot className="h-3 w-3" />
+                          Generation failed
+                        </span>
                       ) : gen.status === "pending" ? (
                         <span className="text-yellow-500 font-medium">Processing</span>
                       ) : (
                         <>
                           <Clock className="h-3 w-3" />
-                          <span>
-                            {new Date(gen.created_at).toLocaleDateString()}
-                          </span>
+                          <span>{new Date(gen.created_at).toLocaleDateString()}</span>
                         </>
                       )}
                     </div>
