@@ -366,6 +366,7 @@ const Create = () => {
   }, [model, type]);
   const [startingImage, setStartingImage] = useState<string | null>(null);
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
+  const [cinemaReferenceImages, setCinemaReferenceImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingRefIndex, setUploadingRefIndex] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -984,6 +985,71 @@ const Create = () => {
     setReferenceImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Cinema-specific multi-image upload handler
+  const handleCinemaImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        variant: "destructive",
+        title: "Invalid file",
+        description: "Please upload an image file.",
+      });
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "File too large",
+        description: "Please upload an image under 10MB.",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadingRefIndex(index);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/cinema-ref-${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('generation-inputs')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('generation-inputs')
+        .getPublicUrl(fileName);
+
+      setCinemaReferenceImages(prev => {
+        const updated = [...prev];
+        if (index < updated.length) {
+          updated[index] = publicUrl;
+        } else {
+          updated.push(publicUrl);
+        }
+        return updated;
+      });
+      toast({
+        title: "Frame uploaded",
+        description: `Reference frame ${index + 1} is ready.`,
+      });
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: error.message || "Failed to upload image.",
+      });
+    } finally {
+      setIsUploading(false);
+      setUploadingRefIndex(null);
+    }
+  };
+
   const currentModels = type === "image" ? imageModels : type === "video" ? videoModels : type === "cinema" ? cinemaModels : musicModels;
   const currentTemplates = type === "image" ? imageTemplates : type === "video" ? videoTemplates : type === "cinema" ? cinemaTemplates : musicTemplates;
   
@@ -1084,9 +1150,10 @@ const Create = () => {
             <CinemaStudio
               prompt={prompt}
               setPrompt={setPrompt}
-              startingImage={startingImage}
-              setStartingImage={setStartingImage}
+              referenceImages={cinemaReferenceImages}
+              setReferenceImages={setCinemaReferenceImages}
               isUploading={isUploading}
+              uploadingIndex={uploadingRefIndex}
               isGenerating={isGenerating}
               generationError={generationError}
               result={result}
@@ -1094,7 +1161,7 @@ const Create = () => {
               hasEnoughCredits={hasEnoughCreditsForModel(model)}
               user={user}
               onGenerate={handleGenerate}
-              onImageUpload={handleImageUpload}
+              onImageUpload={handleCinemaImageUpload}
               selectedMovements={selectedMovements}
               setSelectedMovements={setSelectedMovements}
               aspectRatio={aspectRatio}
