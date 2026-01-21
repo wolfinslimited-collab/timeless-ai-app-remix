@@ -1629,7 +1629,7 @@ const Create = () => {
                         <img 
                           src={startingImage} 
                           alt="Starting frame" 
-                          className="w-full h-32 object-cover"
+                          className="w-full h-auto object-contain max-h-[300px]"
                         />
                         <Button
                           type="button"
