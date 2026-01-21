@@ -461,7 +461,7 @@ const Create = () => {
     }
   };
 
-  const currentCost = type === "video" ? getModelCost(model, quality) : getModelCost(model);
+  const currentCost = type === "video" ? getModelCost(model, quality, videoDuration) : getModelCost(model);
 
   const allowedVideoAspectRatios =
     VIDEO_MODEL_CAPABILITIES[model]?.aspectRatios ?? VIDEO_DEFAULT_ASPECT_RATIOS;
@@ -1821,21 +1821,33 @@ const Create = () => {
                   <div className="space-y-2">
                     <Label>Duration</Label>
                     <div className="grid grid-cols-4 gap-2">
-                      {allowedVideoDurations.map((d) => (
-                        <Button
-                          key={d}
-                          type="button"
-                          variant={videoDuration === d ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setVideoDuration(d)}
-                          className={videoDuration === d ? "gradient-primary" : "border-border/50"}
-                        >
-                          {d}s
-                        </Button>
-                      ))}
+                      {allowedVideoDurations.map((d) => {
+                        const durationMultipliers: Record<number, string> = {
+                          3: "0.7×",
+                          5: "1×",
+                          6: "1.1×",
+                          7: "1.3×",
+                          8: "1.5×",
+                          9: "1.7×",
+                          10: "2×",
+                        };
+                        return (
+                          <Button
+                            key={d}
+                            type="button"
+                            variant={videoDuration === d ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setVideoDuration(d)}
+                            className={videoDuration === d ? "gradient-primary" : "border-border/50"}
+                          >
+                            <span>{d}s</span>
+                            <span className="ml-1 text-xs opacity-70">{durationMultipliers[d] || "1×"}</span>
+                          </Button>
+                        );
+                      })}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Video length in seconds
+                      Longer videos cost more credits (multiplier shown)
                     </p>
                   </div>
                 )}

@@ -74,12 +74,30 @@ export const QUALITY_MULTIPLIERS: Record<string, number> = {
   "1080p": 1.5,
 };
 
-export const getModelCost = (model: string, quality?: string): number => {
+// Duration multipliers for video (base duration is 5s = 1.0x)
+export const DURATION_MULTIPLIERS: Record<number, number> = {
+  3: 0.7,
+  5: 1.0,
+  6: 1.1,
+  7: 1.3,
+  8: 1.5,
+  9: 1.7,
+  10: 2.0,
+};
+
+export const getModelCost = (model: string, quality?: string, duration?: number): number => {
   const baseCost = MODEL_CREDITS[model] ?? CREDIT_COSTS.image;
+  let multiplier = 1.0;
+  
   if (quality && QUALITY_MULTIPLIERS[quality]) {
-    return Math.round(baseCost * QUALITY_MULTIPLIERS[quality]);
+    multiplier *= QUALITY_MULTIPLIERS[quality];
   }
-  return baseCost;
+  
+  if (duration && DURATION_MULTIPLIERS[duration]) {
+    multiplier *= DURATION_MULTIPLIERS[duration];
+  }
+  
+  return Math.round(baseCost * multiplier);
 };
 
 const LOW_CREDITS_THRESHOLD = 10;
