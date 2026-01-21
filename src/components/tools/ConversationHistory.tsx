@@ -17,12 +17,13 @@ import {
   ChevronDown,
   MoreHorizontal,
   Pencil,
-  FolderInput
+  FolderInput,
+  GripVertical
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-import { format, isToday, isYesterday, isThisWeek, subWeeks, isAfter, startOfWeek } from "date-fns";
+import { isToday, isYesterday, isThisWeek, subWeeks, isAfter, startOfWeek } from "date-fns";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +41,26 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragEndEvent,
+  DragOverEvent,
+  useDroppable,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface Conversation {
   id: string;
@@ -104,6 +125,242 @@ const FOLDER_COLORS = [
   "#06b6d4", // Cyan
 ];
 
+// Draggable conversation item component
+interface DraggableConversationProps {
+  conv: Conversation;
+  currentConversationId: string | null;
+  searchQuery: string;
+  folders: ChatFolder[];
+  deletingId: string | null;
+  onSelect: () => void;
+  onDelete: (e: React.MouseEvent) => void;
+  onMoveToFolder: (folderId: string | null) => void;
+  highlightMatch: (title: string) => React.ReactNode;
+}
+
+const DraggableConversation = ({
+  conv,
+  currentConversationId,
+  searchQuery,
+  folders,
+  deletingId,
+  onSelect,
+  onDelete,
+  onMoveToFolder,
+  highlightMatch,
+}: DraggableConversationProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: conv.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "relative group",
+        isDragging && "opacity-50 z-50"
+      )}
+    >
+      <button
+        onClick={onSelect}
+        className={cn(
+          "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2",
+          currentConversationId === conv.id
+            ? "bg-primary/10 text-primary"
+            : "hover:bg-secondary/50"
+        )}
+      >
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity touch-none"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <MessageSquare className="h-4 w-4 shrink-0" />
+        <div className="flex-1 min-w-0 pr-6">
+          <p className="truncate font-medium">
+            {highlightMatch(conv.title || "New conversation")}
+          </p>
+        </div>
+      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MoreHorizontal className="h-3 w-3" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          {folders.length > 0 && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <FolderInput className="h-4 w-4 mr-2" />
+                Move to folder
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {conv.folder_id && (
+                  <DropdownMenuItem onClick={() => onMoveToFolder(null)}>
+                    <X className="h-4 w-4 mr-2" />
+                    Remove from folder
+                  </DropdownMenuItem>
+                )}
+                {conv.folder_id && folders.length > 0 && <DropdownMenuSeparator />}
+                {folders.map(folder => (
+                  <DropdownMenuItem 
+                    key={folder.id} 
+                    onClick={() => onMoveToFolder(folder.id)}
+                    disabled={conv.folder_id === folder.id}
+                  >
+                    <Folder className="h-4 w-4 mr-2" style={{ color: folder.color }} />
+                    {folder.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )}
+          <DropdownMenuItem 
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(e as unknown as React.MouseEvent);
+            }}
+            className="text-destructive focus:text-destructive"
+            disabled={deletingId === conv.id}
+          >
+            {deletingId === conv.id ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4 mr-2" />
+            )}
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+};
+
+// Droppable folder component
+interface DroppableFolderProps {
+  folder: ChatFolder;
+  isExpanded: boolean;
+  conversationCount: number;
+  children: React.ReactNode;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  isOver: boolean;
+}
+
+const DroppableFolder = ({
+  folder,
+  isExpanded,
+  conversationCount,
+  children,
+  onToggle,
+  onEdit,
+  onDelete,
+  isOver,
+}: DroppableFolderProps) => {
+  const { setNodeRef } = useDroppable({
+    id: `folder-${folder.id}`,
+    data: { type: "folder", folderId: folder.id },
+  });
+
+  return (
+    <div ref={setNodeRef}>
+      <div className={cn(
+        "flex items-center group rounded-lg transition-colors",
+        isOver && "bg-primary/20 ring-2 ring-primary/50"
+      )}>
+        <button
+          onClick={onToggle}
+          className="flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm hover:bg-secondary/50 transition-colors"
+        >
+          <ChevronDown className={cn(
+            "h-3 w-3 transition-transform",
+            !isExpanded && "-rotate-90"
+          )} />
+          {isExpanded ? (
+            <FolderOpen className="h-4 w-4" style={{ color: folder.color }} />
+          ) : (
+            <Folder className="h-4 w-4" style={{ color: folder.color }} />
+          )}
+          <span className="font-medium truncate">{folder.name}</span>
+          <span className="text-xs text-muted-foreground ml-auto">
+            {conversationCount}
+          </span>
+        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <MoreHorizontal className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onEdit}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={onDelete}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      {isExpanded && conversationCount > 0 && (
+        <div className="ml-4 mt-1 space-y-0.5 border-l border-border/50 pl-2">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Droppable area for removing from folder
+const UnfiledDropZone = ({ isOver, children }: { isOver: boolean; children: React.ReactNode }) => {
+  const { setNodeRef } = useDroppable({
+    id: "unfiled",
+    data: { type: "unfiled" },
+  });
+
+  return (
+    <div 
+      ref={setNodeRef}
+      className={cn(
+        "transition-colors rounded-lg",
+        isOver && "bg-secondary/50 ring-2 ring-primary/30"
+      )}
+    >
+      {children}
+    </div>
+  );
+};
+
 const ConversationHistory = ({
   currentConversationId,
   currentModel,
@@ -121,11 +378,30 @@ const ConversationHistory = ({
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Set<TimeGroup>>(new Set(["today", "yesterday", "thisWeek"]));
   
+  // Drag state
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  
   // Folder dialog state
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<ChatFolder | null>(null);
   const [folderName, setFolderName] = useState("");
   const [folderColor, setFolderColor] = useState(FOLDER_COLORS[0]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const activeConversation = useMemo(() => {
+    return conversations.find(c => c.id === activeId);
+  }, [conversations, activeId]);
 
   // Filter conversations based on search query
   const filteredConversations = useMemo(() => {
@@ -284,7 +560,6 @@ const ConversationHistory = ({
       if (error) throw error;
 
       setFolders(prev => prev.filter(f => f.id !== folderId));
-      // Conversations will have folder_id set to null automatically via ON DELETE SET NULL
       setConversations(prev => 
         prev.map(c => c.folder_id === folderId ? { ...c, folder_id: null } : c)
       );
@@ -352,83 +627,51 @@ const ConversationHistory = ({
     );
   };
 
-  const renderConversationItem = (conv: Conversation) => (
-    <button
-      key={conv.id}
-      onClick={() => onSelectConversation(conv.id)}
-      className={cn(
-        "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors group relative",
-        currentConversationId === conv.id
-          ? "bg-primary/10 text-primary"
-          : "hover:bg-secondary/50"
-      )}
-    >
-      <div className="flex items-start gap-2 pr-6">
-        <MessageSquare className="h-4 w-4 shrink-0 mt-0.5" />
-        <div className="flex-1 min-w-0">
-          <p className="truncate font-medium">
-            {highlightMatch(conv.title || "New conversation")}
-          </p>
-        </div>
-      </div>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MoreHorizontal className="h-3 w-3" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          {folders.length > 0 && (
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <FolderInput className="h-4 w-4 mr-2" />
-                Move to folder
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {conv.folder_id && (
-                  <DropdownMenuItem onClick={() => moveToFolder(conv.id, null)}>
-                    <X className="h-4 w-4 mr-2" />
-                    Remove from folder
-                  </DropdownMenuItem>
-                )}
-                {conv.folder_id && folders.length > 0 && <DropdownMenuSeparator />}
-                {folders.map(folder => (
-                  <DropdownMenuItem 
-                    key={folder.id} 
-                    onClick={() => moveToFolder(conv.id, folder.id)}
-                    disabled={conv.folder_id === folder.id}
-                  >
-                    <Folder className="h-4 w-4 mr-2" style={{ color: folder.color }} />
-                    {folder.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          )}
-          <DropdownMenuItem 
-            onClick={(e) => {
-              e.stopPropagation();
-              deleteConversation(conv.id, e as unknown as React.MouseEvent);
-            }}
-            className="text-destructive focus:text-destructive"
-            disabled={deletingId === conv.id}
-          >
-            {deletingId === conv.id ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Trash2 className="h-4 w-4 mr-2" />
-            )}
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </button>
-  );
+  // Drag and drop handlers
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const overId = event.over?.id as string | undefined;
+    setOverId(overId || null);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    setActiveId(null);
+    setOverId(null);
+
+    if (!over) return;
+
+    const convId = active.id as string;
+    const overId = over.id as string;
+    const overData = over.data.current;
+
+    // If dropped on a folder
+    if (overData?.type === "folder") {
+      const folderId = overData.folderId as string;
+      const conv = conversations.find(c => c.id === convId);
+      if (conv && conv.folder_id !== folderId) {
+        await moveToFolder(convId, folderId);
+        // Auto-expand the folder
+        setExpandedFolders(prev => new Set(prev).add(folderId));
+      }
+    }
+    // If dropped on unfiled area
+    else if (overData?.type === "unfiled") {
+      const conv = conversations.find(c => c.id === convId);
+      if (conv && conv.folder_id) {
+        await moveToFolder(convId, null);
+      }
+    }
+  };
+
+  const handleDragCancel = () => {
+    setActiveId(null);
+    setOverId(null);
+  };
 
   if (!user) return null;
 
@@ -454,6 +697,8 @@ const ConversationHistory = ({
       </div>
     );
   }
+
+  const allConversationIds = filteredConversations.map(c => c.id);
 
   return (
     <>
@@ -548,98 +793,115 @@ const ConversationHistory = ({
               )}
             </div>
           ) : (
-            <div className="p-2 space-y-1">
-              {/* Folders Section */}
-              {folders.map(folder => {
-                const folderConvs = getConversationsInFolder(folder.id);
-                const isExpanded = expandedFolders.has(folder.id);
-                
-                return (
-                  <div key={folder.id}>
-                    <div className="flex items-center group">
-                      <button
-                        onClick={() => toggleFolder(folder.id)}
-                        className="flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm hover:bg-secondary/50 transition-colors"
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDragEnd={handleDragEnd}
+              onDragCancel={handleDragCancel}
+            >
+              <SortableContext
+                items={allConversationIds}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="p-2 space-y-1">
+                  {/* Folders Section */}
+                  {folders.map(folder => {
+                    const folderConvs = getConversationsInFolder(folder.id);
+                    const isExpanded = expandedFolders.has(folder.id);
+                    const isOver = overId === `folder-${folder.id}`;
+                    
+                    return (
+                      <DroppableFolder
+                        key={folder.id}
+                        folder={folder}
+                        isExpanded={isExpanded}
+                        conversationCount={folderConvs.length}
+                        onToggle={() => toggleFolder(folder.id)}
+                        onEdit={() => openFolderDialog(folder)}
+                        onDelete={() => deleteFolder(folder.id)}
+                        isOver={isOver}
                       >
-                        <ChevronDown className={cn(
-                          "h-3 w-3 transition-transform",
-                          !isExpanded && "-rotate-90"
-                        )} />
-                        {isExpanded ? (
-                          <FolderOpen className="h-4 w-4" style={{ color: folder.color }} />
-                        ) : (
-                          <Folder className="h-4 w-4" style={{ color: folder.color }} />
-                        )}
-                        <span className="font-medium truncate">{folder.name}</span>
-                        <span className="text-xs text-muted-foreground ml-auto">
-                          {folderConvs.length}
-                        </span>
-                      </button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <MoreHorizontal className="h-3 w-3" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openFolderDialog(folder)}>
-                            <Pencil className="h-4 w-4 mr-2" />
-                            Rename
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => deleteFolder(folder.id)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                    {isExpanded && folderConvs.length > 0 && (
-                      <div className="ml-4 mt-1 space-y-0.5 border-l border-border/50 pl-2">
-                        {folderConvs.map(renderConversationItem)}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                        {folderConvs.map(conv => (
+                          <DraggableConversation
+                            key={conv.id}
+                            conv={conv}
+                            currentConversationId={currentConversationId}
+                            searchQuery={searchQuery}
+                            folders={folders}
+                            deletingId={deletingId}
+                            onSelect={() => onSelectConversation(conv.id)}
+                            onDelete={(e) => deleteConversation(conv.id, e)}
+                            onMoveToFolder={(folderId) => moveToFolder(conv.id, folderId)}
+                            highlightMatch={highlightMatch}
+                          />
+                        ))}
+                      </DroppableFolder>
+                    );
+                  })}
 
-              {/* Time-grouped conversations */}
-              {(Object.keys(TIME_GROUP_LABELS) as TimeGroup[]).map(group => {
-                const groupConvs = groupedConversations[group];
-                if (groupConvs.length === 0) return null;
-                
-                const isExpanded = expandedGroups.has(group);
-                
-                return (
-                  <div key={group}>
-                    <button
-                      onClick={() => toggleGroup(group)}
-                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:bg-secondary/50 transition-colors"
-                    >
-                      <ChevronDown className={cn(
-                        "h-3 w-3 transition-transform",
-                        !isExpanded && "-rotate-90"
-                      )} />
-                      <span className="font-medium uppercase tracking-wider">
-                        {TIME_GROUP_LABELS[group]}
-                      </span>
-                      <span className="ml-auto">{groupConvs.length}</span>
-                    </button>
-                    {isExpanded && (
-                      <div className="mt-1 space-y-0.5">
-                        {groupConvs.map(renderConversationItem)}
-                      </div>
-                    )}
+                  {/* Time-grouped conversations */}
+                  <UnfiledDropZone isOver={overId === "unfiled"}>
+                    {(Object.keys(TIME_GROUP_LABELS) as TimeGroup[]).map(group => {
+                      const groupConvs = groupedConversations[group];
+                      if (groupConvs.length === 0) return null;
+                      
+                      const isExpanded = expandedGroups.has(group);
+                      
+                      return (
+                        <div key={group}>
+                          <button
+                            onClick={() => toggleGroup(group)}
+                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:bg-secondary/50 transition-colors"
+                          >
+                            <ChevronDown className={cn(
+                              "h-3 w-3 transition-transform",
+                              !isExpanded && "-rotate-90"
+                            )} />
+                            <span className="font-medium uppercase tracking-wider">
+                              {TIME_GROUP_LABELS[group]}
+                            </span>
+                            <span className="ml-auto">{groupConvs.length}</span>
+                          </button>
+                          {isExpanded && (
+                            <div className="mt-1 space-y-0.5">
+                              {groupConvs.map(conv => (
+                                <DraggableConversation
+                                  key={conv.id}
+                                  conv={conv}
+                                  currentConversationId={currentConversationId}
+                                  searchQuery={searchQuery}
+                                  folders={folders}
+                                  deletingId={deletingId}
+                                  onSelect={() => onSelectConversation(conv.id)}
+                                  onDelete={(e) => deleteConversation(conv.id, e)}
+                                  onMoveToFolder={(folderId) => moveToFolder(conv.id, folderId)}
+                                  highlightMatch={highlightMatch}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </UnfiledDropZone>
+                </div>
+              </SortableContext>
+
+              {/* Drag Overlay */}
+              <DragOverlay>
+                {activeConversation && (
+                  <div className="bg-card border border-border rounded-lg shadow-lg px-3 py-2 text-sm flex items-center gap-2 opacity-90">
+                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                    <MessageSquare className="h-4 w-4" />
+                    <span className="truncate font-medium max-w-[150px]">
+                      {activeConversation.title || "New conversation"}
+                    </span>
                   </div>
-                );
-              })}
-            </div>
+                )}
+              </DragOverlay>
+            </DndContext>
           )}
         </ScrollArea>
       </div>
