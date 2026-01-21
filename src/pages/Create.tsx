@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCredits, getModelCost } from "@/hooks/useCredits";
 import { useBackgroundGenerations } from "@/hooks/useBackgroundGenerations";
 import TopMenu from "@/components/TopMenu";
-import Sidebar from "@/components/Sidebar";
+import AppsSidebar from "@/components/AppsSidebar";
 import BottomNav from "@/components/BottomNav";
 import AudioWaveform from "@/components/AudioWaveform";
 import CinemaStudio from "@/components/CinemaStudio";
@@ -696,7 +696,7 @@ const Create = () => {
       <div className="min-h-screen bg-background">
         <TopMenu />
         <div className="flex">
-          <Sidebar />
+          <AppsSidebar currentType={type} />
           <main className="flex-1 pb-20 md:pb-0">
             <CinemaStudio
               prompt={prompt}
@@ -733,7 +733,7 @@ const Create = () => {
       <TopMenu />
 
       <div className="flex">
-        <Sidebar />
+        <AppsSidebar currentType={type} />
 
         <main className="flex-1 pb-20 md:pb-0">
         <div className="max-w-4xl mx-auto p-6">
