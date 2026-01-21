@@ -79,6 +79,28 @@ const cinemaModels = [
   { id: "luma-cinema", name: "Luma Cinema", credits: 28 },
 ];
 
+// Camera Presets for Image Mode
+const cameraPresets = [
+  { id: "arri-alexa-35", name: "Arri Alexa 35", type: "DIGITAL", icon: "📹" },
+  { id: "arri-alexa-mini", name: "Arri Alexa Mini", type: "DIGITAL", icon: "📹" },
+  { id: "red-komodo", name: "RED Komodo", type: "DIGITAL", icon: "📹" },
+  { id: "sony-venice", name: "Sony Venice", type: "DIGITAL", icon: "📹" },
+  { id: "blackmagic-ursa", name: "Blackmagic URSA", type: "DIGITAL", icon: "📹" },
+  { id: "canon-c70", name: "Canon C70", type: "DIGITAL", icon: "📹" },
+];
+
+const lensPresets = [
+  { id: "arri-signature-prime", name: "ARRI Signature Prime", type: "SPHERICAL" },
+  { id: "cooke-anamorphic", name: "Cooke Anamorphic", type: "ANAMORPHIC" },
+  { id: "zeiss-supreme", name: "Zeiss Supreme", type: "SPHERICAL" },
+  { id: "panavision-primo", name: "Panavision Primo", type: "SPHERICAL" },
+  { id: "leica-summilux", name: "Leica Summilux-C", type: "SPHERICAL" },
+  { id: "atlas-orion", name: "Atlas Orion", type: "ANAMORPHIC" },
+];
+
+const focalLengths = ["14", "18", "24", "28", "35", "50", "65", "85", "100", "135"];
+const apertures = ["f/1.4", "f/2", "f/2.8", "f/4", "f/5.6", "f/8", "f/11", "f/16"];
+
 interface CinemaStudioProps {
   prompt: string;
   setPrompt: (value: string) => void;
@@ -131,6 +153,7 @@ const CinemaStudio = ({
   const [variationCount, setVariationCount] = useState(1);
   const [movementsOpen, setMovementsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [cameraSettingsOpen, setCameraSettingsOpen] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [previousGenerations, setPreviousGenerations] = useState<Array<{
     id: string;
@@ -140,6 +163,16 @@ const CinemaStudio = ({
     created_at: string;
   }>>([]);
   const [loadingGenerations, setLoadingGenerations] = useState(true);
+  
+  // Image/Video mode toggle
+  const [cinemaMode, setCinemaMode] = useState<"video" | "image">("video");
+  
+  // Camera settings for image mode
+  const [cameraSettingsTab, setCameraSettingsTab] = useState<"all" | "recommended" | "saved">("all");
+  const [selectedCamera, setSelectedCamera] = useState(cameraPresets[0]);
+  const [selectedLens, setSelectedLens] = useState(lensPresets[0]);
+  const [selectedFocalLength, setSelectedFocalLength] = useState("35");
+  const [selectedAperture, setSelectedAperture] = useState("f/4");
 
   // Fetch previous cinema generations
   useEffect(() => {
@@ -317,37 +350,45 @@ const CinemaStudio = ({
           {/* Prompt Row */}
           <div className="flex items-center gap-2 mb-3">
             {/* Image/Video Toggle */}
-            <div className="flex items-center border border-border/50 rounded-lg p-1 bg-secondary/50">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 opacity-50"
-                      disabled
-                    >
-                      <Image className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Image mode (coming soon)</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+            <div className="flex flex-col items-center border border-border/50 rounded-lg p-1 bg-secondary/50 gap-0.5">
               <Button
-                variant="secondary"
+                variant={cinemaMode === "image" ? "secondary" : "ghost"}
                 size="sm"
-                className="h-8 px-3 bg-primary/20 text-primary"
+                className={cn(
+                  "h-8 w-10 p-0 flex flex-col gap-0.5",
+                  cinemaMode === "image" && "bg-primary/20 text-primary"
+                )}
+                onClick={() => setCinemaMode("image")}
               >
-                <Video className="h-4 w-4 mr-1.5" />
-                Video
+                <Image className="h-3.5 w-3.5" />
+                <span className="text-[9px]">Image</span>
+              </Button>
+              <Button
+                variant={cinemaMode === "video" ? "secondary" : "ghost"}
+                size="sm"
+                className={cn(
+                  "h-8 w-10 p-0 flex flex-col gap-0.5",
+                  cinemaMode === "video" && "bg-primary/20 text-primary"
+                )}
+                onClick={() => setCinemaMode("video")}
+              >
+                <Video className="h-3.5 w-3.5" />
+                <span className="text-[9px]">Video</span>
               </Button>
             </div>
 
+            {/* Plus Button for adding elements */}
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-10 w-10 border-border/50 bg-secondary/50"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+
             {/* Prompt Input */}
             <Input
-              placeholder="Describe your cinematic scene..."
+              placeholder={cinemaMode === "image" ? "Describe your cinematic still..." : "Describe your cinematic scene..."}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               className="flex-1 h-10 bg-secondary/50 border-border/30 text-sm"
@@ -356,75 +397,353 @@ const CinemaStudio = ({
 
           {/* Controls Row */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Movements Popover */}
-            <Popover open={movementsOpen} onOpenChange={setMovementsOpen}>
-              <PopoverTrigger asChild>
+            {cinemaMode === "video" ? (
+              <>
+                {/* VIDEO MODE CONTROLS */}
+                {/* Movements Popover */}
+                <Popover open={movementsOpen} onOpenChange={setMovementsOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "h-8 gap-1.5 border-border/50 bg-secondary/50 hover:bg-secondary",
+                        selectedMovements.length > 0 && "border-primary/50 bg-primary/10"
+                      )}
+                    >
+                      <Move3d className="h-3.5 w-3.5" />
+                      {getMovementLabel()}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-3" align="start">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">Camera Movements</Label>
+                        <Badge variant="outline" className="text-xs">
+                          {selectedMovements.length}/3
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {allMovements.map((movement) => (
+                          <Button
+                            key={movement.id}
+                            variant={selectedMovements.includes(movement.id) ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => toggleMovement(movement.id)}
+                            disabled={
+                              !selectedMovements.includes(movement.id) &&
+                              selectedMovements.length >= 3
+                            }
+                            className={cn(
+                              "h-auto py-1.5 px-2 text-xs flex-col gap-0.5",
+                              selectedMovements.includes(movement.id)
+                                ? "bg-primary text-primary-foreground"
+                                : "border-border/50"
+                            )}
+                          >
+                            <span>{movement.icon}</span>
+                            <span className="text-[10px] leading-tight">{movement.label}</span>
+                          </Button>
+                        ))}
+                      </div>
+                      {selectedMovements.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border/50">
+                          {selectedMovements.map((id, index) => {
+                            const movement = allMovements.find((m) => m.id === id);
+                            return (
+                              <Badge
+                                key={id}
+                                variant="secondary"
+                                className="gap-1 cursor-pointer hover:bg-destructive/20"
+                                onClick={() => toggleMovement(id)}
+                              >
+                                {index + 1}. {movement?.icon} {movement?.label}
+                                <X className="h-3 w-3" />
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Duration */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 border-border/50 bg-secondary/50 hover:bg-secondary"
+                    >
+                      <Clock className="h-3.5 w-3.5" />
+                      {cinematicDuration}s
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-2" align="start">
+                    <div className="space-y-1">
+                      {durations.map((d) => (
+                        <Button
+                          key={d}
+                          variant={cinematicDuration === d ? "secondary" : "ghost"}
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => setCinematicDuration(d)}
+                        >
+                          {d} seconds
+                        </Button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Sound Toggle */}
                 <Button
                   variant="outline"
                   size="sm"
                   className={cn(
                     "h-8 gap-1.5 border-border/50 bg-secondary/50 hover:bg-secondary",
-                    selectedMovements.length > 0 && "border-primary/50 bg-primary/10"
+                    soundEnabled && "border-primary/50 bg-primary/10"
                   )}
+                  onClick={() => setSoundEnabled(!soundEnabled)}
                 >
-                  <Move3d className="h-3.5 w-3.5" />
-                  {getMovementLabel()}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-3" align="start">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Camera Movements</Label>
-                    <Badge variant="outline" className="text-xs">
-                      {selectedMovements.length}/3
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {allMovements.map((movement) => (
-                      <Button
-                        key={movement.id}
-                        variant={selectedMovements.includes(movement.id) ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => toggleMovement(movement.id)}
-                        disabled={
-                          !selectedMovements.includes(movement.id) &&
-                          selectedMovements.length >= 3
-                        }
-                        className={cn(
-                          "h-auto py-1.5 px-2 text-xs flex-col gap-0.5",
-                          selectedMovements.includes(movement.id)
-                            ? "bg-primary text-primary-foreground"
-                            : "border-border/50"
-                        )}
-                      >
-                        <span>{movement.icon}</span>
-                        <span className="text-[10px] leading-tight">{movement.label}</span>
-                      </Button>
-                    ))}
-                  </div>
-                  {selectedMovements.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border/50">
-                      {selectedMovements.map((id, index) => {
-                        const movement = allMovements.find((m) => m.id === id);
-                        return (
-                          <Badge
-                            key={id}
-                            variant="secondary"
-                            className="gap-1 cursor-pointer hover:bg-destructive/20"
-                            onClick={() => toggleMovement(id)}
-                          >
-                            {index + 1}. {movement?.icon} {movement?.label}
-                            <X className="h-3 w-3" />
-                          </Badge>
-                        );
-                      })}
-                    </div>
+                  {soundEnabled ? (
+                    <>
+                      <Volume2 className="h-3.5 w-3.5" />
+                      On
+                    </>
+                  ) : (
+                    <>
+                      <VolumeX className="h-3.5 w-3.5" />
+                      Off
+                    </>
                   )}
-                </div>
-              </PopoverContent>
-            </Popover>
+                </Button>
 
-            {/* Aspect Ratio */}
+                {/* End Frame Button */}
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "h-8 gap-1.5 border-border/50 bg-secondary/50 hover:bg-secondary",
+                        startingImage && "border-primary/50 bg-primary/10"
+                      )}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      {startingImage ? "Frame Set" : "End Frame"}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Starting Frame</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      {startingImage ? (
+                        <div className="relative rounded-lg overflow-hidden border border-border/50">
+                          <img
+                            src={startingImage}
+                            alt="Starting frame"
+                            className="w-full h-48 object-cover"
+                          />
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-2 right-2 h-8 w-8"
+                            onClick={() => setStartingImage(null)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer bg-primary/5 hover:bg-primary/10 transition-colors">
+                          <div className="flex flex-col items-center justify-center">
+                            {isUploading ? (
+                              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            ) : (
+                              <>
+                                <Upload className="h-8 w-8 text-primary mb-2" />
+                                <p className="text-sm text-primary font-medium">
+                                  Upload starting frame
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Lock in lighting and character consistency
+                                </p>
+                              </>
+                            )}
+                          </div>
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept="image/*"
+                            onChange={onImageUpload}
+                            disabled={isUploading || !user}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </>
+            ) : (
+              <>
+                {/* IMAGE MODE CONTROLS - Camera Settings */}
+                <Popover open={cameraSettingsOpen} onOpenChange={setCameraSettingsOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-2 border-primary/50 bg-primary/10 text-foreground"
+                    >
+                      <span className="text-xs">📹</span>
+                      {selectedCamera.name}
+                      <span className="text-muted-foreground text-xs">
+                        {selectedLens.name.split(" ")[0]}, {selectedFocalLength}mm, {selectedAperture}
+                      </span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[500px] p-0" align="start" side="top">
+                    <div className="bg-card border-border rounded-xl overflow-hidden">
+                      {/* Tabs */}
+                      <div className="flex items-center gap-2 p-3 border-b border-border/50">
+                        {(["all", "recommended", "saved"] as const).map((tab) => (
+                          <Button
+                            key={tab}
+                            variant={cameraSettingsTab === tab ? "secondary" : "ghost"}
+                            size="sm"
+                            className={cn(
+                              "h-8 px-4 capitalize",
+                              cameraSettingsTab === tab && "bg-foreground text-background"
+                            )}
+                            onClick={() => setCameraSettingsTab(tab)}
+                          >
+                            {tab === "all" ? "All" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                          </Button>
+                        ))}
+                      </div>
+
+                      {/* Camera Settings Grid */}
+                      <div className="p-4 space-y-4">
+                        <div className="grid grid-cols-4 gap-3">
+                          {/* Camera */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Camera</Label>
+                            <div className="bg-secondary/50 rounded-xl p-3 border border-border/30">
+                              <div className="h-12 flex items-center justify-center mb-2">
+                                <span className="text-3xl">📹</span>
+                              </div>
+                              <Badge variant="outline" className="w-full justify-center text-[10px]">
+                                {selectedCamera.type}
+                              </Badge>
+                            </div>
+                            <Select value={selectedCamera.id} onValueChange={(v) => setSelectedCamera(cameraPresets.find(c => c.id === v) || cameraPresets[0])}>
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {cameraPresets.map((cam) => (
+                                  <SelectItem key={cam.id} value={cam.id} className="text-xs">
+                                    {cam.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Lens */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Lens</Label>
+                            <div className="bg-secondary/50 rounded-xl p-3 border border-border/30">
+                              <div className="h-12 flex items-center justify-center mb-2">
+                                <span className="text-3xl">🔭</span>
+                              </div>
+                              <Badge variant="outline" className="w-full justify-center text-[10px]">
+                                {selectedLens.type}
+                              </Badge>
+                            </div>
+                            <Select value={selectedLens.id} onValueChange={(v) => setSelectedLens(lensPresets.find(l => l.id === v) || lensPresets[0])}>
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {lensPresets.map((lens) => (
+                                  <SelectItem key={lens.id} value={lens.id} className="text-xs">
+                                    {lens.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Focal Length */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Focal Length</Label>
+                            <div className="bg-secondary/50 rounded-xl p-3 border border-border/30">
+                              <div className="h-12 flex items-center justify-center mb-2">
+                                <span className="text-3xl font-bold">{selectedFocalLength}</span>
+                              </div>
+                              <Badge variant="outline" className="w-full justify-center text-[10px]">
+                                mm
+                              </Badge>
+                            </div>
+                            <Select value={selectedFocalLength} onValueChange={setSelectedFocalLength}>
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {focalLengths.map((fl) => (
+                                  <SelectItem key={fl} value={fl} className="text-xs">
+                                    {fl}mm
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Aperture */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Aperture</Label>
+                            <div className="bg-secondary/50 rounded-xl p-3 border border-border/30">
+                              <div className="h-12 flex items-center justify-center mb-2">
+                                <div className="h-10 w-10 rounded-full border-4 border-foreground/60 flex items-center justify-center">
+                                  <div className="h-4 w-4 rounded-full bg-foreground/30" />
+                                </div>
+                              </div>
+                              <Badge variant="outline" className="w-full justify-center text-[10px]">
+                                {selectedAperture}
+                              </Badge>
+                            </div>
+                            <Select value={selectedAperture} onValueChange={setSelectedAperture}>
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {apertures.map((ap) => (
+                                  <SelectItem key={ap} value={ap} className="text-xs">
+                                    {ap}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        {/* Save Setup Button */}
+                        <div className="flex justify-center pt-2">
+                          <Button variant="outline" size="sm" className="gap-2 border-border/50">
+                            <Plus className="h-3.5 w-3.5" />
+                            Save setup
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </>
+            )}
+
+            {/* Aspect Ratio - Common to both modes */}
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -453,56 +772,13 @@ const CinemaStudio = ({
               </PopoverContent>
             </Popover>
 
-            {/* Duration */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1.5 border-border/50 bg-secondary/50 hover:bg-secondary"
-                >
-                  <Clock className="h-3.5 w-3.5" />
-                  {cinematicDuration}s
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-48 p-2" align="start">
-                <div className="space-y-1">
-                  {durations.map((d) => (
-                    <Button
-                      key={d}
-                      variant={cinematicDuration === d ? "secondary" : "ghost"}
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={() => setCinematicDuration(d)}
-                    >
-                      {d} seconds
-                    </Button>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            {/* Sound Toggle */}
+            {/* Quality Toggle - Common to both modes */}
             <Button
               variant="outline"
               size="sm"
-              className={cn(
-                "h-8 gap-1.5 border-border/50 bg-secondary/50 hover:bg-secondary",
-                soundEnabled && "border-primary/50 bg-primary/10"
-              )}
-              onClick={() => setSoundEnabled(!soundEnabled)}
+              className="h-8 gap-1.5 border-border/50 bg-secondary/50 hover:bg-secondary"
             >
-              {soundEnabled ? (
-                <>
-                  <Volume2 className="h-3.5 w-3.5" />
-                  On
-                </>
-              ) : (
-                <>
-                  <VolumeX className="h-3.5 w-3.5" />
-                  Off
-                </>
-              )}
+              ♡ 2K
             </Button>
 
             {/* Variations Counter */}
@@ -562,72 +838,6 @@ const CinemaStudio = ({
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            {/* End Frame Button */}
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "h-8 gap-1.5 border-border/50 bg-secondary/50 hover:bg-secondary",
-                    startingImage && "border-primary/50 bg-primary/10"
-                  )}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  {startingImage ? "Frame Set" : "End Frame"}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Starting Frame</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  {startingImage ? (
-                    <div className="relative rounded-lg overflow-hidden border border-border/50">
-                      <img
-                        src={startingImage}
-                        alt="Starting frame"
-                        className="w-full h-48 object-cover"
-                      />
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-2 right-2 h-8 w-8"
-                        onClick={() => setStartingImage(null)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-primary/30 rounded-lg cursor-pointer bg-primary/5 hover:bg-primary/10 transition-colors">
-                      <div className="flex flex-col items-center justify-center">
-                        {isUploading ? (
-                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        ) : (
-                          <>
-                            <Upload className="h-8 w-8 text-primary mb-2" />
-                            <p className="text-sm text-primary font-medium">
-                              Upload starting frame
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Lock in lighting and character consistency
-                            </p>
-                          </>
-                        )}
-                      </div>
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept="image/*"
-                        onChange={onImageUpload}
-                        disabled={isUploading || !user}
-                      />
-                    </label>
-                  )}
                 </div>
               </DialogContent>
             </Dialog>
