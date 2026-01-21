@@ -32,6 +32,14 @@ const tools = [
     action: "video",
   },
   {
+    title: "Create Music",
+    description: "Generate AI music and audio tracks",
+    icon: <Mic className="h-6 w-6 text-orange-400" />,
+    badge: "new" as const,
+    gradient: "bg-orange-500/20",
+    action: "music",
+  },
+  {
     title: "Motion Control",
     description: "Precise control of character actions up to 30 seconds",
     icon: <Wand2 className="h-6 w-6 text-purple-400" />,
