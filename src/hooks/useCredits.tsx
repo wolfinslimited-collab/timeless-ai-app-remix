@@ -90,6 +90,7 @@ export const useCredits = () => {
   const [credits, setCredits] = useState<number | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [shouldShowLowCreditsWarning, setShouldShowLowCreditsWarning] = useState(false);
   const previousCredits = useRef<number | null>(null);
   const hasShownLowCreditsWarning = useRef(false);
 
@@ -108,7 +109,7 @@ export const useCredits = () => {
         .from("profiles")
         .select("credits, subscription_status")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       const newCredits = data?.credits ?? 0;
@@ -122,11 +123,7 @@ export const useCredits = () => {
         
         if (wasAboveThreshold || isFirstLoadWithLowCredits) {
           hasShownLowCreditsWarning.current = true;
-          toast({
-            variant: "destructive",
-            title: "Low credits warning",
-            description: `You have ${newCredits} credits remaining. Consider purchasing more to continue using premium features.`,
-          });
+          setShouldShowLowCreditsWarning(true);
         }
       }
       
@@ -141,6 +138,18 @@ export const useCredits = () => {
       setLoading(false);
     }
   };
+
+  // Show low credits warning via useEffect (safe for React's hook rules)
+  useEffect(() => {
+    if (shouldShowLowCreditsWarning && credits !== null) {
+      toast({
+        variant: "destructive",
+        title: "Low credits warning",
+        description: `You have ${credits} credits remaining. Consider purchasing more to continue using premium features.`,
+      });
+      setShouldShowLowCreditsWarning(false);
+    }
+  }, [shouldShowLowCreditsWarning, credits, toast]);
 
   useEffect(() => {
     fetchCredits();
