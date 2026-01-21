@@ -264,7 +264,7 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
     if (speechRecognitionSupported) {
       const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognitionAPI();
-      recognitionRef.current.continuous = false;
+      recognitionRef.current.continuous = true; // Keep listening until manually stopped
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = 'en-US';
 
