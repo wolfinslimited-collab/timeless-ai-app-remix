@@ -129,7 +129,96 @@ Deno.serve(async (req) => {
     console.log(`Target Language: ${targetLanguage} -> ${mappedLang}`);
     console.log(`Voice Type: ${voiceType}`);
 
-    // Submit to Fal.ai queue for dubbing
+    // Extract video ID from YouTube URL
+    const extractVideoId = (url: string): string | null => {
+      const patterns = [
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([^&\s?]+)/,
+        /youtube\.com\/embed\/([^&\s?]+)/,
+      ];
+      for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match?.[1]) return match[1];
+      }
+      return null;
+    };
+
+    const videoId = extractVideoId(youtubeUrl);
+    if (!videoId) {
+      return new Response(
+        JSON.stringify({ error: "Could not extract video ID from YouTube URL" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Step 1: Get direct video download URL using RapidAPI
+    const rapidApiKey = Deno.env.get("RAPIDAPI_KEY");
+    if (!rapidApiKey) {
+      console.error("RAPIDAPI_KEY not configured");
+      return new Response(
+        JSON.stringify({ error: "Download service not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Fetching direct download URL for video: ${videoId}`);
+
+    const ytResponse = await fetch(
+      `https://ytstream-download-youtube-videos.p.rapidapi.com/dl?id=${videoId}`,
+      {
+        method: "GET",
+        headers: {
+          "x-rapidapi-key": rapidApiKey,
+          "x-rapidapi-host": "ytstream-download-youtube-videos.p.rapidapi.com",
+        },
+      }
+    );
+
+    if (!ytResponse.ok) {
+      const errorText = await ytResponse.text();
+      console.error("YouTube download API error:", ytResponse.status, errorText);
+      return new Response(
+        JSON.stringify({ error: "Failed to fetch video download link" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const ytData = await ytResponse.json();
+    let directVideoUrl: string | null = null;
+
+    // Look for formats with video+audio (mp4)
+    if (ytData.formats && Array.isArray(ytData.formats)) {
+      const mp4Formats = ytData.formats.filter((f: any) =>
+        f.mimeType?.includes("video/mp4") && f.url
+      );
+      if (mp4Formats.length > 0) {
+        // Sort by quality descending
+        mp4Formats.sort((a: any, b: any) => {
+          const heightA = a.height || parseInt(a.qualityLabel) || 0;
+          const heightB = b.height || parseInt(b.qualityLabel) || 0;
+          return heightB - heightA;
+        });
+        directVideoUrl = mp4Formats[0].url;
+        console.log(`Found direct video URL with quality: ${mp4Formats[0].qualityLabel || mp4Formats[0].height}`);
+      }
+    }
+
+    // Fallback to direct link
+    if (!directVideoUrl && ytData.link) {
+      directVideoUrl = ytData.link;
+      console.log("Using direct link fallback");
+    }
+
+    if (!directVideoUrl) {
+      console.error("No direct video URL found for:", videoId);
+      return new Response(
+        JSON.stringify({ error: "Could not get video download link. The video may be restricted." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Direct video URL obtained, submitting to Fal.ai dubbing...");
+
+    // Step 2: Submit to Fal.ai queue for dubbing with the direct URL
     const falResponse = await fetch(`${FAL_QUEUE_URL}/fal-ai/dubbing`, {
       method: "POST",
       headers: {
@@ -137,7 +226,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        video_url: youtubeUrl,
+        video_url: directVideoUrl,
         target_language: mappedLang,
         do_lipsync: true,
       }),
