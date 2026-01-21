@@ -173,7 +173,8 @@ Deno.serve(async (req) => {
         prompt: `Translate video to ${targetLanguage} with ${voiceType} voice`,
         status: "pending",
         credits_used: hasActiveSubscription ? 0 : CREDIT_COST,
-        provider_endpoint: "fal-ai/dubbing",
+          // Must match check-generation's expected provider format
+          provider_endpoint: "fal:fal-ai/dubbing",
         task_id: falData.request_id || null,
       })
       .select()

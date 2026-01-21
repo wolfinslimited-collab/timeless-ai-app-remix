@@ -90,14 +90,17 @@ serve(async (req) => {
 
       const providerEndpoint = gen.provider_endpoint;
       
-      // Only Fal.ai is supported now
-      if (!providerEndpoint?.startsWith("fal:")) {
+      // Only Fal.ai is supported now.
+      // Accept both historical values ("fal-ai/..."), and current values ("fal:fal-ai/...").
+      if (!providerEndpoint || (!providerEndpoint.startsWith("fal:") && !providerEndpoint.startsWith("fal-ai/"))) {
         results.push({ id: gen.id, status: "unsupported_provider", changed: false });
         continue;
       }
 
       try {
-        const falEndpoint = getFalEndpoint(providerEndpoint);
+        const falEndpoint = providerEndpoint.startsWith("fal:")
+          ? getFalEndpoint(providerEndpoint)
+          : providerEndpoint;
         const basePath = falEndpoint.split('/').slice(0, 2).join('/');
         
         console.log(`Checking Fal.ai status for ${gen.id}: ${basePath}, task: ${gen.task_id}`);
