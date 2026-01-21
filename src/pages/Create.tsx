@@ -29,6 +29,14 @@ import SoraTrendsTool from "@/components/tools/SoraTrendsTool";
 import ClickToAdTool from "@/components/tools/ClickToAdTool";
 import UGCFactoryTool from "@/components/tools/UGCFactoryTool";
 import MixedMediaTool from "@/components/tools/MixedMediaTool";
+// Music Tool components
+import StemsTool from "@/components/tools/StemsTool";
+import RemixTool from "@/components/tools/RemixTool";
+import VocalsTool from "@/components/tools/VocalsTool";
+import MasteringTool from "@/components/tools/MasteringTool";
+import SoundEffectsTool from "@/components/tools/SoundEffectsTool";
+import AudioEnhanceTool from "@/components/tools/AudioEnhanceTool";
+import TempoPitchTool from "@/components/tools/TempoPitchTool";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -682,6 +690,28 @@ const Create = () => {
     }
   };
 
+  // Render music tool component based on selected app
+  const renderMusicTool = () => {
+    switch (selectedApp) {
+      case "stems":
+        return <StemsTool />;
+      case "remix":
+        return <RemixTool />;
+      case "vocals":
+        return <VocalsTool />;
+      case "master":
+        return <MasteringTool />;
+      case "sound-effects":
+        return <SoundEffectsTool />;
+      case "audio-enhance":
+        return <AudioEnhanceTool />;
+      case "tempo-pitch":
+        return <TempoPitchTool />;
+      default:
+        return null;
+    }
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
@@ -836,6 +866,25 @@ const Create = () => {
   // Render image tool if not on "generate"
   if (type === "image" && selectedApp !== "generate") {
     const toolComponent = renderImageTool();
+    if (toolComponent) {
+      return (
+        <div className="min-h-screen bg-background">
+          <TopMenu />
+          <div className="flex">
+            <AppsSidebar currentType={type} selectedApp={selectedApp} onSelectApp={handleAppSelect} />
+            <main className="flex-1 pb-20 md:pb-0">
+              {toolComponent}
+            </main>
+          </div>
+          <BottomNav />
+        </div>
+      );
+    }
+  }
+
+  // Render music tool if not on "generate"
+  if (type === "music" && selectedApp !== "generate") {
+    const toolComponent = renderMusicTool();
     if (toolComponent) {
       return (
         <div className="min-h-screen bg-background">
