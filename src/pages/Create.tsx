@@ -46,6 +46,7 @@ import ColorGradeTool from "@/components/tools/ColorGradeTool";
 import StabilizeTool from "@/components/tools/StabilizeTool";
 // Chat components
 import ChatToolLayout from "@/components/tools/ChatToolLayout";
+import GenerationCard from "@/components/GenerationCard";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -365,6 +366,71 @@ const Create = () => {
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
 
+  // User's video generations for the video page
+  interface VideoGeneration {
+    id: string;
+    title: string | null;
+    prompt: string;
+    type: string;
+    model: string;
+    status: string;
+    output_url: string | null;
+    thumbnail_url: string | null;
+    credits_used: number;
+    created_at: string;
+  }
+  const [userVideos, setUserVideos] = useState<VideoGeneration[]>([]);
+  const [isLoadingVideos, setIsLoadingVideos] = useState(false);
+
+  // Fetch user videos when on video page
+  useEffect(() => {
+    if (type === "video" && user) {
+      fetchUserVideos();
+    }
+  }, [type, user]);
+
+  const fetchUserVideos = async () => {
+    if (!user) return;
+    setIsLoadingVideos(true);
+    try {
+      const { data, error } = await supabase
+        .from("generations")
+        .select("*")
+        .eq("type", "video")
+        .order("created_at", { ascending: false })
+        .limit(12);
+
+      if (error) throw error;
+      setUserVideos(data || []);
+    } catch (error) {
+      console.error("Error fetching videos:", error);
+    } finally {
+      setIsLoadingVideos(false);
+    }
+  };
+
+  const deleteUserVideo = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("generations")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+      setUserVideos(prev => prev.filter(v => v.id !== id));
+      toast({
+        title: "Deleted",
+        description: "Video removed from library.",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to delete video.",
+      });
+    }
+  };
+
   const currentCost = type === "video" ? getModelCost(model, quality) : getModelCost(model);
 
   const allowedVideoAspectRatios =
@@ -520,6 +586,7 @@ const Create = () => {
                   if (eventType === 'complete') {
                     setResult(data.result);
                     refetchCredits();
+                    if (type === "video") fetchUserVideos();
                     toast({
                       title: "Generation complete!",
                       description: `Your video has been created. ${data.credits_remaining} credits remaining.`,
@@ -1892,6 +1959,50 @@ const Create = () => {
                 )}
               </CardContent>
             </Card>
+
+            {/* Your Videos Section - Video page only */}
+            {type === "video" && user && (
+              <Card className="border-border/50 bg-card">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <Label className="flex items-center gap-2">
+                      <Video className="h-4 w-4 text-primary" />
+                      Your Videos
+                    </Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate("/library")}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      View All
+                    </Button>
+                  </div>
+                  
+                  {isLoadingVideos ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  ) : userVideos.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                      <Video className="h-10 w-10 mb-2 opacity-50" />
+                      <p className="text-sm">No videos yet</p>
+                      <p className="text-xs">Generate your first video above!</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {userVideos.slice(0, 6).map((video) => (
+                        <GenerationCard
+                          key={video.id}
+                          gen={video}
+                          onDelete={deleteUserVideo}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
         </main>
