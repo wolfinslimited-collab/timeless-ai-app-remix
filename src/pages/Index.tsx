@@ -3,6 +3,7 @@ import HeroSection from "@/components/HeroSection";
 import ToolsGrid from "@/components/ToolsGrid";
 import FeaturedSection from "@/components/FeaturedSection";
 import EffectsSection from "@/components/EffectsSection";
+import Footer from "@/components/Footer";
 import BottomNav from "@/components/BottomNav";
 
 const Index = () => {
@@ -19,6 +20,7 @@ const Index = () => {
           <FeaturedSection />
           <EffectsSection />
         </div>
+        <Footer />
       </main>
 
       {/* Bottom Nav - Mobile */}
