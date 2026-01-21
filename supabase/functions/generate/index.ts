@@ -57,27 +57,12 @@ const QUALITY_MULTIPLIERS: Record<string, number> = {
   "1080p": 1.5,
 };
 
-// Duration multipliers for video (base duration is 5s = 1.0x)
-const DURATION_MULTIPLIERS: Record<number, number> = {
-  3: 0.7,
-  5: 1.0,
-  6: 1.1,
-  7: 1.3,
-  8: 1.5,
-  9: 1.7,
-  10: 2.0,
-};
-
-const getModelCost = (model: string, type: string, quality?: string, duration?: number): number => {
+const getModelCost = (model: string, type: string, quality?: string): number => {
   const baseCost = MODEL_CREDITS[model] ?? DEFAULT_CREDITS[type as keyof typeof DEFAULT_CREDITS] ?? 5;
   let multiplier = 1.0;
   
   if (quality && QUALITY_MULTIPLIERS[quality]) {
     multiplier *= QUALITY_MULTIPLIERS[quality];
-  }
-  
-  if (duration && DURATION_MULTIPLIERS[duration]) {
-    multiplier *= DURATION_MULTIPLIERS[duration];
   }
   
   return Math.round(baseCost * multiplier);
@@ -571,7 +556,7 @@ serve(async (req) => {
 
             sendEvent('status', { stage: 'credits', message: 'Checking credits...' });
 
-            const creditCost = getModelCost(model, type, quality, videoDuration || cinemaDuration);
+            const creditCost = getModelCost(model, type, quality);
             
             const { data: profile, error: profileError } = await supabase
               .from("profiles")
@@ -807,7 +792,7 @@ serve(async (req) => {
     console.log(`User authenticated: ${user.id}`);
 
     // Check user profile for credits and subscription
-    const creditCost = getModelCost(model, type, quality, videoDuration);
+    const creditCost = getModelCost(model, type, quality);
     
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
