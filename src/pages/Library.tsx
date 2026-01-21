@@ -5,7 +5,7 @@ import TopMenu from "@/components/TopMenu";
 import Sidebar from "@/components/Sidebar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
-import { Image, Video, Download, Trash2, Clock, Loader2, AlertCircle } from "lucide-react";
+import { Image, Video, Download, Trash2, Clock, Loader2, Bot } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -177,10 +177,10 @@ const Library = () => {
                   }`}
                 >
                   {/* Status Badge */}
-                  {gen.status === "failed" && (
-                    <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-destructive/90 text-destructive-foreground rounded-full px-2 py-1">
-                      <AlertCircle className="h-3 w-3" />
-                      <span className="text-xs font-medium">Failed</span>
+                  {gen.status === "pending" && (
+                    <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-yellow-500/90 text-black rounded-full px-2 py-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span className="text-xs font-medium">Generating</span>
                     </div>
                   )}
                   {gen.status === "pending" && (
@@ -191,36 +191,40 @@ const Library = () => {
                   )}
 
                   {/* Thumbnail */}
-                  <div className={`aspect-square bg-secondary flex items-center justify-center ${gen.status === "failed" ? "opacity-50" : ""}`}>
-                    {gen.thumbnail_url || gen.output_url ? (
+                  <div className="aspect-square bg-secondary flex items-center justify-center">
+                    {gen.status === "failed" ? (
+                      <div className="flex flex-col items-center justify-center text-center p-4">
+                        <div className="relative mb-3">
+                          <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center">
+                            <Bot className="h-10 w-10 text-destructive" />
+                          </div>
+                          <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-destructive flex items-center justify-center">
+                            <span className="text-destructive-foreground text-lg font-bold">!</span>
+                          </div>
+                        </div>
+                        <span className="text-sm font-medium text-destructive">Generation Failed</span>
+                        <span className="text-xs text-muted-foreground mt-1">Something went wrong</span>
+                      </div>
+                    ) : gen.thumbnail_url || gen.output_url ? (
                       <img
                         src={gen.thumbnail_url || gen.output_url || ""}
                         alt={gen.title || gen.prompt}
                         className="w-full h-full object-cover"
                       />
+                    ) : gen.status === "pending" ? (
+                      <div className="flex flex-col items-center text-muted-foreground">
+                        <Loader2 className="h-12 w-12 mb-2 animate-spin" />
+                        <span className="text-sm">Processing...</span>
+                      </div>
+                    ) : gen.type === "video" ? (
+                      <div className="flex flex-col items-center text-muted-foreground">
+                        <Video className="h-12 w-12 mb-2" />
+                        <span className="text-sm">Preview unavailable</span>
+                      </div>
                     ) : (
                       <div className="flex flex-col items-center text-muted-foreground">
-                        {gen.status === "failed" ? (
-                          <>
-                            <AlertCircle className="h-12 w-12 mb-2 text-destructive" />
-                            <span className="text-sm">Generation failed</span>
-                          </>
-                        ) : gen.status === "pending" ? (
-                          <>
-                            <Loader2 className="h-12 w-12 mb-2 animate-spin" />
-                            <span className="text-sm">Processing...</span>
-                          </>
-                        ) : gen.type === "video" ? (
-                          <>
-                            <Video className="h-12 w-12 mb-2" />
-                            <span className="text-sm">Preview unavailable</span>
-                          </>
-                        ) : (
-                          <>
-                            <Image className="h-12 w-12 mb-2" />
-                            <span className="text-sm">Preview unavailable</span>
-                          </>
-                        )}
+                        <Image className="h-12 w-12 mb-2" />
+                        <span className="text-sm">Preview unavailable</span>
                       </div>
                     )}
                   </div>
