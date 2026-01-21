@@ -167,94 +167,123 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 1: Get direct video download URL using RapidAPI
-    const rapidApiKey = Deno.env.get("RAPIDAPI_KEY");
-    if (!rapidApiKey) {
-      console.error("RAPIDAPI_KEY not configured");
-      return new Response(
-        JSON.stringify({ error: "Download service not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
+    // Step 1: Get direct video download URL using cobalt.tools API (more reliable than RapidAPI for YouTube)
     console.log(`Fetching direct download URL for video: ${videoId}`);
 
-    const ytResponse = await fetch(
-      `https://ytstream-download-youtube-videos.p.rapidapi.com/dl?id=${videoId}`,
-      {
-        method: "GET",
-        headers: {
-          "x-rapidapi-key": rapidApiKey,
-          "x-rapidapi-host": "ytstream-download-youtube-videos.p.rapidapi.com",
-        },
-      }
-    );
-
-    if (!ytResponse.ok) {
-      const errorText = await ytResponse.text();
-      console.error("YouTube download API error:", ytResponse.status, errorText);
-      return new Response(
-        JSON.stringify({ error: "Failed to fetch video download link" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const ytData = await ytResponse.json();
+    // Try cobalt.tools first - it's free and very reliable
     let directVideoUrl: string | null = null;
+    
+    try {
+      const cobaltResponse = await fetch("https://api.cobalt.tools/", {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: youtubeUrl,
+          downloadMode: "auto",
+          filenameStyle: "basic",
+        }),
+      });
 
-    // Look for formats with video+audio (mp4)
-    if (ytData.formats && Array.isArray(ytData.formats)) {
-      const mp4Formats = ytData.formats.filter((f: any) =>
-        f.mimeType?.includes("video/mp4") && f.url
-      );
-      if (mp4Formats.length > 0) {
-        // Sort by quality descending
-        mp4Formats.sort((a: any, b: any) => {
-          const heightA = a.height || parseInt(a.qualityLabel) || 0;
-          const heightB = b.height || parseInt(b.qualityLabel) || 0;
-          return heightB - heightA;
-        });
-        directVideoUrl = mp4Formats[0].url;
-        console.log(`Found direct video URL with quality: ${mp4Formats[0].qualityLabel || mp4Formats[0].height}`);
+      if (cobaltResponse.ok) {
+        const cobaltData = await cobaltResponse.json();
+        console.log("Cobalt response status:", cobaltData.status);
+        
+        if (cobaltData.status === "redirect" || cobaltData.status === "tunnel") {
+          directVideoUrl = cobaltData.url;
+          console.log("Got direct URL from cobalt.tools");
+        } else if (cobaltData.status === "picker" && cobaltData.picker?.length > 0) {
+          // Multiple options available, pick the video one
+          const videoOption = cobaltData.picker.find((p: any) => p.type === "video") || cobaltData.picker[0];
+          directVideoUrl = videoOption?.url;
+          console.log("Got picker URL from cobalt.tools");
+        }
+      } else {
+        console.log("Cobalt API returned:", cobaltResponse.status);
       }
+    } catch (cobaltErr) {
+      console.log("Cobalt.tools failed, will try fallback:", cobaltErr);
     }
 
-    // Fallback to direct link
-    if (!directVideoUrl && ytData.link) {
-      directVideoUrl = ytData.link;
-      console.log("Using direct link fallback");
+    // Fallback: Try RapidAPI if cobalt failed
+    if (!directVideoUrl) {
+      const rapidApiKey = Deno.env.get("RAPIDAPI_KEY");
+      if (rapidApiKey) {
+        console.log("Trying RapidAPI fallback...");
+        
+        const ytResponse = await fetch(
+          `https://ytstream-download-youtube-videos.p.rapidapi.com/dl?id=${videoId}`,
+          {
+            method: "GET",
+            headers: {
+              "x-rapidapi-key": rapidApiKey,
+              "x-rapidapi-host": "ytstream-download-youtube-videos.p.rapidapi.com",
+            },
+          }
+        );
+
+        if (ytResponse.ok) {
+          const ytData = await ytResponse.json();
+          
+          // Prefer adaptiveFormats first (often more accessible)
+          if (ytData.adaptiveFormats && Array.isArray(ytData.adaptiveFormats)) {
+            const mp4Formats = ytData.adaptiveFormats.filter((f: any) =>
+              f.mimeType?.includes("video/mp4") && f.url && f.hasAudio !== false
+            );
+            if (mp4Formats.length > 0) {
+              mp4Formats.sort((a: any, b: any) => (b.height || 0) - (a.height || 0));
+              directVideoUrl = mp4Formats[0].url;
+              console.log(`Found adaptiveFormats URL: ${mp4Formats[0].height}p`);
+            }
+          }
+          
+          // Try regular formats
+          if (!directVideoUrl && ytData.formats && Array.isArray(ytData.formats)) {
+            const mp4Formats = ytData.formats.filter((f: any) =>
+              f.mimeType?.includes("video/mp4") && f.url
+            );
+            if (mp4Formats.length > 0) {
+              mp4Formats.sort((a: any, b: any) => (b.height || 0) - (a.height || 0));
+              directVideoUrl = mp4Formats[0].url;
+              console.log(`Found formats URL: ${mp4Formats[0].height}p`);
+            }
+          }
+          
+          // Fallback to direct link
+          if (!directVideoUrl && ytData.link) {
+            directVideoUrl = ytData.link;
+            console.log("Using direct link fallback");
+          }
+        }
+      }
     }
 
     if (!directVideoUrl) {
       console.error("No direct video URL found for:", videoId);
       return new Response(
-        JSON.stringify({ error: "Could not get video download link. The video may be restricted." }),
+        JSON.stringify({ error: "Could not get video download link. The video may be restricted or age-gated." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // Step 2: Upload the MP4 to our public storage so Fal.ai can reliably fetch it.
-    // (Many YouTube-derived URLs are short-lived or blocked for non-browser clients.)
     console.log("Direct video URL obtained. Downloading and uploading to storage...");
 
     const videoFetchResp = await fetch(directVideoUrl, {
       headers: {
-        // Some hosts block generic user agents.
-        "User-Agent":
-          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept: "*/*",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "video/mp4,video/*;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.youtube.com/",
       },
     });
 
     if (!videoFetchResp.ok) {
-      const errText = await videoFetchResp.text().catch(() => "");
-      console.error(
-        "Failed to download MP4 from direct URL:",
-        videoFetchResp.status,
-        errText
-      );
+      console.error("Failed to download MP4:", videoFetchResp.status);
       return new Response(
-        JSON.stringify({ error: "Failed to download the source video for translation" }),
+        JSON.stringify({ error: "Failed to download the source video. The video may be geo-restricted or protected." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
