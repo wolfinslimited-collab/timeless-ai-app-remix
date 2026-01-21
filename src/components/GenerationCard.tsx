@@ -130,10 +130,10 @@ const GenerationCard = ({ gen, onDelete }: GenerationCardProps) => {
           <span className="capitalize">{gen.model}</span>
           <span>•</span>
           {isFailed ? (
-            <span className="inline-flex items-center gap-1 text-destructive font-medium">
-              <Bot className="h-3 w-3" />
-              Generation failed
-            </span>
+            <>
+              <Clock className="h-3 w-3" />
+              <span>{new Date(gen.created_at).toLocaleDateString()}</span>
+            </>
           ) : gen.status === "pending" ? (
             <span className="text-yellow-500 font-medium">Processing</span>
           ) : (
