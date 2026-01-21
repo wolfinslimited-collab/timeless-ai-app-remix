@@ -131,6 +131,7 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [interimTranscript, setInterimTranscript] = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -275,10 +276,12 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
           }
         }
 
+        // Update interim transcript for live preview
+        setInterimTranscript(interimTranscript);
+        
         if (finalTranscript) {
           setInput(prev => prev + finalTranscript);
-        } else if (interimTranscript) {
-          // Show interim results in a different way if needed
+          setInterimTranscript(""); // Clear interim when we get final
         }
       };
 
@@ -294,6 +297,7 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
 
       recognitionRef.current.onend = () => {
         setIsListening(false);
+        setInterimTranscript("");
       };
     }
 
@@ -1068,13 +1072,17 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
             /* Voice Input Waveform Overlay */
             <VoiceInputWaveform
               isListening={isListening}
+              transcription={input}
+              interimTranscription={interimTranscript}
               onCancel={() => {
                 recognitionRef.current?.stop();
                 setIsListening(false);
+                setInterimTranscript("");
               }}
               onConfirm={() => {
                 recognitionRef.current?.stop();
                 setIsListening(false);
+                setInterimTranscript("");
                 // The speech recognition will have already added text to input
                 // User can now send or edit the message
               }}

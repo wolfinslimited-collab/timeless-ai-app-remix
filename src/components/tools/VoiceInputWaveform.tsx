@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 
 interface VoiceInputWaveformProps {
   isListening: boolean;
+  transcription?: string;
+  interimTranscription?: string;
   onCancel: () => void;
   onConfirm: () => void;
   className?: string;
@@ -12,6 +14,8 @@ interface VoiceInputWaveformProps {
 
 const VoiceInputWaveform = ({
   isListening,
+  transcription = "",
+  interimTranscription = "",
   onCancel,
   onConfirm,
   className,
@@ -233,57 +237,80 @@ const VoiceInputWaveform = ({
 
   if (!isListening) return null;
 
+  // Combine transcriptions for display
+  const displayText = transcription + (interimTranscription ? interimTranscription : "");
+  const hasText = displayText.length > 0;
+
   return (
     <div
       className={cn(
-        "flex items-center gap-3 bg-secondary/90 backdrop-blur-md rounded-2xl px-4 py-3 border border-border/30 shadow-lg",
+        "flex flex-col gap-2 bg-secondary/90 backdrop-blur-md rounded-2xl px-4 py-3 border border-border/30 shadow-lg",
         className
       )}
     >
-      {/* Cancel button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-10 w-10 shrink-0 rounded-full hover:bg-destructive/20 hover:text-destructive transition-all duration-200"
-        onClick={onCancel}
-      >
-        <X className="h-5 w-5" />
-      </Button>
+      {/* Main row with buttons and waveform */}
+      <div className="flex items-center gap-3">
+        {/* Cancel button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 shrink-0 rounded-full hover:bg-destructive/20 hover:text-destructive transition-all duration-200"
+          onClick={onCancel}
+        >
+          <X className="h-5 w-5" />
+        </Button>
 
-      {/* Waveform visualization */}
-      <div className="flex-1 relative h-14 overflow-hidden">
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full"
-          style={{ width: '100%', height: '100%' }}
-        />
-        {!isInitialized && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex items-center gap-[3px]">
-              {[...Array(32)].map((_, i) => (
-                <div
-                  key={i}
-                  className="w-[3px] bg-foreground/40 rounded-full"
-                  style={{
-                    height: `${Math.sin(i * 0.4) * 10 + 14}px`,
-                    animation: `pulse 1.5s ease-in-out infinite`,
-                    animationDelay: `${i * 30}ms`,
-                  }}
-                />
-              ))}
+        {/* Waveform visualization */}
+        <div className="flex-1 relative h-14 overflow-hidden">
+          <canvas
+            ref={canvasRef}
+            className="w-full h-full"
+            style={{ width: '100%', height: '100%' }}
+          />
+          {!isInitialized && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="flex items-center gap-[3px]">
+                {[...Array(32)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-[3px] bg-foreground/40 rounded-full"
+                    style={{
+                      height: `${Math.sin(i * 0.4) * 10 + 14}px`,
+                      animation: `pulse 1.5s ease-in-out infinite`,
+                      animationDelay: `${i * 30}ms`,
+                    }}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Confirm button */}
+        <Button
+          size="icon"
+          className="h-10 w-10 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 shadow-md"
+          onClick={onConfirm}
+        >
+          <Check className="h-5 w-5" />
+        </Button>
       </div>
 
-      {/* Confirm button */}
-      <Button
-        size="icon"
-        className="h-10 w-10 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 shadow-md"
-        onClick={onConfirm}
-      >
-        <Check className="h-5 w-5" />
-      </Button>
+      {/* Live transcription preview */}
+      <div className="min-h-[24px] px-2">
+        {hasText ? (
+          <p className="text-sm text-foreground/90 leading-relaxed">
+            <span>{transcription}</span>
+            {interimTranscription && (
+              <span className="text-foreground/50 italic">{interimTranscription}</span>
+            )}
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground italic">
+            Listening...
+          </p>
+        )}
+      </div>
     </div>
   );
 };
