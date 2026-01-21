@@ -33,6 +33,8 @@ const POPULAR_LANGUAGES = [
   "Chinese",
   "Arabic",
   "Hindi",
+  "Farsi",
+  "Turkish",
 ];
 
 interface VideoInfo {
