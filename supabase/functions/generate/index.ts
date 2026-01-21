@@ -12,6 +12,7 @@ const MODEL_CREDITS: Record<string, number> = {
   "nano-banana": 4,
   
   // Image models - Fal.ai
+  "nano-banana-pro": 6,
   "gpt-image-1.5": 10,
   "flux-1.1-pro": 5,
   "flux-pro-ultra": 8,
@@ -72,6 +73,7 @@ const LOVABLE_AI_BASE_URL = "https://ai.gateway.lovable.dev/v1/chat/completions"
 
 // Fal.ai Image Models
 const FAL_IMAGE_MODELS: Record<string, string> = {
+  "nano-banana-pro": "fal-ai/google/gemini-flash-1.5-image",
   "gpt-image-1.5": "fal-ai/gpt-image-1.5",
   "flux-1.1-pro": "fal-ai/flux-pro/v1.1",
   "flux-pro-ultra": "fal-ai/flux-pro/v1.1-ultra",
