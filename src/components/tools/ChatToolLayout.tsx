@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -632,9 +634,72 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
                         ))}
                       </div>
                     )}
-                    <div className="whitespace-pre-wrap break-words text-sm">
-                      {getDisplayContent(message) || (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                    <div className="text-sm">
+                      {message.role === "assistant" ? (
+                        getDisplayContent(message) ? (
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              pre: ({ children }) => (
+                                <pre className="bg-background/50 rounded-lg p-3 my-2 overflow-x-auto text-xs">
+                                  {children}
+                                </pre>
+                              ),
+                              code: ({ className, children, ...props }) => {
+                                const isInline = !className;
+                                return isInline ? (
+                                  <code className="bg-background/50 px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
+                                    {children}
+                                  </code>
+                                ) : (
+                                  <code className={cn("font-mono", className)} {...props}>
+                                    {children}
+                                  </code>
+                                );
+                              },
+                              ul: ({ children }) => (
+                                <ul className="list-disc list-inside my-2 space-y-1">{children}</ul>
+                              ),
+                              ol: ({ children }) => (
+                                <ol className="list-decimal list-inside my-2 space-y-1">{children}</ol>
+                              ),
+                              li: ({ children }) => <li className="ml-2">{children}</li>,
+                              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                              h1: ({ children }) => <h1 className="text-lg font-bold mt-3 mb-2">{children}</h1>,
+                              h2: ({ children }) => <h2 className="text-base font-bold mt-3 mb-2">{children}</h2>,
+                              h3: ({ children }) => <h3 className="text-sm font-bold mt-2 mb-1">{children}</h3>,
+                              blockquote: ({ children }) => (
+                                <blockquote className="border-l-2 border-primary/50 pl-3 my-2 italic">
+                                  {children}
+                                </blockquote>
+                              ),
+                              a: ({ href, children }) => (
+                                <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline hover:no-underline">
+                                  {children}
+                                </a>
+                              ),
+                              table: ({ children }) => (
+                                <div className="overflow-x-auto my-2">
+                                  <table className="min-w-full border border-border/50 text-xs">{children}</table>
+                                </div>
+                              ),
+                              th: ({ children }) => (
+                                <th className="border border-border/50 px-2 py-1 bg-secondary/30 font-medium">{children}</th>
+                              ),
+                              td: ({ children }) => (
+                                <td className="border border-border/50 px-2 py-1">{children}</td>
+                              ),
+                            }}
+                          >
+                            {getDisplayContent(message)}
+                          </ReactMarkdown>
+                        ) : (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        )
+                      ) : (
+                        <span className="whitespace-pre-wrap break-words">
+                          {getDisplayContent(message) || <Loader2 className="h-4 w-4 animate-spin" />}
+                        </span>
                       )}
                     </div>
                     {message.role === "assistant" && getDisplayContent(message) && (
