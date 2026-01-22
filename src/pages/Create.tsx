@@ -95,6 +95,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import AddCreditsDialog from "@/components/AddCreditsDialog";
 
 // Image Models (Fal.ai + Lovable AI)
 const imageModels = [
@@ -396,6 +397,7 @@ const Create = () => {
   
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [result, setResult] = useState<{ output_url?: string; storyboard?: string } | null>(null);
+  const [showAddCreditsDialog, setShowAddCreditsDialog] = useState(false);
 
   // User's video generations for the video page
   interface VideoGeneration {
@@ -543,11 +545,7 @@ const Create = () => {
     }
 
     if (!hasEnoughCreditsForModel(model)) {
-      toast({
-        variant: "destructive",
-        title: "Insufficient credits",
-        description: `You need ${currentCost} credits for ${currentModels.find(m => m.id === model)?.name}. Current balance: ${credits ?? 0}`,
-      });
+      setShowAddCreditsDialog(true);
       return;
     }
 
@@ -1944,7 +1942,7 @@ const Create = () => {
 
                 <Button 
                   onClick={handleGenerate}
-                  disabled={isGenerating || !prompt.trim() || (user && !hasEnoughCreditsForModel(model))}
+                  disabled={isGenerating || !prompt.trim()}
                   className="w-full gradient-primary text-primary-foreground gap-2"
                   size="lg"
                 >
@@ -1963,12 +1961,6 @@ const Create = () => {
                     </>
                   )}
                 </Button>
-
-                {user && !hasEnoughCreditsForModel(model) && (
-                  <p className="text-center text-sm text-destructive">
-                    Insufficient credits. You need {currentCost} credits but have {credits ?? 0}.
-                  </p>
-                )}
 
                 {!user && (
                   <p className="text-center text-sm text-muted-foreground">
@@ -2081,7 +2073,7 @@ const Create = () => {
                       </div>
                       <Button 
                         onClick={handleGenerate}
-                        disabled={!prompt.trim() || !hasEnoughCreditsForModel(model)}
+                        disabled={!prompt.trim()}
                         className="gap-2"
                         variant="outline"
                       >
@@ -2169,6 +2161,14 @@ const Create = () => {
       </div>
 
       <BottomNav />
+
+      {/* Add Credits Dialog */}
+      <AddCreditsDialog
+        open={showAddCreditsDialog}
+        onOpenChange={setShowAddCreditsDialog}
+        currentCredits={credits ?? 0}
+        requiredCredits={currentCost}
+      />
     </div>
   );
 };

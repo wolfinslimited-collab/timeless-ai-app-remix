@@ -6,6 +6,7 @@ import { Slider } from "@/components/ui/slider";
 import { useCredits } from "@/hooks/useCredits";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import AddCreditsDialog from "@/components/AddCreditsDialog";
 import { 
   Upload, 
   Download, 
