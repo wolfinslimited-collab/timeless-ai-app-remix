@@ -46,6 +46,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import AddCreditsDialog from "@/components/AddCreditsDialog";
+import { useCredits } from "@/hooks/useCredits";
 
 // Camera Movement Presets
 const allMovements = [
@@ -277,12 +279,14 @@ const CinemaStudio = ({
   quality,
   setQuality,
 }: CinemaStudioProps) => {
+  const { credits } = useCredits();
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [variationCount, setVariationCount] = useState(1);
   const [movementsOpen, setMovementsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [cameraSettingsOpen, setCameraSettingsOpen] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+  const [showAddCreditsDialog, setShowAddCreditsDialog] = useState(false);
   const [previousGenerations, setPreviousGenerations] = useState<Array<{
     id: string;
     output_url: string | null;
@@ -302,6 +306,15 @@ const CinemaStudio = ({
   const [selectedFocalLength, setSelectedFocalLength] = useState("35");
   const [selectedAperture, setSelectedAperture] = useState("f/4");
   const [selectedStyle, setSelectedStyle] = useState<StylePreset | null>(null);
+
+  // Handle generate with credit check
+  const handleGenerateClick = () => {
+    if (user && !hasEnoughCredits) {
+      setShowAddCreditsDialog(true);
+      return;
+    }
+    onGenerate();
+  };
 
   // Apply style preset
   const applyStylePreset = (preset: StylePreset) => {
@@ -571,8 +584,8 @@ const CinemaStudio = ({
               <p className="text-sm text-muted-foreground max-w-md">{generationError}</p>
             </div>
             <Button
-              onClick={onGenerate}
-              disabled={!prompt.trim() || !hasEnoughCredits}
+              onClick={handleGenerateClick}
+              disabled={!prompt.trim()}
               className="gap-2 mt-2"
               variant="outline"
             >
@@ -1015,8 +1028,8 @@ const CinemaStudio = ({
 
               {/* Generate Button */}
               <Button
-                onClick={onGenerate}
-                disabled={isGenerating || !prompt.trim() || (user && !hasEnoughCredits)}
+                onClick={handleGenerateClick}
+                disabled={isGenerating || !prompt.trim()}
                 className="h-10 px-5 rounded-xl bg-[#c8e600] hover:bg-[#b8d600] text-black font-bold gap-2 text-sm"
               >
                 {isGenerating ? (
@@ -1215,6 +1228,14 @@ const CinemaStudio = ({
           )}
         </div>
       </div>
+
+      {/* Add Credits Dialog */}
+      <AddCreditsDialog
+        open={showAddCreditsDialog}
+        onOpenChange={setShowAddCreditsDialog}
+        currentCredits={credits ?? 0}
+        requiredCredits={currentCost}
+      />
     </div>
   );
 };

@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import AddCreditsDialog from "@/components/AddCreditsDialog";
 
 interface ImageToolLayoutProps {
   toolId: string;
@@ -68,6 +69,7 @@ const ImageToolLayout = ({
   const [scale, setScale] = useState(2);
   const [selectedStyle, setSelectedStyle] = useState(styleOptions[0]?.id || "");
   const [maskImage, setMaskImage] = useState<string | null>(null);
+  const [showAddCreditsDialog, setShowAddCreditsDialog] = useState(false);
 
   const hasEnoughCredits = hasActiveSubscription || (credits ?? 0) >= creditCost;
 
@@ -113,7 +115,7 @@ const ImageToolLayout = ({
     if (!inputImage || !user) return;
 
     if (!hasEnoughCredits) {
-      toast({ variant: "destructive", title: "Insufficient credits", description: `Need ${creditCost} credits.` });
+      setShowAddCreditsDialog(true);
       return;
     }
 
@@ -313,7 +315,7 @@ const ImageToolLayout = ({
                 <Button
                   className="w-full gradient-primary text-primary-foreground"
                   onClick={handleProcess}
-                  disabled={isProcessing || !hasEnoughCredits}
+                  disabled={isProcessing}
                 >
                   {isProcessing ? (
                     <>
@@ -383,6 +385,14 @@ const ImageToolLayout = ({
           </CardContent>
         </Card>
       </div>
+
+      {/* Add Credits Dialog */}
+      <AddCreditsDialog
+        open={showAddCreditsDialog}
+        onOpenChange={setShowAddCreditsDialog}
+        currentCredits={credits ?? 0}
+        requiredCredits={creditCost}
+      />
     </div>
   );
 };
