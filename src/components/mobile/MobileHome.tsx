@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Image, Video, Music, Clapperboard, ChevronRight, Zap, Crown, Bell, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { PullToRefresh } from "./PullToRefresh";
 import type { Screen } from "./MobileNav";
 
 interface MobileHomeProps {
   onNavigate: (screen: Screen) => void;
   credits: number;
+  onRefreshCredits?: () => void;
 }
 
 interface Generation {
@@ -18,7 +20,7 @@ interface Generation {
   prompt: string;
 }
 
-export function MobileHome({ onNavigate, credits }: MobileHomeProps) {
+export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHomeProps) {
   const { user } = useAuth();
   const [recentGenerations, setRecentGenerations] = useState<Generation[]>([]);
 
@@ -42,10 +44,16 @@ export function MobileHome({ onNavigate, credits }: MobileHomeProps) {
     }
   };
 
+  const handleRefresh = useCallback(async () => {
+    await fetchRecentGenerations();
+    onRefreshCredits?.();
+  }, [onRefreshCredits]);
+
   return (
-    <div className="px-4 py-2">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+    <PullToRefresh onRefresh={handleRefresh} className="h-full">
+      <div className="px-4 py-2">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-white text-xl font-bold">Timeless AI</h1>
           <p className="text-gray-400 text-xs">Create anything with AI</p>
@@ -152,8 +160,9 @@ export function MobileHome({ onNavigate, credits }: MobileHomeProps) {
             </>
           )}
         </div>
+        </div>
       </div>
-    </div>
+    </PullToRefresh>
   );
 }
 
