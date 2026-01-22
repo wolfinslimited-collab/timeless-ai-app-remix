@@ -312,6 +312,18 @@ const CinemaStudio = ({
     setSelectedAperture(preset.aperture);
   };
 
+  // Switch model when mode changes to ensure correct model type
+  useEffect(() => {
+    const videoModelIds = cinemaVideoModels.map(m => m.id);
+    const imageModelIds = cinemaImageModels.map(m => m.id);
+    
+    if (cinemaMode === "video" && !videoModelIds.includes(model)) {
+      setModel(cinemaVideoModels[0].id);
+    } else if (cinemaMode === "image" && !imageModelIds.includes(model)) {
+      setModel(cinemaImageModels[0].id);
+    }
+  }, [cinemaMode, model, setModel]);
+
   // Auto-update quality when model changes
   useEffect(() => {
     const availableQualities = MODEL_QUALITY_OPTIONS[model] ?? DEFAULT_QUALITY_OPTIONS;
