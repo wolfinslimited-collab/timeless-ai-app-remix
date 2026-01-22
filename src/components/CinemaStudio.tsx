@@ -343,13 +343,13 @@ const CinemaStudio = ({
       try {
         const { data, error } = await supabase
           .from("generations")
-          .select("id, output_url, thumbnail_url, prompt, created_at")
+          .select("id, output_url, thumbnail_url, prompt, created_at, type")
           .eq("user_id", user.id)
           .eq("type", "cinema")
           .eq("status", "completed")
           .not("output_url", "is", null)
           .order("created_at", { ascending: false })
-          .limit(12);
+          .limit(50);
 
         if (error) throw error;
         setPreviousGenerations(data || []);
@@ -383,127 +383,208 @@ const CinemaStudio = ({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)]">
-      {/* Gallery Grid */}
-      {user && previousGenerations.length > 0 && (
-        <div className="px-4 pt-4">
-          <ScrollArea className="w-full whitespace-nowrap">
-            <div className="flex gap-2 pb-3">
-              {previousGenerations.map((gen) => (
-                <button
-                  key={gen.id}
-                  onClick={() => setSelectedVideo(gen.output_url)}
-                  className={cn(
-                    "relative flex-shrink-0 w-40 h-24 rounded-lg overflow-hidden border-2 transition-all group",
-                    displayVideo === gen.output_url
-                      ? "border-primary ring-2 ring-primary/30"
-                      : "border-border/30 hover:border-border/60"
-                  )}
-                >
-                  {/* Thumbnail or placeholder */}
-                  {gen.thumbnail_url ? (
-                    <img
-                      src={gen.thumbnail_url}
-                      alt={gen.prompt}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-secondary/80 flex items-center justify-center">
-                      <Video className="h-6 w-6 text-muted-foreground/50" />
-                    </div>
-                  )}
-                  
-                  {/* Play button overlay */}
-                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="h-10 w-10 rounded-full bg-white/90 flex items-center justify-center">
-                      <Play className="h-5 w-5 text-black ml-0.5" fill="black" />
-                    </div>
+    <div className="relative h-[calc(100vh-8rem)] overflow-hidden">
+      {/* Higgsfield-style Full-Screen Grid Background */}
+      <div className="absolute inset-0 overflow-auto pb-32">
+        {/* Filter Tabs */}
+        <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-3 bg-background/80 backdrop-blur-sm border-b border-border/20">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-8 rounded-full px-4 text-xs font-medium bg-secondary/60"
+          >
+            <Image className="h-3.5 w-3.5 mr-1.5" />
+            Image
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-8 rounded-full px-4 text-xs font-medium bg-foreground text-background"
+          >
+            <Video className="h-3.5 w-3.5 mr-1.5" />
+            Video
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 rounded-full px-4 text-xs font-medium"
+          >
+            All
+          </Button>
+        </div>
+
+        {/* Video Grid */}
+        {user && previousGenerations.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1 p-1">
+            {previousGenerations.map((gen) => (
+              <button
+                key={gen.id}
+                onClick={() => setSelectedVideo(gen.output_url)}
+                className={cn(
+                  "relative aspect-video overflow-hidden group",
+                  displayVideo === gen.output_url && "ring-2 ring-primary"
+                )}
+              >
+                {/* Thumbnail or video preview */}
+                {gen.thumbnail_url ? (
+                  <img
+                    src={gen.thumbnail_url}
+                    alt={gen.prompt}
+                    className="w-full h-full object-cover"
+                  />
+                ) : gen.output_url ? (
+                  <video
+                    src={gen.output_url}
+                    className="w-full h-full object-cover"
+                    muted
+                    onMouseEnter={(e) => e.currentTarget.play()}
+                    onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-secondary/80 flex items-center justify-center">
+                    <Video className="h-8 w-8 text-muted-foreground/50" />
                   </div>
-                  
-                  {/* Selected indicator */}
-                  {displayVideo === gen.output_url && (
-                    <div className="absolute top-1 right-1">
-                      <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                    </div>
-                  )}
-                </button>
-              ))}
+                )}
+                
+                {/* Play button overlay */}
+                <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="h-12 w-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                    <Play className="h-6 w-6 text-black ml-0.5" fill="black" />
+                  </div>
+                </div>
+                
+                {/* Hover actions */}
+                <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    className="h-8 w-8 rounded-lg bg-black/60 backdrop-blur-sm flex items-center justify-center hover:bg-black/80 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (gen.output_url) {
+                        const link = document.createElement("a");
+                        link.href = gen.output_url;
+                        link.download = "cinema-video.mp4";
+                        link.target = "_blank";
+                        link.click();
+                      }
+                    }}
+                  >
+                    <Download className="h-4 w-4 text-white" />
+                  </button>
+                </div>
+
+                {/* Selected indicator */}
+                {displayVideo === gen.output_url && (
+                  <div className="absolute top-2 left-2">
+                    <div className="h-3 w-3 rounded-full bg-primary animate-pulse shadow-lg" />
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-20">
+            <Video className="h-20 w-20 opacity-30 mb-4" />
+            <p className="text-lg font-medium">No generations yet</p>
+            <p className="text-sm opacity-70">Your cinematic videos will appear here</p>
+          </div>
+        )}
+
+        {/* Loading state */}
+        {loadingGenerations && (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        )}
+      </div>
+
+      {/* Video Player Overlay - Shows when a video is selected */}
+      {displayVideo && !isGenerating && (
+        <div className="absolute inset-0 z-20 bg-background/95 backdrop-blur-xl flex flex-col">
+          {/* Close button */}
+          <div className="flex justify-end p-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-full bg-secondary/50"
+              onClick={() => setSelectedVideo(null)}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+          
+          {/* Video Player */}
+          <div className="flex-1 flex items-center justify-center px-6 pb-6">
+            <div className="w-full max-w-5xl aspect-video rounded-2xl overflow-hidden bg-black">
+              <video
+                src={displayVideo}
+                controls
+                autoPlay
+                loop
+                className="w-full h-full object-contain"
+              />
             </div>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+          </div>
+
+          {/* Download button */}
+          <div className="flex justify-center pb-6">
+            <Button
+              variant="outline"
+              className="gap-2 border-border/50 rounded-xl"
+              onClick={() => {
+                const link = document.createElement("a");
+                link.href = displayVideo;
+                link.download = "cinema-generation.mp4";
+                link.target = "_blank";
+                link.click();
+              }}
+            >
+              <Download className="h-4 w-4" />
+              Download Video
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* Main Preview Area */}
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-4xl aspect-video rounded-2xl bg-secondary/50 border border-border/30 flex items-center justify-center overflow-hidden">
-          {isGenerating ? (
-            <div className="flex flex-col items-center gap-4 text-muted-foreground">
-              <div className="relative">
-                <div className="h-20 w-20 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
-                <Sparkles className="h-8 w-8 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-              </div>
-              <p className="text-sm">Creating cinematic video...</p>
+      {/* Generating Overlay */}
+      {isGenerating && (
+        <div className="absolute inset-0 z-20 bg-background/90 backdrop-blur-xl flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4 text-muted-foreground">
+            <div className="relative">
+              <div className="h-24 w-24 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+              <Sparkles className="h-10 w-10 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
-          ) : displayVideo ? (
-            <video
-              src={displayVideo}
-              controls
-              autoPlay
-              loop
-              className="w-full h-full object-contain"
-            />
-          ) : generationError ? (
-            <div className="flex flex-col items-center gap-4 text-muted-foreground px-6 text-center">
-              <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
-                <AlertCircle className="h-8 w-8 text-destructive" />
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-foreground">Generation Failed</p>
-                <p className="text-xs text-muted-foreground max-w-xs">{generationError}</p>
-              </div>
-              <Button
-                onClick={onGenerate}
-                disabled={!prompt.trim() || !hasEnoughCredits}
-                className="gap-2"
-                variant="outline"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Retry
-              </Button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-3 text-muted-foreground">
-              <Video className="h-16 w-16 opacity-50" />
-              <p className="text-sm">Your cinematic video will appear here</p>
-              <p className="text-xs opacity-70">Enter a prompt below to start creating</p>
-            </div>
-          )}
+            <p className="text-lg font-medium">Creating cinematic video...</p>
+            <p className="text-sm text-muted-foreground/70">This may take a moment</p>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Download button when result is ready */}
-      {displayVideo && !isGenerating && (
-        <div className="flex justify-center pb-4">
-          <Button
-            variant="outline"
-            className="gap-2 border-border/50"
-            onClick={() => {
-              const link = document.createElement("a");
-              link.href = displayVideo;
-              link.download = "cinema-generation.mp4";
-              link.target = "_blank";
-              link.click();
-            }}
-          >
-            <Download className="h-4 w-4" />
-            Download Video
-          </Button>
+      {/* Error Overlay */}
+      {generationError && !isGenerating && (
+        <div className="absolute inset-0 z-20 bg-background/90 backdrop-blur-xl flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4 text-muted-foreground px-6 text-center">
+            <div className="h-20 w-20 rounded-full bg-destructive/10 flex items-center justify-center">
+              <AlertCircle className="h-10 w-10 text-destructive" />
+            </div>
+            <div className="space-y-2">
+              <p className="text-lg font-medium text-foreground">Generation Failed</p>
+              <p className="text-sm text-muted-foreground max-w-md">{generationError}</p>
+            </div>
+            <Button
+              onClick={onGenerate}
+              disabled={!prompt.trim() || !hasEnoughCredits}
+              className="gap-2 mt-2"
+              variant="outline"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Retry
+            </Button>
+          </div>
         </div>
       )}
 
       {/* Floating Bottom Toolbar - Redesigned */}
-      <div className="sticky bottom-4 mx-auto w-full max-w-5xl px-4 pb-4">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-5xl px-4 z-30">
         <div className="rounded-2xl border border-border/30 bg-card/95 backdrop-blur-xl shadow-2xl p-4">
           {/* Prompt Input - Full Width Row */}
           <div className="mb-4">
