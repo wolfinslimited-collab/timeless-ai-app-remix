@@ -708,7 +708,7 @@ const CinemaStudio = ({
                     variant="ghost"
                     className="h-10 gap-1.5 border border-border/30 rounded-xl bg-secondary/30 px-3"
                   >
-                    <span className="text-muted-foreground">♡</span>
+                    <Sparkles className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm">{quality}</span>
                   </Button>
                 </PopoverTrigger>
