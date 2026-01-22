@@ -1178,6 +1178,8 @@ const Create = () => {
               setCinematicDuration={setCinematicDuration}
               model={model}
               setModel={setModel}
+              quality={quality}
+              setQuality={setQuality}
             />
           </main>
         </div>

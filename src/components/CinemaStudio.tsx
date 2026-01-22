@@ -71,8 +71,20 @@ const allMovements = [
 const aspectRatios = ["16:9", "9:16", "1:1", "21:9", "4:3"];
 const durations = [3, 5, 7, 10];
 
+// Model-specific quality options
+const MODEL_QUALITY_OPTIONS: Record<string, string[]> = {
+  "nano-banana": ["2K", "4K"],
+  "wan-2.6-cinema": ["720p", "1080p", "2K"],
+  "kling-2.6-cinema": ["1080p", "2K", "4K"],
+  "veo-3-cinema": ["1080p", "2K", "4K"],
+  "luma-cinema": ["720p", "1080p", "2K"],
+};
+
+const DEFAULT_QUALITY_OPTIONS = ["720p", "1080p", "2K"];
+
 // Cinema Models
 const cinemaModels = [
+  { id: "nano-banana", name: "Nano Banana", credits: 4 },
   { id: "wan-2.6-cinema", name: "Wan Cinema", credits: 20 },
   { id: "kling-2.6-cinema", name: "Kling Cinema Pro", credits: 30 },
   { id: "veo-3-cinema", name: "Veo 3 Cinema", credits: 35 },
@@ -220,6 +232,8 @@ interface CinemaStudioProps {
   setCinematicDuration: (value: number) => void;
   model: string;
   setModel: (value: string) => void;
+  quality: string;
+  setQuality: (value: string) => void;
 }
 
 const MAX_REFERENCE_IMAGES = 4;
@@ -247,6 +261,8 @@ const CinemaStudio = ({
   setCinematicDuration,
   model,
   setModel,
+  quality,
+  setQuality,
 }: CinemaStudioProps) => {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [variationCount, setVariationCount] = useState(1);
@@ -282,6 +298,14 @@ const CinemaStudio = ({
     setSelectedFocalLength(preset.focalLength);
     setSelectedAperture(preset.aperture);
   };
+
+  // Auto-update quality when model changes
+  useEffect(() => {
+    const availableQualities = MODEL_QUALITY_OPTIONS[model] ?? DEFAULT_QUALITY_OPTIONS;
+    if (!availableQualities.includes(quality)) {
+      setQuality(availableQualities[0]);
+    }
+  }, [model, quality, setQuality]);
 
   // Fetch previous cinema generations
   useEffect(() => {
@@ -678,13 +702,32 @@ const CinemaStudio = ({
               </Popover>
 
               {/* Quality */}
-              <Button
-                variant="ghost"
-                className="h-10 gap-1.5 border border-border/30 rounded-xl bg-secondary/30 px-3"
-              >
-                <span className="text-muted-foreground">♡</span>
-                <span className="text-sm">2K</span>
-              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="h-10 gap-1.5 border border-border/30 rounded-xl bg-secondary/30 px-3"
+                  >
+                    <span className="text-muted-foreground">♡</span>
+                    <span className="text-sm">{quality}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-40 p-2 bg-popover border border-border z-50" align="center" side="top">
+                  <div className="space-y-1">
+                    {(MODEL_QUALITY_OPTIONS[model] ?? DEFAULT_QUALITY_OPTIONS).map((q) => (
+                      <Button
+                        key={q}
+                        variant={quality === q ? "secondary" : "ghost"}
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => setQuality(q)}
+                      >
+                        {q}
+                      </Button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Right Group: Camera Settings + Generate */}
