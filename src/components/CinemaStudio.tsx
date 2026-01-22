@@ -663,8 +663,8 @@ const CinemaStudio = ({
                         <Label className="text-sm font-medium">Start Frame</Label>
                       </div>
                       {referenceImages[0] ? (
-                        <div className="relative rounded-xl overflow-hidden border border-border/50 aspect-video group">
-                          <img src={referenceImages[0]} alt="Start Frame" className="w-full h-full object-cover" />
+                        <div className="relative rounded-xl overflow-hidden border border-border/50 aspect-video group bg-secondary/50">
+                          <img src={referenceImages[0]} alt="Start Frame" className="w-full h-full object-contain" />
                           <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                             <Button
                               variant="destructive"
@@ -706,8 +706,8 @@ const CinemaStudio = ({
                         <Label className="text-sm font-medium">End Frame</Label>
                       </div>
                       {referenceImages[1] ? (
-                        <div className="relative rounded-xl overflow-hidden border border-border/50 aspect-video group">
-                          <img src={referenceImages[1]} alt="End Frame" className="w-full h-full object-cover" />
+                        <div className="relative rounded-xl overflow-hidden border border-border/50 aspect-video group bg-secondary/50">
+                          <img src={referenceImages[1]} alt="End Frame" className="w-full h-full object-contain" />
                           <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                             <Button
                               variant="destructive"
