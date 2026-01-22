@@ -1,0 +1,120 @@
+import 'dart:async';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/generation_model.dart';
+
+class GenerationService {
+  final SupabaseClient _supabase = Supabase.instance.client;
+
+  /// Generate image or video
+  Future<Map<String, dynamic>> generate({
+    required String prompt,
+    required String model,
+    required String type,
+    String? aspectRatio,
+    String? quality,
+    String? imageUrl,
+    String? endImageUrl,
+  }) async {
+    final response = await _supabase.functions.invoke(
+      'generate',
+      body: {
+        'prompt': prompt,
+        'model': model,
+        'type': type,
+        if (aspectRatio != null) 'aspectRatio': aspectRatio,
+        if (quality != null) 'quality': quality,
+        if (imageUrl != null) 'imageUrl': imageUrl,
+        if (endImageUrl != null) 'endImageUrl': endImageUrl,
+      },
+    );
+
+    if (response.status != 200) {
+      final error = response.data['error'] ?? 'Generation failed';
+      throw Exception(error);
+    }
+
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Check generation status (for async generations)
+  Future<Map<String, dynamic>> checkGeneration({
+    required String taskId,
+    required String endpoint,
+    required String generationId,
+  }) async {
+    final response = await _supabase.functions.invoke(
+      'check-generation',
+      body: {
+        'taskId': taskId,
+        'endpoint': endpoint,
+        'generationId': generationId,
+      },
+    );
+
+    if (response.status != 200) {
+      final error = response.data['error'] ?? 'Status check failed';
+      throw Exception(error);
+    }
+
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Poll for generation completion
+  Stream<Map<String, dynamic>> pollGeneration({
+    required String taskId,
+    required String endpoint,
+    required String generationId,
+    Duration interval = const Duration(seconds: 3),
+    int maxAttempts = 60,
+  }) async* {
+    int attempts = 0;
+
+    while (attempts < maxAttempts) {
+      attempts++;
+      await Future.delayed(interval);
+
+      try {
+        final result = await checkGeneration(
+          taskId: taskId,
+          endpoint: endpoint,
+          generationId: generationId,
+        );
+
+        yield result;
+
+        final status = result['status'] as String?;
+        if (status == 'completed' || status == 'failed') {
+          break;
+        }
+      } catch (e) {
+        yield {'status': 'error', 'error': e.toString()};
+        break;
+      }
+    }
+  }
+
+  /// Fetch user's generation history
+  Future<List<Generation>> getGenerations({
+    String? type,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    var query = _supabase
+        .from('generations')
+        .select()
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
+
+    if (type != null) {
+      query = query.eq('type', type);
+    }
+
+    final response = await query;
+    return (response as List).map((json) => Generation.fromJson(json)).toList();
+  }
+
+  /// Delete a generation
+  Future<void> deleteGeneration(String id) async {
+    await _supabase.from('generations').delete().eq('id', id);
+  }
+}

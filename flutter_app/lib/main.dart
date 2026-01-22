@@ -1,0 +1,42 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'core/config.dart';
+import 'core/theme.dart';
+import 'core/routes.dart';
+import 'providers/auth_provider.dart';
+import 'providers/credits_provider.dart';
+import 'providers/generation_provider.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: AppConfig.supabaseUrl,
+    anonKey: AppConfig.supabaseAnonKey,
+  );
+
+  runApp(const TimelessAIApp());
+}
+
+class TimelessAIApp extends StatelessWidget {
+  const TimelessAIApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => CreditsProvider()),
+        ChangeNotifierProvider(create: (_) => GenerationProvider()),
+      ],
+      child: MaterialApp.router(
+        title: 'Timeless AI',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.darkTheme,
+        routerConfig: appRouter,
+      ),
+    );
+  }
+}
