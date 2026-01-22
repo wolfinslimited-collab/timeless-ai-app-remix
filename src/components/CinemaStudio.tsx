@@ -74,7 +74,12 @@ const durations = [3, 5, 7, 10];
 
 // Model-specific quality options
 const MODEL_QUALITY_OPTIONS: Record<string, string[]> = {
+  // Image models
   "nano-banana": ["2K", "4K"],
+  "flux-1.1-pro": ["1024", "2K"],
+  "gpt-image-1.5": ["1024", "2K"],
+  "ideogram-v2": ["1024", "2K"],
+  // Video models
   "wan-2.6-cinema": ["720p", "1080p", "2K"],
   "kling-2.6-cinema": ["1080p", "2K", "4K"],
   "veo-3-cinema": ["1080p", "2K", "4K"],
@@ -83,13 +88,20 @@ const MODEL_QUALITY_OPTIONS: Record<string, string[]> = {
 
 const DEFAULT_QUALITY_OPTIONS = ["720p", "1080p", "2K"];
 
-// Cinema Models
-const cinemaModels = [
-  { id: "nano-banana", name: "Nano Banana", credits: 4 },
+// Cinema Video Models
+const cinemaVideoModels = [
   { id: "wan-2.6-cinema", name: "Wan Cinema", credits: 20 },
   { id: "kling-2.6-cinema", name: "Kling Cinema Pro", credits: 30 },
   { id: "veo-3-cinema", name: "Veo 3 Cinema", credits: 35 },
   { id: "luma-cinema", name: "Luma Cinema", credits: 28 },
+];
+
+// Cinema Image Models
+const cinemaImageModels = [
+  { id: "nano-banana", name: "Nano Banana", credits: 4 },
+  { id: "flux-1.1-pro", name: "Flux 1.1 Pro", credits: 5 },
+  { id: "gpt-image-1.5", name: "GPT Image 1.5", credits: 10 },
+  { id: "ideogram-v2", name: "Ideogram v2", credits: 6 },
 ];
 
 // Camera Presets for Image Mode
@@ -1056,7 +1068,46 @@ const CinemaStudio = ({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-popover border border-border z-50">
-                          {cinemaModels.map((m) => (
+                          {cinemaVideoModels.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.name} ({m.credits} credits)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
+
+          {/* Image Mode Settings - Always show settings for image mode */}
+          {cinemaMode === "image" && (
+            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border/20">
+              <div className="flex-1" />
+              
+              {/* Settings for Image Mode */}
+              <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-9 gap-2 rounded-xl border border-border/30 bg-secondary/30">
+                    <Settings className="h-4 w-4" />
+                    Settings
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Image Settings</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Model</Label>
+                      <Select value={model} onValueChange={setModel}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover border border-border z-50">
+                          {cinemaImageModels.map((m) => (
                             <SelectItem key={m.id} value={m.id}>
                               {m.name} ({m.credits} credits)
                             </SelectItem>
