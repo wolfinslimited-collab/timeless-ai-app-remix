@@ -38,6 +38,7 @@ export function MobileCreate({ onNavigate }: MobileCreateProps) {
           title="Cinema Studio" 
           description="Professional video editing"
           color="bg-orange-500"
+          onClick={() => onNavigate("cinema")}
         />
         <CreateOption 
           icon={Grid3X3} 
