@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { TIMELESS_SUPABASE_URL, TIMELESS_ANON_KEY } from "@/lib/supabase";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Message {
   role: "user" | "assistant";
@@ -178,12 +180,21 @@ export function MobileChat() {
                   : "bg-white/10 rounded-tl-sm"
               )}
             >
-              <p className={cn(
-                "text-sm whitespace-pre-wrap",
-                message.role === "user" ? "text-white" : "text-gray-200"
-              )}>
-                {message.content || (isLoading && index === messages.length - 1 ? "..." : "")}
-              </p>
+              {message.role === "user" ? (
+                <p className="text-sm whitespace-pre-wrap text-white">
+                  {message.content}
+                </p>
+              ) : (
+                <div className="text-sm text-gray-200 prose prose-sm prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0 prose-strong:text-white prose-headings:text-white">
+                  {message.content ? (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {message.content}
+                    </ReactMarkdown>
+                  ) : (
+                    isLoading && index === messages.length - 1 ? "..." : ""
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}

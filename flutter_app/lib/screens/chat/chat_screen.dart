@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../../core/config.dart';
 import '../../core/theme.dart';
@@ -346,13 +347,70 @@ class _MessageBubble extends StatelessWidget {
               constraints: BoxConstraints(
                 maxWidth: MediaQuery.of(context).size.width * 0.8,
               ),
-              child: Text(
-                content,
-                style: TextStyle(
-                  color: isUser ? Colors.white : AppTheme.foreground,
-                  fontSize: 14,
-                ),
-              ),
+              child: isUser
+                  ? Text(
+                      content,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                      ),
+                    )
+                  : MarkdownBody(
+                      data: content,
+                      selectable: true,
+                      styleSheet: MarkdownStyleSheet(
+                        p: const TextStyle(
+                          color: AppTheme.foreground,
+                          fontSize: 14,
+                          height: 1.5,
+                        ),
+                        strong: const TextStyle(
+                          color: AppTheme.foreground,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        em: const TextStyle(
+                          color: AppTheme.foreground,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        listBullet: const TextStyle(
+                          color: AppTheme.foreground,
+                          fontSize: 14,
+                        ),
+                        h1: const TextStyle(
+                          color: AppTheme.foreground,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        h2: const TextStyle(
+                          color: AppTheme.foreground,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        h3: const TextStyle(
+                          color: AppTheme.foreground,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        code: TextStyle(
+                          color: AppTheme.accent,
+                          backgroundColor: AppTheme.card,
+                          fontFamily: 'monospace',
+                          fontSize: 13,
+                        ),
+                        codeblockDecoration: BoxDecoration(
+                          color: AppTheme.card,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        blockquote: const TextStyle(
+                          color: AppTheme.muted,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        a: const TextStyle(
+                          color: AppTheme.primary,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
             ),
           ),
         ],
