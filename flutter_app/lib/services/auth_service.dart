@@ -38,6 +38,18 @@ class AuthService {
     await _supabase.auth.signOut();
   }
 
+  Future<bool> signInWithGoogle() async {
+    try {
+      final response = await _supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'io.supabase.genaiapp://login-callback/',
+      );
+      return response;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<void> resetPassword(String email) async {
     await _supabase.auth.resetPasswordForEmail(email);
   }
