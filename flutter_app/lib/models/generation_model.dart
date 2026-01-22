@@ -4,7 +4,7 @@ enum GenerationStatus { pending, processing, completed, failed }
 
 class Generation {
   final String id;
-  final String userId;
+  final String? userId;
   final String prompt;
   final String model;
   final GenerationType type;
@@ -21,7 +21,7 @@ class Generation {
 
   Generation({
     required this.id,
-    required this.userId,
+    this.userId,
     required this.prompt,
     required this.model,
     required this.type,
@@ -33,18 +33,18 @@ class Generation {
     this.aspectRatio,
     this.quality,
     this.title,
-    required this.creditsUsed,
+    this.creditsUsed = 0,
     required this.createdAt,
   });
 
   factory Generation.fromJson(Map<String, dynamic> json) {
     return Generation(
       id: json['id'] as String,
-      userId: json['user_id'] as String,
-      prompt: json['prompt'] as String,
-      model: json['model'] as String,
+      userId: json['user_id'] as String?,
+      prompt: json['prompt'] as String? ?? '',
+      model: json['model'] as String? ?? '',
       type: json['type'] == 'video' ? GenerationType.video : GenerationType.image,
-      status: _parseStatus(json['status'] as String),
+      status: _parseStatus(json['status'] as String? ?? 'pending'),
       outputUrl: json['output_url'] as String?,
       thumbnailUrl: json['thumbnail_url'] as String?,
       taskId: json['task_id'] as String?,
@@ -52,7 +52,7 @@ class Generation {
       aspectRatio: json['aspect_ratio'] as String?,
       quality: json['quality'] as String?,
       title: json['title'] as String?,
-      creditsUsed: json['credits_used'] as int? ?? 1,
+      creditsUsed: json['credits_used'] as int? ?? 0,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
@@ -72,7 +72,7 @@ class Generation {
     }
   }
 
-  bool get isComplete => status == GenerationStatus.completed;
+  bool get isCompleted => status == GenerationStatus.completed;
   bool get isPending =>
       status == GenerationStatus.pending || status == GenerationStatus.processing;
   bool get isFailed => status == GenerationStatus.failed;

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/config.dart';
 import '../models/conversation_model.dart';
 
 class ChatService {
@@ -31,6 +33,65 @@ class ChatService {
     // Extract the response content
     final data = response.data as Map<String, dynamic>;
     return data['content'] as String? ?? '';
+  }
+
+  /// Send a chat message with streaming response
+  Future<void> sendMessageStreaming({
+    required String conversationId,
+    required String model,
+    required List<Map<String, dynamic>> messages,
+    required Function(String) onChunk,
+    List<String>? images,
+  }) async {
+    final url = '${AppConfig.supabaseUrl}/functions/v1/chat';
+    
+    final request = http.Request('POST', Uri.parse(url));
+    request.headers.addAll({
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ${AppConfig.supabaseAnonKey}',
+    });
+    request.body = jsonEncode({
+      'conversationId': conversationId,
+      'model': model,
+      'messages': messages,
+      if (images != null && images.isNotEmpty) 'images': images,
+    });
+
+    final streamedResponse = await http.Client().send(request);
+    
+    if (streamedResponse.statusCode != 200) {
+      throw Exception('Chat failed with status ${streamedResponse.statusCode}');
+    }
+
+    String buffer = '';
+    
+    await for (final chunk in streamedResponse.stream.transform(utf8.decoder)) {
+      buffer += chunk;
+      
+      // Process SSE events
+      while (buffer.contains('\n')) {
+        final newlineIndex = buffer.indexOf('\n');
+        String line = buffer.substring(0, newlineIndex);
+        buffer = buffer.substring(newlineIndex + 1);
+        
+        if (line.endsWith('\r')) line = line.substring(0, line.length - 1);
+        if (line.startsWith(':') || line.trim().isEmpty) continue;
+        if (!line.startsWith('data: ')) continue;
+        
+        final jsonStr = line.substring(6).trim();
+        if (jsonStr == '[DONE]') break;
+        
+        try {
+          final parsed = jsonDecode(jsonStr) as Map<String, dynamic>;
+          final content = parsed['choices']?[0]?['delta']?['content'] as String?;
+          if (content != null) {
+            onChunk(content);
+          }
+        } catch (_) {
+          // Incomplete JSON, continue
+        }
+      }
+    }
   }
 
   /// Get all conversations

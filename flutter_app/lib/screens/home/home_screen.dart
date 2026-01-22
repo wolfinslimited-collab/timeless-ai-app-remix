@@ -4,10 +4,35 @@ import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/credits_provider.dart';
+import '../../providers/generation_provider.dart';
 import '../../widgets/common/credit_badge.dart';
+import '../../models/generation_model.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentGenerations();
+  }
+
+  Future<void> _loadRecentGenerations() async {
+    final provider = context.read<GenerationProvider>();
+    await provider.loadGenerations(limit: 4);
+  }
+
+  Future<void> _handleRefresh() async {
+    await _loadRecentGenerations();
+    if (mounted) {
+      context.read<CreditsProvider>().refresh();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,275 +48,303 @@ class HomeScreen extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.go('/subscription'),
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () {},
           ),
           const SizedBox(width: 8),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Welcome Section
-            Consumer<AuthProvider>(
-              builder: (context, auth, child) {
-                final name = auth.profile?.displayName ?? 'Creator';
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Welcome back, $name',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'What will you create today?',
-                      style: TextStyle(
-                        color: AppTheme.muted,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 24),
+      body: RefreshIndicator(
+        onRefresh: _handleRefresh,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with subtitle
+              const Text(
+                'Create anything with AI',
+                style: TextStyle(
+                  color: AppTheme.muted,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 24),
 
-            // Quick Actions
-            Row(
-              children: [
-                Expanded(
-                  child: _QuickActionCard(
+              // Quick Actions - 4 column grid
+              const Text(
+                'Quick Actions',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _QuickAction(
                     icon: Icons.image,
                     label: 'Image',
-                    gradient: [AppTheme.primary, const Color(0xFFEC4899)],
+                    color: const Color(0xFF3B82F6),
                     onTap: () => context.go('/create/image'),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _QuickActionCard(
+                  _QuickAction(
                     icon: Icons.videocam,
                     label: 'Video',
-                    gradient: [const Color(0xFF3B82F6), const Color(0xFF06B6D4)],
+                    color: AppTheme.primary,
                     onTap: () => context.go('/create/video'),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _QuickActionCard(
-                    icon: Icons.chat_bubble,
-                    label: 'Chat',
-                    gradient: [const Color(0xFF10B981), const Color(0xFF059669)],
-                    onTap: () => context.go('/chat'),
+                  _QuickAction(
+                    icon: Icons.music_note,
+                    label: 'Music',
+                    color: const Color(0xFFEC4899),
+                    onTap: () => context.go('/apps'),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _QuickActionCard(
+                  _QuickAction(
                     icon: Icons.movie_creation,
                     label: 'Cinema',
-                    gradient: [const Color(0xFFF59E0B), const Color(0xFFEF4444)],
+                    color: const Color(0xFFF59E0B),
                     onTap: () => context.go('/cinema'),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-
-            // AI Apps Section
-            const Text(
-              'AI Apps',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+                ],
               ),
-            ),
-            const SizedBox(height: 16),
-            GridView.count(
-              crossAxisCount: 3,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              children: [
-                _AppTile(icon: Icons.zoom_in, label: 'Upscale', onTap: () => context.go('/apps')),
-                _AppTile(icon: Icons.content_cut, label: 'Remove BG', onTap: () => context.go('/apps')),
-                _AppTile(icon: Icons.palette, label: 'Colorize', onTap: () => context.go('/apps')),
-                _AppTile(icon: Icons.lightbulb, label: 'Relight', onTap: () => context.go('/apps')),
-                _AppTile(icon: Icons.speed, label: 'Interpolate', onTap: () => context.go('/apps')),
-                _AppTile(icon: Icons.music_note, label: 'Audio', onTap: () => context.go('/apps')),
-              ],
-            ),
-            const SizedBox(height: 32),
+              const SizedBox(height: 24),
 
-            // Pro Banner (if not subscribed)
-            Consumer<CreditsProvider>(
-              builder: (context, credits, child) {
-                if (credits.hasActiveSubscription) {
-                  return const SizedBox.shrink();
-                }
-                return _ProBanner(
-                  onTap: () => context.go('/pricing'),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickActionCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final List<Color> gradient;
-  final VoidCallback onTap;
-
-  const _QuickActionCard({
-    required this.icon,
-    required this.label,
-    required this.gradient,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 100,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: gradient,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 32, color: Colors.white),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
+              // Pro Banner
+              Consumer<CreditsProvider>(
+                builder: (context, credits, child) {
+                  if (credits.hasActiveSubscription) {
+                    return const SizedBox.shrink();
+                  }
+                  return GestureDetector(
+                    onTap: () => context.go('/pricing'),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppTheme.primary, Color(0xFFEC4899)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Icon(Icons.all_inclusive, color: Colors.white, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Upgrade to Pro',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                Text(
+                                  'Unlimited generations & more',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right, color: Colors.white),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+              const SizedBox(height: 24),
 
-class _AppTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _AppTile({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 28, color: AppTheme.primary),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProBanner extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _ProBanner({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppTheme.primary.withOpacity(0.2), const Color(0xFFEC4899).withOpacity(0.2)],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.primary.withOpacity(0.3)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.primary, Color(0xFFEC4899)],
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.all_inclusive, color: Colors.white),
-            ),
-            const SizedBox(width: 16),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              // Recent Creations
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Upgrade to Pro',
+                  const Text(
+                    'Recent Creations',
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
                       fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  Text(
-                    'Unlimited generations for \$19.99/mo',
-                    style: TextStyle(
-                      color: AppTheme.muted,
-                      fontSize: 14,
+                  TextButton(
+                    onPressed: () => context.go('/library'),
+                    child: const Text(
+                      'See all',
+                      style: TextStyle(color: AppTheme.primary, fontSize: 12),
                     ),
                   ),
                 ],
               ),
-            ),
-            const Icon(Icons.chevron_right, color: AppTheme.primary),
-          ],
+              const SizedBox(height: 12),
+              Consumer<GenerationProvider>(
+                builder: (context, provider, child) {
+                  final generations = provider.generations.take(4).toList();
+                  
+                  if (generations.isEmpty) {
+                    return Row(
+                      children: [
+                        Expanded(child: _EmptyCard(icon: Icons.image, label: 'No images yet')),
+                        const SizedBox(width: 12),
+                        Expanded(child: _EmptyCard(icon: Icons.videocam, label: 'No videos yet')),
+                      ],
+                    );
+                  }
+                  
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 1,
+                    ),
+                    itemCount: generations.length,
+                    itemBuilder: (context, index) {
+                      return _RecentCard(generation: generations[index]);
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: Colors.white, size: 24),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppTheme.mutedForeground,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _EmptyCard({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 120,
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border, style: BorderStyle.solid),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 32, color: AppTheme.muted),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentCard extends StatelessWidget {
+  final Generation generation;
+
+  const _RecentCard({required this.generation});
+
+  @override
+  Widget build(BuildContext context) {
+    final isVideo = generation.type == GenerationType.video;
+    final imageUrl = generation.thumbnailUrl ?? generation.outputUrl;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF8B5CF6), Color(0xFF3B82F6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (imageUrl != null)
+            Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: AppTheme.secondary,
+                child: Icon(
+                  isVideo ? Icons.videocam : Icons.image,
+                  color: AppTheme.muted,
+                  size: 32,
+                ),
+              ),
+            ),
+          if (isVideo)
+            const Center(
+              child: Icon(Icons.play_arrow, color: Colors.white70, size: 32),
+            ),
+        ],
       ),
     );
   }

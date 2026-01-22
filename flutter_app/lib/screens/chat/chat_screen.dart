@@ -5,7 +5,6 @@ import '../../core/theme.dart';
 import '../../models/conversation_model.dart';
 import '../../services/chat_service.dart';
 import '../../providers/credits_provider.dart';
-import '../../widgets/common/credit_badge.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -19,10 +18,11 @@ class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
 
-  String _selectedModel = 'grok-3';
+  String _selectedModel = 'gemini-3-flash';
   Conversation? _currentConversation;
   List<ChatMessage> _messages = [];
   bool _isLoading = false;
+  String _streamingContent = '';
 
   @override
   void dispose() {
@@ -33,7 +33,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _isLoading) return;
 
     final creditsProvider = context.read<CreditsProvider>();
     if (!creditsProvider.hasEnoughCreditsForModel(_selectedModel)) {
@@ -61,6 +61,7 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _messages.add(userMessage);
       _isLoading = true;
+      _streamingContent = '';
     });
 
     _scrollToBottom();
@@ -72,22 +73,29 @@ class _ChatScreenState extends State<ChatScreen> {
         'content': m.textContent,
       }).toList();
 
-      // Send to API
-      final response = await _chatService.sendMessage(
+      // Send to API with streaming
+      await _chatService.sendMessageStreaming(
         conversationId: _currentConversation!.id,
         model: _selectedModel,
         messages: messagesForApi,
+        onChunk: (chunk) {
+          setState(() {
+            _streamingContent += chunk;
+          });
+          _scrollToBottom();
+        },
       );
 
-      // Save assistant response
+      // Save complete assistant response
       final assistantMessage = await _chatService.saveMessage(
         conversationId: _currentConversation!.id,
         role: 'assistant',
-        content: response,
+        content: _streamingContent,
       );
 
       setState(() {
         _messages.add(assistantMessage);
+        _streamingContent = '';
       });
 
       creditsProvider.refresh();
@@ -95,6 +103,9 @@ class _ChatScreenState extends State<ChatScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
+      setState(() {
+        _streamingContent = '';
+      });
     } finally {
       setState(() {
         _isLoading = false;
@@ -148,6 +159,7 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _currentConversation = null;
       _messages = [];
+      _streamingContent = '';
     });
   }
 
@@ -155,59 +167,51 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI Chat'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('AI Chat', style: TextStyle(fontSize: 16)),
+            Text(
+              _getModelDisplayName(_selectedModel),
+              style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: _startNewChat,
             tooltip: 'New Chat',
           ),
-          const CreditBadge(),
-          const SizedBox(width: 16),
         ],
       ),
       body: Column(
         children: [
-          // Model Selection
-          Container(
-            height: 50,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: AppConfig.chatModels.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final model = AppConfig.chatModels[index];
-                final isSelected = model['id'] == _selectedModel;
-                return ChoiceChip(
-                  label: Text('${model['name']} (${model['credits']}c)'),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() {
-                        _selectedModel = model['id'] as String;
-                      });
-                    }
-                  },
-                );
-              },
-            ),
-          ),
-          const Divider(height: 1),
-
           // Messages
           Expanded(
-            child: _messages.isEmpty
+            child: _messages.isEmpty && _streamingContent.isEmpty
                 ? _buildEmptyState()
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length + (_isLoading ? 1 : 0),
+                    itemCount: _messages.length + (_streamingContent.isNotEmpty ? 1 : 0) + (_isLoading && _streamingContent.isEmpty ? 1 : 0),
                     itemBuilder: (context, index) {
-                      if (index == _messages.length) {
+                      // Show typing indicator
+                      if (_isLoading && _streamingContent.isEmpty && index == _messages.length) {
                         return const _TypingIndicator();
                       }
-                      return _MessageBubble(message: _messages[index]);
+                      // Show streaming content
+                      if (_streamingContent.isNotEmpty && index == _messages.length) {
+                        return _MessageBubble(
+                          content: _streamingContent,
+                          isUser: false,
+                        );
+                      }
+                      final message = _messages[index];
+                      return _MessageBubble(
+                        content: message.textContent,
+                        isUser: message.isUser,
+                      );
                     },
                   ),
           ),
@@ -221,27 +225,52 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             child: Row(
               children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppTheme.secondary,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Icon(Icons.mic, size: 16, color: AppTheme.muted),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Type a message...',
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.secondary,
+                      borderRadius: BorderRadius.circular(25),
                     ),
-                    maxLines: 4,
-                    minLines: 1,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sendMessage(),
+                    child: TextField(
+                      controller: _messageController,
+                      decoration: const InputDecoration(
+                        hintText: 'Type a message...',
+                        hintStyle: TextStyle(color: AppTheme.muted),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        border: InputBorder.none,
+                      ),
+                      style: const TextStyle(fontSize: 14),
+                      onSubmitted: (_) => _sendMessage(),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _sendMessage,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.all(16),
-                    minimumSize: const Size(56, 56),
+                GestureDetector(
+                  onTap: _isLoading ? null : _sendMessage,
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: _isLoading ? AppTheme.muted : AppTheme.primary,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: _isLoading
+                        ? const Padding(
+                            padding: EdgeInsets.all(8),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.send, size: 16, color: Colors.white),
                   ),
-                  child: const Icon(Icons.send),
                 ),
               ],
             ),
@@ -251,12 +280,28 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  String _getModelDisplayName(String modelId) {
+    final model = AppConfig.chatModels.firstWhere(
+      (m) => m['id'] == modelId,
+      orElse: () => {'name': modelId},
+    );
+    return model['name'] as String;
+  }
+
   Widget _buildEmptyState() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.chat_bubble_outline, size: 64, color: AppTheme.muted),
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(32),
+            ),
+            child: const Icon(Icons.send, size: 32, color: AppTheme.primary),
+          ),
           const SizedBox(height: 16),
           const Text(
             'Start a conversation',
@@ -265,34 +310,7 @@ class _ChatScreenState extends State<ChatScreen> {
           const SizedBox(height: 8),
           const Text(
             'Ask me anything!',
-            style: TextStyle(color: AppTheme.muted),
-          ),
-          const SizedBox(height: 24),
-          // Quick prompts
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-              _QuickPrompt(
-                text: 'Explain quantum computing',
-                onTap: () {
-                  _messageController.text = 'Explain quantum computing in simple terms';
-                },
-              ),
-              _QuickPrompt(
-                text: 'Write a poem',
-                onTap: () {
-                  _messageController.text = 'Write a short poem about the sunset';
-                },
-              ),
-              _QuickPrompt(
-                text: 'Code help',
-                onTap: () {
-                  _messageController.text = 'Help me write a function to sort an array';
-                },
-              ),
-            ],
+            style: TextStyle(color: AppTheme.muted, fontSize: 14),
           ),
         ],
       ),
@@ -301,44 +319,42 @@ class _ChatScreenState extends State<ChatScreen> {
 }
 
 class _MessageBubble extends StatelessWidget {
-  final ChatMessage message;
+  final String content;
+  final bool isUser;
 
-  const _MessageBubble({required this.message});
+  const _MessageBubble({required this.content, required this.isUser});
 
   @override
   Widget build(BuildContext context) {
-    final isUser = message.isUser;
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!isUser) ...[
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: AppTheme.primary,
-              child: const Icon(Icons.auto_awesome, size: 16, color: Colors.white),
-            ),
-            const SizedBox(width: 8),
-          ],
           Flexible(
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: isUser ? AppTheme.primary : AppTheme.secondary,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: Radius.circular(isUser ? 16 : 4),
+                  bottomRight: Radius.circular(isUser ? 4 : 16),
+                ),
+              ),
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.8,
               ),
               child: Text(
-                message.textContent,
+                content,
                 style: TextStyle(
                   color: isUser ? Colors.white : AppTheme.foreground,
+                  fontSize: 14,
                 ),
               ),
             ),
           ),
-          if (isUser) const SizedBox(width: 8),
         ],
       ),
     );
@@ -354,12 +370,6 @@ class _TypingIndicator extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: AppTheme.primary,
-            child: const Icon(Icons.auto_awesome, size: 16, color: Colors.white),
-          ),
-          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -375,34 +385,11 @@ class _TypingIndicator extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
                 SizedBox(width: 8),
-                Text('Thinking...', style: TextStyle(color: AppTheme.muted)),
+                Text('...', style: TextStyle(color: AppTheme.muted)),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _QuickPrompt extends StatelessWidget {
-  final String text;
-  final VoidCallback onTap;
-
-  const _QuickPrompt({required this.text, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppTheme.secondary,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Text(text, style: const TextStyle(fontSize: 14)),
       ),
     );
   }
