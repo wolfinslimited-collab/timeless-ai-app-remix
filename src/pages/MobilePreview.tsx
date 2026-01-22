@@ -7,6 +7,7 @@ import { MobileHome } from "@/components/mobile/MobileHome";
 import { MobileCreate } from "@/components/mobile/MobileCreate";
 import { MobileImageCreate } from "@/components/mobile/MobileImageCreate";
 import { MobileVideoCreate } from "@/components/mobile/MobileVideoCreate";
+import { MobileCinemaStudio } from "@/components/mobile/MobileCinemaStudio";
 import { MobileChat } from "@/components/mobile/MobileChat";
 import { MobileLibrary } from "@/components/mobile/MobileLibrary";
 import { MobileProfile } from "@/components/mobile/MobileProfile";
@@ -33,6 +34,8 @@ export default function MobilePreview() {
         return <MobileImageCreate onBack={() => setCurrentScreen("create")} />;
       case "video":
         return <MobileVideoCreate onBack={() => setCurrentScreen("create")} />;
+      case "cinema":
+        return <MobileCinemaStudio onBack={() => setCurrentScreen("create")} />;
       case "chat":
         return <MobileChat />;
       case "library":
