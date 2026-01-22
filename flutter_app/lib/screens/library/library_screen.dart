@@ -1,0 +1,324 @@
+import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
+import '../../core/theme.dart';
+import '../../models/generation_model.dart';
+import '../../providers/generation_provider.dart';
+
+class LibraryScreen extends StatefulWidget {
+  const LibraryScreen({super.key});
+
+  @override
+  State<LibraryScreen> createState() => _LibraryScreenState();
+}
+
+class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  String _filter = 'all';
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _loadGenerations();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadGenerations() async {
+    final provider = context.read<GenerationProvider>();
+    await provider.loadGenerations();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Library'),
+        bottom: TabBar(
+          controller: _tabController,
+          onTap: (index) {
+            setState(() {
+              _filter = ['all', 'image', 'video'][index];
+            });
+          },
+          tabs: const [
+            Tab(text: 'All'),
+            Tab(text: 'Images'),
+            Tab(text: 'Videos'),
+          ],
+        ),
+      ),
+      body: Consumer<GenerationProvider>(
+        builder: (context, provider, child) {
+          if (provider.generations.isEmpty) {
+            return _buildEmptyState();
+          }
+
+          final filteredGenerations = _filter == 'all'
+              ? provider.generations
+              : provider.generations.where((g) {
+                  return _filter == 'image'
+                      ? g.type == GenerationType.image
+                      : g.type == GenerationType.video;
+                }).toList();
+
+          if (filteredGenerations.isEmpty) {
+            return _buildEmptyState();
+          }
+
+          return RefreshIndicator(
+            onRefresh: _loadGenerations,
+            child: GridView.builder(
+              padding: const EdgeInsets.all(8),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 1,
+              ),
+              itemCount: filteredGenerations.length,
+              itemBuilder: (context, index) {
+                return _GenerationCard(generation: filteredGenerations[index]);
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.photo_library_outlined, size: 64, color: AppTheme.muted),
+          const SizedBox(height: 16),
+          const Text(
+            'No generations yet',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Your creations will appear here',
+            style: TextStyle(color: AppTheme.muted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GenerationCard extends StatelessWidget {
+  final Generation generation;
+
+  const _GenerationCard({required this.generation});
+
+  @override
+  Widget build(BuildContext context) {
+    final isVideo = generation.type == GenerationType.video;
+    final imageUrl = generation.thumbnailUrl ?? generation.outputUrl;
+
+    return GestureDetector(
+      onTap: () => _showGenerationDetail(context),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (imageUrl != null)
+              CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: AppTheme.secondary,
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  color: AppTheme.secondary,
+                  child: const Icon(Icons.error_outline, color: AppTheme.muted),
+                ),
+              )
+            else
+              Container(
+                color: AppTheme.secondary,
+                child: const Icon(Icons.image, color: AppTheme.muted),
+              ),
+
+            // Video indicator
+            if (isVideo)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.play_arrow, size: 14, color: Colors.white),
+                      SizedBox(width: 2),
+                      Text('Video', style: TextStyle(color: Colors.white, fontSize: 10)),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Status indicator
+            if (generation.isPending)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black54,
+                  child: const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              ),
+
+            if (generation.isFailed)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black54,
+                  child: const Center(
+                    child: Icon(Icons.error_outline, color: AppTheme.destructive, size: 32),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showGenerationDetail(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.card,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) {
+          return SingleChildScrollView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppTheme.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Image/Video preview
+                if (generation.outputUrl != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: CachedNetworkImage(
+                      imageUrl: generation.outputUrl!,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                const SizedBox(height: 16),
+
+                // Model & Type
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        generation.model,
+                        style: const TextStyle(color: AppTheme.primary, fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.secondary,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        generation.type == GenerationType.video ? 'Video' : 'Image',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Prompt
+                const Text(
+                  'Prompt',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  generation.prompt,
+                  style: const TextStyle(color: AppTheme.mutedForeground),
+                ),
+                const SizedBox(height: 24),
+
+                // Actions
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          // Download
+                        },
+                        icon: const Icon(Icons.download),
+                        label: const Text('Download'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          context.read<GenerationProvider>().deleteGeneration(generation.id);
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(Icons.delete_outline, color: AppTheme.destructive),
+                        label: const Text('Delete', style: TextStyle(color: AppTheme.destructive)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
