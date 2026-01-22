@@ -5,7 +5,6 @@ import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../providers/generation_provider.dart';
 import '../../providers/credits_provider.dart';
-import '../../widgets/common/credit_badge.dart';
 
 class VideoCreateScreen extends StatefulWidget {
   const VideoCreateScreen({super.key});
@@ -16,9 +15,9 @@ class VideoCreateScreen extends StatefulWidget {
 
 class _VideoCreateScreenState extends State<VideoCreateScreen> {
   final _promptController = TextEditingController();
-  String _selectedModel = 'wan-2.6';
+  String _selectedModel = 'kling-2.6';
   String _selectedAspectRatio = '16:9';
-  String _selectedQuality = '720p';
+  String _selectedQuality = '1080p';
   String? _generatedVideoUrl;
   VideoPlayerController? _videoController;
 
@@ -27,6 +26,14 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
     _promptController.dispose();
     _videoController?.dispose();
     super.dispose();
+  }
+
+  int get _selectedModelCredits {
+    final model = AppConfig.videoModels.firstWhere(
+      (m) => m['id'] == _selectedModel,
+      orElse: () => {'credits': 25},
+    );
+    return model['credits'] as int;
   }
 
   Future<void> _handleGenerate() async {
@@ -44,21 +51,75 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
     }
 
     final generationProvider = context.read<GenerationProvider>();
+    
+    // Start background generation
     final result = await generationProvider.generate(
       prompt: _promptController.text.trim(),
       model: _selectedModel,
       type: 'video',
       aspectRatio: _selectedAspectRatio,
       quality: _selectedQuality,
+      background: true,
     );
 
-    if (result != null && result.outputUrl != null) {
-      setState(() {
-        _generatedVideoUrl = result.outputUrl;
-      });
-      _initializeVideoPlayer(result.outputUrl!);
+    if (result != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Video generation started. Check your library for the result.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
       creditsProvider.refresh();
+      
+      // Start polling for completion
+      _pollForCompletion(result.id);
     }
+  }
+
+  Future<void> _pollForCompletion(String generationId) async {
+    const maxAttempts = 60; // 5 minutes
+    var attempts = 0;
+
+    Future<void> poll() async {
+      if (!mounted) return;
+      
+      final provider = context.read<GenerationProvider>();
+      await provider.loadGenerations();
+      
+      final generation = provider.generations.where((g) => g.id == generationId).firstOrNull;
+      
+      if (generation?.isCompleted == true && generation?.outputUrl != null) {
+        setState(() {
+          _generatedVideoUrl = generation!.outputUrl;
+        });
+        _initializeVideoPlayer(generation!.outputUrl!);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Video ready!')),
+          );
+        }
+        return;
+      }
+
+      if (generation?.isFailed == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Video generation failed')),
+          );
+        }
+        return;
+      }
+
+      attempts++;
+      if (attempts < maxAttempts) {
+        await Future.delayed(const Duration(seconds: 5));
+        await poll();
+      }
+    }
+
+    await Future.delayed(const Duration(seconds: 5));
+    await poll();
   }
 
   Future<void> _initializeVideoPlayer(String url) async {
@@ -90,7 +151,7 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'You need ${context.read<CreditsProvider>().getModelCost(_selectedModel)} credits for this video.',
+              'You need $_selectedModelCredits credits for this video.',
               style: const TextStyle(color: AppTheme.muted),
               textAlign: TextAlign.center,
             ),
@@ -109,10 +170,17 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Video Generation'),
-        actions: const [
-          CreditBadge(),
-          SizedBox(width: 16),
+        title: const Text('Create Video'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Center(
+              child: Text(
+                '$_selectedModelCredits credits',
+                style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+              ),
+            ),
+          ),
         ],
       ),
       body: Column(
@@ -126,8 +194,28 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppTheme.border),
               ),
-              child: _videoController != null && _videoController!.value.isInitialized
-                  ? ClipRRect(
+              child: Consumer<GenerationProvider>(
+                builder: (context, provider, child) {
+                  if (provider.isGenerating) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 16),
+                          const Text('Generating video...', style: TextStyle(color: AppTheme.muted)),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'This may take a few minutes',
+                            style: TextStyle(color: AppTheme.muted, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  
+                  if (_videoController != null && _videoController!.value.isInitialized) {
+                    return ClipRRect(
                       borderRadius: BorderRadius.circular(16),
                       child: Stack(
                         alignment: Alignment.center,
@@ -136,7 +224,6 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
                             aspectRatio: _videoController!.value.aspectRatio,
                             child: VideoPlayer(_videoController!),
                           ),
-                          // Play/Pause overlay
                           GestureDetector(
                             onTap: () {
                               setState(() {
@@ -145,48 +232,46 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
                                     : _videoController!.play();
                               });
                             },
-                            child: Container(
-                              color: Colors.transparent,
-                              child: _videoController!.value.isPlaying
-                                  ? null
-                                  : const Icon(Icons.play_circle_fill, size: 64, color: Colors.white70),
-                            ),
+                            child: _videoController!.value.isPlaying
+                                ? null
+                                : const Icon(Icons.play_circle_fill, size: 64, color: Colors.white70),
                           ),
                         ],
                       ),
-                    )
-                  : Consumer<GenerationProvider>(
-                      builder: (context, provider, child) {
-                        if (provider.isGenerating) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const CircularProgressIndicator(),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Generating... ${(provider.progress * 100).toInt()}%',
-                                  style: const TextStyle(color: AppTheme.muted),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                        return const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                    );
+                  }
+                  
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.videocam, size: 48, color: AppTheme.muted),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Your video will appear here',
+                          style: TextStyle(color: AppTheme.muted, fontSize: 14),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.card,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.videocam, size: 64, color: AppTheme.muted),
-                              SizedBox(height: 16),
-                              Text(
-                                'Your video will appear here',
-                                style: TextStyle(color: AppTheme.muted),
-                              ),
+                              Icon(Icons.add_a_photo, size: 16, color: AppTheme.muted),
+                              SizedBox(width: 8),
+                              Text('Add reference', style: TextStyle(color: AppTheme.muted, fontSize: 12)),
                             ],
                           ),
-                        );
-                      },
+                        ),
+                      ],
                     ),
+                  );
+                },
+              ),
             ),
           ),
 
@@ -201,7 +286,7 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
               children: [
                 // Model Selection
                 SizedBox(
-                  height: 40,
+                  height: 36,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: AppConfig.videoModels.length,
@@ -209,16 +294,23 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
                     itemBuilder: (context, index) {
                       final model = AppConfig.videoModels[index];
                       final isSelected = model['id'] == _selectedModel;
-                      return ChoiceChip(
-                        label: Text('${model['name']} (${model['credits']}c)'),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          if (selected) {
-                            setState(() {
-                              _selectedModel = model['id'] as String;
-                            });
-                          }
-                        },
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedModel = model['id'] as String),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppTheme.primary : AppTheme.secondary,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            model['name'] as String,
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : AppTheme.mutedForeground,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
                       );
                     },
                   ),
@@ -228,49 +320,57 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
                 // Aspect Ratio & Quality
                 Row(
                   children: [
-                    // Aspect Ratio
-                    Expanded(
-                      child: SizedBox(
-                        height: 36,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: AppConfig.aspectRatios.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 6),
-                          itemBuilder: (context, index) {
-                            final ratio = AppConfig.aspectRatios[index];
-                            final isSelected = ratio == _selectedAspectRatio;
-                            return ChoiceChip(
-                              label: Text(ratio),
-                              selected: isSelected,
-                              visualDensity: VisualDensity.compact,
-                              onSelected: (selected) {
-                                if (selected) {
-                                  setState(() {
-                                    _selectedAspectRatio = ratio;
-                                  });
-                                }
-                              },
-                            );
-                          },
+                    const Text('Ratio:', style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+                    const SizedBox(width: 8),
+                    ...['16:9', '9:16', '1:1'].map((ratio) {
+                      final isSelected = ratio == _selectedAspectRatio;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: GestureDetector(
+                          onTap: () => setState(() => _selectedAspectRatio = ratio),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isSelected ? AppTheme.primary.withOpacity(0.2) : AppTheme.secondary,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              ratio,
+                              style: TextStyle(
+                                color: isSelected ? AppTheme.primary : AppTheme.muted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Quality dropdown
-                    DropdownButton<String>(
-                      value: _selectedQuality,
-                      items: AppConfig.videoQualities.map((q) {
-                        return DropdownMenuItem(value: q, child: Text(q));
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            _selectedQuality = value;
-                          });
-                        }
-                      },
-                      underline: const SizedBox(),
-                    ),
+                      );
+                    }).toList(),
+                    const Spacer(),
+                    const Text('Quality:', style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+                    const SizedBox(width: 8),
+                    ...['720p', '1080p'].map((q) {
+                      final isSelected = q == _selectedQuality;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: GestureDetector(
+                          onTap: () => setState(() => _selectedQuality = q),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isSelected ? AppTheme.primary.withOpacity(0.2) : AppTheme.secondary,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              q,
+                              style: TextStyle(
+                                color: isSelected ? AppTheme.primary : AppTheme.muted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -279,32 +379,45 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: TextField(
-                        controller: _promptController,
-                        decoration: const InputDecoration(
-                          hintText: 'Describe your video...',
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppTheme.secondary,
+                          borderRadius: BorderRadius.circular(25),
                         ),
-                        maxLines: 2,
-                        minLines: 1,
+                        child: TextField(
+                          controller: _promptController,
+                          decoration: const InputDecoration(
+                            hintText: 'Describe your video...',
+                            hintStyle: TextStyle(color: AppTheme.muted),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            border: InputBorder.none,
+                          ),
+                          style: const TextStyle(fontSize: 14),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Consumer<GenerationProvider>(
                       builder: (context, provider, child) {
-                        return ElevatedButton(
-                          onPressed: provider.isGenerating ? null : _handleGenerate,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.all(16),
-                            minimumSize: const Size(56, 56),
+                        return GestureDetector(
+                          onTap: provider.isGenerating ? null : _handleGenerate,
+                          child: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: provider.isGenerating ? AppTheme.muted : AppTheme.primary,
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: provider.isGenerating
+                                ? const Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
                           ),
-                          child: provider.isGenerating
-                              ? const SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.movie_creation),
                         );
                       },
                     ),

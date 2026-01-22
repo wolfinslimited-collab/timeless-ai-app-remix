@@ -14,6 +14,7 @@ class GenerationService {
     String? quality,
     String? imageUrl,
     String? endImageUrl,
+    bool background = false,
   }) async {
     final response = await _supabase.functions.invoke(
       'generate',
@@ -21,6 +22,8 @@ class GenerationService {
         'prompt': prompt,
         'model': model,
         'type': type,
+        'stream': false,
+        'background': background,
         if (aspectRatio != null) 'aspectRatio': aspectRatio,
         if (quality != null) 'quality': quality,
         if (imageUrl != null) 'imageUrl': imageUrl,
@@ -99,9 +102,13 @@ class GenerationService {
     int limit = 50,
     int offset = 0,
   }) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return [];
+
     var query = _supabase
         .from('generations')
         .select()
+        .eq('user_id', user.id)
         .order('created_at', ascending: false)
         .range(offset, offset + limit - 1);
 

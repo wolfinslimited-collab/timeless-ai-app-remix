@@ -27,9 +27,9 @@ class GenerationProvider extends ChangeNotifier {
   List<Generation> get pendingGenerations =>
       _generations.where((g) => g.isPending).toList();
 
-  Future<void> loadGenerations({String? type}) async {
+  Future<void> loadGenerations({String? type, int limit = 50}) async {
     try {
-      _generations = await _generationService.getGenerations(type: type);
+      _generations = await _generationService.getGenerations(type: type, limit: limit);
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -45,6 +45,7 @@ class GenerationProvider extends ChangeNotifier {
     String? quality,
     String? imageUrl,
     String? endImageUrl,
+    bool background = false,
   }) async {
     _isGenerating = true;
     _error = null;
@@ -60,15 +61,32 @@ class GenerationProvider extends ChangeNotifier {
         quality: quality,
         imageUrl: imageUrl,
         endImageUrl: endImageUrl,
+        background: background,
       );
 
       final status = result['status'] as String?;
+      final generationId = result['generationId'] as String?;
+
+      // For background generation, return immediately with generation ID
+      if (background && generationId != null) {
+        _isGenerating = false;
+        notifyListeners();
+        
+        // Return a placeholder generation
+        return Generation(
+          id: generationId,
+          prompt: prompt,
+          model: model,
+          type: type == 'video' ? GenerationType.video : GenerationType.image,
+          status: GenerationStatus.pending,
+          createdAt: DateTime.now(),
+        );
+      }
 
       // If async generation (pending)
       if (status == 'pending' || status == 'processing') {
         final taskId = result['taskId'] as String?;
         final endpoint = result['endpoint'] as String?;
-        final generationId = result['generationId'] as String?;
 
         if (taskId != null && endpoint != null && generationId != null) {
           // Start polling

@@ -16,7 +16,7 @@ class ImageCreateScreen extends StatefulWidget {
 
 class _ImageCreateScreenState extends State<ImageCreateScreen> {
   final _promptController = TextEditingController();
-  String _selectedModel = 'flux-1.1-pro';
+  String _selectedModel = 'nano-banana';
   String _selectedAspectRatio = '1:1';
   String? _generatedImageUrl;
 
@@ -24,6 +24,14 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
   void dispose() {
     _promptController.dispose();
     super.dispose();
+  }
+
+  int get _selectedModelCredits {
+    final model = AppConfig.imageModels.firstWhere(
+      (m) => m['id'] == _selectedModel,
+      orElse: () => {'credits': 4},
+    );
+    return model['credits'] as int;
   }
 
   Future<void> _handleGenerate() async {
@@ -36,7 +44,6 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
 
     final creditsProvider = context.read<CreditsProvider>();
     if (!creditsProvider.hasEnoughCreditsForModel(_selectedModel)) {
-      // Show add credits dialog
       _showAddCreditsDialog();
       return;
     }
@@ -83,10 +90,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                // Navigate to pricing
-              },
+              onPressed: () => Navigator.pop(context),
               child: const Text('Get Credits'),
             ),
           ],
@@ -99,10 +103,17 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Image Generation'),
-        actions: const [
-          CreditBadge(),
-          SizedBox(width: 16),
+        title: const Text('Create Image'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Center(
+              child: Text(
+                '$_selectedModelCredits credits',
+                style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+              ),
+            ),
+          ),
         ],
       ),
       body: Column(
@@ -116,8 +127,23 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppTheme.border),
               ),
-              child: _generatedImageUrl != null
-                  ? ClipRRect(
+              child: Consumer<GenerationProvider>(
+                builder: (context, provider, child) {
+                  if (provider.isGenerating) {
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('Generating...', style: TextStyle(color: AppTheme.muted)),
+                        ],
+                      ),
+                    );
+                  }
+                  
+                  if (_generatedImageUrl != null) {
+                    return ClipRRect(
                       borderRadius: BorderRadius.circular(16),
                       child: CachedNetworkImage(
                         imageUrl: _generatedImageUrl!,
@@ -126,20 +152,24 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                           child: CircularProgressIndicator(),
                         ),
                       ),
-                    )
-                  : const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.image, size: 64, color: AppTheme.muted),
-                          SizedBox(height: 16),
-                          Text(
-                            'Your image will appear here',
-                            style: TextStyle(color: AppTheme.muted),
-                          ),
-                        ],
-                      ),
+                    );
+                  }
+                  
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.image, size: 48, color: AppTheme.muted),
+                        SizedBox(height: 16),
+                        Text(
+                          'Your image will appear here',
+                          style: TextStyle(color: AppTheme.muted, fontSize: 14),
+                        ),
+                      ],
                     ),
+                  );
+                },
+              ),
             ),
           ),
 
@@ -154,7 +184,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
               children: [
                 // Model Selection
                 SizedBox(
-                  height: 40,
+                  height: 36,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: AppConfig.imageModels.length,
@@ -162,16 +192,23 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                     itemBuilder: (context, index) {
                       final model = AppConfig.imageModels[index];
                       final isSelected = model['id'] == _selectedModel;
-                      return ChoiceChip(
-                        label: Text(model['name'] as String),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          if (selected) {
-                            setState(() {
-                              _selectedModel = model['id'] as String;
-                            });
-                          }
-                        },
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedModel = model['id'] as String),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppTheme.primary : AppTheme.secondary,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            model['name'] as String,
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : AppTheme.mutedForeground,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
                       );
                     },
                   ),
@@ -179,28 +216,34 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                 const SizedBox(height: 12),
 
                 // Aspect Ratio
-                SizedBox(
-                  height: 36,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: AppConfig.aspectRatios.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final ratio = AppConfig.aspectRatios[index];
+                Row(
+                  children: [
+                    const Text('Ratio:', style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+                    const SizedBox(width: 8),
+                    ...['1:1', '16:9', '9:16'].map((ratio) {
                       final isSelected = ratio == _selectedAspectRatio;
-                      return ChoiceChip(
-                        label: Text(ratio),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          if (selected) {
-                            setState(() {
-                              _selectedAspectRatio = ratio;
-                            });
-                          }
-                        },
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: GestureDetector(
+                          onTap: () => setState(() => _selectedAspectRatio = ratio),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isSelected ? AppTheme.primary.withOpacity(0.2) : AppTheme.secondary,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              ratio,
+                              style: TextStyle(
+                                color: isSelected ? AppTheme.primary : AppTheme.muted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
                       );
-                    },
-                  ),
+                    }).toList(),
+                  ],
                 ),
                 const SizedBox(height: 16),
 
@@ -208,32 +251,45 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: TextField(
-                        controller: _promptController,
-                        decoration: const InputDecoration(
-                          hintText: 'Describe your image...',
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppTheme.secondary,
+                          borderRadius: BorderRadius.circular(25),
                         ),
-                        maxLines: 2,
-                        minLines: 1,
+                        child: TextField(
+                          controller: _promptController,
+                          decoration: const InputDecoration(
+                            hintText: 'Describe your image...',
+                            hintStyle: TextStyle(color: AppTheme.muted),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            border: InputBorder.none,
+                          ),
+                          style: const TextStyle(fontSize: 14),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Consumer<GenerationProvider>(
                       builder: (context, provider, child) {
-                        return ElevatedButton(
-                          onPressed: provider.isGenerating ? null : _handleGenerate,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.all(16),
-                            minimumSize: const Size(56, 56),
+                        return GestureDetector(
+                          onTap: provider.isGenerating ? null : _handleGenerate,
+                          child: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: provider.isGenerating ? AppTheme.muted : AppTheme.primary,
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: provider.isGenerating
+                                ? const Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
                           ),
-                          child: provider.isGenerating
-                              ? const SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.auto_awesome),
                         );
                       },
                     ),
