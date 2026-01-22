@@ -25,7 +25,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<MobilePreview />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/library" element={<Library />} />
@@ -34,7 +34,6 @@ const App = () => (
             <Route path="/subscription" element={<Subscription />} />
             <Route path="/ai-apps" element={<AIApps />} />
             <Route path="/ai-apps/:appId" element={<AIApps />} />
-            <Route path="/mobile" element={<MobilePreview />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
