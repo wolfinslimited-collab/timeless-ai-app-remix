@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Search, Heart, Play, Image, Video, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { PullToRefresh } from "./PullToRefresh";
 

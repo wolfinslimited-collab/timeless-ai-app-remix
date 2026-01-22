@@ -3,13 +3,14 @@ import { Plus, Mic, Send, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { TIMELESS_SUPABASE_URL, TIMELESS_ANON_KEY } from "@/lib/supabase";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
 }
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const CHAT_URL = `${TIMELESS_SUPABASE_URL}/functions/v1/chat`;
 
 export function MobileChat() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -49,7 +50,7 @@ export function MobileChat() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${TIMELESS_ANON_KEY}`,
         },
         body: JSON.stringify({
           messages: [...messages, userMessage],
