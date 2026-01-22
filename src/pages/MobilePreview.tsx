@@ -14,7 +14,7 @@ import { MobileProfile } from "@/components/mobile/MobileProfile";
 export default function MobilePreview() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("home");
   const { user, loading: authLoading } = useAuth();
-  const { credits, loading: creditsLoading } = useCredits();
+  const { credits, loading: creditsLoading, refetch } = useCredits();
 
   // Show auth screen if not logged in
   const showAuth = !authLoading && !user;
@@ -26,7 +26,7 @@ export default function MobilePreview() {
 
     switch (currentScreen) {
       case "home":
-        return <MobileHome onNavigate={setCurrentScreen} credits={credits ?? 0} />;
+        return <MobileHome onNavigate={setCurrentScreen} credits={credits ?? 0} onRefreshCredits={refetch} />;
       case "create":
         return <MobileCreate onNavigate={setCurrentScreen} />;
       case "image":
