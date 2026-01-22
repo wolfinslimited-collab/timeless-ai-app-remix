@@ -23,6 +23,7 @@ import {
   RotateCcw,
   AlertCircle,
   Play,
+  Film,
 } from "lucide-react";
 import {
   Popover,
@@ -708,7 +709,7 @@ const CinemaStudio = ({
                     variant="ghost"
                     className="h-10 gap-1.5 border border-border/30 rounded-xl bg-secondary/30 px-3"
                   >
-                    <Sparkles className="h-4 w-4 text-muted-foreground" />
+                    <Film className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm">{quality}</span>
                   </Button>
                 </PopoverTrigger>
