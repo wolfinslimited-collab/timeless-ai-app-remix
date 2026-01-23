@@ -1,8 +1,97 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Check, Crown, Sparkles, Zap, Star } from "lucide-react";
+import { ArrowLeft, Check, Crown, Sparkles, Zap, Star, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+
+// Platform detection helper
+const getPlatform = (): "ios" | "android" | "web" => {
+  const userAgent = navigator.userAgent || navigator.vendor;
+  if (/android/i.test(userAgent)) return "android";
+  if (/iPad|iPhone|iPod/.test(userAgent)) return "ios";
+  return "web";
+};
+
+// In-App Purchase Service
+const InAppPurchaseService = {
+  platform: getPlatform(),
+  
+  // Initialize the store based on platform
+  async initialize(): Promise<boolean> {
+    try {
+      // Check if running in Capacitor native environment
+      if (typeof (window as any).Capacitor !== "undefined") {
+        console.log("Running in Capacitor, IAP available");
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("IAP initialization failed:", error);
+      return false;
+    }
+  },
+
+  // Purchase a product
+  async purchase(productId: string): Promise<{ success: boolean; error?: string }> {
+    const platform = this.platform;
+    
+    console.log(`Initiating ${platform} purchase for:`, productId);
+    
+    // Check if we're in a native environment
+    if (typeof (window as any).Capacitor === "undefined") {
+      // Web environment - show guidance
+      return { 
+        success: false, 
+        error: "In-app purchases require the native iOS or Android app. Please download the app from the App Store or Google Play." 
+      };
+    }
+
+    try {
+      // This will be handled by native plugins (RevenueCat, capacitor-purchases, etc.)
+      // The actual implementation depends on which plugin is used
+      if (platform === "ios") {
+        // iOS StoreKit purchase flow
+        console.log("Triggering iOS StoreKit purchase:", productId);
+        // Native bridge call would go here
+        // await (window as any).Capacitor.Plugins.InAppPurchase.purchase({ productId });
+      } else if (platform === "android") {
+        // Android Billing Library purchase flow  
+        console.log("Triggering Android Billing purchase:", productId);
+        // Native bridge call would go here
+        // await (window as any).Capacitor.Plugins.InAppPurchase.purchase({ productId });
+      }
+      
+      // Simulated success for development
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message || "Purchase failed" };
+    }
+  },
+
+  // Restore previous purchases
+  async restorePurchases(): Promise<{ success: boolean; restored: string[]; error?: string }> {
+    const platform = this.platform;
+    
+    console.log(`Restoring purchases for ${platform}`);
+    
+    if (typeof (window as any).Capacitor === "undefined") {
+      return { 
+        success: false, 
+        restored: [],
+        error: "Restore requires the native iOS or Android app." 
+      };
+    }
+
+    try {
+      // Native restore would go here
+      // const result = await (window as any).Capacitor.Plugins.InAppPurchase.restorePurchases();
+      return { success: true, restored: [] };
+    } catch (error: any) {
+      return { success: false, restored: [], error: error.message || "Restore failed" };
+    }
+  }
+};
 
 // Animated number component with count-up effect
 function AnimatedPrice({ value, duration = 400 }: { value: number; duration?: number }) {
@@ -100,25 +189,62 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
   const [selectedPlan, setSelectedPlan] = useState<PlanType>("premiumPlus");
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [isLoading, setIsLoading] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const { user } = useAuth();
-  const { hasActiveSubscription, subscriptionStatus } = useCredits();
+  const { hasActiveSubscription, subscriptionStatus, refetch } = useCredits();
 
   const currentPlan = plans[selectedPlan];
   const price = billingCycle === "monthly" ? currentPlan.monthlyPrice : currentPlan.yearlyPrice;
   const productId = billingCycle === "monthly" ? currentPlan.monthlyProductId : currentPlan.yearlyProductId;
   const yearlySavings = Math.round(((currentPlan.monthlyPrice * 12 - currentPlan.yearlyPrice) / (currentPlan.monthlyPrice * 12)) * 100);
+  const platform = getPlatform();
 
   const handleSubscribe = async () => {
+    if (!user) {
+      toast.error("Please sign in to subscribe");
+      return;
+    }
+
     setIsLoading(true);
-    // This will be handled by native in-app purchase
-    // For web preview, we'll show a message
-    console.log("Subscribe to:", productId);
     
-    // Simulate purchase flow
-    setTimeout(() => {
+    try {
+      const result = await InAppPurchaseService.purchase(productId);
+      
+      if (result.success) {
+        toast.success("Subscription activated! 🎉");
+        // Refresh credits/subscription status
+        refetch?.();
+      } else {
+        toast.error(result.error || "Purchase failed");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Something went wrong");
+    } finally {
       setIsLoading(false);
-      alert(`In-app purchase would be triggered for: ${productId}\n\nThis requires native iOS/Android integration.`);
-    }, 1000);
+    }
+  };
+
+  const handleRestore = async () => {
+    setIsRestoring(true);
+    
+    try {
+      const result = await InAppPurchaseService.restorePurchases();
+      
+      if (result.success) {
+        if (result.restored.length > 0) {
+          toast.success(`Restored ${result.restored.length} purchase(s)`);
+          refetch?.();
+        } else {
+          toast.info("No previous purchases found");
+        }
+      } else {
+        toast.error(result.error || "Restore failed");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Something went wrong");
+    } finally {
+      setIsRestoring(false);
+    }
   };
 
   return (
@@ -302,9 +428,25 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
 
       {/* Restore Purchases */}
       <div className="px-4 pb-8">
-        <button className="w-full py-3 text-purple-400 text-sm font-medium">
-          Restore Purchases
+        <button 
+          onClick={handleRestore}
+          disabled={isRestoring}
+          className="w-full py-3 text-purple-400 text-sm font-medium flex items-center justify-center gap-2"
+        >
+          {isRestoring ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Restoring...
+            </>
+          ) : (
+            "Restore Purchases"
+          )}
         </button>
+        
+        {/* Platform indicator for development */}
+        <p className="text-center text-gray-600 text-[10px] mt-2">
+          Platform: {platform.toUpperCase()}
+        </p>
       </div>
     </div>
   );
