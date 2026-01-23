@@ -14,11 +14,11 @@ import relightIcon from "@/assets/app-icons/relight.png";
 import removeBgIcon from "@/assets/app-icons/remove-bg.png";
 
 const appItems = [
-  { id: "translate-ai", name: "Translate AI", description: "Translate videos to any language", icon: translateAiIcon },
-  { id: "pixlab", name: "PixLab", description: "Advanced image editing tools", icon: pixlabIcon },
-  { id: "colorize", name: "Colorize", description: "Add color to black & white photos", icon: colorizeIcon },
-  { id: "relight", name: "Relight", description: "Change lighting in your photos", icon: relightIcon },
-  { id: "remove-bg", name: "Remove BG", description: "Remove background instantly", icon: removeBgIcon },
+  { id: "brain-ai", name: "Brain AI", description: "Memory & brain games.", icon: translateAiIcon, buttonText: "Try now" },
+  { id: "skin-ai", name: "Skin AI", description: "Face scan for skin.", icon: pixlabIcon, buttonText: "Analyze" },
+  { id: "blood-ai", name: "Blood AI", description: "Blood test insights.", icon: colorizeIcon, buttonText: "Test" },
+  { id: "sleep-ai", name: "Sleep AI", description: "Personal sleep advice.", icon: relightIcon, buttonText: "Start" },
+  { id: "calorie-ai", name: "Calorie AI", description: "Count calories by photo.", icon: removeBgIcon, buttonText: "Track" },
 ];
 
 interface MobileHomeProps {
@@ -105,9 +105,9 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
           {appItems.map((app) => (
             <div
               key={app.id}
-              className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10"
+              className="flex items-center gap-3 p-3 rounded-2xl border border-white/20"
             >
-              <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/10 flex-shrink-0">
+              <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
                 <img 
                   src={app.icon} 
                   alt={app.name}
@@ -119,7 +119,7 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
                 <p className="text-gray-400 text-xs truncate">{app.description}</p>
               </div>
               <button className="px-4 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-xs font-medium rounded-full flex-shrink-0 transition-colors">
-                Open
+                {app.buttonText}
               </button>
             </div>
           ))}
