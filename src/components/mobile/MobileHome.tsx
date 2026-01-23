@@ -118,7 +118,7 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
                 <h3 className="text-white text-sm font-medium">{app.name}</h3>
                 <p className="text-gray-400 text-xs truncate">{app.description}</p>
               </div>
-              <button className="px-4 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-xs font-medium rounded-full flex-shrink-0 transition-colors">
+              <button className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-lg flex-shrink-0 transition-colors">
                 {app.buttonText}
               </button>
             </div>
