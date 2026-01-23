@@ -131,6 +131,8 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
                   loop
                   muted
                   playsInline
+                  preload="auto"
+                  crossOrigin="anonymous"
                 />
                 <span className="absolute top-2 left-2 px-2 py-0.5 bg-white/80 text-gray-800 text-[10px] font-semibold rounded-md">
                   {item.badge}
