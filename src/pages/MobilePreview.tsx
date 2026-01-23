@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { MobileNav, type Screen } from "@/components/mobile/MobileNav";
 import { MobileAuth } from "@/components/mobile/MobileAuth";
+import { MobileSplash } from "@/components/mobile/MobileSplash";
 import { MobileHome } from "@/components/mobile/MobileHome";
 import { MobileCreate } from "@/components/mobile/MobileCreate";
 import { MobileImageCreate } from "@/components/mobile/MobileImageCreate";
@@ -14,11 +15,16 @@ import { MobileProfile } from "@/components/mobile/MobileProfile";
 
 export default function MobilePreview() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("home");
+  const [showSplash, setShowSplash] = useState(true);
   const { user, loading: authLoading } = useAuth();
   const { credits, loading: creditsLoading, refetch } = useCredits();
 
-  // Show auth screen if not logged in
-  const showAuth = !authLoading && !user;
+  // Show auth screen if not logged in (after splash)
+  const showAuth = !authLoading && !user && !showSplash;
+
+  const handleSplashComplete = () => {
+    setShowSplash(false);
+  };
 
   const renderScreen = () => {
     if (showAuth) {
@@ -63,6 +69,15 @@ export default function MobilePreview() {
           
           {/* Screen */}
           <div className="w-full h-full bg-[#0a0a0f] rounded-[40px] overflow-hidden relative">
+            {/* Splash Screen */}
+            {showSplash && (
+              <MobileSplash 
+                onComplete={handleSplashComplete}
+                isCheckingAuth={authLoading}
+                hasUser={!!user}
+              />
+            )}
+
             {/* Status Bar */}
             <div className="h-12 px-6 flex items-center justify-between text-white text-xs pt-2">
               <span className="font-medium">9:41</span>
@@ -79,7 +94,7 @@ export default function MobilePreview() {
             </div>
             
             {/* Bottom Navigation - only show when logged in */}
-            {!showAuth && (
+            {!showAuth && !showSplash && (
               <MobileNav 
                 currentScreen={currentScreen} 
                 onNavigate={setCurrentScreen} 
