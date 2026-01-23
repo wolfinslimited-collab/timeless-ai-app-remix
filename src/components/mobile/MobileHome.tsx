@@ -14,11 +14,11 @@ import relightIcon from "@/assets/app-icons/relight.png";
 import removeBgIcon from "@/assets/app-icons/remove-bg.png";
 
 const appItems = [
-  { id: "translate-ai", name: "Translate AI", icon: translateAiIcon },
-  { id: "pixlab", name: "PixLab", icon: pixlabIcon },
-  { id: "colorize", name: "Colorize", icon: colorizeIcon },
-  { id: "relight", name: "Relight", icon: relightIcon },
-  { id: "remove-bg", name: "Remove BG", icon: removeBgIcon },
+  { id: "translate-ai", name: "Translate AI", description: "Translate videos to any language", icon: translateAiIcon },
+  { id: "pixlab", name: "PixLab", description: "Advanced image editing tools", icon: pixlabIcon },
+  { id: "colorize", name: "Colorize", description: "Add color to black & white photos", icon: colorizeIcon },
+  { id: "relight", name: "Relight", description: "Change lighting in your photos", icon: relightIcon },
+  { id: "remove-bg", name: "Remove BG", description: "Remove background instantly", icon: removeBgIcon },
 ];
 
 interface MobileHomeProps {
@@ -101,21 +101,27 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
           <h2 className="text-white text-sm font-semibold">Apps</h2>
           <button className="text-purple-400 text-xs">See all</button>
         </div>
-        <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+        <div className="flex flex-col gap-3">
           {appItems.map((app) => (
-            <button
+            <div
               key={app.id}
-              className="flex flex-col items-center gap-2 min-w-[60px]"
+              className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10"
             >
-              <div className="w-14 h-14 rounded-2xl overflow-hidden bg-white/10">
+              <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/10 flex-shrink-0">
                 <img 
                   src={app.icon} 
                   alt={app.name}
                   className="w-full h-full object-cover"
                 />
               </div>
-              <span className="text-gray-300 text-xs text-center whitespace-nowrap">{app.name}</span>
-            </button>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-white text-sm font-medium">{app.name}</h3>
+                <p className="text-gray-400 text-xs truncate">{app.description}</p>
+              </div>
+              <button className="px-4 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-xs font-medium rounded-full flex-shrink-0 transition-colors">
+                Open
+              </button>
+            </div>
           ))}
         </div>
       </div>
