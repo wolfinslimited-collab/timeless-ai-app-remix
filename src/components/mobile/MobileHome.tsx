@@ -141,7 +141,7 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
               </div>
               <div>
                 <h3 className="text-white text-xs font-medium truncate">{item.title}</h3>
-                <p className="text-gray-400 text-[10px] truncate">{item.description}</p>
+                <p className="text-gray-400 text-[10px] line-clamp-2">{item.description}</p>
               </div>
             </div>
           ))}
