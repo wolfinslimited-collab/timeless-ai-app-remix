@@ -10,10 +10,10 @@ interface MobileAuthProps {
   onSuccess: () => void;
 }
 
-type AuthView = "signin" | "signup" | "forgot-password" | "reset-sent";
+type AuthView = "welcome" | "signin" | "signup" | "forgot-password" | "reset-sent";
 
 export function MobileAuth({ onSuccess }: MobileAuthProps) {
-  const [view, setView] = useState<AuthView>("signin");
+  const [view, setView] = useState<AuthView>("welcome");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -246,6 +246,15 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
         {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sign In"}
       </button>
 
+      <button
+        type="button"
+        onClick={() => changeView("welcome")}
+        className="w-full flex items-center justify-center gap-2 text-muted-foreground py-2 mb-2"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back
+      </button>
+
       <p className="text-center text-sm text-muted-foreground">
         Don't have an account?{" "}
         <button type="button" onClick={() => changeView("signup")} className="text-primary font-medium">
@@ -378,16 +387,43 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
     </div>
   );
 
+  const renderWelcome = () => (
+    <div className="space-y-4">
+      {renderOAuthButtons()}
+      
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border/30" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-3 text-muted-foreground">Or</span>
+        </div>
+      </div>
+      
+      <button
+        type="button"
+        onClick={() => changeView("signin")}
+        className="w-full flex items-center justify-center gap-3 bg-card/80 border border-border/30 rounded-xl py-3.5 text-foreground font-medium transition-all active:scale-[0.98]"
+      >
+        <Mail className="h-5 w-5 text-muted-foreground" />
+        Continue with Email
+      </button>
+      
+      <p className="text-center text-sm text-muted-foreground pt-4">
+        Don't have an account?{" "}
+        <button type="button" onClick={() => changeView("signup")} className="text-primary font-medium">
+          Sign up
+        </button>
+      </p>
+    </div>
+  );
+
   const renderContent = () => {
     switch (view) {
+      case "welcome":
+        return renderWelcome();
       case "signin":
-        return (
-          <>
-            {renderOAuthButtons()}
-            {renderDivider()}
-            {renderSignIn()}
-          </>
-        );
+        return renderSignIn();
       case "signup":
         return (
           <>
@@ -405,8 +441,10 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
 
   const getTitle = () => {
     switch (view) {
+      case "welcome":
+        return "Welcome";
       case "signin":
-        return "Welcome back";
+        return "Sign in with email";
       case "signup":
         return "Create your account";
       default:
