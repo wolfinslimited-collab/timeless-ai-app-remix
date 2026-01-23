@@ -1,8 +1,48 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Check, Crown, Sparkles, Zap, Star } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { cn } from "@/lib/utils";
+
+// Animated number component with count-up effect
+function AnimatedPrice({ value, duration = 400 }: { value: number; duration?: number }) {
+  const [displayValue, setDisplayValue] = useState(value);
+  const previousValue = useRef(value);
+  const animationRef = useRef<number>();
+
+  useEffect(() => {
+    const startValue = previousValue.current;
+    const endValue = value;
+    const startTime = performance.now();
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Easing function for smooth animation
+      const easeOutExpo = 1 - Math.pow(2, -10 * progress);
+      
+      const currentValue = startValue + (endValue - startValue) * easeOutExpo;
+      setDisplayValue(currentValue);
+
+      if (progress < 1) {
+        animationRef.current = requestAnimationFrame(animate);
+      } else {
+        previousValue.current = endValue;
+      }
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [value, duration]);
+
+  return <span>${displayValue.toFixed(2)}</span>;
+}
 
 interface MobileSubscriptionProps {
   onBack: () => void;
@@ -165,7 +205,9 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
             </div>
           </div>
           <div className="flex items-baseline gap-1">
-            <span className="text-white text-3xl font-bold">${currentPlan.monthlyPrice}</span>
+            <span className="text-white text-3xl font-bold">
+              <AnimatedPrice value={currentPlan.monthlyPrice} />
+            </span>
             <span className="text-gray-400 text-sm">/mo</span>
           </div>
         </button>
@@ -198,7 +240,9 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
             </div>
           </div>
           <div className="flex items-baseline gap-1">
-            <span className="text-white text-3xl font-bold">${currentPlan.yearlyPrice}</span>
+            <span className="text-white text-3xl font-bold">
+              <AnimatedPrice value={currentPlan.yearlyPrice} />
+            </span>
             <span className="text-gray-400 text-sm">/year</span>
           </div>
           <p className="text-purple-400 text-xs mt-1">
