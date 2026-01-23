@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/credits_provider.dart';
@@ -173,6 +175,30 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 24),
 
+              // Trending Section
+              const Text(
+                'Trending',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const _TrendingGrid(),
+              const SizedBox(height: 24),
+
+              // Apps Section
+              const Text(
+                'Apps',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const _AppsSection(),
+              const SizedBox(height: 24),
+
               // Recent Creations
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -227,6 +253,346 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// Trending data model
+class _TrendingItem {
+  final String url;
+  final String title;
+  final String description;
+  final String badge;
+
+  const _TrendingItem({
+    required this.url,
+    required this.title,
+    required this.description,
+    required this.badge,
+  });
+}
+
+const _trendingItems = [
+  _TrendingItem(
+    url: 'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/47f98df2-8f0d-4cf0-a32f-f582f3c0f90f-video11080.1080.mp4',
+    title: 'Cinema Studio',
+    description: 'Professional cinematic video creation with AI',
+    badge: 'Featured',
+  ),
+  _TrendingItem(
+    url: 'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/25bd0bda-0068-47e9-a2c3-c51330245765-video21080.1080 - RESIZE - Videobolt.net.mp4',
+    title: 'Video Upscale',
+    description: 'Enhance video quality up to 4K resolution',
+    badge: 'Popular',
+  ),
+  _TrendingItem(
+    url: 'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/559a3bef-5733-4be4-b79b-324924945429-video31080.1080 - RESIZE - Videobolt.net.mp4',
+    title: 'Draw to Video',
+    description: 'Transform sketches into animated videos',
+    badge: 'New',
+  ),
+  _TrendingItem(
+    url: 'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/33ee7581-6b7d-4d50-87d0-98acd87a53f3-video41080.1080 - RESIZE - Videobolt.net.mp4',
+    title: 'Music Studio',
+    description: 'AI-powered music creation and remixing',
+    badge: 'Hot',
+  ),
+];
+
+class _TrendingGrid extends StatelessWidget {
+  const _TrendingGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 0.75,
+      ),
+      itemCount: _trendingItems.length,
+      itemBuilder: (context, index) {
+        return _TrendingTile(item: _trendingItems[index]);
+      },
+    );
+  }
+}
+
+class _TrendingTile extends StatefulWidget {
+  final _TrendingItem item;
+
+  const _TrendingTile({required this.item});
+
+  @override
+  State<_TrendingTile> createState() => _TrendingTileState();
+}
+
+class _TrendingTileState extends State<_TrendingTile> {
+  late VideoPlayerController _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeVideo();
+  }
+
+  Future<void> _initializeVideo() async {
+    _controller = VideoPlayerController.networkUrl(
+      Uri.parse(widget.item.url),
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    
+    try {
+      await _controller.initialize();
+      _controller.setLooping(true);
+      _controller.setVolume(0); // Muted
+      _controller.play();
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Video or placeholder
+                Container(
+                  color: AppTheme.card,
+                  child: _hasError
+                      ? const Center(
+                          child: Icon(Icons.error_outline, color: AppTheme.muted),
+                        )
+                      : _isInitialized
+                          ? FittedBox(
+                              fit: BoxFit.cover,
+                              child: SizedBox(
+                                width: _controller.value.size.width,
+                                height: _controller.value.size.height,
+                                child: VideoPlayer(_controller),
+                              ),
+                            )
+                          : const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppTheme.primary,
+                              ),
+                            ),
+                ),
+                // Badge
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      widget.item.badge,
+                      style: const TextStyle(
+                        color: Color(0xFF374151),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          widget.item.title,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          widget.item.description,
+          style: const TextStyle(
+            color: AppTheme.muted,
+            fontSize: 10,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+}
+
+// App data model
+class _AppItem {
+  final String id;
+  final String name;
+  final String description;
+  final IconData icon;
+  final Color color;
+  final String buttonText;
+
+  const _AppItem({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.icon,
+    required this.color,
+    required this.buttonText,
+  });
+}
+
+const _appItems = [
+  _AppItem(
+    id: 'brain-ai',
+    name: 'Brain AI',
+    description: 'Memory & brain games.',
+    icon: Icons.psychology,
+    color: Color(0xFF8B5CF6),
+    buttonText: 'Try now',
+  ),
+  _AppItem(
+    id: 'skin-ai',
+    name: 'Skin AI',
+    description: 'Face scan for skin.',
+    icon: Icons.face,
+    color: Color(0xFFEC4899),
+    buttonText: 'Analyze',
+  ),
+  _AppItem(
+    id: 'blood-ai',
+    name: 'Blood AI',
+    description: 'Blood test insights.',
+    icon: Icons.bloodtype,
+    color: Color(0xFFEF4444),
+    buttonText: 'Test',
+  ),
+  _AppItem(
+    id: 'sleep-ai',
+    name: 'Sleep AI',
+    description: 'Personal sleep advice.',
+    icon: Icons.bedtime,
+    color: Color(0xFF3B82F6),
+    buttonText: 'Start',
+  ),
+  _AppItem(
+    id: 'calorie-ai',
+    name: 'Calorie AI',
+    description: 'Count calories by photo.',
+    icon: Icons.restaurant,
+    color: Color(0xFF22C55E),
+    buttonText: 'Track',
+  ),
+];
+
+class _AppsSection extends StatelessWidget {
+  const _AppsSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: _appItems.map((app) => _AppCard(app: app)).toList(),
+    );
+  }
+}
+
+class _AppCard extends StatelessWidget {
+  final _AppItem app;
+
+  const _AppCard({required this.app});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: app.color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(app.icon, color: app.color, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  app.name,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  app.description,
+                  style: const TextStyle(
+                    color: AppTheme.muted,
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppTheme.secondary,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              app.buttonText,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -328,10 +694,16 @@ class _RecentCard extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           if (imageUrl != null)
-            Image.network(
-              imageUrl,
+            CachedNetworkImage(
+              imageUrl: imageUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              placeholder: (context, url) => Container(
+                color: AppTheme.secondary,
+                child: const Center(
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+              errorWidget: (context, url, error) => Container(
                 color: AppTheme.secondary,
                 child: Icon(
                   isVideo ? Icons.videocam : Icons.image,
