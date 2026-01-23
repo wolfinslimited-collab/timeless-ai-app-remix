@@ -1,8 +1,13 @@
 import { Settings, Crown, Download, Heart, Share2, ChevronRight, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
+import type { Screen } from "./MobileNav";
 
-export function MobileProfile() {
+interface MobileProfileProps {
+  onNavigate?: (screen: Screen) => void;
+}
+
+export function MobileProfile({ onNavigate }: MobileProfileProps) {
   const { user, signOut } = useAuth();
   const { credits, subscriptionStatus, hasActiveSubscription } = useCredits();
 
@@ -45,7 +50,10 @@ export function MobileProfile() {
             <p className="text-gray-300 text-xs">Available Credits</p>
             <p className="text-white text-2xl font-bold">{credits ?? 0}</p>
           </div>
-          <button className="px-4 py-2 bg-white rounded-full">
+          <button 
+            onClick={() => onNavigate?.("subscription")}
+            className="px-4 py-2 bg-white rounded-full"
+          >
             <span className="text-purple-600 text-sm font-semibold">Add Credits</span>
           </button>
         </div>
@@ -53,7 +61,11 @@ export function MobileProfile() {
 
       {/* Menu Items */}
       <div className="space-y-2">
-        <ProfileMenuItem icon={Crown} label="Subscription" />
+        <ProfileMenuItem 
+          icon={Crown} 
+          label="Subscription" 
+          onClick={() => onNavigate?.("subscription")}
+        />
         <ProfileMenuItem icon={Download} label="Downloads" />
         <ProfileMenuItem icon={Heart} label="Favorites" />
         <ProfileMenuItem icon={Share2} label="Share App" />

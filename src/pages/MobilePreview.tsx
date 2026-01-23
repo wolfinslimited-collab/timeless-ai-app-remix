@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { MobileNav, type Screen } from "@/components/mobile/MobileNav";
@@ -12,6 +12,7 @@ import { MobileCinemaStudio } from "@/components/mobile/MobileCinemaStudio";
 import { MobileChat } from "@/components/mobile/MobileChat";
 import { MobileLibrary } from "@/components/mobile/MobileLibrary";
 import { MobileProfile } from "@/components/mobile/MobileProfile";
+import { MobileSubscription } from "@/components/mobile/MobileSubscription";
 
 export default function MobilePreview() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("home");
@@ -47,7 +48,9 @@ export default function MobilePreview() {
       case "library":
         return <MobileLibrary />;
       case "profile":
-        return <MobileProfile />;
+        return <MobileProfile onNavigate={setCurrentScreen} />;
+      case "subscription":
+        return <MobileSubscription onBack={() => setCurrentScreen("profile")} />;
       default:
         return <MobileHome onNavigate={setCurrentScreen} credits={credits ?? 0} />;
     }

@@ -1,7 +1,7 @@
 import { Home, Sparkles, MessageSquare, Library, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type Screen = "home" | "create" | "chat" | "library" | "profile" | "image" | "video" | "cinema" | "auth";
+export type Screen = "home" | "create" | "chat" | "library" | "profile" | "image" | "video" | "cinema" | "auth" | "subscription";
 
 interface MobileNavProps {
   currentScreen: Screen;
