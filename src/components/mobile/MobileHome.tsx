@@ -114,10 +114,7 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
 
       {/* Trending Section */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-white text-sm font-semibold">Trending</h2>
-          <button className="text-purple-400 text-xs">See all</button>
-        </div>
+        <h2 className="text-white text-sm font-semibold mb-3">Trending</h2>
         <div className="grid grid-cols-2 gap-3">
           {[
             { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/47f98df2-8f0d-4cf0-a32f-f582f3c0f90f-video11080.1080.mp4", title: "Cinema Studio", description: "Professional cinematic video creation with AI", badge: "Featured" },
@@ -150,10 +147,7 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
 
       {/* Apps Section */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-white text-sm font-semibold">Apps</h2>
-          <button className="text-purple-400 text-xs">See all</button>
-        </div>
+        <h2 className="text-white text-sm font-semibold mb-3">Apps</h2>
         <div className="flex flex-col gap-3">
           {appItems.map((app) => (
             <div
@@ -242,8 +236,8 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
             </>
           )}
         </div>
-        </div>
       </div>
+    </div>
     </PullToRefresh>
   );
 }
