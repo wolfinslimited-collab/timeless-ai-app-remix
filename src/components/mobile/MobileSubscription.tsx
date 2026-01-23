@@ -378,7 +378,7 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
       </div>
 
       {/* Features List */}
-      <div className="px-4 mb-6">
+      <div className="px-4 mb-6 pb-48">
         <div className="bg-white/5 rounded-2xl p-4">
           <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
             <currentPlan.icon className="w-5 h-5 text-purple-400" />
@@ -397,56 +397,56 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
         </div>
       </div>
 
-      {/* Subscribe Button */}
-      <div className="px-4 pb-6">
-        <button
-          onClick={handleSubscribe}
-          disabled={isLoading || hasActiveSubscription}
-          className={cn(
-            "w-full py-4 rounded-2xl font-semibold text-white transition-all",
-            hasActiveSubscription
-              ? "bg-gray-600 cursor-not-allowed"
-              : "bg-gradient-to-r from-purple-600 to-pink-600 active:scale-[0.98]"
-          )}
-        >
-          {isLoading ? (
-            <span className="flex items-center justify-center gap-2">
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Processing...
-            </span>
-          ) : hasActiveSubscription ? (
-            "Already Subscribed"
-          ) : (
-            `Subscribe for $${price}/${billingCycle === "monthly" ? "mo" : "year"}`
-          )}
-        </button>
-        
-        <p className="text-center text-gray-500 text-xs mt-3">
-          Cancel anytime. Subscription renews automatically.
-        </p>
-      </div>
-
-      {/* Restore Purchases */}
-      <div className="px-4 pb-8">
-        <button 
-          onClick={handleRestore}
-          disabled={isRestoring}
-          className="w-full py-3 text-purple-400 text-sm font-medium flex items-center justify-center gap-2"
-        >
-          {isRestoring ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Restoring...
-            </>
-          ) : (
-            "Restore Purchases"
-          )}
-        </button>
-        
-        {/* Platform indicator for development */}
-        <p className="text-center text-gray-600 text-[10px] mt-2">
-          Platform: {platform.toUpperCase()}
-        </p>
+      {/* Fixed Bottom Sheet */}
+      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f] to-transparent pt-6 pb-6 px-4 z-50">
+        <div className="bg-[#0a0a0f]/95 backdrop-blur-xl rounded-t-3xl border-t border-white/10">
+          {/* Subscribe Button */}
+          <button
+            onClick={handleSubscribe}
+            disabled={isLoading}
+            className={cn(
+              "w-full py-4 rounded-2xl font-semibold text-white transition-all active:scale-[0.98]",
+              hasActiveSubscription
+                ? "bg-gradient-to-r from-green-600 to-emerald-600"
+                : "bg-gradient-to-r from-purple-600 to-pink-600"
+            )}
+          >
+            {isLoading ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Processing...
+              </span>
+            ) : hasActiveSubscription ? (
+              <span className="flex items-center justify-center gap-2">
+                <Check className="w-5 h-5" />
+                Manage Subscription
+              </span>
+            ) : (
+              `Subscribe for $${price}/${billingCycle === "monthly" ? "mo" : "year"}`
+            )}
+          </button>
+          
+          {/* Restore & Info */}
+          <div className="flex items-center justify-between mt-3">
+            <button 
+              onClick={handleRestore}
+              disabled={isRestoring}
+              className="text-purple-400 text-sm font-medium flex items-center gap-1.5"
+            >
+              {isRestoring ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Restoring...
+                </>
+              ) : (
+                "Restore Purchases"
+              )}
+            </button>
+            <p className="text-gray-500 text-xs">
+              Cancel anytime
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
