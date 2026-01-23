@@ -95,6 +95,23 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
         </div>
       </div>
 
+      {/* Pro Banner */}
+      <button 
+        onClick={() => onNavigate("profile")}
+        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-4 mb-6"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+            <Crown className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 text-left">
+            <h3 className="text-white font-semibold text-sm">Upgrade to Pro</h3>
+            <p className="text-white/70 text-xs">Unlimited generations & more</p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-white" />
+        </div>
+      </button>
+
       {/* Apps Section */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
@@ -125,23 +142,6 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
           ))}
         </div>
       </div>
-
-      {/* Pro Banner */}
-      <button 
-        onClick={() => onNavigate("profile")}
-        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-4 mb-6"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-            <Crown className="w-5 h-5 text-white" />
-          </div>
-          <div className="flex-1 text-left">
-            <h3 className="text-white font-semibold text-sm">Upgrade to Pro</h3>
-            <p className="text-white/70 text-xs">Unlimited generations & more</p>
-          </div>
-          <ChevronRight className="w-5 h-5 text-white" />
-        </div>
-      </button>
 
       {/* Recent Generations */}
       <div>
