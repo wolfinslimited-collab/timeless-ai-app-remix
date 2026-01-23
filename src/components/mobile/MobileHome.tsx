@@ -6,6 +6,21 @@ import { useAuth } from "@/hooks/useAuth";
 import { PullToRefresh } from "./PullToRefresh";
 import type { Screen } from "./MobileNav";
 
+// App icons
+import translateAiIcon from "@/assets/app-icons/translate-ai.png";
+import pixlabIcon from "@/assets/app-icons/pixlab.png";
+import colorizeIcon from "@/assets/app-icons/colorize.png";
+import relightIcon from "@/assets/app-icons/relight.png";
+import removeBgIcon from "@/assets/app-icons/remove-bg.png";
+
+const appItems = [
+  { id: "translate-ai", name: "Translate AI", icon: translateAiIcon },
+  { id: "pixlab", name: "PixLab", icon: pixlabIcon },
+  { id: "colorize", name: "Colorize", icon: colorizeIcon },
+  { id: "relight", name: "Relight", icon: relightIcon },
+  { id: "remove-bg", name: "Remove BG", icon: removeBgIcon },
+];
+
 interface MobileHomeProps {
   onNavigate: (screen: Screen) => void;
   credits: number;
@@ -77,6 +92,31 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
           <QuickAction icon={Video} label="Video" color="bg-purple-500" onClick={() => onNavigate("video")} />
           <QuickAction icon={Music} label="Music" color="bg-pink-500" />
           <QuickAction icon={Clapperboard} label="Cinema" color="bg-orange-500" />
+        </div>
+      </div>
+
+      {/* Apps Section */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-white text-sm font-semibold">Apps</h2>
+          <button className="text-purple-400 text-xs">See all</button>
+        </div>
+        <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+          {appItems.map((app) => (
+            <button
+              key={app.id}
+              className="flex flex-col items-center gap-2 min-w-[60px]"
+            >
+              <div className="w-14 h-14 rounded-2xl overflow-hidden bg-white/10">
+                <img 
+                  src={app.icon} 
+                  alt={app.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <span className="text-gray-300 text-xs text-center whitespace-nowrap">{app.name}</span>
+            </button>
+          ))}
         </div>
       </div>
 
