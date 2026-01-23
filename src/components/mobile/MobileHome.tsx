@@ -112,6 +112,36 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
         </div>
       </button>
 
+      {/* Trending Section */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-white text-sm font-semibold">Trending</h2>
+          <button className="text-purple-400 text-xs">See all</button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/47f98df2-8f0d-4cf0-a32f-f582f3c0f90f-video11080.1080.mp4",
+            "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/25bd0bda-0068-47e9-a2c3-c51330245765-video21080.1080 - RESIZE - Videobolt.net.mp4",
+            "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/559a3bef-5733-4be4-b79b-324924945429-video31080.1080 - RESIZE - Videobolt.net.mp4",
+            "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/33ee7581-6b7d-4d50-87d0-98acd87a53f3-video41080.1080 - RESIZE - Videobolt.net.mp4",
+          ].map((url, index) => (
+            <div 
+              key={index}
+              className="aspect-[9/16] rounded-xl overflow-hidden bg-white/5"
+            >
+              <video
+                src={url}
+                className="w-full h-full object-cover"
+                autoPlay
+                loop
+                muted
+                playsInline
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Apps Section */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
