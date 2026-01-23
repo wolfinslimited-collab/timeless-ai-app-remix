@@ -120,13 +120,13 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
         </div>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/47f98df2-8f0d-4cf0-a32f-f582f3c0f90f-video11080.1080.mp4", title: "Cosmic Dreams", description: "AI-generated space visuals" },
-            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/25bd0bda-0068-47e9-a2c3-c51330245765-video21080.1080 - RESIZE - Videobolt.net.mp4", title: "Neon City", description: "Cyberpunk aesthetics" },
-            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/559a3bef-5733-4be4-b79b-324924945429-video31080.1080 - RESIZE - Videobolt.net.mp4", title: "Nature Flow", description: "Organic motion art" },
-            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/33ee7581-6b7d-4d50-87d0-98acd87a53f3-video41080.1080 - RESIZE - Videobolt.net.mp4", title: "Abstract Waves", description: "Fluid animations" },
+            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/47f98df2-8f0d-4cf0-a32f-f582f3c0f90f-video11080.1080.mp4", title: "Cinema Studio", description: "Professional cinematic video creation with AI", badge: "Featured" },
+            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/25bd0bda-0068-47e9-a2c3-c51330245765-video21080.1080 - RESIZE - Videobolt.net.mp4", title: "Video Upscale", description: "Enhance video quality up to 4K resolution", badge: "Popular" },
+            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/559a3bef-5733-4be4-b79b-324924945429-video31080.1080 - RESIZE - Videobolt.net.mp4", title: "Draw to Video", description: "Transform sketches into animated videos", badge: "New" },
+            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/33ee7581-6b7d-4d50-87d0-98acd87a53f3-video41080.1080 - RESIZE - Videobolt.net.mp4", title: "Music Studio", description: "AI-powered music creation and remixing", badge: "Hot" },
           ].map((item, index) => (
             <div key={index} className="flex flex-col gap-2">
-              <div className="aspect-square rounded-xl overflow-hidden bg-white/5">
+              <div className="aspect-square rounded-xl overflow-hidden bg-white/5 relative">
                 <video
                   src={item.url}
                   className="w-full h-full object-cover"
@@ -135,6 +135,9 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
                   muted
                   playsInline
                 />
+                <span className="absolute top-2 left-2 px-2 py-0.5 bg-white/80 text-gray-800 text-[10px] font-semibold rounded-md">
+                  {item.badge}
+                </span>
               </div>
               <div>
                 <h3 className="text-white text-xs font-medium truncate">{item.title}</h3>
