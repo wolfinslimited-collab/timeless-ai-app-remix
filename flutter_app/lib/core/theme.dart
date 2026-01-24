@@ -39,7 +39,7 @@ class AppTheme {
         elevation: 0,
         centerTitle: false,
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: card,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -66,7 +66,8 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: destructive),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         hintStyle: const TextStyle(color: muted),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(

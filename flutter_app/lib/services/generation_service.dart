@@ -105,18 +105,15 @@ class GenerationService {
     final user = _supabase.auth.currentUser;
     if (user == null) return [];
 
-    var query = _supabase
-        .from('generations')
-        .select()
-        .eq('user_id', user.id)
-        .order('created_at', ascending: false)
-        .range(offset, offset + limit - 1);
+    var query = _supabase.from('generations').select().eq('user_id', user.id);
 
     if (type != null) {
       query = query.eq('type', type);
     }
 
-    final response = await query;
+    final response = await query
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
     return (response as List).map((json) => Generation.fromJson(json)).toList();
   }
 
