@@ -126,11 +126,8 @@ class IAPService {
         return false;
       }
 
-      // Enable pending purchases for Android
-      if (Platform.isAndroid) {
-        final androidAddition = _iap.getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
-        await androidAddition.enablePendingPurchases();
-      }
+      // Note: enablePendingPurchases() is no longer needed as Google Play
+      // now requires pending purchases support by default
 
       // Listen to purchase updates
       _subscription = _iap.purchaseStream.listen(
