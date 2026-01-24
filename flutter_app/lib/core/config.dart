@@ -9,7 +9,7 @@ class AppConfig {
   static const Map<String, int> modelCredits = {
     // Image Models - Lovable AI
     'nano-banana': 4,
-    
+
     // Image Models - Fal.ai
     'gpt-image-1.5': 10,
     'flux-1.1-pro': 5,
@@ -23,7 +23,7 @@ class AppConfig {
     'recraft-v3': 5,
     'aura-flow': 4,
     'playground-v2.5': 4,
-    
+
     // Video Models
     'wan-2.6': 15,
     'kling-2.6': 25,
@@ -33,19 +33,19 @@ class AppConfig {
     'seedance-1.5': 20,
     'luma': 22,
     'hunyuan-1.5': 18,
-    
+
     // Music Models - Fal.ai
     'sonauto': 15,
     'cassetteai': 10,
     'lyria2': 12,
     'stable-audio': 8,
-    
+
     // Cinema Studio Models
     'wan-2.6-cinema': 20,
     'kling-2.6-cinema': 30,
     'veo-3-cinema': 35,
     'luma-cinema': 28,
-    
+
     // Chat Models
     'grok-3': 3,
     'grok-3-mini': 1,
@@ -81,11 +81,26 @@ class AppConfig {
 
   // Chat Models - Synced with web app
   static const List<Map<String, dynamic>> chatModels = [
-    {'id': 'gemini-3-flash', 'name': 'Gemini 3 Flash', 'credits': 1, 'icon': 'gemini'},
-    {'id': 'gemini-3-pro', 'name': 'Gemini 3 Pro', 'credits': 3, 'icon': 'gemini'},
+    {
+      'id': 'gemini-3-flash',
+      'name': 'Gemini 3 Flash',
+      'credits': 1,
+      'icon': 'gemini'
+    },
+    {
+      'id': 'gemini-3-pro',
+      'name': 'Gemini 3 Pro',
+      'credits': 3,
+      'icon': 'gemini'
+    },
     {'id': 'grok-3', 'name': 'Grok 3', 'credits': 3, 'icon': 'grok'},
     {'id': 'chatgpt-5', 'name': 'ChatGPT 5', 'credits': 3, 'icon': 'openai'},
-    {'id': 'deepseek-r1', 'name': 'DeepSeek R1', 'credits': 3, 'icon': 'deepseek'},
+    {
+      'id': 'deepseek-r1',
+      'name': 'DeepSeek R1',
+      'credits': 3,
+      'icon': 'deepseek'
+    },
     {'id': 'llama-3.3', 'name': 'Llama 3.3', 'credits': 1, 'icon': 'meta'},
   ];
 
@@ -99,22 +114,22 @@ class AppConfig {
   ];
 
   static const List<String> videoQualities = ['720p', '1080p'];
-  
+
   // Quality Multipliers for video
   static const Map<String, double> qualityMultipliers = {
     '480p': 0.8,
     '720p': 1.0,
     '1080p': 1.5,
   };
-  
+
   static int getModelCost(String model, {String? quality}) {
     int baseCost = modelCredits[model] ?? 5;
     double multiplier = 1.0;
-    
+
     if (quality != null && qualityMultipliers.containsKey(quality)) {
       multiplier = qualityMultipliers[quality]!;
     }
-    
+
     return (baseCost * multiplier).round();
   }
 }
