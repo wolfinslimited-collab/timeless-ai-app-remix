@@ -14,6 +14,7 @@ import '../screens/apps/apps_screen.dart';
 import '../screens/cinema/cinema_studio_screen.dart';
 import '../screens/subscription/subscription_screen.dart';
 import '../screens/subscription/pricing_screen.dart';
+import '../screens/skin_analyze/skin_analyze_screen.dart';
 import '../widgets/common/main_scaffold.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -109,6 +110,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/pricing',
           builder: (context, state) => const PricingScreen(),
+        ),
+        GoRoute(
+          path: '/skin-analyze',
+          builder: (context, state) => const SkinAnalyzeScreen(),
         ),
       ],
     ),
