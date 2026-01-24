@@ -461,16 +461,14 @@ class _AppItem {
   final String id;
   final String name;
   final String description;
-  final IconData icon;
-  final Color color;
+  final String iconAsset;
   final String buttonText;
 
   const _AppItem({
     required this.id,
     required this.name,
     required this.description,
-    required this.icon,
-    required this.color,
+    required this.iconAsset,
     required this.buttonText,
   });
 }
@@ -480,40 +478,35 @@ const _appItems = [
     id: 'brain-ai',
     name: 'Brain AI',
     description: 'Memory & brain games.',
-    icon: Icons.psychology,
-    color: Color(0xFF8B5CF6),
+    iconAsset: 'assets/icons/brain-ai.png',
     buttonText: 'Try now',
   ),
   _AppItem(
     id: 'skin-ai',
     name: 'Skin AI',
     description: 'Face scan for skin.',
-    icon: Icons.face,
-    color: Color(0xFFEC4899),
+    iconAsset: 'assets/icons/skin-ai.png',
     buttonText: 'Analyze',
   ),
   _AppItem(
     id: 'blood-ai',
     name: 'Blood AI',
     description: 'Blood test insights.',
-    icon: Icons.bloodtype,
-    color: Color(0xFFEF4444),
+    iconAsset: 'assets/icons/blood-ai.png',
     buttonText: 'Test',
   ),
   _AppItem(
     id: 'sleep-ai',
     name: 'Sleep AI',
     description: 'Personal sleep advice.',
-    icon: Icons.bedtime,
-    color: Color(0xFF3B82F6),
+    iconAsset: 'assets/icons/sleep-ai.png',
     buttonText: 'Start',
   ),
   _AppItem(
     id: 'calorie-ai',
     name: 'Calorie AI',
     description: 'Count calories by photo.',
-    icon: Icons.restaurant,
-    color: Color(0xFF22C55E),
+    iconAsset: 'assets/icons/calorie-ai.png',
     buttonText: 'Track',
   ),
 ];
@@ -558,14 +551,14 @@ class _AppCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: app.color.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                app.iconAsset,
+                width: 48,
+                height: 48,
+                fit: BoxFit.cover,
               ),
-              child: Icon(app.icon, color: app.color, size: 24),
             ),
             const SizedBox(width: 12),
             Expanded(
