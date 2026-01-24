@@ -8,6 +8,7 @@ import 'core/routes.dart';
 import 'providers/auth_provider.dart';
 import 'providers/credits_provider.dart';
 import 'providers/generation_provider.dart';
+import 'providers/iap_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +31,7 @@ class TimelessAIApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => CreditsProvider()),
         ChangeNotifierProvider(create: (_) => GenerationProvider()),
+        ChangeNotifierProvider(create: (_) => IAPProvider()),
       ],
       child: MaterialApp.router(
         title: 'Timeless AI',
