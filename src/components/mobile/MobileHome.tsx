@@ -1,24 +1,26 @@
 import { useEffect, useState, useCallback } from "react";
-import { Image, Video, Music, Clapperboard, ChevronRight, Zap, Crown, Bell, Play } from "lucide-react";
+import { Image, Video, Music, Clapperboard, ChevronRight, Zap, Crown, Bell, Play, Brain, Sparkles, Droplets, Moon, Apple, LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { PullToRefresh } from "./PullToRefresh";
 import type { Screen } from "./MobileNav";
 
-// App icons
-import translateAiIcon from "@/assets/app-icons/translate-ai.png";
-import pixlabIcon from "@/assets/app-icons/pixlab.png";
-import colorizeIcon from "@/assets/app-icons/colorize.png";
-import relightIcon from "@/assets/app-icons/relight.png";
-import removeBgIcon from "@/assets/app-icons/remove-bg.png";
+interface AppItem {
+  id: string;
+  name: string;
+  description: string;
+  icon: LucideIcon;
+  color: string;
+  buttonText: string;
+}
 
-const appItems = [
-  { id: "brain-ai", name: "Brain AI", description: "Memory & brain games.", icon: translateAiIcon, buttonText: "Try now" },
-  { id: "skin-ai", name: "Skin AI", description: "Face scan for skin.", icon: pixlabIcon, buttonText: "Analyze" },
-  { id: "blood-ai", name: "Blood AI", description: "Blood test insights.", icon: colorizeIcon, buttonText: "Test" },
-  { id: "sleep-ai", name: "Sleep AI", description: "Personal sleep advice.", icon: relightIcon, buttonText: "Start" },
-  { id: "calorie-ai", name: "Calorie AI", description: "Count calories by photo.", icon: removeBgIcon, buttonText: "Track" },
+const appItems: AppItem[] = [
+  { id: "brain-ai", name: "Brain AI", description: "Memory & brain games.", icon: Brain, color: "bg-violet-500", buttonText: "Try now" },
+  { id: "skin-ai", name: "Skin AI", description: "Face scan for skin.", icon: Sparkles, color: "bg-pink-500", buttonText: "Analyze" },
+  { id: "blood-ai", name: "Blood AI", description: "Blood test insights.", icon: Droplets, color: "bg-red-500", buttonText: "Test" },
+  { id: "sleep-ai", name: "Sleep AI", description: "Personal sleep advice.", icon: Moon, color: "bg-indigo-500", buttonText: "Start" },
+  { id: "calorie-ai", name: "Calorie AI", description: "Count calories by photo.", icon: Apple, color: "bg-green-500", buttonText: "Track" },
 ];
 
 interface MobileHomeProps {
@@ -151,27 +153,26 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
       <div className="mb-6">
         <h2 className="text-white text-sm font-semibold mb-3">Apps</h2>
         <div className="flex flex-col gap-3">
-          {appItems.map((app) => (
-            <div
-              key={app.id}
-              className="flex items-center gap-3 p-3 rounded-2xl border border-white/20"
-            >
-              <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
-                <img 
-                  src={app.icon} 
-                  alt={app.name}
-                  className="w-full h-full object-cover"
-                />
+          {appItems.map((app) => {
+            const IconComponent = app.icon;
+            return (
+              <div
+                key={app.id}
+                className="flex items-center gap-3 p-3 rounded-2xl border border-white/20"
+              >
+                <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0", app.color)}>
+                  <IconComponent className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-white text-sm font-medium">{app.name}</h3>
+                  <p className="text-gray-400 text-xs truncate">{app.description}</p>
+                </div>
+                <button className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-lg flex-shrink-0 transition-colors">
+                  {app.buttonText}
+                </button>
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-white text-sm font-medium">{app.name}</h3>
-                <p className="text-gray-400 text-xs truncate">{app.description}</p>
-              </div>
-              <button className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-lg flex-shrink-0 transition-colors">
-                {app.buttonText}
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
