@@ -159,10 +159,7 @@ class _AppsScreenState extends State<AppsScreen> {
         context.push('/skin-analyze');
         break;
       case 'calorie-ai':
-        // TODO: Add calorie AI screen
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Calorie AI opening...')),
-        );
+        context.push('/calorie');
         break;
       default:
         ScaffoldMessenger.of(context).showSnackBar(
