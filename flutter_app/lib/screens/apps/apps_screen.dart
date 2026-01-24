@@ -1,30 +1,319 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
-import '../../services/tools_service.dart';
 
-class AppsScreen extends StatelessWidget {
+class AIAppItem {
+  final String id;
+  final String name;
+  final String description;
+  final String iconAsset;
+  final String category;
+  final String? badge;
+  final List<Color> gradientColors;
+  final bool comingSoon;
+
+  const AIAppItem({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.iconAsset,
+    required this.category,
+    this.badge,
+    required this.gradientColors,
+    this.comingSoon = false,
+  });
+}
+
+const List<AIAppItem> _aiApps = [
+  AIAppItem(
+    id: 'health-ai',
+    name: 'Health AI',
+    description: 'Personal health insights and recommendations powered by AI',
+    iconAsset: 'assets/icons/blood-ai.png',
+    category: 'health',
+    badge: 'SOON',
+    gradientColors: [Color(0x33F43F5E), Color(0x33EC4899)],
+    comingSoon: true,
+  ),
+  AIAppItem(
+    id: 'translate-ai',
+    name: 'Translate AI',
+    description: 'Real-time translation across 100+ languages',
+    iconAsset: 'assets/icons/brain-ai.png',
+    category: 'productivity',
+    badge: 'SOON',
+    gradientColors: [Color(0x333B82F6), Color(0x3306B6D4)],
+    comingSoon: true,
+  ),
+  AIAppItem(
+    id: 'sleep-ai',
+    name: 'Sleep AI',
+    description: 'Optimize your sleep patterns with AI analysis',
+    iconAsset: 'assets/icons/sleep-ai.png',
+    category: 'health',
+    badge: 'SOON',
+    gradientColors: [Color(0x336366F1), Color(0x33A855F7)],
+    comingSoon: true,
+  ),
+  AIAppItem(
+    id: 'brain-ai',
+    name: 'Brain AI',
+    description: 'Cognitive enhancement and memory training',
+    iconAsset: 'assets/icons/brain-ai.png',
+    category: 'productivity',
+    badge: 'SOON',
+    gradientColors: [Color(0x338B5CF6), Color(0x33A855F7)],
+    comingSoon: true,
+  ),
+  AIAppItem(
+    id: 'skin-ai',
+    name: 'Skin AI',
+    description: 'AI-powered skin analysis and care recommendations',
+    iconAsset: 'assets/icons/skin-ai.png',
+    category: 'health',
+    badge: 'NEW',
+    gradientColors: [Color(0x33EC4899), Color(0x33F43F5E)],
+    comingSoon: false,
+  ),
+  AIAppItem(
+    id: 'calorie-ai',
+    name: 'Calorie AI',
+    description: 'Track and optimize your nutrition with AI',
+    iconAsset: 'assets/icons/calorie-ai.png',
+    category: 'health',
+    badge: 'NEW',
+    gradientColors: [Color(0x3384CC16), Color(0x3322C55E)],
+    comingSoon: false,
+  ),
+  AIAppItem(
+    id: 'blood-ai',
+    name: 'Blood AI',
+    description: 'Advanced blood analysis and health tracking',
+    iconAsset: 'assets/icons/blood-ai.png',
+    category: 'health',
+    badge: 'SOON',
+    gradientColors: [Color(0x33EF4444), Color(0x33F97316)],
+    comingSoon: true,
+  ),
+  AIAppItem(
+    id: 'financial-ai',
+    name: 'Financial AI',
+    description: 'Smart financial planning and investment insights',
+    iconAsset: 'assets/icons/brain-ai.png',
+    category: 'finance',
+    badge: 'SOON',
+    gradientColors: [Color(0x3310B981), Color(0x3322C55E)],
+    comingSoon: true,
+  ),
+  AIAppItem(
+    id: 'ads-ai',
+    name: 'Ads AI',
+    description: 'Create high-converting ad campaigns with AI',
+    iconAsset: 'assets/icons/brain-ai.png',
+    category: 'marketing',
+    badge: 'SOON',
+    gradientColors: [Color(0x33F97316), Color(0x33EF4444)],
+    comingSoon: true,
+  ),
+];
+
+const List<Map<String, String>> _categories = [
+  {'id': 'all', 'label': 'All Apps'},
+  {'id': 'health', 'label': 'Health'},
+  {'id': 'productivity', 'label': 'Productivity'},
+  {'id': 'finance', 'label': 'Finance'},
+  {'id': 'marketing', 'label': 'Marketing'},
+];
+
+class AppsScreen extends StatefulWidget {
   const AppsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('AI Apps'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Image'),
-              Tab(text: 'Video'),
-              Tab(text: 'Audio'),
-            ],
-          ),
+  State<AppsScreen> createState() => _AppsScreenState();
+}
+
+class _AppsScreenState extends State<AppsScreen> {
+  String _selectedCategory = 'all';
+
+  List<AIAppItem> get _filteredApps {
+    if (_selectedCategory == 'all') {
+      return _aiApps;
+    }
+    return _aiApps.where((app) => app.category == _selectedCategory).toList();
+  }
+
+  void _handleAppTap(AIAppItem app) {
+    if (app.comingSoon) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${app.name} is coming soon!'),
+          backgroundColor: AppTheme.primary,
         ),
-        body: TabBarView(
-          children: [
-            _ToolsGrid(tools: imageTools, category: 'image'),
-            _ToolsGrid(tools: videoTools, category: 'video'),
-            _ToolsGrid(tools: audioTools, category: 'audio'),
+      );
+      return;
+    }
+
+    // Navigate to specific app screens
+    switch (app.id) {
+      case 'skin-ai':
+        context.push('/skin-analyze');
+        break;
+      case 'calorie-ai':
+        // TODO: Add calorie AI screen
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Calorie AI opening...')),
+        );
+        break;
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Opening ${app.name}...')),
+        );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      body: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            // Hero Section
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'AI-Powered Apps',
+                        style: TextStyle(
+                          color: AppTheme.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Discover Our\nAI Apps',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Explore our suite of AI-powered applications',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Category Filter
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 44,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _categories.length,
+                  itemBuilder: (context, index) {
+                    final category = _categories[index];
+                    final isSelected = _selectedCategory == category['id'];
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedCategory = category['id']!;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppTheme.primary
+                                : AppTheme.secondary,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            category['label']!,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? AppTheme.primaryForeground
+                                  : AppTheme.muted,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+            // Apps Grid
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 0.85,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final app = _filteredApps[index];
+                    return _AppCard(
+                      app: app,
+                      onTap: () => _handleAppTap(app),
+                    );
+                  },
+                  childCount: _filteredApps.length,
+                ),
+              ),
+            ),
+
+            // Empty State
+            if (_filteredApps.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(40),
+                  child: Center(
+                    child: Text(
+                      'No apps found in this category.',
+                      style: TextStyle(color: AppTheme.muted),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Bottom padding
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ),
       ),
@@ -32,318 +321,159 @@ class AppsScreen extends StatelessWidget {
   }
 }
 
-class _ToolsGrid extends StatelessWidget {
-  final List<ToolDefinition> tools;
-  final String category;
+class _AppCard extends StatelessWidget {
+  final AIAppItem app;
+  final VoidCallback onTap;
 
-  const _ToolsGrid({required this.tools, required this.category});
+  const _AppCard({
+    required this.app,
+    required this.onTap,
+  });
 
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.1,
-      ),
-      itemCount: tools.length,
-      itemBuilder: (context, index) {
-        return _ToolCard(tool: tools[index]);
-      },
-    );
+  Color _getBadgeColor() {
+    switch (app.badge) {
+      case 'NEW':
+        return const Color(0xFF22C55E);
+      case 'POPULAR':
+        return const Color(0xFFF59E0B);
+      case 'BETA':
+        return const Color(0xFF3B82F6);
+      case 'SOON':
+        return const Color(0xFF6B7280);
+      default:
+        return AppTheme.muted;
+    }
   }
-}
-
-class _ToolCard extends StatelessWidget {
-  final ToolDefinition tool;
-
-  const _ToolCard({required this.tool});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _openTool(context),
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppTheme.card,
-          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: app.gradientColors,
+          ),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppTheme.border),
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(tool.icon, style: const TextStyle(fontSize: 36)),
-            const SizedBox(height: 12),
-            Text(
-              tool.name,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
+            // Badge
+            if (app.badge != null)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: _getBadgeColor().withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  app.badge == 'SOON' ? 'COMING SOON' : app.badge!,
+                  style: TextStyle(
+                    color: _getBadgeColor(),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-              textAlign: TextAlign.center,
+            const SizedBox(height: 12),
+
+            // Icon
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  app.iconAsset,
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Icon(
+                      Icons.apps,
+                      color: AppTheme.muted,
+                      size: 24,
+                    );
+                  },
+                ),
+              ),
+            ),
+            const Spacer(),
+
+            // Name
+            Text(
+              app.name,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
+
+            // Description
             Text(
-              tool.description,
-              style: const TextStyle(
+              app.description,
+              style: TextStyle(
+                fontSize: 11,
                 color: AppTheme.muted,
-                fontSize: 12,
               ),
-              textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.accent.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '${tool.credits}c',
-                style: const TextStyle(
-                  color: AppTheme.accent,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+
+            // Action
+            Row(
+              children: [
+                if (app.comingSoon) ...[
+                  Icon(
+                    Icons.lock_clock,
+                    size: 14,
+                    color: AppTheme.muted,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Coming Soon',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.muted,
+                    ),
+                  ),
+                ] else ...[
+                  Text(
+                    'Open App',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.arrow_forward,
+                    size: 14,
+                    color: AppTheme.primary,
+                  ),
+                ],
+              ],
             ),
           ],
         ),
       ),
     );
-  }
-
-  void _openTool(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.card,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (context, scrollController) {
-          return _ToolDetailSheet(tool: tool, scrollController: scrollController);
-        },
-      ),
-    );
-  }
-}
-
-class _ToolDetailSheet extends StatefulWidget {
-  final ToolDefinition tool;
-  final ScrollController scrollController;
-
-  const _ToolDetailSheet({
-    required this.tool,
-    required this.scrollController,
-  });
-
-  @override
-  State<_ToolDetailSheet> createState() => _ToolDetailSheetState();
-}
-
-class _ToolDetailSheetState extends State<_ToolDetailSheet> {
-  String? _selectedFileUrl;
-  bool _isProcessing = false;
-  String? _resultUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      controller: widget.scrollController,
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Handle
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppTheme.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Tool header
-          Row(
-            children: [
-              Text(widget.tool.icon, style: const TextStyle(fontSize: 48)),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.tool.name,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      widget.tool.description,
-                      style: const TextStyle(color: AppTheme.muted),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Upload area
-          GestureDetector(
-            onTap: _pickFile,
-            child: Container(
-              height: 200,
-              decoration: BoxDecoration(
-                color: AppTheme.secondary,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppTheme.border,
-                  style: BorderStyle.solid,
-                ),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _selectedFileUrl != null ? Icons.check_circle : Icons.upload_file,
-                      size: 48,
-                      color: _selectedFileUrl != null ? AppTheme.success : AppTheme.muted,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _selectedFileUrl != null ? 'File selected' : 'Tap to upload file',
-                      style: TextStyle(
-                        color: _selectedFileUrl != null ? AppTheme.success : AppTheme.muted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Result preview
-          if (_resultUrl != null) ...[
-            const Text(
-              'Result',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              height: 200,
-              decoration: BoxDecoration(
-                color: AppTheme.secondary,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.border),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.network(_resultUrl!, fit: BoxFit.contain),
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
-
-          // Process button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _selectedFileUrl == null || _isProcessing ? null : _processTool,
-              child: _isProcessing
-                  ? const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        SizedBox(width: 12),
-                        Text('Processing...'),
-                      ],
-                    )
-                  : Text('Process (${widget.tool.credits} credits)'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _pickFile() async {
-    // In a real implementation, use file_picker or image_picker
-    // For now, just simulate
-    setState(() {
-      _selectedFileUrl = 'https://example.com/file.jpg';
-    });
-  }
-
-  Future<void> _processTool() async {
-    if (_selectedFileUrl == null) return;
-
-    setState(() {
-      _isProcessing = true;
-    });
-
-    try {
-      // Call the appropriate tool service
-      final toolsService = ToolsService();
-      
-      Map<String, dynamic> result;
-      
-      switch (widget.tool.category) {
-        case 'image':
-          result = await toolsService.runImageTool(
-            tool: widget.tool.id,
-            imageUrl: _selectedFileUrl!,
-          );
-          break;
-        case 'video':
-          result = await toolsService.runVideoTool(
-            tool: widget.tool.id,
-            videoUrl: _selectedFileUrl!,
-          );
-          break;
-        case 'audio':
-          result = await toolsService.runMusicTool(
-            tool: widget.tool.id,
-            audioUrl: _selectedFileUrl!,
-          );
-          break;
-        default:
-          throw Exception('Unknown tool category');
-      }
-
-      setState(() {
-        _resultUrl = result['outputUrl'] as String?;
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    } finally {
-      setState(() {
-        _isProcessing = false;
-      });
-    }
   }
 }
