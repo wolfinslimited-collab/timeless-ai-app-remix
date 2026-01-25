@@ -368,7 +368,7 @@
 				"$(inherited)",
 				"@executable_path/Frameworks",
 			);
-			PRODUCT_BUNDLE_IDENTIFIER = com.health.timelessapp;
+			PRODUCT_BUNDLE_IDENTIFIER = com.health.timelessApp;
 			PRODUCT_NAME = "$(TARGET_NAME)";
 			PROVISIONING_PROFILE_SPECIFIER = bitrise;
 			SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -501,7 +501,7 @@
 				"$(inherited)",
 				"@executable_path/Frameworks",
 			);
-			PRODUCT_BUNDLE_IDENTIFIER = com.health.timelessapp;
+			PRODUCT_BUNDLE_IDENTIFIER = com.health.timelessApp;
 			PRODUCT_NAME = "$(TARGET_NAME)";
 			PROVISIONING_PROFILE_SPECIFIER = bitrise;
 			SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -528,7 +528,7 @@
 				"$(inherited)",
 				"@executable_path/Frameworks",
 			);
-			PRODUCT_BUNDLE_IDENTIFIER = com.health.timelessapp;
+			PRODUCT_BUNDLE_IDENTIFIER = com.health.timelessApp;
 			PRODUCT_NAME = "$(TARGET_NAME)";
 			PROVISIONING_PROFILE_SPECIFIER = bitrise;
 			SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
