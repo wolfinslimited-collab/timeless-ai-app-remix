@@ -64,14 +64,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     await authProvider.signInWithGoogle();
   }
 
-  void _showComingSoon(String provider) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$provider sign in coming soon!'),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppTheme.primary,
-      ),
-    );
+  Future<void> _handleAppleSignIn() async {
+    final authProvider = context.read<AuthProvider>();
+    await authProvider.signInWithApple();
+  }
+
+  Future<void> _handleFacebookSignIn() async {
+    final authProvider = context.read<AuthProvider>();
+    await authProvider.signInWithFacebook();
   }
 
   @override
@@ -151,13 +151,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       _buildOAuthButton(
                         icon: Icons.apple,
                         label: 'Continue with Apple',
-                        onPressed: () => _showComingSoon('Apple'),
+                        onPressed: _handleAppleSignIn,
                       ),
                       const SizedBox(height: 12),
                       _buildOAuthButton(
                         icon: Icons.facebook,
                         label: 'Continue with Facebook',
-                        onPressed: () => _showComingSoon('Facebook'),
+                        onPressed: _handleFacebookSignIn,
                       ),
                       const SizedBox(height: 24),
 
