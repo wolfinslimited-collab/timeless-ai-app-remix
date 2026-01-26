@@ -43,6 +43,33 @@ class AuthService {
       final response = await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: 'io.supabase.genaiapp://login-callback/',
+        authScreenLaunchMode: LaunchMode.externalApplication,
+      );
+      return response;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<bool> signInWithApple() async {
+    try {
+      final response = await _supabase.auth.signInWithOAuth(
+        OAuthProvider.apple,
+        redirectTo: 'io.supabase.genaiapp://login-callback/',
+        authScreenLaunchMode: LaunchMode.externalApplication,
+      );
+      return response;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<bool> signInWithFacebook() async {
+    try {
+      final response = await _supabase.auth.signInWithOAuth(
+        OAuthProvider.facebook,
+        redirectTo: 'io.supabase.genaiapp://login-callback/',
+        authScreenLaunchMode: LaunchMode.externalApplication,
       );
       return response;
     } catch (e) {
