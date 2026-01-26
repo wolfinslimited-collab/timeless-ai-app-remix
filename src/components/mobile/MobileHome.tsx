@@ -155,6 +155,43 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
         </div>
       </div>
 
+      {/* AI Video Tools Section */}
+      <div className="mb-6">
+        <h2 className="text-white text-sm font-semibold mb-3">AI Video Tools</h2>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { url: "https://placeholder-video.com/light.mp4", title: "Lighting", description: "Add cinematic lighting effects to your videos", badge: "New" },
+            { url: "https://placeholder-video.com/skin-enhancer.mp4", title: "Skin Enhancer", description: "AI-powered skin smoothing and enhancement", badge: "Popular" },
+            { url: "https://placeholder-video.com/upscale.mp4", title: "Upscale", description: "Enhance video resolution up to 4K quality", badge: "Hot" },
+            { url: "https://placeholder-video.com/remove-bg.mp4", title: "Remove Background", description: "Instantly remove video backgrounds with AI", badge: "Featured" },
+            { url: "https://placeholder-video.com/change-angle.mp4", title: "Change Angle", description: "Transform camera perspectives dynamically", badge: "New" },
+            { url: "https://placeholder-video.com/inpainting.mp4", title: "Inpainting", description: "Fill and edit regions seamlessly in videos", badge: "Beta" },
+          ].map((item, index) => (
+            <div key={index} className="flex flex-col gap-2">
+              <div className="aspect-square rounded-xl overflow-hidden bg-white/5 relative">
+                <video
+                  src={item.url}
+                  className="w-full h-full object-cover"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  preload="auto"
+                  crossOrigin="anonymous"
+                />
+                <span className="absolute top-2 left-2 px-2 py-0.5 bg-white/80 text-gray-800 text-[10px] font-semibold rounded-md">
+                  {item.badge}
+                </span>
+              </div>
+              <div>
+                <h3 className="text-white text-xs font-medium truncate">{item.title}</h3>
+                <p className="text-gray-400 text-[10px] line-clamp-2">{item.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Apps Section */}
       <div className="mb-6">
         <h2 className="text-white text-sm font-semibold mb-3">Apps</h2>
