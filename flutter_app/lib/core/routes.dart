@@ -20,6 +20,9 @@ import '../screens/calorie/calorie_onboarding_screen.dart';
 import '../screens/calorie/calorie_dashboard_screen.dart';
 import '../screens/financial/financial_ai_screen.dart';
 import '../screens/fingerprint/fingerprint_ai_screen.dart';
+import '../screens/sleep/sleep_ai_screen.dart';
+import '../screens/brain/brain_ai_screen.dart';
+import '../screens/notify/notify_ai_screen.dart';
 import '../widgets/common/main_scaffold.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -140,6 +143,19 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/fingerprint-ai',
           builder: (context, state) => const FingerprintAIScreen(),
+        ),
+        // New AI tool routes
+        GoRoute(
+          path: '/sleep-ai',
+          builder: (context, state) => const SleepAIScreen(),
+        ),
+        GoRoute(
+          path: '/brain-ai',
+          builder: (context, state) => const BrainAIScreen(),
+        ),
+        GoRoute(
+          path: '/notify-ai',
+          builder: (context, state) => const NotifyAIScreen(),
         ),
       ],
     ),
