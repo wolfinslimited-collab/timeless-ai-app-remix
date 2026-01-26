@@ -18,6 +18,8 @@ import '../screens/skin_analyze/skin_analyze_screen.dart';
 import '../screens/calorie/calorie_wrapper_screen.dart';
 import '../screens/calorie/calorie_onboarding_screen.dart';
 import '../screens/calorie/calorie_dashboard_screen.dart';
+import '../screens/financial/financial_ai_screen.dart';
+import '../screens/fingerprint/fingerprint_ai_screen.dart';
 import '../widgets/common/main_scaffold.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -114,6 +116,7 @@ final appRouter = GoRouter(
           path: '/pricing',
           builder: (context, state) => const PricingScreen(),
         ),
+        // AI Apps routes
         GoRoute(
           path: '/skin-analyze',
           builder: (context, state) => const SkinAnalyzeScreen(),
@@ -129,6 +132,14 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/calorie-dashboard',
           builder: (context, state) => const CalorieDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/financial-ai',
+          builder: (context, state) => const FinancialAIScreen(),
+        ),
+        GoRoute(
+          path: '/fingerprint-ai',
+          builder: (context, state) => const FingerprintAIScreen(),
         ),
       ],
     ),
