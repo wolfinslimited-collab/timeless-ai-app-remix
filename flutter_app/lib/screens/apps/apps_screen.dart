@@ -26,24 +26,44 @@ class AIAppItem {
 
 const List<AIAppItem> _aiApps = [
   AIAppItem(
-    id: 'health-ai',
-    name: 'Health AI',
-    description: 'Personal health insights and recommendations powered by AI',
-    iconAsset: 'assets/icons/blood-ai.png',
+    id: 'skin-ai',
+    name: 'Skin AI',
+    description: 'AI-powered skin analysis and care recommendations',
+    iconAsset: 'assets/icons/skin-ai.png',
     category: 'health',
-    badge: 'SOON',
-    gradientColors: [Color(0x33F43F5E), Color(0x33EC4899)],
-    comingSoon: true,
+    badge: 'NEW',
+    gradientColors: [Color(0x33EC4899), Color(0x33F43F5E)],
+    comingSoon: false,
   ),
   AIAppItem(
-    id: 'translate-ai',
-    name: 'Translate AI',
-    description: 'Real-time translation across 100+ languages',
+    id: 'calorie-ai',
+    name: 'Calorie AI',
+    description: 'Track and optimize your nutrition with AI',
+    iconAsset: 'assets/icons/calorie-ai.png',
+    category: 'health',
+    badge: 'NEW',
+    gradientColors: [Color(0x3384CC16), Color(0x3322C55E)],
+    comingSoon: false,
+  ),
+  AIAppItem(
+    id: 'financial-ai',
+    name: 'Financial AI',
+    description: 'AI-powered market analysis for crypto & stocks',
     iconAsset: 'assets/icons/brain-ai.png',
-    category: 'productivity',
-    badge: 'SOON',
-    gradientColors: [Color(0x333B82F6), Color(0x3306B6D4)],
-    comingSoon: true,
+    category: 'finance',
+    badge: 'NEW',
+    gradientColors: [Color(0x3310B981), Color(0x3322C55E)],
+    comingSoon: false,
+  ),
+  AIAppItem(
+    id: 'fingerprint-ai',
+    name: 'Fingerprint AI',
+    description: 'Find anyone\'s digital footprint across social media',
+    iconAsset: 'assets/icons/brain-ai.png',
+    category: 'security',
+    badge: 'NEW',
+    gradientColors: [Color(0x338B5CF6), Color(0x33EC4899)],
+    comingSoon: false,
   ),
   AIAppItem(
     id: 'sleep-ai',
@@ -66,26 +86,6 @@ const List<AIAppItem> _aiApps = [
     comingSoon: true,
   ),
   AIAppItem(
-    id: 'skin-ai',
-    name: 'Skin AI',
-    description: 'AI-powered skin analysis and care recommendations',
-    iconAsset: 'assets/icons/skin-ai.png',
-    category: 'health',
-    badge: 'NEW',
-    gradientColors: [Color(0x33EC4899), Color(0x33F43F5E)],
-    comingSoon: false,
-  ),
-  AIAppItem(
-    id: 'calorie-ai',
-    name: 'Calorie AI',
-    description: 'Track and optimize your nutrition with AI',
-    iconAsset: 'assets/icons/calorie-ai.png',
-    category: 'health',
-    badge: 'NEW',
-    gradientColors: [Color(0x3384CC16), Color(0x3322C55E)],
-    comingSoon: false,
-  ),
-  AIAppItem(
     id: 'blood-ai',
     name: 'Blood AI',
     description: 'Advanced blood analysis and health tracking',
@@ -96,13 +96,13 @@ const List<AIAppItem> _aiApps = [
     comingSoon: true,
   ),
   AIAppItem(
-    id: 'financial-ai',
-    name: 'Financial AI',
-    description: 'Smart financial planning and investment insights',
+    id: 'translate-ai',
+    name: 'Translate AI',
+    description: 'Real-time translation across 100+ languages',
     iconAsset: 'assets/icons/brain-ai.png',
-    category: 'finance',
+    category: 'productivity',
     badge: 'SOON',
-    gradientColors: [Color(0x3310B981), Color(0x3322C55E)],
+    gradientColors: [Color(0x333B82F6), Color(0x3306B6D4)],
     comingSoon: true,
   ),
   AIAppItem(
@@ -122,6 +122,7 @@ const List<Map<String, String>> _categories = [
   {'id': 'health', 'label': 'Health'},
   {'id': 'productivity', 'label': 'Productivity'},
   {'id': 'finance', 'label': 'Finance'},
+  {'id': 'security', 'label': 'Security'},
   {'id': 'marketing', 'label': 'Marketing'},
 ];
 
@@ -160,6 +161,12 @@ class _AppsScreenState extends State<AppsScreen> {
         break;
       case 'calorie-ai':
         context.push('/calorie');
+        break;
+      case 'financial-ai':
+        context.push('/financial-ai');
+        break;
+      case 'fingerprint-ai':
+        context.push('/fingerprint-ai');
         break;
       default:
         ScaffoldMessenger.of(context).showSnackBar(

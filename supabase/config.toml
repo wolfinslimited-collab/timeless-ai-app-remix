@@ -2,3 +2,15 @@ project_id = "hpuqeabtgwbwcnklxolt"
 
 [functions.mobile-subscription]
 verify_jwt = false
+
+[functions.skin-ai]
+verify_jwt = false
+
+[functions.financial-ai]
+verify_jwt = false
+
+[functions.fingerprint-ai]
+verify_jwt = false
+
+[functions.calorie-ai]
+verify_jwt = false
