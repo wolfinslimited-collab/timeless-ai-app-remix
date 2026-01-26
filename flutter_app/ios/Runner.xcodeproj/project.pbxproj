@@ -371,7 +371,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.health.timelessApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = bitrise;
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = bitrise;
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "app store connect";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -535,7 +535,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.health.timelessApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = bitrise;
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = bitrise;
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "app store connect";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
