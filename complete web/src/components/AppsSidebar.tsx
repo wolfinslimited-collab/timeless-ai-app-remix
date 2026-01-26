@@ -1,0 +1,345 @@
+import { useState } from "react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ChevronLeft, ChevronRight, LucideIcon } from "lucide-react";
+import ModelLogo from "@/components/ModelLogo";
+import {
+  ImagePlus, 
+  Maximize2, 
+  Paintbrush, 
+  Sun, 
+  RotateCcw, 
+  Sparkles,
+  Scissors,
+  Eraser,
+  Palette,
+  Layers,
+  Video,
+  Film,
+  Clapperboard,
+  Wand2,
+  Music,
+  Mic,
+  SlidersHorizontal,
+  Volume2,
+  Camera,
+  Move3d,
+  Focus,
+  Aperture,
+  LayoutGrid,
+  Megaphone,
+  TrendingUp,
+  PenTool,
+  Pencil,
+  User,
+  MonitorPlay,
+  Blend,
+  Clock,
+  Grid3X3
+} from "lucide-react";
+
+export type AppId = 
+  | "generate" | "upscale" | "inpainting" | "relight" | "angle" | "shots" | "story-mode"
+  | "skin-enhancer" | "background-remove" | "object-erase" | "colorize" | "style-transfer"
+  | "cinema-studio" | "mixed-media" | "edit-video" | "click-to-ad" | "sora-trends" 
+  | "lip-sync" | "draw-to-video" | "sketch-to-video" | "ugc-factory" | "video-upscale"
+  | "extend" | "interpolate"
+  | "vocals" | "remix" | "stems" | "master" | "sound-effects" | "audio-enhance" | "tempo-pitch"
+  | "camera-control" | "motion-path" | "depth-control" | "lens-effects" | "color-grade" | "stabilize"
+  | "grok-3" | "grok-3-mini" | "chatgpt-5.2" | "chatgpt-5" | "chatgpt-5-mini" 
+  | "gemini-2.5-pro" | "gemini-3-pro" | "gemini-3-flash" | "deepseek-r1" | "deepseek-v3" 
+  | "llama-3.3" | "llama-3.3-large";
+
+type BadgeType = "AI" | "TOP" | "NEW";
+
+// Chat model definitions - using model IDs for logos
+const chatApps: { id: AppId; name: string; description: string; badge?: BadgeType }[] = [
+  { id: "grok-3", name: "Grok 3", description: "xAI's most capable model", badge: "TOP" },
+  { id: "grok-3-mini", name: "Grok 3 Mini", description: "Fast and efficient Grok", badge: "NEW" },
+  { id: "chatgpt-5.2", name: "ChatGPT 5.2", description: "OpenAI's latest reasoning", badge: "TOP" },
+  { id: "chatgpt-5", name: "ChatGPT 5", description: "Powerful all-rounder" },
+  { id: "chatgpt-5-mini", name: "GPT-5 Mini", description: "Fast and cost-effective" },
+  { id: "gemini-3-pro", name: "Gemini 3 Pro", description: "Google's next-gen AI", badge: "NEW" },
+  { id: "gemini-3-flash", name: "Gemini 3 Flash", description: "Fast multimodal AI" },
+  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Top-tier reasoning" },
+  { id: "deepseek-r1", name: "DeepSeek R1", description: "Deep reasoning model", badge: "AI" },
+  { id: "deepseek-v3", name: "DeepSeek V3", description: "Powerful open model" },
+  { id: "llama-3.3", name: "Llama 3.3", description: "Meta's open AI model" },
+  { id: "llama-3.3-large", name: "Llama 3.3 Large", description: "Extended capabilities" },
+];
+
+// App definitions per type
+const appsByType: Record<string, { id: AppId; name: string; icon: LucideIcon; description: string; badge?: BadgeType }[]> = {
+  image: [
+    { id: "generate", name: "Generate", icon: ImagePlus, description: "Create images from text", badge: "AI" },
+    { id: "story-mode", name: "Story Mode", icon: Film, description: "Create visual storyboards", badge: "NEW" },
+    { id: "shots", name: "Shots", icon: Grid3X3, description: "9 cinematic angles" },
+    { id: "upscale", name: "Upscale", icon: Maximize2, description: "Enhance image resolution" },
+    { id: "inpainting", name: "Inpainting", icon: Paintbrush, description: "Edit parts of images" },
+    { id: "relight", name: "Relight", icon: Sun, description: "Change lighting & mood" },
+    { id: "angle", name: "Angle", icon: RotateCcw, description: "Change perspective" },
+    { id: "skin-enhancer", name: "Skin Enhancer", icon: Sparkles, description: "Portrait retouching" },
+    { id: "background-remove", name: "Remove BG", icon: Scissors, description: "Remove background" },
+    { id: "object-erase", name: "Object Erase", icon: Eraser, description: "Remove unwanted objects" },
+    { id: "colorize", name: "Colorize", icon: Palette, description: "Add color to B&W" },
+    { id: "style-transfer", name: "Style Transfer", icon: Layers, description: "Apply artistic styles" },
+  ],
+  video: [
+    { id: "generate", name: "Create Video", icon: Video, description: "Generate AI videos", badge: "AI" },
+    { id: "mixed-media", name: "Mixed Media", icon: Blend, description: "Create mixed media projects", badge: "NEW" },
+    { id: "edit-video", name: "Edit Video", icon: MonitorPlay, description: "Edit scenes, shots, elements" },
+    { id: "click-to-ad", name: "Click to Ad", icon: Megaphone, description: "Turn product URLs into video ads" },
+    { id: "sora-trends", name: "Sora 2 Trends", icon: TrendingUp, description: "Turn ideas into viral videos" },
+    { id: "lip-sync", name: "Lipsync Studio", icon: Mic, description: "Create Talking Clips" },
+    { id: "draw-to-video", name: "Draw to Video", icon: PenTool, description: "Sketch turns into a cinema" },
+    { id: "sketch-to-video", name: "Sketch to Video", icon: Pencil, description: "From sketch to video with Sora 2" },
+    { id: "ugc-factory", name: "UGC Factory", icon: User, description: "Build UGC video with avatar" },
+    { id: "video-upscale", name: "Video Upscale", icon: Maximize2, description: "Enhance video quality" },
+    { id: "extend", name: "Extend", icon: Clock, description: "Extend video length" },
+    { id: "interpolate", name: "Interpolate", icon: SlidersHorizontal, description: "Smooth frame rate" },
+  ],
+  music: [
+    { id: "generate", name: "Generate Music", icon: Music, description: "Create music from text", badge: "AI" },
+    { id: "stems", name: "Stem Separation", icon: Layers, description: "Separate vocals, drums, bass", badge: "TOP" },
+    { id: "remix", name: "AI Remix", icon: SlidersHorizontal, description: "Remix with AI variations", badge: "NEW" },
+    { id: "vocals", name: "Voice Generator", icon: Mic, description: "Generate singing vocals" },
+    { id: "master", name: "AI Mastering", icon: Volume2, description: "Professional audio mastering" },
+    { id: "sound-effects", name: "Sound Effects", icon: Wand2, description: "Generate SFX from text" },
+    { id: "audio-enhance", name: "Audio Enhance", icon: Sparkles, description: "Clean and enhance audio" },
+    { id: "tempo-pitch", name: "Tempo & Pitch", icon: SlidersHorizontal, description: "Adjust speed and key" },
+  ],
+  cinema: [
+    { id: "generate", name: "Cinema Studio", icon: Clapperboard, description: "Cinematic video creation", badge: "AI" },
+    { id: "camera-control", name: "Camera Control", icon: Camera, description: "Precise camera movements", badge: "TOP" },
+    { id: "motion-path", name: "Motion Path", icon: Move3d, description: "Custom motion paths", badge: "NEW" },
+    { id: "depth-control", name: "Depth Control", icon: Focus, description: "Control depth of field" },
+    { id: "lens-effects", name: "Lens Effects", icon: Aperture, description: "Cinematic lens effects" },
+    { id: "color-grade", name: "Color Grade", icon: Palette, description: "Professional color grading" },
+    { id: "stabilize", name: "Stabilize", icon: RotateCcw, description: "AI video stabilization" },
+  ],
+};
+
+interface AppsSidebarProps {
+  currentType: "chat" | "image" | "video" | "music" | "cinema";
+  selectedApp?: AppId;
+  onSelectApp?: (appId: AppId) => void;
+}
+
+interface AppItemProps {
+  icon: LucideIcon;
+  name: string;
+  description: string;
+  badge?: string;
+  active?: boolean;
+  collapsed?: boolean;
+  onClick?: () => void;
+}
+
+interface ChatAppItemProps {
+  modelId: string;
+  name: string;
+  description: string;
+  badge?: string;
+  active?: boolean;
+  collapsed?: boolean;
+  onClick?: () => void;
+}
+
+const AppItem = ({ icon: Icon, name, description, badge, active, collapsed, onClick }: AppItemProps) => {
+  const content = (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all text-left group",
+        collapsed && "justify-center px-2",
+        active 
+          ? "bg-primary/10 text-primary" 
+          : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+      )}
+    >
+      <div className={cn(
+        "flex items-center justify-center h-8 w-8 rounded-lg transition-colors shrink-0",
+        active ? "bg-primary/20" : "bg-secondary/50 group-hover:bg-secondary"
+      )}>
+        <Icon className="h-4 w-4" />
+      </div>
+      {!collapsed && (
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm truncate">{name}</span>
+            {badge && (
+              <span className={cn(
+                "text-[10px] font-semibold px-1.5 py-0.5 rounded",
+                badge === "TOP" && "bg-[#c8ff00] text-black",
+                badge === "NEW" && "bg-[#c8ff00]/80 text-black",
+                badge === "AI" && "bg-primary/20 text-primary"
+              )}>
+                {badge}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground truncate">{description}</p>
+        </div>
+      )}
+    </button>
+  );
+
+  if (collapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{content}</TooltipTrigger>
+        <TooltipContent side="right" className="flex flex-col gap-0.5">
+          <span className="font-medium">{name}</span>
+          <span className="text-xs text-muted-foreground">{description}</span>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return content;
+};
+
+const ChatAppItem = ({ modelId, name, description, badge, active, collapsed, onClick }: ChatAppItemProps) => {
+  const content = (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all text-left group",
+        collapsed && "justify-center px-2",
+        active 
+          ? "bg-primary/10 text-primary border border-primary/30" 
+          : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+      )}
+    >
+      <ModelLogo modelId={modelId} size="md" />
+      {!collapsed && (
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm truncate">{name}</span>
+            {badge && (
+              <span className={cn(
+                "text-[10px] font-semibold px-1.5 py-0.5 rounded",
+                badge === "TOP" && "bg-[#c8ff00] text-black",
+                badge === "NEW" && "bg-[#c8ff00]/80 text-black",
+                badge === "AI" && "bg-primary/20 text-primary"
+              )}>
+                {badge}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground truncate">{description}</p>
+        </div>
+      )}
+    </button>
+  );
+
+  if (collapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{content}</TooltipTrigger>
+        <TooltipContent side="right" className="flex flex-col gap-0.5">
+          <span className="font-medium">{name}</span>
+          <span className="text-xs text-muted-foreground">{description}</span>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return content;
+};
+
+const AppsSidebar = ({ currentType, selectedApp = "generate", onSelectApp }: AppsSidebarProps) => {
+  const [collapsed, setCollapsed] = useState(false);
+  const apps = appsByType[currentType] || [];
+
+  const typeLabels: Record<string, string> = {
+    chat: "Chat Models",
+    image: "Image Apps",
+    video: "Video Apps",
+    music: "Music Apps",
+    cinema: "Cinema Apps",
+  };
+
+  // For chat, use special emoji-based rendering
+  const isChat = currentType === "chat";
+
+  return (
+    <aside className={cn(
+      "hidden md:flex flex-col h-[calc(100vh-4rem)] sticky top-16 border-r border-border/50 bg-sidebar transition-all duration-300",
+      collapsed ? "w-[72px]" : "w-60"
+    )}>
+      {/* Collapse Toggle */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setCollapsed(!collapsed)}
+        className={cn(
+          "absolute -right-3 top-6 h-6 w-6 rounded-full border border-border bg-background shadow-sm hover:bg-secondary",
+          "z-10"
+        )}
+      >
+        {collapsed ? (
+          <ChevronRight className="h-3 w-3" />
+        ) : (
+          <ChevronLeft className="h-3 w-3" />
+        )}
+      </Button>
+
+      {/* Header */}
+      {!collapsed && (
+        <div className="px-4 pt-4 pb-2">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            {typeLabels[currentType]}
+          </h3>
+        </div>
+      )}
+
+      {/* Apps List */}
+      <nav className={cn("flex-1 overflow-y-auto", collapsed ? "px-2 pt-8" : "px-3 pt-2")}>
+        <div className="space-y-1">
+          {isChat ? (
+            // Render chat models with emoji icons
+            chatApps.map((app) => (
+              <ChatAppItem
+                key={app.id}
+                modelId={app.id}
+                name={app.name}
+                description={app.description}
+                badge={app.badge}
+                active={selectedApp === app.id}
+                collapsed={collapsed}
+                onClick={() => onSelectApp?.(app.id)}
+              />
+            ))
+          ) : (
+            // Render regular apps with Lucide icons
+            apps.map((app) => (
+              <AppItem
+                key={app.id}
+                icon={app.icon}
+                name={app.name}
+                description={app.description}
+                badge={app.badge}
+                active={selectedApp === app.id}
+                collapsed={collapsed}
+                onClick={() => onSelectApp?.(app.id)}
+              />
+            ))
+          )}
+        </div>
+      </nav>
+
+      {/* Footer hint */}
+      {!collapsed && (
+        <div className="p-4 border-t border-border/50">
+          <p className="text-xs text-muted-foreground text-center">
+            More apps coming soon
+          </p>
+        </div>
+      )}
+    </aside>
+  );
+};
+
+export default AppsSidebar;

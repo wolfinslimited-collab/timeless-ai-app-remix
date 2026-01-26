@@ -29,8 +29,8 @@ final appRouter = GoRouter(
   redirect: (context, state) {
     final session = Supabase.instance.client.auth.currentSession;
     final isLoggedIn = session != null;
-    final isAuthRoute = state.matchedLocation == '/login' ||
-        state.matchedLocation == '/signup';
+    final isAuthRoute =
+        state.matchedLocation == '/login' || state.matchedLocation == '/signup';
 
     if (!isLoggedIn && !isAuthRoute) {
       return '/login';

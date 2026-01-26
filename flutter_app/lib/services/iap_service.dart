@@ -20,7 +20,8 @@ class IAPProducts {
   // Android Product IDs
   static const String premiumMonthlyAndroid = 'timeless.premium.monthly';
   static const String premiumYearlyAndroid = 'timeless.premium.yearly';
-  static const String premiumPlusMonthlyAndroid = 'timeless.premium_plus.monthly';
+  static const String premiumPlusMonthlyAndroid =
+      'timeless.premium_plus.monthly';
   static const String premiumPlusYearlyAndroid = 'timeless.premium_plus.yearly';
   static const String credits350Android = 'timeless.credits.350';
   static const String credits700Android = 'timeless.credits.700';
@@ -156,7 +157,8 @@ class IAPService {
     if (!_isAvailable) return;
 
     try {
-      final response = await _iap.queryProductDetails(IAPProducts.allProductIds);
+      final response =
+          await _iap.queryProductDetails(IAPProducts.allProductIds);
 
       if (response.notFoundIDs.isNotEmpty) {
         debugPrint('[IAP] Products not found: ${response.notFoundIDs}');
@@ -166,7 +168,8 @@ class IAPService {
       debugPrint('[IAP] Loaded ${_products.length} products');
 
       for (final product in _products) {
-        debugPrint('[IAP] Product: ${product.id} - ${product.title} - ${product.price}');
+        debugPrint(
+            '[IAP] Product: ${product.id} - ${product.title} - ${product.price}');
       }
     } catch (e) {
       debugPrint('[IAP] Error loading products: $e');
@@ -237,7 +240,8 @@ class IAPService {
   /// Handle purchase updates from the stream
   Future<void> _handlePurchaseUpdates(List<PurchaseDetails> purchases) async {
     for (final purchase in purchases) {
-      debugPrint('[IAP] Purchase update: ${purchase.productID} - ${purchase.status}');
+      debugPrint(
+          '[IAP] Purchase update: ${purchase.productID} - ${purchase.status}');
 
       switch (purchase.status) {
         case PurchaseStatus.pending:
@@ -281,7 +285,8 @@ class IAPService {
         // Get receipt data for iOS
         final skPurchase = purchase as AppStorePurchaseDetails;
         body = {
-          'action': purchase.status == PurchaseStatus.restored ? 'restore' : 'verify',
+          'action':
+              purchase.status == PurchaseStatus.restored ? 'restore' : 'verify',
           'platform': platform,
           'receiptData': skPurchase.verificationData.serverVerificationData,
           'productId': purchase.productID,
@@ -293,7 +298,8 @@ class IAPService {
           'action': 'verify',
           'platform': platform,
           'productId': purchase.productID,
-          'purchaseToken': googlePurchase.verificationData.serverVerificationData,
+          'purchaseToken':
+              googlePurchase.verificationData.serverVerificationData,
           'packageName': 'com.timelessai.app',
         };
       }
@@ -315,7 +321,7 @@ class IAPService {
 
       if (data['success'] == true) {
         final credits = data['credits'] as int? ?? 0;
-        
+
         if (purchase.status == PurchaseStatus.restored) {
           onPurchaseRestored?.call();
         } else {

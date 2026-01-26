@@ -1,0 +1,133 @@
+project_id = "ifesxveahsbjhmrhkhhy"
+
+[functions.generate]
+verify_jwt = false
+
+[functions.check-generation]
+verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.customer-portal]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.validate-models]
+verify_jwt = false
+
+[functions.image-tools]
+verify_jwt = false
+
+[functions.video-tools]
+verify_jwt = false
+
+[functions.music-tools]
+verify_jwt = false
+
+[functions.cinema-tools]
+verify_jwt = false
+
+[functions.chat]
+verify_jwt = false
+
+[functions.translate-video]
+verify_jwt = false
+
+[functions.youtube-download]
+verify_jwt = false
+
+[functions.admin-import]
+verify_jwt = false
+
+[functions.bulk-import]
+verify_jwt = false
+
+[functions.ticket-notification]
+verify_jwt = false
+
+[functions.migrate-users]
+verify_jwt = false
+
+[functions.referral-notification]
+verify_jwt = false
+
+[functions.balance-monitor]
+verify_jwt = false
+
+[functions.send-verification]
+verify_jwt = false
+
+[functions.verify-code]
+verify_jwt = false
+
+[functions.mobile-subscription]
+verify_jwt = false
+
+[functions.check-subscription]
+verify_jwt = false
+
+[functions.cancel-subscription]
+verify_jwt = false
+
+[functions.reactivate-subscription]
+verify_jwt = false
+
+[functions.apple-webhook]
+verify_jwt = false
+
+[functions.google-webhook]
+verify_jwt = false
+
+[functions.send-push-notification]
+verify_jwt = false
+
+[functions.register-device]
+verify_jwt = false
+
+[functions.calorie-ai]
+verify_jwt = false
+
+[functions.skin-ai]
+verify_jwt = false
+
+[functions.skin-analysis-reminder]
+verify_jwt = false
+
+[functions.calorie-weekly-summary]
+verify_jwt = false
+
+[functions.sleep-bedtime-reminder]
+verify_jwt = false
+
+[functions.sleep-weekly-summary]
+verify_jwt = false
+
+[functions.notify-ai]
+verify_jwt = false
+
+[functions.notify-ai-save]
+verify_jwt = false
+
+[functions.notify-check]
+verify_jwt = false
+
+[functions.financial-ai]
+verify_jwt = false
+
+[functions.crypto-prices]
+verify_jwt = false
+
+[functions.fingerprint-ai]
+verify_jwt = false
+
+[functions.brain-weekly-summary]
+verify_jwt = false
+
+[functions.send-marketing-push]
+verify_jwt = false
+
+[functions.send-marketing-email]
+verify_jwt = false
