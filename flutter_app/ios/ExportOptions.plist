@@ -11,7 +11,7 @@
     <key>provisioningProfiles</key>
     <dict>
         <key>com.health.timelessApp</key>
-        <string>bitrise</string>
+        <string>app store connect</string>
     </dict>
     <key>uploadSymbols</key>
     <true/>
