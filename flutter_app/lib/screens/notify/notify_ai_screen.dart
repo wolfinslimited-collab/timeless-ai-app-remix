@@ -7,6 +7,47 @@ import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../services/notify_service.dart';
 
+/// Parse question options from AI response with **bold** markers
+class ParsedQuestion {
+  final String text;
+  final List<String> options;
+
+  ParsedQuestion({required this.text, required this.options});
+}
+
+/// Parse AI response to detect question patterns with options
+ParsedQuestion? parseQuestionFromContent(String content) {
+  // Pattern: Look for questions with **bold** options
+  final patterns = [
+    RegExp(r'Would you like.*?\*\*([^*]+)\*\*.*?or.*?\*\*([^*]+)\*\*', caseSensitive: false),
+    RegExp(r'[Ss]hould.*?(?:be|this).*?\*\*([^*]+)\*\*.*?or.*?\*\*([^*]+)\*\*', caseSensitive: false),
+    RegExp(r'(?:choose|prefer|want).*?\*\*([^*]+)\*\*.*?or.*?\*\*([^*]+)\*\*', caseSensitive: false),
+    RegExp(r'\*\*([^*]+)\*\*.*?or.*?\*\*([^*]+)\*\*\?', caseSensitive: false),
+  ];
+
+  for (final pattern in patterns) {
+    final match = pattern.firstMatch(content);
+    if (match != null && match.groupCount >= 2) {
+      final option1 = match.group(1)?.trim();
+      final option2 = match.group(2)?.trim();
+      if (option1 != null && option2 != null) {
+        // Extract the question text (everything before the options or the full sentence)
+        final questionEndIndex = content.indexOf('?');
+        final questionText = questionEndIndex != -1
+            ? content.substring(0, questionEndIndex + 1)
+            : content.split('\n').first;
+
+        return ParsedQuestion(
+          text: questionText,
+          options: [option1, option2],
+        );
+      }
+    }
+  }
+
+  return null;
+}
+
 class NotifyAIScreen extends StatefulWidget {
   const NotifyAIScreen({super.key});
 
@@ -28,6 +69,7 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
   bool _isLoading = false;
   String _streamingContent = '';
   Map<String, dynamic>? _pendingNotification;
+  bool _isConfirming = false;
 
   @override
   void initState() {
@@ -187,30 +229,33 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
       // Add assistant response to conversation history
       _conversationHistory.add({'role': 'assistant', 'content': fullContent});
 
-      setState(() {
-        _messages.add(NotifyMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          role: 'assistant',
-          content: fullContent,
-          createdAt: DateTime.now(),
-          toolCall: toolCall,
-        ));
-        _streamingContent = '';
-      });
-
       // Handle tool call if present
+      Map<String, dynamic>? parsedArgs;
       if (toolCall != null && toolCallArgs.isNotEmpty) {
         try {
-          final args = jsonDecode(toolCallArgs) as Map<String, dynamic>;
+          parsedArgs = jsonDecode(toolCallArgs) as Map<String, dynamic>;
           if (toolCall['name'] == 'create_notification') {
             setState(() {
-              _pendingNotification = args;
+              _pendingNotification = parsedArgs;
             });
           }
         } catch (e) {
           debugPrint('Error parsing tool call args: $e');
         }
       }
+
+      setState(() {
+        _messages.add(NotifyMessage(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          role: 'assistant',
+          content: fullContent,
+          createdAt: DateTime.now(),
+          toolCall: toolCall != null && parsedArgs != null
+              ? {'name': toolCall['name'], 'arguments': parsedArgs}
+              : null,
+        ));
+        _streamingContent = '';
+      });
     }
 
     _scrollToBottom();
@@ -218,9 +263,9 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
   }
 
   Future<void> _confirmNotification() async {
-    if (_pendingNotification == null) return;
+    if (_pendingNotification == null || _isConfirming) return;
 
-    setState(() => _isLoading = true);
+    setState(() => _isConfirming = true);
 
     final result = await _notifyService.saveNotification(
       _pendingNotification!,
@@ -228,11 +273,21 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
     );
 
     setState(() {
-      _isLoading = false;
+      _isConfirming = false;
       _pendingNotification = null;
     });
 
     if (result != null && result['success'] == true) {
+      // Add confirmation message
+      setState(() {
+        _messages.add(NotifyMessage(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          role: 'assistant',
+          content: "✅ I've set up your notification. You can view and manage it in the Active tab.",
+          createdAt: DateTime.now(),
+        ));
+      });
+      
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Notification created successfully!'),
@@ -335,105 +390,36 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
               : ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.all(16),
-                  itemCount: _messages.length + 
+                  itemCount: _messages.length +
                       (_streamingContent.isNotEmpty ? 1 : 0) +
                       (_isLoading && _streamingContent.isEmpty ? 1 : 0),
                   itemBuilder: (context, index) {
                     // Show typing indicator
-                    if (_isLoading && _streamingContent.isEmpty && index == _messages.length) {
+                    if (_isLoading &&
+                        _streamingContent.isEmpty &&
+                        index == _messages.length) {
                       return _buildTypingIndicator();
                     }
                     // Show streaming content
-                    if (_streamingContent.isNotEmpty && index == _messages.length) {
-                      return _buildMessage(NotifyMessage(
-                        id: 'streaming',
-                        role: 'assistant',
-                        content: _streamingContent,
-                        createdAt: DateTime.now(),
-                      ));
+                    if (_streamingContent.isNotEmpty &&
+                        index == _messages.length) {
+                      return _buildMessage(
+                        NotifyMessage(
+                          id: 'streaming',
+                          role: 'assistant',
+                          content: _streamingContent,
+                          createdAt: DateTime.now(),
+                        ),
+                        isLast: true,
+                      );
                     }
-                    return _buildMessage(_messages[index]);
+                    final isLast = index == _messages.length - 1;
+                    return _buildMessage(_messages[index], isLast: isLast);
                   },
                 ),
         ),
-        // Pending notification confirmation
-        if (_pendingNotification != null) _buildNotificationPreview(),
         _buildInputArea(),
       ],
-    );
-  }
-
-  Widget _buildNotificationPreview() {
-    final notification = _pendingNotification!;
-    return Container(
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.primary.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _notifyService.getNotificationTypeIcon(notification['type'] ?? 'custom'),
-                  style: const TextStyle(fontSize: 20),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      notification['title'] ?? 'New Notification',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      notification['description'] ?? '',
-                      style: const TextStyle(color: AppTheme.muted, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _cancelNotification,
-                  child: const Text('Cancel'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _confirmNotification,
-                  icon: _isLoading 
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.check),
-                  label: const Text('Create'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
@@ -554,62 +540,327 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
     );
   }
 
-  Widget _buildMessage(NotifyMessage message) {
+  Widget _buildMessage(NotifyMessage message, {bool isLast = false}) {
     final isUser = message.role == 'user';
+    final hasToolCall = message.toolCall != null && _pendingNotification != null;
+    
+    // Parse question options for the last assistant message
+    final parsedQuestion = !isUser && isLast && !hasToolCall && !_isLoading
+        ? parseQuestionFromContent(message.content)
+        : null;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!isUser) ...[
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.amber.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.smart_toy,
-                color: Colors.amber,
-                size: 20,
+      child: isUser ? _buildUserMessage(message) : _buildAssistantMessage(message, parsedQuestion, hasToolCall),
+    );
+  }
+
+  Widget _buildUserMessage(NotifyMessage message) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Flexible(
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: const BoxDecoration(
+              color: AppTheme.primary,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(4),
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
               ),
             ),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isUser ? AppTheme.primary : AppTheme.secondary,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(isUser ? 16 : 4),
-                  topRight: Radius.circular(isUser ? 4 : 16),
-                  bottomLeft: const Radius.circular(16),
-                  bottomRight: const Radius.circular(16),
-                ),
-              ),
-              child: Text(
-                message.content,
-                style: TextStyle(
-                  color: isUser ? Colors.white : AppTheme.foreground,
-                ),
-              ),
+            child: Text(
+              message.content,
+              style: const TextStyle(color: Colors.white),
             ),
           ),
-          if (isUser) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.secondary,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.person, size: 20, color: AppTheme.muted),
-            ),
-          ],
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppTheme.secondary,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.person, size: 20, color: AppTheme.muted),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAssistantMessage(NotifyMessage message, ParsedQuestion? parsedQuestion, bool hasToolCall) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.amber.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.smart_toy, color: Colors.amber, size: 20),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Question card with options
+              if (parsedQuestion != null)
+                _buildQuestionCard(parsedQuestion)
+              else if (message.content.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.secondary,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(4),
+                      topRight: Radius.circular(16),
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: _buildFormattedText(message.content),
+                ),
+              
+              // Inline notification preview card
+              if (hasToolCall && message.toolCall != null)
+                _buildInlineNotificationCard(message.toolCall!),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuestionCard(ParsedQuestion question) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildFormattedText(question.text),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: question.options.map((option) {
+              return OutlinedButton(
+                onPressed: _isLoading ? null : () => _sendMessage(option),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.foreground,
+                  side: BorderSide(color: AppTheme.border),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+                child: Text(option),
+              );
+            }).toList(),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFormattedText(String text) {
+    // Parse **bold** text
+    final parts = <InlineSpan>[];
+    final boldPattern = RegExp(r'\*\*([^*]+)\*\*');
+    int lastIndex = 0;
+
+    for (final match in boldPattern.allMatches(text)) {
+      // Add text before match
+      if (match.start > lastIndex) {
+        parts.add(TextSpan(
+          text: text.substring(lastIndex, match.start),
+          style: const TextStyle(color: AppTheme.foreground),
+        ));
+      }
+      // Add bold text
+      parts.add(TextSpan(
+        text: match.group(1),
+        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.foreground),
+      ));
+      lastIndex = match.end;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.add(TextSpan(
+        text: text.substring(lastIndex),
+        style: const TextStyle(color: AppTheme.foreground),
+      ));
+    }
+
+    if (parts.isEmpty) {
+      return Text(text, style: const TextStyle(color: AppTheme.foreground));
+    }
+
+    return RichText(text: TextSpan(children: parts));
+  }
+
+  Widget _buildInlineNotificationCard(Map<String, dynamic> toolCall) {
+    final args = toolCall['arguments'] as Map<String, dynamic>?;
+    if (args == null) return const SizedBox();
+
+    final title = args['title'] as String? ?? 'New Notification';
+    final config = args['condition_config'] as Map<String, dynamic>? ?? {};
+    final repeat = config['repeat'] as String?;
+    final triggerTime = config['trigger_time'] as String? ?? config['trigger_at'] as String?;
+
+    // Format schedule text
+    String scheduleText = 'Ready to create';
+    if (triggerTime != null) {
+      try {
+        final date = DateTime.parse(triggerTime);
+        final timeStr = '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+        if (repeat == 'daily') {
+          scheduleText = 'Daily at $timeStr';
+        } else if (repeat == 'weekly') {
+          final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+          final dayStr = days[date.weekday - 1];
+          scheduleText = 'Weekly on $dayStr at $timeStr';
+        } else {
+          scheduleText = '${date.day}/${date.month}/${date.year}';
+        }
+      } catch (_) {}
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        scheduleText,
+                        style: const TextStyle(color: AppTheme.muted, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => _showNotificationOptions(),
+                  icon: const Icon(Icons.more_horiz, size: 20),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(
+              children: [
+                ElevatedButton(
+                  onPressed: _isConfirming ? null : _confirmNotification,
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  ),
+                  child: _isConfirming
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Create'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  onPressed: _cancelNotification,
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  ),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                Row(
+                  children: [
+                    Icon(Icons.toll, size: 14, color: AppTheme.muted.withOpacity(0.7)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '1 credit',
+                      style: TextStyle(color: AppTheme.muted.withOpacity(0.7), fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showNotificationOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTheme.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.check_circle, color: Colors.green),
+              title: const Text('Create'),
+              onTap: () {
+                Navigator.pop(context);
+                _confirmNotification();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('Cancel', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(context);
+                _cancelNotification();
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }
@@ -634,10 +885,11 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
                 child: TextField(
                   controller: _inputController,
                   decoration: const InputDecoration(
-                    hintText: 'What should I notify you about?',
+                    hintText: 'Tell me what to notify you about...',
                     hintStyle: TextStyle(color: AppTheme.muted),
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                   onSubmitted: (_) => _sendMessage(),
                 ),
@@ -676,7 +928,8 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.notifications_off, size: 64, color: AppTheme.muted.withOpacity(0.5)),
+            Icon(Icons.notifications_off,
+                size: 64, color: AppTheme.muted.withOpacity(0.5)),
             const SizedBox(height: 16),
             const Text(
               'No active notifications',
@@ -739,7 +992,8 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
           ],
         ),
         trailing: PopupMenuButton<String>(
-          onSelected: (action) => _handleNotificationAction(notification, action),
+          onSelected: (action) =>
+              _handleNotificationAction(notification, action),
           itemBuilder: (context) => [
             PopupMenuItem(
               value: notification.isPaused ? 'resume' : 'pause',
@@ -794,14 +1048,16 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
       ),
       child: Text(
         status.toUpperCase(),
-        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+        style:
+            TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
       ),
     );
   }
 
-  Future<void> _handleNotificationAction(NotificationItem notification, String action) async {
+  Future<void> _handleNotificationAction(
+      NotificationItem notification, String action) async {
     bool success = false;
-    
+
     switch (action) {
       case 'pause':
         success = await _notifyService.pauseNotification(notification.id);
@@ -828,7 +1084,8 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.history, size: 64, color: AppTheme.muted.withOpacity(0.5)),
+            Icon(Icons.history,
+                size: 64, color: AppTheme.muted.withOpacity(0.5)),
             const SizedBox(height: 16),
             const Text(
               'No notification history',
@@ -854,7 +1111,8 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
                 color: item.isRead ? AppTheme.muted : Colors.amber,
               ),
               title: Text(item.title),
-              subtitle: Text(item.body, maxLines: 2, overflow: TextOverflow.ellipsis),
+              subtitle:
+                  Text(item.body, maxLines: 2, overflow: TextOverflow.ellipsis),
               trailing: Text(
                 _formatTime(item.createdAt),
                 style: const TextStyle(color: AppTheme.muted, fontSize: 12),
