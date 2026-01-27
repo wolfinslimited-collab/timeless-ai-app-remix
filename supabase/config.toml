@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.calorie-ai]
 verify_jwt = false
+
+[functions.notify-ai]
+verify_jwt = false
+
+[functions.notify-ai-save]
+verify_jwt = false
