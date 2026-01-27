@@ -13,7 +13,8 @@ class ProfileScreen extends StatelessWidget {
     final user = Supabase.instance.client.auth.currentUser;
     final email = user?.email ?? 'User';
     final displayName = email.split('@')[0];
-    final initials = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
+    final initials =
+        displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -103,7 +104,7 @@ class ProfileScreen extends StatelessWidget {
                               Text(
                                 email,
                                 style: TextStyle(
-                                  color: AppTheme.textSecondary,
+                                  color: Colors.white,
                                   fontSize: 13,
                                 ),
                               ),
@@ -311,7 +312,7 @@ class _ProfileMenuItem extends StatelessWidget {
             Icon(
               icon,
               size: 20,
-              color: AppTheme.textSecondary,
+              color: Colors.white,
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -325,7 +326,7 @@ class _ProfileMenuItem extends StatelessWidget {
             Icon(
               Icons.chevron_right,
               size: 20,
-              color: AppTheme.textSecondary,
+              color: Colors.white,
             ),
           ],
         ),

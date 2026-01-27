@@ -68,7 +68,8 @@ const List<AIAppItem> _aiApps = [
   AIAppItem(
     id: 'financial-ai',
     name: 'Financial AI',
-    description: 'AI-powered market research with technical, fundamental & sentiment analysis',
+    description:
+        'AI-powered market research with technical, fundamental & sentiment analysis',
     icon: Icons.attach_money,
     category: 'finance',
     badge: 'NEW',
@@ -163,6 +164,9 @@ class _AppsScreenState extends State<AppsScreen> {
         break;
       case 'brain-ai':
         context.push('/brain-ai');
+        break;
+      case 'sleep-ai':
+        context.push('/sleep-ai');
         break;
       default:
         ScaffoldMessenger.of(context).showSnackBar(

@@ -24,7 +24,8 @@ class BottomNavBar extends StatelessWidget {
     if (location == '/') return 0;
     if (location.startsWith('/create')) return 1;
     if (location.startsWith('/chat')) return 2;
-    if (location.startsWith('/apps') || location.startsWith('/cinema')) return 3;
+    if (location.startsWith('/apps') || location.startsWith('/cinema'))
+      return 3;
     if (location.startsWith('/profile')) return 4;
     return 0;
   }

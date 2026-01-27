@@ -12,7 +12,8 @@ import '../../widgets/common/credit_badge.dart';
 import '../../models/generation_model.dart';
 
 // Storage base URL for video assets - using DigitalOcean Spaces CDN
-const String _storageBaseUrl = 'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/featured';
+const String _storageBaseUrl =
+    'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/featured';
 
 // Featured item model matching Supabase table
 class FeaturedItem {
@@ -38,14 +39,14 @@ class FeaturedItem {
     // Convert relative video path to full URL
     String rawVideoUrl = json['video_url'] as String;
     String fullVideoUrl = rawVideoUrl;
-    
+
     // If it's a relative path, prepend the storage base URL
     if (rawVideoUrl.startsWith('/')) {
       fullVideoUrl = '$_storageBaseUrl$rawVideoUrl';
     } else if (!rawVideoUrl.startsWith('http')) {
       fullVideoUrl = '$_storageBaseUrl/$rawVideoUrl';
     }
-    
+
     return FeaturedItem(
       id: json['id'] as String,
       title: json['title'] as String,
@@ -221,7 +222,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               color: Colors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: const Icon(Icons.all_inclusive, color: Colors.white, size: 20),
+                            child: const Icon(Icons.all_inclusive,
+                                color: Colors.white, size: 20),
                           ),
                           const SizedBox(width: 12),
                           const Expanded(
@@ -306,21 +308,26 @@ class _HomeScreenState extends State<HomeScreen> {
               Consumer<GenerationProvider>(
                 builder: (context, provider, child) {
                   final generations = provider.generations.take(4).toList();
-                  
+
                   if (generations.isEmpty) {
                     return Row(
                       children: [
-                        Expanded(child: _EmptyCard(icon: Icons.image, label: 'No images yet')),
+                        Expanded(
+                            child: _EmptyCard(
+                                icon: Icons.image, label: 'No images yet')),
                         const SizedBox(width: 12),
-                        Expanded(child: _EmptyCard(icon: Icons.videocam, label: 'No videos yet')),
+                        Expanded(
+                            child: _EmptyCard(
+                                icon: Icons.videocam, label: 'No videos yet')),
                       ],
                     );
                   }
-                  
+
                   return GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       mainAxisSpacing: 12,
                       crossAxisSpacing: 12,
@@ -422,7 +429,7 @@ class _TrendingTileState extends State<_TrendingTile> {
       Uri.parse(widget.item.videoUrl),
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
     );
-    
+
     try {
       await _controller.initialize();
       _controller.setLooping(true);
@@ -453,7 +460,7 @@ class _TrendingTileState extends State<_TrendingTile> {
     if (linkUrl != null && linkUrl.isNotEmpty) {
       // Parse link_url and navigate to corresponding Flutter routes
       // Handle all patterns from featured_items table
-      
+
       // Cinema Studio
       if (linkUrl.contains('/create?type=cinema')) {
         GoRouter.of(context).go('/cinema');
@@ -463,33 +470,26 @@ class _TrendingTileState extends State<_TrendingTile> {
         GoRouter.of(context).go('/apps');
       }
       // Video tools
-      else if (linkUrl.contains('/create?app=video-upscale') || 
-               linkUrl.contains('/create?app=draw-to-video')) {
+      else if (linkUrl.contains('/create?app=video-upscale') ||
+          linkUrl.contains('/create?app=draw-to-video')) {
         GoRouter.of(context).go('/create/video');
       }
       // Image tools - direct paths like /create/image/relight
       else if (linkUrl.contains('/create/image/relight')) {
         GoRouter.of(context).go('/create/image/relight');
-      }
-      else if (linkUrl.contains('/create/image/upscale')) {
+      } else if (linkUrl.contains('/create/image/upscale')) {
         GoRouter.of(context).go('/create/image/upscale');
-      }
-      else if (linkUrl.contains('/create/image/shots')) {
+      } else if (linkUrl.contains('/create/image/shots')) {
         GoRouter.of(context).go('/create/image/shots');
-      }
-      else if (linkUrl.contains('/create/image/inpainting')) {
+      } else if (linkUrl.contains('/create/image/inpainting')) {
         GoRouter.of(context).go('/create/image/inpainting');
-      }
-      else if (linkUrl.contains('/create/image/angle')) {
+      } else if (linkUrl.contains('/create/image/angle')) {
         GoRouter.of(context).go('/create/image/angle');
-      }
-      else if (linkUrl.contains('/create/image/skin-enhancer')) {
+      } else if (linkUrl.contains('/create/image/skin-enhancer')) {
         GoRouter.of(context).go('/create/image/skin-enhancer');
-      }
-      else if (linkUrl.contains('/create/image/style-transfer')) {
+      } else if (linkUrl.contains('/create/image/style-transfer')) {
         GoRouter.of(context).go('/create/image/style-transfer');
-      }
-      else if (linkUrl.contains('/create/image/background-remove')) {
+      } else if (linkUrl.contains('/create/image/background-remove')) {
         GoRouter.of(context).go('/create/image/background-remove');
       }
       // Fallback to apps
@@ -517,7 +517,8 @@ class _TrendingTileState extends State<_TrendingTile> {
                     color: AppTheme.card,
                     child: _hasError
                         ? const Center(
-                            child: Icon(Icons.error_outline, color: AppTheme.muted),
+                            child: Icon(Icons.error_outline,
+                                color: AppTheme.muted),
                           )
                         : _isInitialized
                             ? FittedBox(
@@ -540,7 +541,8 @@ class _TrendingTileState extends State<_TrendingTile> {
                     top: 8,
                     left: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.9),
                         borderRadius: BorderRadius.circular(6),
@@ -617,13 +619,13 @@ const _appItems = [
     iconAsset: 'assets/icons/skin-ai.png',
     buttonText: 'Analyze',
   ),
-  _AppItem(
-    id: 'blood-ai',
-    name: 'Blood AI',
-    description: 'Blood test insights.',
-    iconAsset: 'assets/icons/blood-ai.png',
-    buttonText: 'Test',
-  ),
+  // _AppItem(
+  //   id: 'blood-ai',
+  //   name: 'Blood AI',
+  //   description: 'Blood test insights.',
+  //   iconAsset: 'assets/icons/blood-ai.png',
+  //   buttonText: 'Test',
+  // ),
   _AppItem(
     id: 'sleep-ai',
     name: 'Sleep AI',
