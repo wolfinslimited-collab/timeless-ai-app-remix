@@ -136,14 +136,16 @@ class _ConversationDrawerState extends State<ConversationDrawer> {
       final user = _supabase.auth.currentUser;
       if (user == null) return;
 
-      final [convsResult, foldersResult] = await Future.wait([
+      final results = await Future.wait([
         _chatService.getConversations(),
         _supabase
             .from('chat_folders')
             .select()
             .eq('user_id', user.id)
             .order('name'),
-      ]);
+      ] as List<Future<dynamic>>);
+      final convsResult = results[0];
+      final foldersResult = results[1];
 
       if (mounted) {
         setState(() {
@@ -170,8 +172,9 @@ class _ConversationDrawerState extends State<ConversationDrawer> {
         .toList();
   }
 
-  List<Conversation> get _pinnedConversations =>
-      _filteredConversations.where((c) => c.pinned && c.folderId == null).toList();
+  List<Conversation> get _pinnedConversations => _filteredConversations
+      .where((c) => c.pinned && c.folderId == null)
+      .toList();
 
   Map<TimeGroup, List<Conversation>> get _groupedConversations {
     final unpinned =
@@ -309,7 +312,8 @@ class _ConversationDrawerState extends State<ConversationDrawer> {
                   ),
                   // Create folder button
                   IconButton(
-                    icon: const Icon(Icons.create_new_folder_outlined, size: 20),
+                    icon:
+                        const Icon(Icons.create_new_folder_outlined, size: 20),
                     onPressed: _createFolder,
                   ),
                   IconButton(
@@ -588,8 +592,7 @@ class _FolderSection extends StatelessWidget {
                   ),
                   child: Text(
                     '${conversations.length}',
-                    style:
-                        const TextStyle(fontSize: 11, color: AppTheme.muted),
+                    style: const TextStyle(fontSize: 11, color: AppTheme.muted),
                   ),
                 ),
               ],
@@ -680,8 +683,7 @@ class _TimeGroupSection extends StatelessWidget {
                   ),
                   child: Text(
                     '${conversations.length}',
-                    style:
-                        const TextStyle(fontSize: 11, color: AppTheme.muted),
+                    style: const TextStyle(fontSize: 11, color: AppTheme.muted),
                   ),
                 ),
               ],
