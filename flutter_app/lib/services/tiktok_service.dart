@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:tiktok_events_sdk/tiktok_events_sdk.dart';
 
@@ -24,12 +23,11 @@ class TikTokService {
     try {
       debugPrint('[TikTok] Initializing SDK...');
 
-      await TikTokEventsSdk.initialize(
+      // Use TikTokEventsSdk.init() - the correct method name
+      await TikTokEventsSdk.init(
         androidAppId: androidAppId,
-        tikTokAndroidId: androidAppId,
-        iosAppId: iosAppId,
-        tiktokIosId: iosAppId,
-        isDebugMode: kDebugMode,
+        tiktokAppId: iosAppId,
+        debug: kDebugMode,
       );
 
       _isInitialized = true;
@@ -70,9 +68,9 @@ class TikTokService {
         event: TikTokEvent(
           eventName: 'CompleteRegistration',
           eventId: userId,
-          properties: {
-            if (method != null) 'registration_method': method,
-          },
+          properties: EventProperties(
+            description: method ?? 'email',
+          ),
         ),
       );
       debugPrint('[TikTok] Event: CompleteRegistration (method: $method)');
@@ -94,12 +92,12 @@ class TikTokService {
       await TikTokEventsSdk.logEvent(
         event: TikTokEvent(
           eventName: 'Subscribe',
-          properties: {
-            'content_id': productId,
-            'value': price,
-            'currency': currency ?? 'USD',
-            if (subscriptionType != null) 'subscription_type': subscriptionType,
-          },
+          properties: EventProperties(
+            contentId: productId,
+            currency: currency ?? 'USD',
+            value: price,
+            description: subscriptionType,
+          ),
         ),
       );
       debugPrint('[TikTok] Event: Subscribe (product: $productId, price: $price)');
@@ -121,13 +119,13 @@ class TikTokService {
       await TikTokEventsSdk.logEvent(
         event: TikTokEvent(
           eventName: 'Purchase',
-          properties: {
-            'content_id': productId,
-            'value': price,
-            'currency': currency ?? 'USD',
-            'quantity': credits,
-            'content_type': 'credits',
-          },
+          properties: EventProperties(
+            contentId: productId,
+            currency: currency ?? 'USD',
+            value: price,
+            quantity: credits,
+            contentType: 'credits',
+          ),
         ),
       );
       debugPrint('[TikTok] Event: Purchase (product: $productId, credits: $credits)');
@@ -148,11 +146,11 @@ class TikTokService {
       await TikTokEventsSdk.logEvent(
         event: TikTokEvent(
           eventName: 'AddToCart',
-          properties: {
-            'content_id': productId,
-            'value': price,
-            'currency': currency ?? 'USD',
-          },
+          properties: EventProperties(
+            contentId: productId,
+            currency: currency ?? 'USD',
+            value: price,
+          ),
         ),
       );
       debugPrint('[TikTok] Event: AddToCart (product: $productId)');
@@ -173,11 +171,11 @@ class TikTokService {
       await TikTokEventsSdk.logEvent(
         event: TikTokEvent(
           eventName: 'InitiateCheckout',
-          properties: {
-            'content_id': productId,
-            'value': price,
-            'currency': currency ?? 'USD',
-          },
+          properties: EventProperties(
+            contentId: productId,
+            currency: currency ?? 'USD',
+            value: price,
+          ),
         ),
       );
       debugPrint('[TikTok] Event: InitiateCheckout (product: $productId)');
