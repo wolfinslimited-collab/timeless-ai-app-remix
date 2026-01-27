@@ -1,5 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/theme.dart';
+
+/// Model configuration for logos - matching web implementation
+class ModelConfig {
+  final String logoPath;
+  final bool isSvg;
+  final bool invert;
+
+  const ModelConfig({
+    required this.logoPath,
+    this.isSvg = true,
+    this.invert = false,
+  });
+}
+
+// Model configurations matching web exactly
+const Map<String, ModelConfig> _modelConfigs = {
+  // Grok/xAI models - X logo
+  'grok-3': ModelConfig(logoPath: 'assets/logos/x-logo.svg', invert: true),
+  'grok-3-mini': ModelConfig(logoPath: 'assets/logos/x-logo.svg', invert: true),
+
+  // ChatGPT/OpenAI models
+  'chatgpt-5.2': ModelConfig(logoPath: 'assets/logos/openai.svg', invert: true),
+  'chatgpt-5': ModelConfig(logoPath: 'assets/logos/openai.svg', invert: true),
+  'chatgpt-5-mini': ModelConfig(logoPath: 'assets/logos/openai.svg', invert: true),
+
+  // Gemini models
+  'gemini-3-pro': ModelConfig(logoPath: 'assets/logos/gemini.svg', invert: false),
+  'gemini-3-flash': ModelConfig(logoPath: 'assets/logos/gemini.svg', invert: false),
+  'gemini-2.5-pro': ModelConfig(logoPath: 'assets/logos/gemini.svg', invert: false),
+
+  // DeepSeek models
+  'deepseek-r1': ModelConfig(logoPath: 'assets/logos/deepseek.png', isSvg: false, invert: false),
+  'deepseek-v3': ModelConfig(logoPath: 'assets/logos/deepseek.png', isSvg: false, invert: false),
+
+  // Llama/Meta models
+  'llama-3.3': ModelConfig(logoPath: 'assets/logos/meta-llama.svg', invert: false),
+  'llama-3.3-large': ModelConfig(logoPath: 'assets/logos/meta-llama.svg', invert: false),
+};
 
 class ModelLogo extends StatelessWidget {
   final String modelId;
@@ -13,91 +52,66 @@ class ModelLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final config = _modelConfigs[modelId];
+
+    if (config == null) {
+      // Fallback for unknown models
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: AppTheme.secondary,
+          borderRadius: BorderRadius.circular(size / 4),
+        ),
+        child: Icon(
+          Icons.smart_toy,
+          size: size * 0.5,
+          color: AppTheme.muted,
+        ),
+      );
+    }
+
     return Container(
       width: size,
       height: size,
+      padding: EdgeInsets.all(size * 0.15),
       decoration: BoxDecoration(
-        gradient: _getGradient(),
-        borderRadius: BorderRadius.circular(size / 2),
+        color: AppTheme.secondary,
+        borderRadius: BorderRadius.circular(size / 4),
       ),
-      child: Center(
-        child: Text(
-          _getEmoji(),
-          style: TextStyle(fontSize: size * 0.5),
-        ),
-      ),
+      child: config.isSvg
+          ? SvgPicture.asset(
+              config.logoPath,
+              width: size * 0.6,
+              height: size * 0.6,
+              colorFilter: config.invert
+                  ? const ColorFilter.mode(Colors.white70, BlendMode.srcIn)
+                  : null,
+            )
+          : Image.asset(
+              config.logoPath,
+              width: size * 0.6,
+              height: size * 0.6,
+            ),
     );
   }
+}
 
-  String _getEmoji() {
-    switch (modelId) {
-      case 'chatgpt-5.2':
-      case 'chatgpt-5':
-      case 'chatgpt-5-mini':
-        return '🤖';
-      case 'gemini-3-flash':
-      case 'gemini-3-pro':
-      case 'gemini-2.5-pro':
-        return '✨';
-      case 'grok-3':
-      case 'grok-3-mini':
-        return '🧠';
-      case 'deepseek-r1':
-      case 'deepseek-v3':
-        return '🔍';
-      case 'llama-3.3':
-      case 'llama-3.3-large':
-        return '🦙';
-      default:
-        return '💬';
-    }
-  }
-
-  LinearGradient _getGradient() {
-    switch (modelId) {
-      case 'chatgpt-5.2':
-      case 'chatgpt-5':
-      case 'chatgpt-5-mini':
-        return const LinearGradient(
-          colors: [Color(0xFF10A37F), Color(0xFF1A7F64)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-      case 'gemini-3-flash':
-      case 'gemini-3-pro':
-      case 'gemini-2.5-pro':
-        return const LinearGradient(
-          colors: [Color(0xFF4285F4), Color(0xFF34A853), Color(0xFFFBBC04)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-      case 'grok-3':
-      case 'grok-3-mini':
-        return const LinearGradient(
-          colors: [Color(0xFF1DA1F2), Color(0xFF0D47A1)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-      case 'deepseek-r1':
-      case 'deepseek-v3':
-        return const LinearGradient(
-          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-      case 'llama-3.3':
-      case 'llama-3.3-large':
-        return const LinearGradient(
-          colors: [Color(0xFF7C3AED), Color(0xFFA855F7)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-      default:
-        return LinearGradient(
-          colors: [AppTheme.primary, AppTheme.primary.withOpacity(0.7)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-    }
-  }
+/// Get model emoji for backwards compatibility
+String getModelEmoji(String modelId) {
+  const emojiMap = {
+    'grok-3': '𝕏',
+    'grok-3-mini': '𝕏',
+    'chatgpt-5.2': '◯',
+    'chatgpt-5': '◯',
+    'chatgpt-5-mini': '◯',
+    'gemini-3-pro': '✦',
+    'gemini-3-flash': '✦',
+    'gemini-2.5-pro': '✦',
+    'deepseek-r1': '🔍',
+    'deepseek-v3': '🔍',
+    'llama-3.3': '🦙',
+    'llama-3.3-large': '🦙',
+  };
+  return emojiMap[modelId] ?? '◯';
 }

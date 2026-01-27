@@ -79,36 +79,40 @@ class AppConfig {
     {'id': 'luma', 'name': 'Luma', 'credits': 22},
   ];
 
-  // Chat Models - Synced with web app
+  // Chat Models - Synced with web app (matching chat API and web UI order)
   static const List<Map<String, dynamic>> chatModels = [
-    {
-      'id': 'chatgpt-5.2',
-      'name': 'ChatGPT 5.2',
-      'credits': 4,
-      'icon': 'openai'
-    },
-    {
-      'id': 'gemini-3-flash',
-      'name': 'Gemini 3 Flash',
-      'credits': 1,
-      'icon': 'gemini'
-    },
-    {
-      'id': 'gemini-3-pro',
-      'name': 'Gemini 3 Pro',
-      'credits': 3,
-      'icon': 'gemini'
-    },
-    {'id': 'grok-3', 'name': 'Grok 3', 'credits': 3, 'icon': 'grok'},
-    {'id': 'chatgpt-5', 'name': 'ChatGPT 5', 'credits': 3, 'icon': 'openai'},
-    {
-      'id': 'deepseek-r1',
-      'name': 'DeepSeek R1',
-      'credits': 3,
-      'icon': 'deepseek'
-    },
-    {'id': 'llama-3.3', 'name': 'Llama 3.3', 'credits': 1, 'icon': 'meta'},
+    // Grok models
+    {'id': 'grok-3', 'name': 'Grok 3', 'credits': 3, 'icon': 'grok', 'description': "xAI's most capable model", 'badge': 'TOP', 'supportsImages': true},
+    {'id': 'grok-3-mini', 'name': 'Grok 3 Mini', 'credits': 2, 'icon': 'grok', 'description': 'Fast and efficient Grok', 'badge': 'NEW', 'supportsImages': false},
+    // ChatGPT models
+    {'id': 'chatgpt-5.2', 'name': 'ChatGPT 5.2', 'credits': 4, 'icon': 'openai', 'description': "OpenAI's latest reasoning", 'badge': 'TOP', 'supportsImages': true},
+    {'id': 'chatgpt-5', 'name': 'ChatGPT 5', 'credits': 3, 'icon': 'openai', 'description': 'Powerful all-rounder', 'badge': null, 'supportsImages': true},
+    {'id': 'chatgpt-5-mini', 'name': 'GPT-5 Mini', 'credits': 2, 'icon': 'openai', 'description': 'Fast and cost-effective', 'badge': null, 'supportsImages': false},
+    // Gemini models
+    {'id': 'gemini-3-pro', 'name': 'Gemini 3 Pro', 'credits': 3, 'icon': 'gemini', 'description': "Google's next-gen AI", 'badge': 'NEW', 'supportsImages': true},
+    {'id': 'gemini-3-flash', 'name': 'Gemini 3 Flash', 'credits': 1, 'icon': 'gemini', 'description': 'Fast multimodal AI', 'badge': null, 'supportsImages': true},
+    {'id': 'gemini-2.5-pro', 'name': 'Gemini 2.5 Pro', 'credits': 2, 'icon': 'gemini', 'description': 'Top-tier reasoning', 'badge': null, 'supportsImages': true},
+    // DeepSeek models
+    {'id': 'deepseek-r1', 'name': 'DeepSeek R1', 'credits': 3, 'icon': 'deepseek', 'description': 'Deep reasoning model', 'badge': 'AI', 'supportsImages': false},
+    {'id': 'deepseek-v3', 'name': 'DeepSeek V3', 'credits': 2, 'icon': 'deepseek', 'description': 'Powerful open model', 'badge': null, 'supportsImages': false},
+    // Llama models
+    {'id': 'llama-3.3', 'name': 'Llama 3.3', 'credits': 1, 'icon': 'meta', 'description': "Meta's open AI model", 'badge': null, 'supportsImages': false},
+    {'id': 'llama-3.3-large', 'name': 'Llama 3.3 Large', 'credits': 2, 'icon': 'meta', 'description': 'Extended capabilities', 'badge': null, 'supportsImages': false},
   ];
+
+  // Vision-capable models
+  static const List<String> visionModels = [
+    'gemini-2.5-pro',
+    'gemini-3-pro',
+    'gemini-3-flash',
+    'chatgpt-5.2',
+    'chatgpt-5',
+    'grok-3',
+  ];
+
+  static bool supportsVision(String modelId) {
+    return visionModels.contains(modelId);
+  }
 
   static const List<String> aspectRatios = [
     '1:1',
