@@ -61,7 +61,8 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
     );
 
     if (success && mounted) {
-      context.go('/');
+      // New users are always non-premium, show the upgrade wizard
+      context.go('/upgrade-wizard', extra: true);
     }
   }
 
