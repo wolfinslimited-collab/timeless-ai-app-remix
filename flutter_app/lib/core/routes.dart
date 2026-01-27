@@ -13,6 +13,7 @@ import '../screens/create/tools/relight_tool_screen.dart';
 import '../screens/create/tools/upscale_tool_screen.dart';
 import '../screens/create/tools/shots_tool_screen.dart';
 import '../screens/create/tools/inpainting_tool_screen.dart';
+import '../screens/create/tools/object_erase_tool_screen.dart';
 import '../screens/create/tools/angle_tool_screen.dart';
 import '../screens/create/tools/skin_enhancer_tool_screen.dart';
 import '../screens/create/tools/style_transfer_tool_screen.dart';
@@ -126,6 +127,10 @@ final appRouter = GoRouter(
                 GoRoute(
                   path: 'inpainting',
                   builder: (context, state) => const InpaintingToolScreen(),
+                ),
+                GoRoute(
+                  path: 'object-erase',
+                  builder: (context, state) => const ObjectEraseToolScreen(),
                 ),
                 GoRoute(
                   path: 'angle',
