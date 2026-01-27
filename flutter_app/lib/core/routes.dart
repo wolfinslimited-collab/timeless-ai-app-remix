@@ -9,6 +9,7 @@ import '../screens/home/home_screen.dart';
 import '../screens/create/create_screen.dart';
 import '../screens/create/image_create_screen.dart';
 import '../screens/create/video_create_screen.dart';
+// Image Tools
 import '../screens/create/tools/relight_tool_screen.dart';
 import '../screens/create/tools/upscale_tool_screen.dart';
 import '../screens/create/tools/shots_tool_screen.dart';
@@ -18,6 +19,17 @@ import '../screens/create/tools/angle_tool_screen.dart';
 import '../screens/create/tools/skin_enhancer_tool_screen.dart';
 import '../screens/create/tools/style_transfer_tool_screen.dart';
 import '../screens/create/tools/background_remove_tool_screen.dart';
+// Video Tools
+import '../screens/create/tools/video_upscale_tool_screen.dart';
+import '../screens/create/tools/lip_sync_tool_screen.dart';
+import '../screens/create/tools/interpolate_tool_screen.dart';
+import '../screens/create/tools/extend_video_tool_screen.dart';
+import '../screens/create/tools/sketch_to_video_tool_screen.dart';
+import '../screens/create/tools/draw_to_video_tool_screen.dart';
+import '../screens/create/tools/mixed_media_tool_screen.dart';
+import '../screens/create/tools/click_to_ad_tool_screen.dart';
+import '../screens/create/tools/ugc_factory_tool_screen.dart';
+import '../screens/create/tools/sora_trends_tool_screen.dart';
 import '../screens/chat/chat_screen.dart';
 import '../screens/library/library_screen.dart';
 import '../screens/apps/apps_screen.dart';
@@ -153,6 +165,49 @@ final appRouter = GoRouter(
             GoRoute(
               path: 'video',
               builder: (context, state) => const VideoCreateScreen(),
+              routes: [
+                // Video tool sub-routes
+                GoRoute(
+                  path: 'video-upscale',
+                  builder: (context, state) => const VideoUpscaleToolScreen(),
+                ),
+                GoRoute(
+                  path: 'lip-sync',
+                  builder: (context, state) => const LipSyncToolScreen(),
+                ),
+                GoRoute(
+                  path: 'interpolate',
+                  builder: (context, state) => const InterpolateToolScreen(),
+                ),
+                GoRoute(
+                  path: 'extend',
+                  builder: (context, state) => const ExtendVideoToolScreen(),
+                ),
+                GoRoute(
+                  path: 'sketch-to-video',
+                  builder: (context, state) => const SketchToVideoToolScreen(),
+                ),
+                GoRoute(
+                  path: 'draw-to-video',
+                  builder: (context, state) => const DrawToVideoToolScreen(),
+                ),
+                GoRoute(
+                  path: 'mixed-media',
+                  builder: (context, state) => const MixedMediaToolScreen(),
+                ),
+                GoRoute(
+                  path: 'click-to-ad',
+                  builder: (context, state) => const ClickToAdToolScreen(),
+                ),
+                GoRoute(
+                  path: 'ugc-factory',
+                  builder: (context, state) => const UGCFactoryToolScreen(),
+                ),
+                GoRoute(
+                  path: 'sora-trends',
+                  builder: (context, state) => const SoraTrendsToolScreen(),
+                ),
+              ],
             ),
           ],
         ),
