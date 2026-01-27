@@ -10,7 +10,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/theme.dart';
 import '../../services/tools_service.dart';
-import '../../widgets/dialogs/add_credits_dialog.dart';
 
 /// Reusable layout for image processing tools
 class ImageToolLayout extends StatefulWidget {
@@ -19,7 +18,7 @@ class ImageToolLayout extends StatefulWidget {
   final String toolDescription;
   final int creditCost;
   final String? previewVideoUrl;
-  
+
   // Optional configuration
   final bool showPrompt;
   final String? promptLabel;
@@ -54,7 +53,7 @@ class ImageToolLayout extends StatefulWidget {
 class StyleOption {
   final String id;
   final String label;
-  
+
   const StyleOption({required this.id, required this.label});
 }
 
@@ -62,7 +61,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
   final SupabaseClient _supabase = Supabase.instance.client;
   final ToolsService _toolsService = ToolsService();
   final ImagePicker _picker = ImagePicker();
-  
+
   VideoPlayerController? _videoController;
   bool _isVideoInitialized = false;
 
@@ -72,7 +71,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
   String? _outputImageUrl;
   bool _isUploading = false;
   bool _isProcessing = false;
-  
+
   // Form state
   String _prompt = '';
   double _intensity = 50;
@@ -117,12 +116,12 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
         maxHeight: 4096,
         imageQuality: 95,
       );
-      
+
       if (image == null) return;
-      
+
       final file = File(image.path);
       final fileSize = await file.length();
-      
+
       // Check file size (max 10MB)
       if (fileSize > 10 * 1024 * 1024) {
         if (mounted) {
@@ -135,12 +134,12 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
         }
         return;
       }
-      
+
       setState(() {
         _inputImageFile = file;
         _outputImageUrl = null;
       });
-      
+
       // Upload to Supabase storage
       await _uploadImage(file);
     } catch (e) {
@@ -171,16 +170,14 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
 
     try {
       final fileExt = path.extension(file.path).replaceFirst('.', '');
-      final fileName = '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$fileExt';
-      
-      await _supabase.storage
-          .from('generation-inputs')
-          .upload(fileName, file);
-      
-      final publicUrl = _supabase.storage
-          .from('generation-inputs')
-          .getPublicUrl(fileName);
-      
+      final fileName =
+          '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+
+      await _supabase.storage.from('generation-inputs').upload(fileName, file);
+
+      final publicUrl =
+          _supabase.storage.from('generation-inputs').getPublicUrl(fileName);
+
       setState(() {
         _inputImageUrl = publicUrl;
       });
@@ -202,7 +199,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
 
   Future<void> _processImage() async {
     if (_inputImageUrl == null) return;
-    
+
     // Check credits - open dialog if not enough
     // For now, proceed with processing
     setState(() {
@@ -212,7 +209,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
 
     try {
       final options = <String, dynamic>{};
-      
+
       if (widget.showPrompt && _prompt.isNotEmpty) {
         options['prompt'] = _prompt;
       }
@@ -236,7 +233,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
         setState(() {
           _outputImageUrl = result['outputUrl'] as String;
         });
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -270,11 +267,13 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
     try {
       final response = await http.get(Uri.parse(_outputImageUrl!));
       final tempDir = await getTemporaryDirectory();
-      final fileName = '${widget.toolId}-${DateTime.now().millisecondsSinceEpoch}.png';
+      final fileName =
+          '${widget.toolId}-${DateTime.now().millisecondsSinceEpoch}.png';
       final file = File('${tempDir.path}/$fileName');
       await file.writeAsBytes(response.bodyBytes);
-      
-      await Share.shareXFiles([XFile(file.path)], text: 'Processed with ${widget.toolName}');
+
+      await Share.shareXFiles([XFile(file.path)],
+          text: 'Processed with ${widget.toolName}');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -358,26 +357,26 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
             children: [
               // Tool Info Header
               _buildToolInfo(),
-              
+
               const SizedBox(height: 24),
-              
+
               // Input Section
               _buildInputSection(),
-              
+
               const SizedBox(height: 24),
-              
+
               // Controls (if image is uploaded)
               if (_inputImageUrl != null && _outputImageUrl == null) ...[
                 _buildControls(),
                 const SizedBox(height: 24),
               ],
-              
+
               // Output Section
               if (_outputImageUrl != null) ...[
                 _buildOutputSection(),
                 const SizedBox(height: 24),
               ],
-              
+
               // Action Button
               _buildActionButton(),
             ],
@@ -391,7 +390,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: Colors.black,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.border.withOpacity(0.5)),
       ),
@@ -462,7 +461,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
 
   Widget _buildInputSection() {
     final hasInput = _inputImageUrl != null || _inputImageFile != null;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -480,16 +479,19 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
             width: double.infinity,
             height: 280,
             decoration: BoxDecoration(
-              color: AppTheme.surface,
+              color: Colors.black,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: hasInput ? AppTheme.primary.withOpacity(0.5) : AppTheme.border.withOpacity(0.5),
+                color: hasInput
+                    ? AppTheme.primary.withOpacity(0.5)
+                    : AppTheme.border.withOpacity(0.5),
                 width: hasInput ? 2 : 1,
               ),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(15),
-              child: hasInput ? _buildInputPreview() : _buildUploadPlaceholder(),
+              child:
+                  hasInput ? _buildInputPreview() : _buildUploadPlaceholder(),
             ),
           ),
         ),
@@ -516,7 +518,8 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
               return Center(
                 child: CircularProgressIndicator(
                   value: loadingProgress.expectedTotalBytes != null
-                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                      ? loadingProgress.cumulativeBytesLoaded /
+                          loadingProgress.expectedTotalBytes!
                       : null,
                   color: AppTheme.primary,
                 ),
@@ -528,7 +531,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
               );
             },
           ),
-        
+
         // Upload indicator
         if (_isUploading)
           Container(
@@ -547,7 +550,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
               ),
             ),
           ),
-        
+
         // Clear button
         if (!_isUploading)
           Positioned(
@@ -594,7 +597,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
           Container(
             color: AppTheme.primary.withOpacity(0.05),
           ),
-        
+
         // Upload overlay
         Container(
           decoration: BoxDecoration(
@@ -608,7 +611,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
             ),
           ),
         ),
-        
+
         // Upload icon and text
         Center(
           child: Column(
@@ -617,7 +620,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.surface.withOpacity(0.9),
+                  color: Colors.black.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppTheme.border.withOpacity(0.5)),
                 ),
@@ -658,14 +661,17 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
   }
 
   Widget _buildControls() {
-    if (!widget.showPrompt && !widget.showIntensity && !widget.showScale && !widget.showStyleSelector) {
+    if (!widget.showPrompt &&
+        !widget.showIntensity &&
+        !widget.showScale &&
+        !widget.showStyleSelector) {
       return const SizedBox.shrink();
     }
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: Colors.black,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.border.withOpacity(0.5)),
       ),
@@ -680,7 +686,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Prompt input
           if (widget.showPrompt) ...[
             Text(
@@ -694,17 +700,20 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
             TextField(
               maxLines: 3,
               decoration: InputDecoration(
-                hintText: widget.promptPlaceholder ?? 'Describe the desired result...',
+                hintText: widget.promptPlaceholder ??
+                    'Describe the desired result...',
                 hintStyle: TextStyle(color: AppTheme.muted.withOpacity(0.7)),
                 filled: true,
                 fillColor: AppTheme.background,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.border.withOpacity(0.5)),
+                  borderSide:
+                      BorderSide(color: AppTheme.border.withOpacity(0.5)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.border.withOpacity(0.5)),
+                  borderSide:
+                      BorderSide(color: AppTheme.border.withOpacity(0.5)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -715,7 +724,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
             ),
             const SizedBox(height: 16),
           ],
-          
+
           // Intensity slider
           if (widget.showIntensity) ...[
             Row(
@@ -729,7 +738,8 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppTheme.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -762,7 +772,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
             ),
             const SizedBox(height: 16),
           ],
-          
+
           // Scale slider
           if (widget.showScale) ...[
             Row(
@@ -776,7 +786,8 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppTheme.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -809,7 +820,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
             ),
             const SizedBox(height: 16),
           ],
-          
+
           // Style selector
           if (widget.showStyleSelector && widget.styleOptions != null) ...[
             const Text(
@@ -828,19 +839,24 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
                 return GestureDetector(
                   onTap: () => setState(() => _selectedStyle = style.id),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.primary : AppTheme.background,
+                      color:
+                          isSelected ? AppTheme.primary : AppTheme.background,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: isSelected ? AppTheme.primary : AppTheme.border.withOpacity(0.5),
+                        color: isSelected
+                            ? AppTheme.primary
+                            : AppTheme.border.withOpacity(0.5),
                       ),
                     ),
                     child: Text(
                       style.label,
                       style: TextStyle(
                         color: isSelected ? Colors.white : AppTheme.foreground,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.normal,
                         fontSize: 13,
                       ),
                     ),
@@ -869,9 +885,10 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: AppTheme.surface,
+            color: Colors.black,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.primary.withOpacity(0.5), width: 2),
+            border:
+                Border.all(color: AppTheme.primary.withOpacity(0.5), width: 2),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(15),
@@ -885,11 +902,12 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
                     if (loadingProgress == null) return child;
                     return Container(
                       height: 280,
-                      color: AppTheme.surface,
+                      color: Colors.black,
                       child: Center(
                         child: CircularProgressIndicator(
                           value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
                               : null,
                           color: AppTheme.primary,
                         ),
@@ -899,14 +917,15 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
                       height: 280,
-                      color: AppTheme.surface,
+                      color: Colors.black,
                       child: const Center(
-                        child: Icon(Icons.error_outline, color: Colors.red, size: 48),
+                        child: Icon(Icons.error_outline,
+                            color: Colors.red, size: 48),
                       ),
                     );
                   },
                 ),
-                
+
                 // Action buttons
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -925,7 +944,8 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
                           label: const Text('Save'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.foreground,
-                            side: BorderSide(color: AppTheme.border.withOpacity(0.5)),
+                            side: BorderSide(
+                                color: AppTheme.border.withOpacity(0.5)),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -941,7 +961,8 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
                           label: const Text('Use as Input'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.foreground,
-                            side: BorderSide(color: AppTheme.border.withOpacity(0.5)),
+                            side: BorderSide(
+                                color: AppTheme.border.withOpacity(0.5)),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -980,7 +1001,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
         ),
       );
     }
-    
+
     // If output exists, show new image button
     if (_outputImageUrl != null) {
       return SizedBox(
@@ -1000,13 +1021,13 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
         ),
       );
     }
-    
+
     // Show process button
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: _isProcessing || _isUploading ? null : _processImage,
-        icon: _isProcessing 
+        icon: _isProcessing
             ? const SizedBox(
                 width: 18,
                 height: 18,
@@ -1016,7 +1037,8 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
                 ),
               )
             : const Icon(Icons.auto_awesome),
-        label: Text(_isProcessing ? 'Processing...' : 'Apply ${widget.toolName}'),
+        label:
+            Text(_isProcessing ? 'Processing...' : 'Apply ${widget.toolName}'),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.primary,
           foregroundColor: Colors.white,
