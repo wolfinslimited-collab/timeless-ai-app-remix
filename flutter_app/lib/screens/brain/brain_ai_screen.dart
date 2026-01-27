@@ -225,7 +225,7 @@ class _BrainAIScreenState extends State<BrainAIScreen>
             ),
             const SizedBox(height: 32),
             _buildFeatureItem(
-              Icons.target,
+              Icons.track_changes,
               'Focus Tracking',
               'Monitor your attention span and concentration',
             ),
@@ -352,10 +352,9 @@ class _BrainAIScreenState extends State<BrainAIScreen>
                 Text(
                   _getPerformanceMessage(),
                   style: TextStyle(
-                    color:
-                        (_todayMetrics?.brainPerformanceScore ?? 0) >= 70
-                            ? Colors.green
-                            : AppTheme.muted,
+                    color: (_todayMetrics?.brainPerformanceScore ?? 0) >= 70
+                        ? Colors.green
+                        : AppTheme.muted,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -447,7 +446,8 @@ class _BrainAIScreenState extends State<BrainAIScreen>
           value,
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        Text(label, style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+        Text(label,
+            style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
       ],
     );
   }
@@ -572,7 +572,8 @@ class _BrainAIScreenState extends State<BrainAIScreen>
                 color: (game['color'] as Color).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(game['icon'] as IconData, color: game['color'] as Color),
+              child:
+                  Icon(game['icon'] as IconData, color: game['color'] as Color),
             ),
             title: Text(game['name'] as String),
             subtitle: Text(game['description'] as String),
@@ -616,7 +617,8 @@ class _BrainAIScreenState extends State<BrainAIScreen>
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
                 title: Text(m.metricDate),
-                subtitle: Text('Focus: ${m.focusScore ?? '--'} | Stress: ${m.stressLoad ?? '--'}'),
+                subtitle: Text(
+                    'Focus: ${m.focusScore ?? '--'} | Stress: ${m.stressLoad ?? '--'}'),
                 trailing: Text(
                   '${m.brainPerformanceScore ?? '--'}',
                   style: const TextStyle(
