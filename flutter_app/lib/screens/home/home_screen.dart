@@ -79,6 +79,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadFeaturedItems() async {
     try {
+      // Manual mapping of titles to video URLs
+      final Map<String, String> titleToVideoUrl = {
+        'Cinema Studio':
+            'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/47f98df2-8f0d-4cf0-a32f-f582f3c0f90f-video11080.1080.mp4',
+        'Video Upscale':
+            'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/25bd0bda-0068-47e9-a2c3-c51330245765-video21080.1080 - RESIZE - Videobolt.net.mp4',
+        'Draw to Video':
+            'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/559a3bef-5733-4be4-b79b-324924945429-video31080.1080 - RESIZE - Videobolt.net.mp4',
+        'Music Studio':
+            'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/33ee7581-6b7d-4d50-87d0-98acd87a53f3-video41080.1080 - RESIZE - Videobolt.net.mp4',
+        'Change Angle':
+            'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/b1157a2e-6259-4af8-b909-85c28b4562c7-ChangeAngle-ezgif.com-resize-video.mp4',
+        'Inpainting':
+            'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/09a58559-4b85-4053-ac90-42b30d151a5c-Inpainting-ezgif.com-resize-video.mp4',
+        'Relight':
+            'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/07a011ff-ab2e-4e4f-adc4-8d42bf4bfd23-light-ezgif.com-resize-video.mp4',
+        'Remove Background':
+            'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/a731fd6d-3262-4718-91d3-a0edc524310d-RemoveBackground-ezgif.com-resize-video.mp4',
+        'Shots':
+            'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/c2ad8cb7-8bb3-43a4-92c2-09c83ae80b40-shot-ezgif.com-resize-video.mp4',
+        'Skin Enhancer':
+            'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/faefb479-30b2-4b61-a1b8-49b7bfb4b35a-SkinEnhancer-ezgif.com-resize-video.mp4',
+      };
+
       final response = await Supabase.instance.client
           .from('featured_items')
           .select('*')
@@ -87,9 +111,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (mounted) {
         setState(() {
-          _featuredItems = (response as List)
-              .map((item) => FeaturedItem.fromJson(item))
-              .toList();
+          _featuredItems = (response as List).map((item) {
+            // Override video_url based on title if mapping exists
+            final title = item['title'] as String? ?? '';
+            if (titleToVideoUrl.containsKey(title)) {
+              item['video_url'] = titleToVideoUrl[title]!;
+            }
+            return FeaturedItem.fromJson(item);
+          }).toList();
           _loadingFeatured = false;
         });
       }
