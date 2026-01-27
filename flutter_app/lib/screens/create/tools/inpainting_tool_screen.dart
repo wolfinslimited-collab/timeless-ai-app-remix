@@ -33,6 +33,7 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
   String _prompt = '';
   double _brushSize = 30;
   bool _isPaintMode = true; // true = paint, false = erase
+  bool _isEditorMode = false; // Full screen editor mode
   
   // Drawing state
   List<DrawingStroke> _strokes = [];
@@ -94,6 +95,7 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
         _loadedImage = frame.image;
         _imageSize = Size(frame.image.width.toDouble(), frame.image.height.toDouble());
         _isUploading = false;
+        _isEditorMode = true; // Enter full screen editor mode
       });
     } catch (e) {
       _showError('Failed to upload image: $e');
@@ -108,6 +110,12 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
     });
   }
 
+  void _exitEditorMode() {
+    setState(() {
+      _isEditorMode = false;
+    });
+  }
+
   void _removeImage() {
     setState(() {
       _inputImageUrl = null;
@@ -117,6 +125,7 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
       _imageSize = null;
       _strokes = [];
       _currentStroke = null;
+      _isEditorMode = false;
     });
   }
 
@@ -143,12 +152,12 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
       if (stroke.points.length == 1) {
         canvas.drawCircle(stroke.points.first, stroke.brushSize / 2, paint..style = PaintingStyle.fill);
       } else {
-        final path = Path();
-        path.moveTo(stroke.points.first.dx, stroke.points.first.dy);
+        final maskPath = Path();
+        maskPath.moveTo(stroke.points.first.dx, stroke.points.first.dy);
         for (int i = 1; i < stroke.points.length; i++) {
-          path.lineTo(stroke.points[i].dx, stroke.points[i].dy);
+          maskPath.lineTo(stroke.points[i].dx, stroke.points[i].dy);
         }
-        canvas.drawPath(path, paint);
+        canvas.drawPath(maskPath, paint);
       }
     }
 
@@ -179,17 +188,18 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
 
       final session = Supabase.instance.client.auth.currentSession;
       if (session == null) {
-        throw Exception('Please sign in');
+        throw Exception('Please sign in to continue');
       }
 
-      final supabaseUrl = const String.fromEnvironment('SUPABASE_URL', 
-        defaultValue: 'https://hpuqeabtgwbwcnklxolt.supabase.co');
+      // Get Supabase URL from the client
+      final supabaseUrl = Supabase.instance.client.rest.url.replaceAll('/rest/v1', '');
 
       final response = await http.post(
         Uri.parse('$supabaseUrl/functions/v1/image-tools'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${session.accessToken}',
+          'apikey': Supabase.instance.client.rest.headers['apikey'] ?? '',
         },
         body: jsonEncode({
           'tool': toolId,
@@ -210,6 +220,7 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
       setState(() {
         _outputImageUrl = result['outputUrl'];
         _isProcessing = false;
+        _isEditorMode = false; // Exit editor mode to show result
       });
 
       _showSuccess('$toolName completed successfully!');
@@ -250,6 +261,15 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Show full-screen editor when in editor mode
+    if (_isEditorMode) {
+      return _buildFullScreenEditor();
+    }
+    
+    return _buildMainScreen();
+  }
+
+  Widget _buildMainScreen() {
     final theme = Theme.of(context);
     
     return Scaffold(
@@ -302,13 +322,13 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Paint Mask Section
+            // Upload Section
             _buildSectionCard(
               theme: theme,
-              title: 'Paint Mask',
+              title: 'Select Image',
               child: _inputImageUrl == null
                   ? _buildUploadArea(theme)
-                  : _buildCanvasArea(theme),
+                  : _buildImagePreview(theme),
             ),
             
             const SizedBox(height: 16),
@@ -321,6 +341,210 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFullScreenEditor() {
+    final theme = Theme.of(context);
+    
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top toolbar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              color: Colors.black,
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: _exitEditorMode,
+                  ),
+                  const Spacer(),
+                  Text(
+                    toolName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: _strokes.isEmpty || _isProcessing ? null : _processImage,
+                    child: _isProcessing
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Done',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Canvas area - full screen
+            Expanded(
+              child: GestureDetector(
+                onPanStart: _onPanStart,
+                onPanUpdate: _onPanUpdate,
+                onPanEnd: _onPanEnd,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  color: Colors.black,
+                  child: Center(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return CustomPaint(
+                          key: _canvasKey,
+                          size: Size(constraints.maxWidth, constraints.maxHeight),
+                          painter: InpaintingCanvasPainter(
+                            image: _loadedImage,
+                            strokes: _strokes,
+                            currentStroke: _currentStroke,
+                            imageSize: _imageSize,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            
+            // Bottom toolbar
+            Container(
+              padding: const EdgeInsets.all(16),
+              color: Colors.black,
+              child: Column(
+                children: [
+                  // Brush mode buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildToolButton(
+                        icon: Icons.brush,
+                        label: 'Paint',
+                        isActive: _isPaintMode,
+                        onTap: () => setState(() => _isPaintMode = true),
+                      ),
+                      const SizedBox(width: 16),
+                      _buildToolButton(
+                        icon: Icons.auto_fix_high,
+                        label: 'Erase',
+                        isActive: !_isPaintMode,
+                        onTap: () => setState(() => _isPaintMode = false),
+                      ),
+                      const SizedBox(width: 16),
+                      _buildToolButton(
+                        icon: Icons.refresh,
+                        label: 'Clear',
+                        isActive: false,
+                        onTap: _clearMask,
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Brush size slider
+                  Row(
+                    children: [
+                      const Icon(Icons.circle, color: Colors.white54, size: 12),
+                      Expanded(
+                        child: Slider(
+                          value: _brushSize,
+                          min: 5,
+                          max: 100,
+                          divisions: 19,
+                          activeColor: theme.colorScheme.primary,
+                          inactiveColor: Colors.white24,
+                          onChanged: (value) => setState(() => _brushSize = value),
+                        ),
+                      ),
+                      const Icon(Icons.circle, color: Colors.white54, size: 24),
+                    ],
+                  ),
+                  
+                  Text(
+                    'Brush Size: ${_brushSize.toInt()}px',
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  
+                  // Prompt input (only for inpainting mode)
+                  if (widget.mode == 'inpainting') ...[
+                    const SizedBox(height: 16),
+                    TextField(
+                      onChanged: (value) => _prompt = value,
+                      style: const TextStyle(color: Colors.white),
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        hintText: 'What to generate in masked area...',
+                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.1),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.all(12),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolButton({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isActive ? Colors.white : Colors.white.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: isActive ? Colors.black : Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: isActive ? Colors.white : Colors.white54,
+              fontSize: 12,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -365,70 +589,68 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
           border: Border.all(
             color: theme.dividerColor.withOpacity(0.5),
             width: 2,
-            style: BorderStyle.solid,
           ),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: CustomPaint(
-          painter: DashedBorderPainter(color: theme.dividerColor.withOpacity(0.5)),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (_isUploading)
-                  CircularProgressIndicator(color: theme.colorScheme.primary)
-                else
-                  Icon(
-                    Icons.cloud_upload_outlined,
-                    size: 48,
-                    color: theme.colorScheme.onSurface.withOpacity(0.5),
-                  ),
-                const SizedBox(height: 12),
-                Text(
-                  _isUploading ? 'Uploading...' : 'Upload an image to start',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
-                  ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_isUploading)
+                CircularProgressIndicator(color: theme.colorScheme.primary)
+              else
+                Icon(
+                  Icons.cloud_upload_outlined,
+                  size: 48,
+                  color: theme.colorScheme.onSurface.withOpacity(0.5),
                 ),
-              ],
-            ),
+              const SizedBox(height: 12),
+              Text(
+                _isUploading ? 'Uploading...' : 'Upload an image to start',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildCanvasArea(ThemeData theme) {
+  Widget _buildImagePreview(ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
         children: [
-          // Canvas with image and mask
           Stack(
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return GestureDetector(
-                      onPanStart: _onPanStart,
-                      onPanUpdate: _onPanUpdate,
-                      onPanEnd: _onPanEnd,
-                      child: CustomPaint(
-                        key: _canvasKey,
-                        size: Size(constraints.maxWidth, constraints.maxWidth * 0.75),
-                        painter: InpaintingCanvasPainter(
-                          image: _loadedImage,
-                          strokes: _strokes,
-                          currentStroke: _currentStroke,
-                          imageSize: _imageSize,
-                        ),
-                      ),
-                    );
-                  },
+                child: Image.network(
+                  _inputImageUrl!,
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
                 ),
               ),
-              // Remove image button
+              // Mask overlay indicator
+              if (_strokes.isNotEmpty)
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.8),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'Mask applied',
+                      style: TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                ),
               Positioned(
                 top: 8,
                 right: 8,
@@ -446,195 +668,47 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
               ),
             ],
           ),
-          
-          const SizedBox(height: 16),
-          
-          // Brush Controls
+          const SizedBox(height: 12),
           Row(
             children: [
-              _buildBrushButton(
-                theme: theme,
-                icon: Icons.brush,
-                label: 'Paint',
-                isActive: _isPaintMode,
-                onTap: () => setState(() => _isPaintMode = true),
-              ),
-              const SizedBox(width: 8),
-              _buildBrushButton(
-                theme: theme,
-                icon: Icons.auto_fix_high,
-                label: 'Erase',
-                isActive: !_isPaintMode,
-                onTap: () => setState(() => _isPaintMode = false),
-              ),
-              const SizedBox(width: 8),
-              _buildBrushButton(
-                theme: theme,
-                icon: Icons.refresh,
-                label: 'Clear',
-                isActive: false,
-                onTap: _clearMask,
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Brush Size Slider
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Brush Size: ${_brushSize.toInt()}px',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.7),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Slider(
-                value: _brushSize,
-                min: 5,
-                max: 100,
-                divisions: 19,
-                activeColor: theme.colorScheme.primary,
-                onChanged: (value) => setState(() => _brushSize = value),
-              ),
-            ],
-          ),
-          
-          // Prompt input (only for inpainting mode)
-          if (widget.mode == 'inpainting') ...[
-            const SizedBox(height: 16),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'What to generate',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  onChanged: (value) => _prompt = value,
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    hintText: 'Describe what should appear in the masked area...',
-                    hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurface.withOpacity(0.4),
-                    ),
-                    filled: true,
-                    fillColor: theme.colorScheme.surface,
-                    border: OutlineInputBorder(
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => setState(() => _isEditorMode = true),
+                  icon: const Icon(Icons.brush),
+                  label: Text(_strokes.isEmpty ? 'Paint Mask' : 'Edit Mask'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: theme.dividerColor),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: theme.dividerColor),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: theme.colorScheme.primary),
                     ),
                   ),
                 ),
-              ],
-            ),
-          ],
-          
-          const SizedBox(height: 16),
-          
-          // Process Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isProcessing || _strokes.isEmpty ? null : _processImage,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-                foregroundColor: theme.colorScheme.onPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _strokes.isEmpty || _isProcessing ? null : _processImage,
+                  icon: _isProcessing 
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.auto_awesome),
+                  label: Text(_isProcessing ? 'Processing...' : 'Apply'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
               ),
-              child: _isProcessing
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: theme.colorScheme.onPrimary,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text('Processing...'),
-                      ],
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.auto_awesome, size: 20),
-                        const SizedBox(width: 8),
-                        Text('Apply $toolName'),
-                      ],
-                    ),
-            ),
+            ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBrushButton({
-    required ThemeData theme,
-    required IconData icon,
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isActive 
-              ? theme.colorScheme.primary.withOpacity(0.1) 
-              : theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isActive 
-                ? theme.colorScheme.primary 
-                : theme.dividerColor.withOpacity(0.5),
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: isActive 
-                  ? theme.colorScheme.primary 
-                  : theme.colorScheme.onSurface.withOpacity(0.7),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isActive 
-                    ? theme.colorScheme.primary 
-                    : theme.colorScheme.onSurface.withOpacity(0.7),
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -716,7 +790,7 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
     // Convert to image coordinates
     final scaleX = _imageSize!.width / canvasSize.width;
     final scaleY = _imageSize!.height / canvasSize.height;
-    final scale = scaleX < scaleY ? scaleX : scaleY;
+    final scale = scaleX > scaleY ? scaleX : scaleY;
     
     final scaledWidth = _imageSize!.width / scale;
     final scaledHeight = _imageSize!.height / scale;
@@ -725,6 +799,11 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
     
     final imageX = (localPosition.dx - offsetX) * scale;
     final imageY = (localPosition.dy - offsetY) * scale;
+
+    // Clamp to image bounds
+    if (imageX < 0 || imageX > _imageSize!.width || imageY < 0 || imageY > _imageSize!.height) {
+      return;
+    }
 
     setState(() {
       _currentStroke = DrawingStroke(
@@ -746,7 +825,7 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
     
     final scaleX = _imageSize!.width / canvasSize.width;
     final scaleY = _imageSize!.height / canvasSize.height;
-    final scale = scaleX < scaleY ? scaleX : scaleY;
+    final scale = scaleX > scaleY ? scaleX : scaleY;
     
     final scaledWidth = _imageSize!.width / scale;
     final scaledHeight = _imageSize!.height / scale;
@@ -862,34 +941,4 @@ class InpaintingCanvasPainter extends CustomPainter {
            oldDelegate.strokes != strokes ||
            oldDelegate.currentStroke != currentStroke;
   }
-}
-
-class DashedBorderPainter extends CustomPainter {
-  final Color color;
-
-  DashedBorderPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-
-    const dashWidth = 8.0;
-    const dashSpace = 4.0;
-
-    // Draw dashed border
-    final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-        Rect.fromLTWH(0, 0, size.width, size.height),
-        const Radius.circular(12),
-      ));
-
-    // We'll just draw the regular border since dashed requires more complex logic
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
