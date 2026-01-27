@@ -41,6 +41,8 @@
 	<string>This app needs microphone access to record audio for AI processing.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs photo library access to select images for AI generation.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>This identifier will be used to personalize ads and measure ad effectiveness.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
