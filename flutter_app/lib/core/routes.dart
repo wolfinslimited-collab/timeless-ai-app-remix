@@ -26,6 +26,7 @@ import '../screens/sleep/sleep_ai_screen.dart';
 import '../screens/brain/brain_ai_screen.dart';
 import '../screens/notify/notify_ai_screen.dart';
 import '../screens/upgrade_plan/upgrade_plan_wizard_page.dart';
+import '../screens/profile/profile_screen.dart';
 import '../widgets/common/main_scaffold.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -214,6 +215,12 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/notify-ai',
           builder: (context, state) => const NotifyAIScreen(),
+        ),
+        GoRoute(
+          path: '/profile',
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: ProfileScreen(),
+          ),
         ),
       ],
     ),
