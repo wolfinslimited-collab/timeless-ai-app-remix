@@ -118,19 +118,41 @@ class NotifyService {
     QuickSuggestion(icon: '🐦', text: 'Track @elonmusk tweets about Tesla'),
   ];
 
-  Future<Map<String, dynamic>?> sendMessage(String message) async {
+  Future<Map<String, dynamic>?> sendMessage(String message, List<Map<String, dynamic>> conversationHistory) async {
     final user = _supabase.auth.currentUser;
     if (user == null) return null;
 
     try {
+      // Build messages array for the AI
+      final messages = [
+        ...conversationHistory,
+        {'role': 'user', 'content': message},
+      ];
+
       final response = await _supabase.functions.invoke('notify-ai', body: {
-        'action': 'chat',
-        'message': message,
+        'messages': messages,
       });
 
       return response.data;
     } catch (e) {
       print('Error sending message: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> saveNotification(Map<String, dynamic> notification, String originalRequest) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+
+    try {
+      final response = await _supabase.functions.invoke('notify-ai-save', body: {
+        'notification': notification,
+        'originalRequest': originalRequest,
+      });
+
+      return response.data;
+    } catch (e) {
+      print('Error saving notification: $e');
       return null;
     }
   }

@@ -26,6 +26,16 @@ class AIAppItem {
 
 const List<AIAppItem> _aiApps = [
   AIAppItem(
+    id: 'notify-ai',
+    name: 'Notify AI',
+    description: 'Smart notifications that learn your preferences',
+    iconAsset: 'assets/icons/notify-ai.png',
+    category: 'productivity',
+    badge: 'POPULAR',
+    gradientColors: [Color(0x33F59E0B), Color(0x33F97316)],
+    comingSoon: false,
+  ),
+  AIAppItem(
     id: 'skin-ai',
     name: 'Skin AI',
     description: 'AI-powered skin analysis and care recommendations',
@@ -167,6 +177,9 @@ class _AppsScreenState extends State<AppsScreen> {
         break;
       case 'fingerprint-ai':
         context.push('/fingerprint-ai');
+        break;
+      case 'notify-ai':
+        context.push('/notify-ai');
         break;
       default:
         ScaffoldMessenger.of(context).showSnackBar(
