@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:tiktok_events_sdk/tiktok_events_sdk.dart';
 
 /// TikTok Events SDK wrapper for Flutter
 /// Handles event tracking for TikTok Ads attribution
@@ -21,12 +22,16 @@ class TikTokService {
     if (_isInitialized) return;
 
     try {
-      final appId = Platform.isIOS ? iosAppId : androidAppId;
-      debugPrint('[TikTok] Initializing with App ID: $appId');
+      debugPrint('[TikTok] Initializing SDK...');
 
-      // Note: The tiktok_events_sdk package handles native initialization
-      // This service wraps the SDK calls for easier use throughout the app
-      
+      await TikTokEventsSdk.initialize(
+        androidAppId: androidAppId,
+        tikTokAndroidId: androidAppId,
+        iosAppId: iosAppId,
+        tiktokIosId: iosAppId,
+        isDebugMode: kDebugMode,
+      );
+
       _isInitialized = true;
       debugPrint('[TikTok] SDK initialized successfully');
 
@@ -39,7 +44,18 @@ class TikTokService {
 
   /// Track app install event
   Future<void> trackInstall() async {
-    await _logEvent('InstallApp');
+    if (!_isInitialized) return;
+
+    try {
+      await TikTokEventsSdk.logEvent(
+        event: TikTokEvent(
+          eventName: 'InstallApp',
+        ),
+      );
+      debugPrint('[TikTok] Event: InstallApp');
+    } catch (e) {
+      debugPrint('[TikTok] InstallApp error: $e');
+    }
   }
 
   /// Track user registration event
@@ -47,10 +63,22 @@ class TikTokService {
     String? userId,
     String? method,
   }) async {
-    await _logEvent('CompleteRegistration', parameters: {
-      if (userId != null) 'user_id': userId,
-      if (method != null) 'registration_method': method,
-    });
+    if (!_isInitialized) return;
+
+    try {
+      await TikTokEventsSdk.logEvent(
+        event: TikTokEvent(
+          eventName: 'CompleteRegistration',
+          eventId: userId,
+          properties: {
+            if (method != null) 'registration_method': method,
+          },
+        ),
+      );
+      debugPrint('[TikTok] Event: CompleteRegistration (method: $method)');
+    } catch (e) {
+      debugPrint('[TikTok] CompleteRegistration error: $e');
+    }
   }
 
   /// Track subscription event
@@ -60,12 +88,24 @@ class TikTokService {
     String? currency,
     String? subscriptionType,
   }) async {
-    await _logEvent('Subscribe', parameters: {
-      'content_id': productId,
-      'value': price,
-      'currency': currency ?? 'USD',
-      if (subscriptionType != null) 'subscription_type': subscriptionType,
-    });
+    if (!_isInitialized) return;
+
+    try {
+      await TikTokEventsSdk.logEvent(
+        event: TikTokEvent(
+          eventName: 'Subscribe',
+          properties: {
+            'content_id': productId,
+            'value': price,
+            'currency': currency ?? 'USD',
+            if (subscriptionType != null) 'subscription_type': subscriptionType,
+          },
+        ),
+      );
+      debugPrint('[TikTok] Event: Subscribe (product: $productId, price: $price)');
+    } catch (e) {
+      debugPrint('[TikTok] Subscribe error: $e');
+    }
   }
 
   /// Track credit purchase event
@@ -75,13 +115,25 @@ class TikTokService {
     required int credits,
     String? currency,
   }) async {
-    await _logEvent('Purchase', parameters: {
-      'content_id': productId,
-      'value': price,
-      'currency': currency ?? 'USD',
-      'quantity': credits,
-      'content_type': 'credits',
-    });
+    if (!_isInitialized) return;
+
+    try {
+      await TikTokEventsSdk.logEvent(
+        event: TikTokEvent(
+          eventName: 'Purchase',
+          properties: {
+            'content_id': productId,
+            'value': price,
+            'currency': currency ?? 'USD',
+            'quantity': credits,
+            'content_type': 'credits',
+          },
+        ),
+      );
+      debugPrint('[TikTok] Event: Purchase (product: $productId, credits: $credits)');
+    } catch (e) {
+      debugPrint('[TikTok] Purchase error: $e');
+    }
   }
 
   /// Track add to cart event (when user selects a package)
@@ -90,11 +142,23 @@ class TikTokService {
     required double price,
     String? currency,
   }) async {
-    await _logEvent('AddToCart', parameters: {
-      'content_id': productId,
-      'value': price,
-      'currency': currency ?? 'USD',
-    });
+    if (!_isInitialized) return;
+
+    try {
+      await TikTokEventsSdk.logEvent(
+        event: TikTokEvent(
+          eventName: 'AddToCart',
+          properties: {
+            'content_id': productId,
+            'value': price,
+            'currency': currency ?? 'USD',
+          },
+        ),
+      );
+      debugPrint('[TikTok] Event: AddToCart (product: $productId)');
+    } catch (e) {
+      debugPrint('[TikTok] AddToCart error: $e');
+    }
   }
 
   /// Track checkout initiated event
@@ -103,11 +167,23 @@ class TikTokService {
     required double price,
     String? currency,
   }) async {
-    await _logEvent('InitiateCheckout', parameters: {
-      'content_id': productId,
-      'value': price,
-      'currency': currency ?? 'USD',
-    });
+    if (!_isInitialized) return;
+
+    try {
+      await TikTokEventsSdk.logEvent(
+        event: TikTokEvent(
+          eventName: 'InitiateCheckout',
+          properties: {
+            'content_id': productId,
+            'value': price,
+            'currency': currency ?? 'USD',
+          },
+        ),
+      );
+      debugPrint('[TikTok] Event: InitiateCheckout (product: $productId)');
+    } catch (e) {
+      debugPrint('[TikTok] InitiateCheckout error: $e');
+    }
   }
 
   /// Identify user for attribution
@@ -115,15 +191,14 @@ class TikTokService {
     String? externalId,
     String? email,
   }) async {
-    if (!_isInitialized) {
-      debugPrint('[TikTok] SDK not initialized, skipping identify');
-      return;
-    }
+    if (!_isInitialized) return;
 
     try {
-      debugPrint('[TikTok] Identifying user: $externalId');
-      // The actual identification will be done via native SDK
-      // This logs the intent for debugging
+      await TikTokEventsSdk.identify(
+        externalId: externalId,
+        email: email,
+      );
+      debugPrint('[TikTok] User identified: $externalId');
     } catch (e) {
       debugPrint('[TikTok] Identify error: $e');
     }
@@ -134,35 +209,10 @@ class TikTokService {
     if (!_isInitialized) return;
 
     try {
+      await TikTokEventsSdk.logout();
       debugPrint('[TikTok] User logged out');
-      // Native SDK logout handling
     } catch (e) {
       debugPrint('[TikTok] Logout error: $e');
-    }
-  }
-
-  /// Internal method to log events
-  Future<void> _logEvent(
-    String eventName, {
-    Map<String, dynamic>? parameters,
-  }) async {
-    if (!_isInitialized) {
-      debugPrint('[TikTok] SDK not initialized, skipping event: $eventName');
-      return;
-    }
-
-    try {
-      debugPrint('[TikTok] Event: $eventName');
-      if (parameters != null && parameters.isNotEmpty) {
-        debugPrint('[TikTok] Parameters: $parameters');
-      }
-
-      // The actual event logging will be done via native SDK bridge
-      // For now, we log to console for debugging
-      // When tiktok_events_sdk is added, replace with:
-      // await TikTokEventsSdk.logEvent(event: TikTokEvent(eventName: eventName, ...));
-    } catch (e) {
-      debugPrint('[TikTok] Event error ($eventName): $e');
     }
   }
 }
