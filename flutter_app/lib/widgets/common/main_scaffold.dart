@@ -25,7 +25,7 @@ class BottomNavBar extends StatelessWidget {
     if (location.startsWith('/create')) return 1;
     if (location.startsWith('/chat')) return 2;
     if (location.startsWith('/apps') || location.startsWith('/cinema')) return 3;
-    if (location.startsWith('/library')) return 4;
+    if (location.startsWith('/profile')) return 4;
     return 0;
   }
 
@@ -56,7 +56,7 @@ class BottomNavBar extends StatelessWidget {
               context.go('/apps');
               break;
             case 4:
-              context.go('/library');
+              context.go('/profile');
               break;
           }
         },
@@ -82,9 +82,9 @@ class BottomNavBar extends StatelessWidget {
             label: 'Apps',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.photo_library_outlined),
-            activeIcon: Icon(Icons.photo_library),
-            label: 'Library',
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Profile',
           ),
         ],
       ),
