@@ -3,26 +3,31 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/config.dart';
+import '../core/logger.dart';
+import '../core/http_client.dart';
+import '../core/supabase_logger.dart';
 import '../models/conversation_model.dart';
 
 class ChatService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  /// Send a chat message and get streaming response
+  /// Send a chat message and get response
   Future<String> sendMessage({
     required String conversationId,
     required String model,
     required List<Map<String, dynamic>> messages,
     List<String>? images,
   }) async {
-    final response = await _supabase.functions.invoke(
+    final body = {
+      'conversationId': conversationId,
+      'model': model,
+      'messages': messages,
+      if (images != null && images.isNotEmpty) 'images': images,
+    };
+
+    final response = await _supabase.functions.invokeWithLogging(
       'chat',
-      body: {
-        'conversationId': conversationId,
-        'model': model,
-        'messages': messages,
-        if (images != null && images.isNotEmpty) 'images': images,
-      },
+      body: body,
     );
 
     if (response.status != 200) {
@@ -50,14 +55,17 @@ class ChatService {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ${AppConfig.supabaseAnonKey}',
     });
-    request.body = jsonEncode({
+    
+    final body = {
       'conversationId': conversationId,
       'model': model,
       'messages': messages,
       if (images != null && images.isNotEmpty) 'images': images,
-    });
+    };
+    request.body = jsonEncode(body);
 
-    final streamedResponse = await http.Client().send(request);
+    // Log the streaming request
+    final streamedResponse = await httpClient.send(request);
     
     if (streamedResponse.statusCode != 200) {
       throw Exception('Chat failed with status ${streamedResponse.statusCode}');
@@ -79,7 +87,10 @@ class ChatService {
         if (!line.startsWith('data: ')) continue;
         
         final jsonStr = line.substring(6).trim();
-        if (jsonStr == '[DONE]') break;
+        if (jsonStr == '[DONE]') {
+          logger.success('Streaming completed', 'CHAT');
+          break;
+        }
         
         try {
           final parsed = jsonDecode(jsonStr) as Map<String, dynamic>;
@@ -96,12 +107,16 @@ class ChatService {
 
   /// Get all conversations
   Future<List<Conversation>> getConversations() async {
+    logger.info('Fetching conversations', 'SUPABASE');
+    
     final response = await _supabase
         .from('conversations')
         .select()
         .order('updated_at', ascending: false);
 
-    return (response as List)
+    logger.success('Fetched ${(response as List).length} conversations', 'SUPABASE');
+    
+    return (response)
         .map((json) => Conversation.fromJson(json))
         .toList();
   }
@@ -114,6 +129,8 @@ class ChatService {
     final user = _supabase.auth.currentUser;
     if (user == null) throw Exception('Not authenticated');
 
+    logger.info('Creating conversation with model: $model', 'SUPABASE');
+
     final response = await _supabase
         .from('conversations')
         .insert({
@@ -124,18 +141,24 @@ class ChatService {
         .select()
         .single();
 
+    logger.success('Created conversation: ${response['id']}', 'SUPABASE');
+    
     return Conversation.fromJson(response);
   }
 
   /// Get messages for a conversation
   Future<List<ChatMessage>> getMessages(String conversationId) async {
+    logger.info('Fetching messages for: $conversationId', 'SUPABASE');
+
     final response = await _supabase
         .from('chat_messages')
         .select()
         .eq('conversation_id', conversationId)
         .order('created_at', ascending: true);
 
-    return (response as List)
+    logger.success('Fetched ${(response as List).length} messages', 'SUPABASE');
+
+    return (response)
         .map((json) => ChatMessage.fromJson(json))
         .toList();
   }
@@ -147,6 +170,8 @@ class ChatService {
     required dynamic content,
     List<String>? images,
   }) async {
+    logger.info('Saving $role message to: $conversationId', 'SUPABASE');
+
     final response = await _supabase
         .from('chat_messages')
         .insert({
@@ -158,27 +183,37 @@ class ChatService {
         .select()
         .single();
 
+    logger.success('Saved message: ${response['id']}', 'SUPABASE');
+
     return ChatMessage.fromJson(response);
   }
 
   /// Update conversation title
   Future<void> updateConversationTitle(String id, String title) async {
+    logger.info('Updating conversation title: $id', 'SUPABASE');
+    
     await _supabase
         .from('conversations')
         .update({'title': title, 'updated_at': DateTime.now().toIso8601String()})
         .eq('id', id);
+
+    logger.success('Updated title for: $id', 'SUPABASE');
   }
 
   /// Delete a conversation
   Future<void> deleteConversation(String id) async {
+    logger.info('Deleting conversation: $id', 'SUPABASE');
     await _supabase.from('conversations').delete().eq('id', id);
+    logger.success('Deleted conversation: $id', 'SUPABASE');
   }
 
   /// Toggle pin status
   Future<void> togglePin(String id, bool pinned) async {
+    logger.info('${pinned ? 'Pinning' : 'Unpinning'} conversation: $id', 'SUPABASE');
     await _supabase
         .from('conversations')
         .update({'pinned': pinned})
         .eq('id', id);
+    logger.success('Updated pin status for: $id', 'SUPABASE');
   }
 }
