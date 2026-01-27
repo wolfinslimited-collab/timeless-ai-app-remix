@@ -301,9 +301,9 @@ class _AppsScreenState extends State<AppsScreen> {
               sliver: SliverGrid(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 0.85,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 14,
+                  childAspectRatio: 0.78,
                 ),
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
@@ -353,15 +353,30 @@ class _AppCard extends StatelessWidget {
   Color _getBadgeColor() {
     switch (app.badge) {
       case 'NEW':
-        return const Color(0xFF22C55E);
+        return const Color(0xFFC8FF00);
       case 'POPULAR':
-        return const Color(0xFFF59E0B);
+        return AppTheme.primary;
       case 'BETA':
         return const Color(0xFF3B82F6);
       case 'SOON':
         return const Color(0xFF6B7280);
       default:
         return AppTheme.muted;
+    }
+  }
+
+  Color _getBadgeTextColor() {
+    switch (app.badge) {
+      case 'NEW':
+        return Colors.black;
+      case 'POPULAR':
+        return AppTheme.primary;
+      case 'BETA':
+        return const Color(0xFF3B82F6);
+      case 'SOON':
+        return const Color(0xFF6B7280);
+      default:
+        return AppTheme.foreground;
     }
   }
 
@@ -372,125 +387,135 @@ class _AppCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: app.gradientColors,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.border),
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.border.withOpacity(0.5)),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            // Badge
-            if (app.badge != null)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: _getBadgeColor().withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  app.badge == 'SOON' ? 'COMING SOON' : app.badge!,
-                  style: TextStyle(
-                    color: _getBadgeColor(),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 12),
-
-            // Icon
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  app.iconAsset,
-                  width: 48,
-                  height: 48,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Icon(
-                      Icons.apps,
-                      color: AppTheme.muted,
-                      size: 24,
-                    );
-                  },
-                ),
-              ),
-            ),
-            const Spacer(),
-
-            // Name
-            Text(
-              app.name,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-
-            // Description
-            Text(
-              app.description,
-              style: TextStyle(
-                fontSize: 11,
-                color: AppTheme.muted,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-
-            // Action
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (app.comingSoon) ...[
-                  Icon(
-                    Icons.lock_clock,
-                    size: 14,
+                // Icon with gradient background
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: app.gradientColors,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Image.asset(
+                        app.iconAsset,
+                        width: 32,
+                        height: 32,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(
+                            Icons.apps,
+                            color: Colors.white,
+                            size: 26,
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                const Spacer(),
+
+                // Name
+                Text(
+                  app.name,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.foreground,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+
+                // Description
+                Text(
+                  app.description,
+                  style: TextStyle(
+                    fontSize: 12,
                     color: AppTheme.muted,
+                    height: 1.3,
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Coming Soon',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.muted,
-                    ),
-                  ),
-                ] else ...[
-                  Text(
-                    'Open App',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.arrow_forward,
-                    size: 14,
-                    color: AppTheme.primary,
-                  ),
-                ],
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 10),
+
+                // Action row
+                Row(
+                  children: [
+                    if (app.comingSoon) ...[
+                      Text(
+                        'Coming Soon',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.muted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ] else ...[
+                      Text(
+                        'Open App',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.arrow_forward,
+                        size: 14,
+                        color: AppTheme.primary,
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
+
+            // Badge positioned at top-right
+            if (app.badge != null)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: app.badge == 'NEW'
+                        ? _getBadgeColor()
+                        : _getBadgeColor().withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    app.badge == 'SOON' ? 'COMING SOON' : app.badge!,
+                    style: TextStyle(
+                      color: _getBadgeTextColor(),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
