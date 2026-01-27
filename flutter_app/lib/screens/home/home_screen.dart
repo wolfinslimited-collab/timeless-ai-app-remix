@@ -101,6 +101,22 @@ class _HomeScreenState extends State<HomeScreen> {
             'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/c2ad8cb7-8bb3-43a4-92c2-09c83ae80b40-shot-ezgif.com-resize-video.mp4',
         'Skin Enhancer':
             'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/faefb479-30b2-4b61-a1b8-49b7bfb4b35a-SkinEnhancer-ezgif.com-resize-video.mp4',
+        'Upscale':
+            'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/02e516fd-e889-49fe-af14-043fc2c79521-Upscale-ezgif.com-resize-video.mp4',
+      };
+
+      // Manual mapping of titles to routes
+      final Map<String, String> titleToRoute = {
+        'Relight': '/create/image/relight',
+        'Upscale': '/create/image/upscale',
+        'Shots': '/create/image/shots',
+        'Inpainting': '/create/image/inpainting',
+        'Change Angle': '/create/image/angle',
+        'Angle': '/create/image/angle',
+        'Skin Enhancer': '/create/image/skin-enhancer',
+        'Style Transfer': '/create/image/style-transfer',
+        'Remove Background': '/create/image/background-remove',
+        'Background Remove': '/create/image/background-remove',
       };
 
       final response = await Supabase.instance.client
@@ -112,10 +128,13 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         setState(() {
           _featuredItems = (response as List).map((item) {
-            // Override video_url based on title if mapping exists
+            // Override video_url and link_url based on title if mapping exists
             final title = item['title'] as String? ?? '';
             if (titleToVideoUrl.containsKey(title)) {
               item['video_url'] = titleToVideoUrl[title]!;
+            }
+            if (titleToRoute.containsKey(title)) {
+              item['link_url'] = titleToRoute[title]!;
             }
             return FeaturedItem.fromJson(item);
           }).toList();
