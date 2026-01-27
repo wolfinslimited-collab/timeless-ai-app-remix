@@ -239,6 +239,83 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ),
                 const SizedBox(height: 32),
 
+                // Upgrade Banner for non-premium users
+                Consumer<CreditsProvider>(
+                  builder: (context, credits, child) {
+                    if (credits.hasActiveSubscription) {
+                      return const SizedBox.shrink();
+                    }
+                    return GestureDetector(
+                      onTap: () => context.push('/upgrade-wizard'),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 24),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.primary.withOpacity(0.15),
+                              const Color(0xFFEC4899).withOpacity(0.15),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppTheme.primary.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  colors: [
+                                    AppTheme.primary,
+                                    const Color(0xFFEC4899),
+                                  ],
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.auto_awesome,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Unlock Premium Features',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'See what Timeless Pro can do for you',
+                                    style: TextStyle(
+                                      color: AppTheme.muted,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.arrow_forward_ios,
+                              color: AppTheme.primary,
+                              size: 18,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
                 // Settings
                 const Text(
                   'Settings',

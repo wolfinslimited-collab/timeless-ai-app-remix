@@ -57,7 +57,14 @@ class _LoginScreenState extends State<LoginScreen>
     );
 
     if (success && mounted) {
-      context.go('/');
+      // Check if user has active subscription
+      final hasSubscription = authProvider.hasActiveSubscription;
+      if (hasSubscription) {
+        context.go('/');
+      } else {
+        // Show upgrade wizard for non-premium users
+        context.go('/upgrade-wizard', extra: true);
+      }
     }
   }
 

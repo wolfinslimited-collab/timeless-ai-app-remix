@@ -23,6 +23,7 @@ import '../screens/fingerprint/fingerprint_ai_screen.dart';
 import '../screens/sleep/sleep_ai_screen.dart';
 import '../screens/brain/brain_ai_screen.dart';
 import '../screens/notify/notify_ai_screen.dart';
+import '../screens/upgrade_plan/upgrade_plan_wizard_page.dart';
 import '../widgets/common/main_scaffold.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -36,6 +37,7 @@ final appRouter = GoRouter(
     final isLoggedIn = session != null;
     final isAuthRoute =
         state.matchedLocation == '/login' || state.matchedLocation == '/signup';
+    final isWizardRoute = state.matchedLocation == '/upgrade-wizard';
 
     if (!isLoggedIn && !isAuthRoute) {
       return '/login';
@@ -56,6 +58,14 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/signup',
       builder: (context, state) => const SignupScreen(),
+    ),
+    // Upgrade wizard (full screen, no bottom nav)
+    GoRoute(
+      path: '/upgrade-wizard',
+      builder: (context, state) {
+        final isFromWelcome = state.extra as bool? ?? false;
+        return UpgradePlanWizardPage(isFromWelcome: isFromWelcome);
+      },
     ),
 
     // Main app routes (with bottom nav)
