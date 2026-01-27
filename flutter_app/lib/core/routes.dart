@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/signup_screen.dart';
+import '../screens/splash/splash_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/create/create_screen.dart';
 import '../screens/create/image_create_screen.dart';
@@ -31,13 +32,19 @@ final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 final appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
-  initialLocation: '/',
+  initialLocation: '/splash',
   redirect: (context, state) {
     final session = Supabase.instance.client.auth.currentSession;
     final isLoggedIn = session != null;
     final isAuthRoute =
         state.matchedLocation == '/login' || state.matchedLocation == '/signup';
+    final isSplashRoute = state.matchedLocation == '/splash';
     final isWizardRoute = state.matchedLocation == '/upgrade-wizard';
+
+    // Allow splash screen to handle its own navigation
+    if (isSplashRoute) {
+      return null;
+    }
 
     if (!isLoggedIn && !isAuthRoute) {
       return '/login';
@@ -50,6 +57,11 @@ final appRouter = GoRouter(
     return null;
   },
   routes: [
+    // Splash screen
+    GoRoute(
+      path: '/splash',
+      builder: (context, state) => const SplashScreen(),
+    ),
     // Auth routes (no bottom nav)
     GoRoute(
       path: '/login',
