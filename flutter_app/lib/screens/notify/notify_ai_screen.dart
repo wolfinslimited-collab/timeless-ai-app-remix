@@ -70,12 +70,20 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
   String _streamingContent = '';
   Map<String, dynamic>? _pendingNotification;
   bool _isConfirming = false;
+  
+  // Settings
+  bool _pushEnabled = true;
+  bool _emailEnabled = true;
+  String _defaultChannel = 'both';
+  int? _credits;
+  bool _hasActiveSubscription = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadData();
+    _loadUserProfile();
   }
 
   @override
@@ -84,6 +92,27 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
     _scrollController.dispose();
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserProfile() async {
+    final supabase = Supabase.instance.client;
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final response = await supabase
+          .from('profiles')
+          .select('credits, subscription_status')
+          .eq('user_id', user.id)
+          .single();
+
+      setState(() {
+        _credits = response['credits'] as int? ?? 0;
+        _hasActiveSubscription = response['subscription_status'] == 'active';
+      });
+    } catch (e) {
+      debugPrint('Error loading profile: $e');
+    }
   }
 
   Future<void> _loadData() async {
@@ -354,6 +383,41 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
           ],
         ),
         actions: [
+          // Credits/Pro badge
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: _hasActiveSubscription
+                  ? Colors.amber.withOpacity(0.2)
+                  : AppTheme.secondary,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: _hasActiveSubscription
+                    ? Colors.amber.withOpacity(0.3)
+                    : AppTheme.border,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _hasActiveSubscription ? Icons.workspace_premium : Icons.toll,
+                  size: 14,
+                  color: _hasActiveSubscription ? Colors.amber : AppTheme.muted,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _hasActiveSubscription ? 'Pro' : '${_credits ?? 0}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _hasActiveSubscription ? Colors.amber : AppTheme.foreground,
+                  ),
+                ),
+              ],
+            ),
+          ),
           if (_messages.isNotEmpty)
             IconButton(
               onPressed: _startNewChat,
@@ -363,10 +427,22 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.chat_bubble_outline), text: 'Chat'),
-            Tab(icon: Icon(Icons.notifications_active_outlined), text: 'Active'),
-            Tab(icon: Icon(Icons.history), text: 'History'),
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          tabs: [
+            const Tab(icon: Icon(Icons.auto_awesome), text: 'Chat'),
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.notifications_active_outlined, size: 18),
+                  const SizedBox(width: 4),
+                  Text('Active (${_notifications.where((n) => n.isActive).length})'),
+                ],
+              ),
+            ),
+            const Tab(icon: Icon(Icons.history), text: 'History'),
+            const Tab(icon: Icon(Icons.settings_outlined), text: 'Options'),
           ],
         ),
       ),
@@ -376,6 +452,7 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
           _buildChatTab(),
           _buildActiveTab(),
           _buildHistoryTab(),
+          _buildSettingsTab(),
         ],
       ),
     );
@@ -1143,6 +1220,346 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
       return '${date.day}/${date.month}/${date.year}';
     } catch (_) {
       return dateStr;
+    }
+  }
+
+  Widget _buildSettingsTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Notification Channels Section
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.notifications, color: Colors.blue, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Notification Channels',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                        ),
+                        Text(
+                          'Choose how you want to receive notifications',
+                          style: TextStyle(color: AppTheme.muted, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              
+              // Push Notifications Toggle
+              _buildSettingsToggle(
+                icon: Icons.phone_android,
+                iconColor: Colors.green,
+                title: 'Push Notifications',
+                subtitle: 'Receive push notifications on your device',
+                value: _pushEnabled,
+                onChanged: (value) {
+                  setState(() => _pushEnabled = value);
+                  _updateDefaultChannel();
+                },
+              ),
+              
+              const Divider(height: 24),
+              
+              // Email Notifications Toggle
+              _buildSettingsToggle(
+                icon: Icons.email_outlined,
+                iconColor: Colors.orange,
+                title: 'Email Notifications',
+                subtitle: 'Receive notifications via email',
+                value: _emailEnabled,
+                onChanged: (value) {
+                  setState(() => _emailEnabled = value);
+                  _updateDefaultChannel();
+                },
+              ),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Default Channel Section
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Default Delivery Channel',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildChannelChip(
+                    'Push Only',
+                    'push',
+                    Icons.phone_android,
+                    Colors.green,
+                  ),
+                  _buildChannelChip(
+                    'Email Only',
+                    'email',
+                    Icons.email_outlined,
+                    Colors.orange,
+                  ),
+                  _buildChannelChip(
+                    'Both',
+                    'both',
+                    Icons.all_inclusive,
+                    Colors.blue,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Account Info Section
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      _hasActiveSubscription ? Icons.workspace_premium : Icons.toll,
+                      color: Colors.amber,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _hasActiveSubscription ? 'Pro Subscription' : 'Free Plan',
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                        ),
+                        Text(
+                          _hasActiveSubscription
+                              ? 'Unlimited notifications'
+                              : '${_credits ?? 0} credits remaining',
+                          style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!_hasActiveSubscription)
+                    TextButton(
+                      onPressed: () {
+                        // Navigate to pricing
+                        Navigator.of(context).pushNamed('/pricing');
+                      },
+                      child: const Text('Upgrade'),
+                    ),
+                ],
+              ),
+              if (!_hasActiveSubscription) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.amber, size: 16),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Each notification costs 1 credit. Upgrade to Pro for unlimited notifications.',
+                          style: TextStyle(fontSize: 12, color: AppTheme.muted),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Tips Section
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.lightbulb_outline, color: Colors.amber, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Tips',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _buildTipItem('Use natural language to describe your notification'),
+              _buildTipItem('Specify times like "tomorrow at 9am" or "every Monday"'),
+              _buildTipItem('Track crypto, stocks, weather, flights, and more'),
+              _buildTipItem('Set location-based reminders for places you visit'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSettingsToggle({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: iconColor, size: 18),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+              Text(
+                subtitle,
+                style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        Switch(
+          value: value,
+          onChanged: onChanged,
+          activeColor: Colors.amber,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChannelChip(String label, String value, IconData icon, Color color) {
+    final isSelected = _defaultChannel == value;
+    return GestureDetector(
+      onTap: () => setState(() => _defaultChannel = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withOpacity(0.2) : AppTheme.secondary,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? color : AppTheme.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: isSelected ? color : AppTheme.muted),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                color: isSelected ? color : AppTheme.foreground,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTipItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('•', style: TextStyle(color: AppTheme.muted)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(color: AppTheme.muted, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _updateDefaultChannel() {
+    if (_pushEnabled && _emailEnabled) {
+      _defaultChannel = 'both';
+    } else if (_pushEnabled) {
+      _defaultChannel = 'push';
+    } else if (_emailEnabled) {
+      _defaultChannel = 'email';
     }
   }
 }
