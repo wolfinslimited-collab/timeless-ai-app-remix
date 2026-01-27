@@ -82,6 +82,12 @@ class AppConfig {
   // Chat Models - Synced with web app
   static const List<Map<String, dynamic>> chatModels = [
     {
+      'id': 'chatgpt-5.2',
+      'name': 'ChatGPT 5.2',
+      'credits': 4,
+      'icon': 'openai'
+    },
+    {
       'id': 'gemini-3-flash',
       'name': 'Gemini 3 Flash',
       'credits': 1,
