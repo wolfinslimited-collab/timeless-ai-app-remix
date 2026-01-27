@@ -23,11 +23,13 @@ class TikTokService {
     try {
       debugPrint('[TikTok] Initializing SDK...');
 
-      // Use TikTokEventsSdk.init() - the correct method name
-      await TikTokEventsSdk.init(
+      // Initialize TikTok Events SDK
+      await TikTokEventsSdk.initSdk(
         androidAppId: androidAppId,
-        tiktokAppId: iosAppId,
-        debug: kDebugMode,
+        tikTokAndroidId: androidAppId,
+        iosAppId: iosAppId,
+        tiktokIosId: iosAppId,
+        isDebugMode: kDebugMode,
       );
 
       _isInitialized = true;
@@ -94,7 +96,7 @@ class TikTokService {
           eventName: 'Subscribe',
           properties: EventProperties(
             contentId: productId,
-            currency: currency ?? 'USD',
+            currency: currency != null ? CurrencyCode.fromString(currency) : CurrencyCode.USD,
             value: price,
             description: subscriptionType,
           ),
@@ -121,7 +123,7 @@ class TikTokService {
           eventName: 'Purchase',
           properties: EventProperties(
             contentId: productId,
-            currency: currency ?? 'USD',
+            currency: currency != null ? CurrencyCode.fromString(currency) : CurrencyCode.USD,
             value: price,
             quantity: credits,
             contentType: 'credits',
@@ -148,7 +150,7 @@ class TikTokService {
           eventName: 'AddToCart',
           properties: EventProperties(
             contentId: productId,
-            currency: currency ?? 'USD',
+            currency: currency != null ? CurrencyCode.fromString(currency) : CurrencyCode.USD,
             value: price,
           ),
         ),
@@ -173,7 +175,7 @@ class TikTokService {
           eventName: 'InitiateCheckout',
           properties: EventProperties(
             contentId: productId,
-            currency: currency ?? 'USD',
+            currency: currency != null ? CurrencyCode.fromString(currency) : CurrencyCode.USD,
             value: price,
           ),
         ),
@@ -188,13 +190,19 @@ class TikTokService {
   Future<void> identify({
     String? externalId,
     String? email,
+    String? externalUserName,
+    String? phoneNumber,
   }) async {
     if (!_isInitialized) return;
 
     try {
       await TikTokEventsSdk.identify(
-        externalId: externalId,
-        email: email,
+        identifier: TikTokIdentifier(
+          externalId: externalId ?? '',
+          externalUserName: externalUserName ?? '',
+          email: email ?? '',
+          phoneNumber: phoneNumber,
+        ),
       );
       debugPrint('[TikTok] User identified: $externalId');
     } catch (e) {
