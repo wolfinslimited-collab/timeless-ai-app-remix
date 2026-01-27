@@ -6,6 +6,7 @@ import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'tiktok_service.dart';
+import 'facebook_service.dart';
 
 /// Product IDs for subscriptions and consumables
 class IAPProducts {
@@ -325,7 +326,7 @@ class IAPService {
         final product = getProduct(purchase.productID);
         final price = _extractPrice(product?.price ?? '0');
 
-        // Track TikTok events
+        // Track attribution events (TikTok & Facebook)
         final isSubscription = IAPProducts.subscriptionIds.contains(purchase.productID);
         if (isSubscription) {
           await tiktokService.trackSubscribe(
@@ -333,8 +334,18 @@ class IAPService {
             price: price,
             subscriptionType: purchase.productID.contains('yearly') ? 'yearly' : 'monthly',
           );
+          await facebookService.trackSubscribe(
+            productId: purchase.productID,
+            price: price,
+            subscriptionType: purchase.productID.contains('yearly') ? 'yearly' : 'monthly',
+          );
         } else {
           await tiktokService.trackPurchase(
+            productId: purchase.productID,
+            price: price,
+            credits: credits,
+          );
+          await facebookService.trackPurchase(
             productId: purchase.productID,
             price: price,
             credits: credits,

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/tiktok_service.dart';
+import '../services/facebook_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -82,16 +83,23 @@ class AuthProvider extends ChangeNotifier {
         _user = response.user;
         await _fetchProfile();
 
-        // Track TikTok registration event
+        // Track registration events for attribution
         await tiktokService.trackRegister(
           userId: response.user!.id,
           method: 'email',
         );
+        await facebookService.trackRegister(
+          userId: response.user!.id,
+          method: 'email',
+        );
+        
         // Identify user for attribution
         await tiktokService.identify(
           externalId: response.user!.id,
           email: email,
         );
+        await facebookService.setUserId(response.user!.id);
+        await facebookService.setUserData(email: email);
 
         return true;
       }
@@ -136,8 +144,9 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> signOut() async {
     await _authService.signOut();
-    // Clear TikTok user identification on logout
+    // Clear user identification on logout
     await tiktokService.logout();
+    await facebookService.logout();
     _user = null;
     _profile = null;
     notifyListeners();
