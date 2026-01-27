@@ -11,6 +11,9 @@ import '../../providers/generation_provider.dart';
 import '../../widgets/common/credit_badge.dart';
 import '../../models/generation_model.dart';
 
+// Storage base URL for video assets - using DigitalOcean Spaces CDN
+const String _storageBaseUrl = 'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/featured';
+
 // Featured item model matching Supabase table
 class FeaturedItem {
   final String id;
@@ -32,12 +35,23 @@ class FeaturedItem {
   });
 
   factory FeaturedItem.fromJson(Map<String, dynamic> json) {
+    // Convert relative video path to full URL
+    String rawVideoUrl = json['video_url'] as String;
+    String fullVideoUrl = rawVideoUrl;
+    
+    // If it's a relative path, prepend the storage base URL
+    if (rawVideoUrl.startsWith('/')) {
+      fullVideoUrl = '$_storageBaseUrl$rawVideoUrl';
+    } else if (!rawVideoUrl.startsWith('http')) {
+      fullVideoUrl = '$_storageBaseUrl/$rawVideoUrl';
+    }
+    
     return FeaturedItem(
       id: json['id'] as String,
       title: json['title'] as String,
       description: json['description'] as String,
       tag: json['tag'] as String,
-      videoUrl: json['video_url'] as String,
+      videoUrl: fullVideoUrl,
       displayOrder: json['display_order'] as int,
       linkUrl: json['link_url'] as String?,
     );
@@ -437,17 +451,49 @@ class _TrendingTileState extends State<_TrendingTile> {
   void _handleTap() {
     final linkUrl = widget.item.linkUrl;
     if (linkUrl != null && linkUrl.isNotEmpty) {
-      // Parse link_url and navigate
-      // Web format: '/create?type=cinema' or '/create?app=video-upscale'
+      // Parse link_url and navigate to corresponding Flutter routes
+      // Handle all patterns from featured_items table
+      
+      // Cinema Studio
       if (linkUrl.contains('/create?type=cinema')) {
         GoRouter.of(context).go('/cinema');
-      } else if (linkUrl.contains('/create?type=music')) {
+      }
+      // Music Studio
+      else if (linkUrl.contains('/create?type=music')) {
         GoRouter.of(context).go('/apps');
-      } else if (linkUrl.contains('/create?app=video-upscale')) {
+      }
+      // Video tools
+      else if (linkUrl.contains('/create?app=video-upscale') || 
+               linkUrl.contains('/create?app=draw-to-video')) {
         GoRouter.of(context).go('/create/video');
-      } else if (linkUrl.contains('/create?app=draw-to-video')) {
-        GoRouter.of(context).go('/create/video');
-      } else {
+      }
+      // Image tools - direct paths like /create/image/relight
+      else if (linkUrl.contains('/create/image/relight')) {
+        GoRouter.of(context).go('/create/image/relight');
+      }
+      else if (linkUrl.contains('/create/image/upscale')) {
+        GoRouter.of(context).go('/create/image/upscale');
+      }
+      else if (linkUrl.contains('/create/image/shots')) {
+        GoRouter.of(context).go('/create/image/shots');
+      }
+      else if (linkUrl.contains('/create/image/inpainting')) {
+        GoRouter.of(context).go('/create/image/inpainting');
+      }
+      else if (linkUrl.contains('/create/image/angle')) {
+        GoRouter.of(context).go('/create/image/angle');
+      }
+      else if (linkUrl.contains('/create/image/skin-enhancer')) {
+        GoRouter.of(context).go('/create/image/skin-enhancer');
+      }
+      else if (linkUrl.contains('/create/image/style-transfer')) {
+        GoRouter.of(context).go('/create/image/style-transfer');
+      }
+      else if (linkUrl.contains('/create/image/background-remove')) {
+        GoRouter.of(context).go('/create/image/background-remove');
+      }
+      // Fallback to apps
+      else {
         GoRouter.of(context).go('/apps');
       }
     }

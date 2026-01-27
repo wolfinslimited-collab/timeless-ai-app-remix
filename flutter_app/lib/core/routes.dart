@@ -9,6 +9,7 @@ import '../screens/home/home_screen.dart';
 import '../screens/create/create_screen.dart';
 import '../screens/create/image_create_screen.dart';
 import '../screens/create/video_create_screen.dart';
+import '../screens/create/image_tool_screen.dart';
 import '../screens/chat/chat_screen.dart';
 import '../screens/library/library_screen.dart';
 import '../screens/apps/apps_screen.dart';
@@ -100,6 +101,41 @@ final appRouter = GoRouter(
             GoRoute(
               path: 'image',
               builder: (context, state) => const ImageCreateScreen(),
+              routes: [
+                // Image tool sub-routes
+                GoRoute(
+                  path: 'relight',
+                  builder: (context, state) => const RelightToolScreen(),
+                ),
+                GoRoute(
+                  path: 'upscale',
+                  builder: (context, state) => const UpscaleToolScreen(),
+                ),
+                GoRoute(
+                  path: 'shots',
+                  builder: (context, state) => const ShotsToolScreen(),
+                ),
+                GoRoute(
+                  path: 'inpainting',
+                  builder: (context, state) => const InpaintingToolScreen(),
+                ),
+                GoRoute(
+                  path: 'angle',
+                  builder: (context, state) => const AngleToolScreen(),
+                ),
+                GoRoute(
+                  path: 'skin-enhancer',
+                  builder: (context, state) => const SkinEnhancerToolScreen(),
+                ),
+                GoRoute(
+                  path: 'style-transfer',
+                  builder: (context, state) => const StyleTransferToolScreen(),
+                ),
+                GoRoute(
+                  path: 'background-remove',
+                  builder: (context, state) => const BackgroundRemoveToolScreen(),
+                ),
+              ],
             ),
             GoRoute(
               path: 'video',
