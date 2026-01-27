@@ -65,7 +65,7 @@ class ModelSelectorModal extends StatelessWidget {
               itemBuilder: (context, index) {
                 final model = AppConfig.chatModels[index];
                 final isSelected = model['id'] == selectedModel;
-                
+
                 return _ModelCard(
                   model: model,
                   isSelected: isSelected,
@@ -100,15 +100,18 @@ class _ModelCard extends StatelessWidget {
     final modelId = model['id'] as String;
     final modelName = model['name'] as String;
     final credits = model['credits'] as int;
-    final icon = model['icon'] as String? ?? 'ai';
-    
+    final description = model['description'] as String? ?? 'AI assistant';
+    final badge = model['badge'] as String?;
+    final supportsImages = model['supportsImages'] as bool? ?? false;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primary.withOpacity(0.1) : AppTheme.secondary,
+          color:
+              isSelected ? AppTheme.primary.withOpacity(0.1) : AppTheme.secondary,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? AppTheme.primary : AppTheme.border,
@@ -129,20 +132,22 @@ class _ModelCard extends StatelessWidget {
                         modelName,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: isSelected ? AppTheme.primary : AppTheme.foreground,
+                          color:
+                              isSelected ? AppTheme.primary : AppTheme.foreground,
                         ),
                       ),
-                      if (modelId == 'chatgpt-5.2') ...[
+                      if (badge != null) ...[
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppTheme.primary,
+                            color: _getBadgeColor(badge),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text(
-                            'NEW',
-                            style: TextStyle(
+                          child: Text(
+                            badge,
+                            style: const TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
@@ -153,12 +158,23 @@ class _ModelCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    _getModelDescription(modelId),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.muted,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          description,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.muted,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (supportsImages) ...[
+                        const SizedBox(width: 4),
+                        const Icon(Icons.image, size: 12, color: AppTheme.muted),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -195,24 +211,16 @@ class _ModelCard extends StatelessWidget {
     );
   }
 
-  String _getModelDescription(String modelId) {
-    switch (modelId) {
-      case 'chatgpt-5.2':
-        return 'Most advanced reasoning & analysis';
-      case 'chatgpt-5':
-        return 'Powerful all-rounder with vision';
-      case 'gemini-3-flash':
-        return 'Fast & efficient responses';
-      case 'gemini-3-pro':
-        return 'Advanced reasoning capabilities';
-      case 'grok-3':
-        return 'Direct, witty & helpful';
-      case 'deepseek-r1':
-        return 'Deep reasoning specialist';
-      case 'llama-3.3':
-        return 'Fast open-source model';
+  Color _getBadgeColor(String badge) {
+    switch (badge) {
+      case 'TOP':
+        return AppTheme.primary;
+      case 'NEW':
+        return Colors.green;
+      case 'AI':
+        return Colors.purple;
       default:
-        return 'AI assistant';
+        return AppTheme.muted;
     }
   }
 }

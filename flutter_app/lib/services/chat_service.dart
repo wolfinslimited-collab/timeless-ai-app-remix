@@ -47,6 +47,7 @@ class ChatService {
     required List<Map<String, dynamic>> messages,
     required Function(String) onChunk,
     List<String>? images,
+    bool webSearch = false,
   }) async {
     final url = '${AppConfig.supabaseUrl}/functions/v1/chat';
     
@@ -60,6 +61,7 @@ class ChatService {
       'conversationId': conversationId,
       'model': model,
       'messages': messages,
+      'webSearch': webSearch,
       if (images != null && images.isNotEmpty) 'images': images,
     };
     request.body = jsonEncode(body);
