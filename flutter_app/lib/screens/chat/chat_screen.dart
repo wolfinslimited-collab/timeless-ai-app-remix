@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../models/conversation_model.dart';
 import '../../services/chat_service.dart';
 import '../../providers/credits_provider.dart';
+import '../../widgets/chat/model_selector_modal.dart';
+import '../../widgets/chat/model_logo.dart';
+import '../../widgets/chat/chat_message_skeleton.dart';
+import '../../widgets/chat/chat_message_bubble.dart';
+import '../../widgets/chat/conversation_drawer.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -18,8 +22,9 @@ class _ChatScreenState extends State<ChatScreen> {
   final ChatService _chatService = ChatService();
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  String _selectedModel = 'gemini-3-flash';
+  String _selectedModel = 'chatgpt-5.2';
   Conversation? _currentConversation;
   List<ChatMessage> _messages = [];
   bool _isLoading = false;
@@ -145,12 +150,42 @@ class _ChatScreenState extends State<ChatScreen> {
               'Insufficient Credits',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
+            const SizedBox(height: 8),
+            Text(
+              'This model requires ${AppConfig.modelCredits[_selectedModel] ?? 1} credits.',
+              style: const TextStyle(color: AppTheme.muted),
+            ),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Get Credits'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showModelSelector() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        builder: (_, controller) => ModelSelectorModal(
+          selectedModel: _selectedModel,
+          onSelect: (modelId) {
+            setState(() {
+              _selectedModel = modelId;
+              // Clear conversation when changing model
+              _currentConversation = null;
+              _messages = [];
+              _streamingContent = '';
+            });
+          },
         ),
       ),
     );
@@ -164,27 +199,89 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  Future<void> _loadConversation(String id) async {
+    try {
+      final messages = await _chatService.getMessages(id);
+      setState(() {
+        _currentConversation = Conversation(
+          id: id,
+          userId: '',
+          model: _selectedModel,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        _messages = messages;
+      });
+      _scrollToBottom();
+    } catch (e) {
+      debugPrint('Error loading conversation: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final creditsProvider = context.watch<CreditsProvider>();
+    final creditCost = AppConfig.modelCredits[_selectedModel] ?? 1;
+
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('AI Chat', style: TextStyle(fontSize: 16)),
-            Text(
-              _getModelDisplayName(_selectedModel),
-              style: const TextStyle(color: AppTheme.muted, fontSize: 12),
-            ),
-          ],
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
+        title: GestureDetector(
+          onTap: _showModelSelector,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ModelLogo(modelId: _selectedModel, size: 28),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        _getModelDisplayName(_selectedModel),
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.keyboard_arrow_down, size: 18),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      const Icon(Icons.toll, size: 12, color: AppTheme.accent),
+                      const SizedBox(width: 4),
+                      Text(
+                        creditsProvider.isUnlimited
+                            ? 'Unlimited'
+                            : '$creditCost credits/msg',
+                        style: const TextStyle(color: AppTheme.muted, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add_circle_outline),
             onPressed: _startNewChat,
             tooltip: 'New Chat',
           ),
         ],
+      ),
+      drawer: ConversationDrawer(
+        currentConversationId: _currentConversation?.id,
+        currentModel: _selectedModel,
+        onSelectConversation: (id) {
+          if (id != null) _loadConversation(id);
+        },
+        onNewConversation: _startNewChat,
       ),
       body: Column(
         children: [
@@ -195,85 +292,120 @@ class _ChatScreenState extends State<ChatScreen> {
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length + (_streamingContent.isNotEmpty ? 1 : 0) + (_isLoading && _streamingContent.isEmpty ? 1 : 0),
+                    itemCount: _messages.length +
+                        (_streamingContent.isNotEmpty ? 1 : 0) +
+                        (_isLoading && _streamingContent.isEmpty ? 1 : 0),
                     itemBuilder: (context, index) {
-                      // Show typing indicator
+                      // Show skeleton loader
                       if (_isLoading && _streamingContent.isEmpty && index == _messages.length) {
-                        return const _TypingIndicator();
+                        return ChatMessageSkeleton(modelId: _selectedModel);
                       }
                       // Show streaming content
                       if (_streamingContent.isNotEmpty && index == _messages.length) {
-                        return _MessageBubble(
+                        return ChatMessageBubble(
                           content: _streamingContent,
                           isUser: false,
+                          modelId: _selectedModel,
                         );
                       }
                       final message = _messages[index];
-                      return _MessageBubble(
+                      return ChatMessageBubble(
                         content: message.textContent,
                         isUser: message.isUser,
+                        modelId: message.isUser ? null : _selectedModel,
+                        images: message.images,
                       );
                     },
                   ),
           ),
 
-          // Input
+          // Input Area
           Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
               color: AppTheme.card,
-              border: Border(top: BorderSide(color: AppTheme.border)),
+              border: Border(top: BorderSide(color: AppTheme.border.withOpacity(0.5))),
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppTheme.secondary,
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: const Icon(Icons.mic, size: 16, color: AppTheme.muted),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppTheme.secondary,
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                    child: TextField(
-                      controller: _messageController,
-                      decoration: const InputDecoration(
-                        hintText: 'Type a message...',
-                        hintStyle: TextStyle(color: AppTheme.muted),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        border: InputBorder.none,
+            child: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      // Mic button
+                      Container(
+                        width: 44,
+                        height: 44,
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.secondary,
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        child: const Icon(Icons.mic, size: 20, color: AppTheme.muted),
                       ),
-                      style: const TextStyle(fontSize: 14),
-                      onSubmitted: (_) => _sendMessage(),
+                      // Text input
+                      Expanded(
+                        child: Container(
+                          constraints: const BoxConstraints(maxHeight: 120),
+                          decoration: BoxDecoration(
+                            color: AppTheme.secondary,
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: TextField(
+                            controller: _messageController,
+                            maxLines: null,
+                            textInputAction: TextInputAction.send,
+                            onSubmitted: (_) => _sendMessage(),
+                            decoration: InputDecoration(
+                              hintText: 'Message ${_getModelDisplayName(_selectedModel)}...',
+                              hintStyle: const TextStyle(color: AppTheme.muted, fontSize: 14),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              border: InputBorder.none,
+                            ),
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Send button
+                      GestureDetector(
+                        onTap: _isLoading ? null : _sendMessage,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: _isLoading ? AppTheme.muted : AppTheme.primary,
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          child: _isLoading
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.arrow_upward, size: 20, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Footer info
+                  Text(
+                    'AI can make mistakes. Consider checking important information.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.muted.withOpacity(0.7),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                GestureDetector(
-                  onTap: _isLoading ? null : _sendMessage,
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: _isLoading ? AppTheme.muted : AppTheme.primary,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: _isLoading
-                        ? const Padding(
-                            padding: EdgeInsets.all(8),
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.send, size: 16, color: Colors.white),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -291,163 +423,63 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(32),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ModelLogo(modelId: _selectedModel, size: 64),
+            const SizedBox(height: 16),
+            Text(
+              'Chat with ${_getModelDisplayName(_selectedModel)}',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
             ),
-            child: const Icon(Icons.send, size: 32, color: AppTheme.primary),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Start a conversation',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Ask me anything!',
-            style: TextStyle(color: AppTheme.muted, fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MessageBubble extends StatelessWidget {
-  final String content;
-  final bool isUser;
-
-  const _MessageBubble({required this.content, required this.isUser});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: [
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isUser ? AppTheme.primary : AppTheme.secondary,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(isUser ? 16 : 4),
-                  bottomRight: Radius.circular(isUser ? 4 : 16),
-                ),
-              ),
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.8,
-              ),
-              child: isUser
-                  ? Text(
-                      content,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                      ),
-                    )
-                  : MarkdownBody(
-                      data: content,
-                      selectable: true,
-                      styleSheet: MarkdownStyleSheet(
-                        p: const TextStyle(
-                          color: AppTheme.foreground,
-                          fontSize: 14,
-                          height: 1.5,
-                        ),
-                        strong: const TextStyle(
-                          color: AppTheme.foreground,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        em: const TextStyle(
-                          color: AppTheme.foreground,
-                          fontStyle: FontStyle.italic,
-                        ),
-                        listBullet: const TextStyle(
-                          color: AppTheme.foreground,
-                          fontSize: 14,
-                        ),
-                        h1: const TextStyle(
-                          color: AppTheme.foreground,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        h2: const TextStyle(
-                          color: AppTheme.foreground,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        h3: const TextStyle(
-                          color: AppTheme.foreground,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        code: TextStyle(
-                          color: AppTheme.accent,
-                          backgroundColor: AppTheme.card,
-                          fontFamily: 'monospace',
-                          fontSize: 13,
-                        ),
-                        codeblockDecoration: BoxDecoration(
-                          color: AppTheme.card,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        blockquote: const TextStyle(
-                          color: AppTheme.muted,
-                          fontStyle: FontStyle.italic,
-                        ),
-                        a: const TextStyle(
-                          color: AppTheme.primary,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
+            const SizedBox(height: 8),
+            const Text(
+              'Start a conversation with one of the most advanced AI models.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.muted, fontSize: 14),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TypingIndicator extends StatelessWidget {
-  const _TypingIndicator();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.secondary,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
+            const SizedBox(height: 24),
+            // Suggestion chips
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
               children: [
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                SizedBox(width: 8),
-                Text('...', style: TextStyle(color: AppTheme.muted)),
-              ],
+                'Explain quantum computing',
+                'Write a poem about space',
+                'Help me brainstorm ideas',
+                'Summarize a complex topic',
+              ].map((suggestion) {
+                return GestureDetector(
+                  onTap: () {
+                    _messageController.text = suggestion;
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.secondary,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppTheme.border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.auto_awesome, size: 14, color: AppTheme.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          suggestion,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
