@@ -10,6 +10,7 @@ import 'providers/credits_provider.dart';
 import 'providers/generation_provider.dart';
 import 'providers/iap_provider.dart';
 import 'services/tiktok_service.dart';
+import 'services/facebook_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,8 +20,9 @@ void main() async {
     anonKey: AppConfig.supabaseAnonKey,
   );
 
-  // Initialize TikTok SDK for attribution tracking
+  // Initialize analytics SDKs for attribution tracking
   await tiktokService.initialize();
+  await facebookService.initialize();
 
   runApp(const TimelessAIApp());
 }
