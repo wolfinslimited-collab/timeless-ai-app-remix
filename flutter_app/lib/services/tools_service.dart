@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/supabase_logger.dart';
 
 class ToolsService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -9,13 +10,15 @@ class ToolsService {
     required String imageUrl,
     Map<String, dynamic>? options,
   }) async {
-    final response = await _supabase.functions.invoke(
+    final body = {
+      'tool': tool,
+      'imageUrl': imageUrl,
+      if (options != null) ...options,
+    };
+
+    final response = await _supabase.functions.invokeWithLogging(
       'image-tools',
-      body: {
-        'tool': tool,
-        'imageUrl': imageUrl,
-        if (options != null) ...options,
-      },
+      body: body,
     );
 
     if (response.status != 200) {
@@ -32,13 +35,15 @@ class ToolsService {
     required String videoUrl,
     Map<String, dynamic>? options,
   }) async {
-    final response = await _supabase.functions.invoke(
+    final body = {
+      'tool': tool,
+      'videoUrl': videoUrl,
+      if (options != null) ...options,
+    };
+
+    final response = await _supabase.functions.invokeWithLogging(
       'video-tools',
-      body: {
-        'tool': tool,
-        'videoUrl': videoUrl,
-        if (options != null) ...options,
-      },
+      body: body,
     );
 
     if (response.status != 200) {
@@ -55,13 +60,15 @@ class ToolsService {
     required String audioUrl,
     Map<String, dynamic>? options,
   }) async {
-    final response = await _supabase.functions.invoke(
+    final body = {
+      'tool': tool,
+      'audioUrl': audioUrl,
+      if (options != null) ...options,
+    };
+
+    final response = await _supabase.functions.invokeWithLogging(
       'music-tools',
-      body: {
-        'tool': tool,
-        'audioUrl': audioUrl,
-        if (options != null) ...options,
-      },
+      body: body,
     );
 
     if (response.status != 200) {
@@ -77,12 +84,14 @@ class ToolsService {
     required String tool,
     Map<String, dynamic>? options,
   }) async {
-    final response = await _supabase.functions.invoke(
+    final body = {
+      'tool': tool,
+      if (options != null) ...options,
+    };
+
+    final response = await _supabase.functions.invokeWithLogging(
       'cinema-tools',
-      body: {
-        'tool': tool,
-        if (options != null) ...options,
-      },
+      body: body,
     );
 
     if (response.status != 200) {

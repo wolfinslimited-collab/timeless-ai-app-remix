@@ -5,8 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import '../../core/config.dart';
 import '../../core/theme.dart';
+import '../../core/http_client.dart';
 import '../../providers/credits_provider.dart';
-import 'package:http/http.dart' as http;
 
 class CinemaStudioScreen extends StatefulWidget {
   const CinemaStudioScreen({super.key});
@@ -120,7 +120,7 @@ class _CinemaStudioScreenState extends State<CinemaStudioScreen> {
     });
 
     try {
-      final response = await http.post(
+      final response = await httpClient.post(
         Uri.parse('${AppConfig.supabaseUrl}/functions/v1/cinema-tools'),
         headers: {
           'Content-Type': 'application/json',
@@ -160,7 +160,7 @@ class _CinemaStudioScreenState extends State<CinemaStudioScreen> {
 
   Future<void> _pollForResult(String taskId) async {
     try {
-      final response = await http.post(
+      final response = await httpClient.post(
         Uri.parse('${AppConfig.supabaseUrl}/functions/v1/check-generation'),
         headers: {
           'Content-Type': 'application/json',
