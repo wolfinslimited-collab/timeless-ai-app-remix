@@ -91,9 +91,9 @@ const List<AIAppItem> _aiApps = [
     description: 'Cognitive enhancement and memory training',
     iconAsset: 'assets/icons/brain-ai.png',
     category: 'productivity',
-    badge: 'SOON',
+    badge: 'NEW',
     gradientColors: [Color(0x338B5CF6), Color(0x33A855F7)],
-    comingSoon: true,
+    comingSoon: false,
   ),
   AIAppItem(
     id: 'blood-ai',
@@ -180,6 +180,9 @@ class _AppsScreenState extends State<AppsScreen> {
         break;
       case 'notify-ai':
         context.push('/notify-ai');
+        break;
+      case 'brain-ai':
+        context.push('/brain-ai');
         break;
       default:
         ScaffoldMessenger.of(context).showSnackBar(

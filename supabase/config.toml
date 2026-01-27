@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.notify-ai-save]
 verify_jwt = false
+
+[functions.brain-ai]
+verify_jwt = false
