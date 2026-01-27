@@ -3,12 +3,46 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/credits_provider.dart';
 import '../../providers/generation_provider.dart';
 import '../../widgets/common/credit_badge.dart';
 import '../../models/generation_model.dart';
+
+// Featured item model matching Supabase table
+class FeaturedItem {
+  final String id;
+  final String title;
+  final String description;
+  final String tag;
+  final String videoUrl;
+  final int displayOrder;
+  final String? linkUrl;
+
+  const FeaturedItem({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.tag,
+    required this.videoUrl,
+    required this.displayOrder,
+    this.linkUrl,
+  });
+
+  factory FeaturedItem.fromJson(Map<String, dynamic> json) {
+    return FeaturedItem(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      description: json['description'] as String,
+      tag: json['tag'] as String,
+      videoUrl: json['video_url'] as String,
+      displayOrder: json['display_order'] as int,
+      linkUrl: json['link_url'] as String?,
+    );
+  }
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,10 +52,39 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  List<FeaturedItem> _featuredItems = [];
+  bool _loadingFeatured = true;
+
   @override
   void initState() {
     super.initState();
     _loadRecentGenerations();
+    _loadFeaturedItems();
+  }
+
+  Future<void> _loadFeaturedItems() async {
+    try {
+      final response = await Supabase.instance.client
+          .from('featured_items')
+          .select('*')
+          .eq('is_active', true)
+          .order('display_order', ascending: true);
+
+      if (mounted) {
+        setState(() {
+          _featuredItems = (response as List)
+              .map((item) => FeaturedItem.fromJson(item))
+              .toList();
+          _loadingFeatured = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadingFeatured = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadRecentGenerations() async {
@@ -30,7 +93,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _handleRefresh() async {
-    await _loadRecentGenerations();
+    await Future.wait([
+      _loadRecentGenerations(),
+      _loadFeaturedItems(),
+    ]);
     if (mounted) {
       context.read<CreditsProvider>().refresh();
     }
@@ -184,7 +250,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              const _TrendingGrid(),
+              _TrendingGrid(
+                items: _featuredItems,
+                isLoading: _loadingFeatured,
+              ),
               const SizedBox(height: 24),
 
               // Apps Section
@@ -258,53 +327,45 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// Trending data model
-class _TrendingItem {
-  final String url;
-  final String title;
-  final String description;
-  final String badge;
-
-  const _TrendingItem({
-    required this.url,
-    required this.title,
-    required this.description,
-    required this.badge,
-  });
-}
-
-const _trendingItems = [
-  _TrendingItem(
-    url: 'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/47f98df2-8f0d-4cf0-a32f-f582f3c0f90f-video11080.1080.mp4',
-    title: 'Cinema Studio',
-    description: 'Professional cinematic video creation with AI',
-    badge: 'Featured',
-  ),
-  _TrendingItem(
-    url: 'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/25bd0bda-0068-47e9-a2c3-c51330245765-video21080.1080 - RESIZE - Videobolt.net.mp4',
-    title: 'Video Upscale',
-    description: 'Enhance video quality up to 4K resolution',
-    badge: 'Popular',
-  ),
-  _TrendingItem(
-    url: 'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/559a3bef-5733-4be4-b79b-324924945429-video31080.1080 - RESIZE - Videobolt.net.mp4',
-    title: 'Draw to Video',
-    description: 'Transform sketches into animated videos',
-    badge: 'New',
-  ),
-  _TrendingItem(
-    url: 'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/33ee7581-6b7d-4d50-87d0-98acd87a53f3-video41080.1080 - RESIZE - Videobolt.net.mp4',
-    title: 'Music Studio',
-    description: 'AI-powered music creation and remixing',
-    badge: 'Hot',
-  ),
-];
-
 class _TrendingGrid extends StatelessWidget {
-  const _TrendingGrid();
+  final List<FeaturedItem> items;
+  final bool isLoading;
+
+  const _TrendingGrid({
+    required this.items,
+    required this.isLoading,
+  });
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 0.75,
+        ),
+        itemCount: 4,
+        itemBuilder: (context, index) {
+          return Container(
+            decoration: BoxDecoration(
+              color: AppTheme.card,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppTheme.primary,
+              ),
+            ),
+          );
+        },
+      );
+    }
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -314,16 +375,16 @@ class _TrendingGrid extends StatelessWidget {
         crossAxisSpacing: 12,
         childAspectRatio: 0.75,
       ),
-      itemCount: _trendingItems.length,
+      itemCount: items.length,
       itemBuilder: (context, index) {
-        return _TrendingTile(item: _trendingItems[index]);
+        return _TrendingTile(item: items[index]);
       },
     );
   }
 }
 
 class _TrendingTile extends StatefulWidget {
-  final _TrendingItem item;
+  final FeaturedItem item;
 
   const _TrendingTile({required this.item});
 
@@ -344,7 +405,7 @@ class _TrendingTileState extends State<_TrendingTile> {
 
   Future<void> _initializeVideo() async {
     _controller = VideoPlayerController.networkUrl(
-      Uri.parse(widget.item.url),
+      Uri.parse(widget.item.videoUrl),
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
     );
     
@@ -373,85 +434,107 @@ class _TrendingTileState extends State<_TrendingTile> {
     super.dispose();
   }
 
+  void _handleTap() {
+    final linkUrl = widget.item.linkUrl;
+    if (linkUrl != null && linkUrl.isNotEmpty) {
+      // Parse link_url and navigate
+      // Web format: '/create?type=cinema' or '/create?app=video-upscale'
+      if (linkUrl.contains('/create?type=cinema')) {
+        GoRouter.of(context).go('/cinema');
+      } else if (linkUrl.contains('/create?type=music')) {
+        GoRouter.of(context).go('/apps');
+      } else if (linkUrl.contains('/create?app=video-upscale')) {
+        GoRouter.of(context).go('/create/video');
+      } else if (linkUrl.contains('/create?app=draw-to-video')) {
+        GoRouter.of(context).go('/create/video');
+      } else {
+        GoRouter.of(context).go('/apps');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // Video or placeholder
-                Container(
-                  color: AppTheme.card,
-                  child: _hasError
-                      ? const Center(
-                          child: Icon(Icons.error_outline, color: AppTheme.muted),
-                        )
-                      : _isInitialized
-                          ? FittedBox(
-                              fit: BoxFit.cover,
-                              child: SizedBox(
-                                width: _controller.value.size.width,
-                                height: _controller.value.size.height,
-                                child: VideoPlayer(_controller),
+    return GestureDetector(
+      onTap: _handleTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Video or placeholder
+                  Container(
+                    color: AppTheme.card,
+                    child: _hasError
+                        ? const Center(
+                            child: Icon(Icons.error_outline, color: AppTheme.muted),
+                          )
+                        : _isInitialized
+                            ? FittedBox(
+                                fit: BoxFit.cover,
+                                child: SizedBox(
+                                  width: _controller.value.size.width,
+                                  height: _controller.value.size.height,
+                                  child: VideoPlayer(_controller),
+                                ),
+                              )
+                            : const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppTheme.primary,
+                                ),
                               ),
-                            )
-                          : const Center(
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppTheme.primary,
-                              ),
-                            ),
-                ),
-                // Badge
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      widget.item.badge,
-                      style: const TextStyle(
-                        color: Color(0xFF374151),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                  ),
+                  // Badge
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        widget.item.tag,
+                        style: const TextStyle(
+                          color: Color(0xFF374151),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          widget.item.title,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+          const SizedBox(height: 8),
+          Text(
+            widget.item.title,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 2),
-        Text(
-          widget.item.description,
-          style: const TextStyle(
-            color: AppTheme.muted,
-            fontSize: 10,
+          const SizedBox(height: 2),
+          Text(
+            widget.item.description,
+            style: const TextStyle(
+              color: AppTheme.muted,
+              fontSize: 10,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
