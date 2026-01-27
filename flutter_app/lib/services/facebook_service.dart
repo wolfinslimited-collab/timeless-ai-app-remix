@@ -9,7 +9,7 @@ class FacebookService {
   FacebookService._internal();
 
   final FacebookAppEvents _facebookAppEvents = FacebookAppEvents();
-  
+
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
 
@@ -23,7 +23,7 @@ class FacebookService {
 
       // Enable advertiser tracking (for iOS 14+ ATT)
       await _facebookAppEvents.setAdvertiserTracking(enabled: true);
-      
+
       // Enable auto-logging of app events
       await _facebookAppEvents.setAutoLogAppEventsEnabled(true);
 
@@ -80,10 +80,12 @@ class FacebookService {
 
     try {
       await _facebookAppEvents.logSubscribe(
+        orderId: productId,
         currency: currency ?? 'USD',
         price: price,
       );
-      debugPrint('[Facebook] Event: Subscribe (product: $productId, price: $price)');
+      debugPrint(
+          '[Facebook] Event: Subscribe (product: $productId, price: $price)');
     } catch (e) {
       debugPrint('[Facebook] Subscribe error: $e');
     }
@@ -108,7 +110,8 @@ class FacebookService {
           'fb_num_items': credits,
         },
       );
-      debugPrint('[Facebook] Event: Purchase (product: $productId, credits: $credits)');
+      debugPrint(
+          '[Facebook] Event: Purchase (product: $productId, credits: $credits)');
     } catch (e) {
       debugPrint('[Facebook] Purchase error: $e');
     }

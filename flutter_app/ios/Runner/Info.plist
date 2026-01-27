@@ -22,6 +22,23 @@
 	<string>????</string>
 	<key>CFBundleURLTypes</key>
 	<array>
+	<dict>
+		<key>CFBundleURLSchemes</key>
+		<array>
+		<string>fb730921032871755</string>
+		</array>
+	</dict>
+	</array>
+	<key>TikTokAppID</key>
+	<string>7566328038468812807</string>
+	<key>FacebookAppID</key>
+	<string>730921032871755</string>
+	<key>FacebookClientToken</key>
+	<string>47667fcbfc2ee801006f91a794ad414c</string>
+	<key>FacebookDisplayName</key>
+	<string>Timeless AI</string>
+	<key>CFBundleURLTypes</key>
+	<array>
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>

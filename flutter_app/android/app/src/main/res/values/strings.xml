@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TimelessAI</string>
+    <string name="facebook_app_id">730921032871755</string>
+    <string name="fb_login_protocol_scheme">fb730921032871755</string>
+    <string name="facebook_client_token">47667fcbfc2ee801006f91a794ad414c</string>
+    <string name="tiktok_app_id">7571773399236640784</string>
+</resources>
