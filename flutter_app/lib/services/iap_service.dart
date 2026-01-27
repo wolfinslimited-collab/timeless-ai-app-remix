@@ -5,6 +5,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'tiktok_service.dart';
 
 /// Product IDs for subscriptions and consumables
 class IAPProducts {
@@ -321,6 +322,24 @@ class IAPService {
 
       if (data['success'] == true) {
         final credits = data['credits'] as int? ?? 0;
+        final product = getProduct(purchase.productID);
+        final price = _extractPrice(product?.price ?? '0');
+
+        // Track TikTok events
+        final isSubscription = IAPProducts.subscriptionIds.contains(purchase.productID);
+        if (isSubscription) {
+          await tiktokService.trackSubscribe(
+            productId: purchase.productID,
+            price: price,
+            subscriptionType: purchase.productID.contains('yearly') ? 'yearly' : 'monthly',
+          );
+        } else {
+          await tiktokService.trackPurchase(
+            productId: purchase.productID,
+            price: price,
+            credits: credits,
+          );
+        }
 
         if (purchase.status == PurchaseStatus.restored) {
           onPurchaseRestored?.call();
@@ -352,6 +371,12 @@ class IAPService {
       debugPrint('[IAP] Check status error: $e');
       return null;
     }
+  }
+
+  /// Extract numeric price from formatted string (e.g., "$9.99" -> 9.99)
+  double _extractPrice(String priceString) {
+    final cleaned = priceString.replaceAll(RegExp(r'[^\d.]'), '');
+    return double.tryParse(cleaned) ?? 0.0;
   }
 
   /// Dispose the service
