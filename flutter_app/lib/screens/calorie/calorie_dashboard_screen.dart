@@ -299,115 +299,157 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/apps'),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Hello 🥗', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            Text(
-              DateFormat('EEEE, MMMM d').format(DateTime.now()),
-              style: const TextStyle(fontSize: 12, color: AppTheme.muted),
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          SliverAppBar(
+            backgroundColor: AppTheme.background,
+            elevation: 0,
+            floating: true,
+            pinned: true,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => context.go('/apps'),
             ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => _showSettingsDialog(),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Hello 🥗', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text(
+                  DateFormat('EEEE, MMMM d').format(DateTime.now()),
+                  style: const TextStyle(fontSize: 12, color: AppTheme.muted),
+                ),
+              ],
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.settings),
+                onPressed: () => _showSettingsDialog(),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Stats Cards
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
                 children: [
-                  _buildStatCard(
-                    icon: Icons.local_fire_department,
-                    iconColor: Colors.orange,
-                    label: 'Calories',
-                    value: '$_todayCalories',
-                    goal: '/ ${_profile!.recommendedCalories}',
-                    progress: calorieProgress,
+                  // Stats Grid - 2x3 layout (no horizontal scroll)
+                  _buildStatsGrid(
+                    calorieProgress: calorieProgress,
+                    proteinProgress: proteinProgress,
+                    carbsProgress: carbsProgress,
+                    fatProgress: fatProgress,
+                    waterProgress: waterProgress,
                   ),
-                  const SizedBox(width: 12),
-                  _buildStatCard(
-                    icon: Icons.egg,
-                    iconColor: Colors.red.shade300,
-                    label: 'Protein',
-                    value: '${_todayProtein.round()}g',
-                    goal: '/ ${_profile!.recommendedProtein}g',
-                    progress: proteinProgress,
-                  ),
-                  const SizedBox(width: 12),
-                  _buildStatCard(
-                    icon: Icons.grain,
-                    iconColor: Colors.amber,
-                    label: 'Carbs',
-                    value: '${_todayCarbs.round()}g',
-                    goal: '/ ${_profile!.recommendedCarbs}g',
-                    progress: carbsProgress,
-                  ),
-                  const SizedBox(width: 12),
-                  _buildStatCard(
-                    icon: Icons.water_drop,
-                    iconColor: Colors.blue,
-                    label: 'Fat',
-                    value: '${_todayFat.round()}g',
-                    goal: '/ ${_profile!.recommendedFat}g',
-                    progress: fatProgress,
-                  ),
-                  const SizedBox(width: 12),
-                  _buildWaterCard(waterProgress),
+                  const SizedBox(height: 16),
+
+                  // Progress Ring Card
+                  _buildProgressRing(calorieProgress, remainingCalories, isOverGoal),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 16),
-
-          // Progress Ring
-          _buildProgressRing(calorieProgress, remainingCalories, isOverGoal),
-          const SizedBox(height: 16),
-
-          // Tabs
-          TabBar(
-            controller: _tabController,
-            tabs: const [
-              Tab(text: 'Log Food'),
-              Tab(text: 'History'),
-              Tab(text: 'Meal Ideas'),
-            ],
-            labelColor: Colors.white,
-            unselectedLabelColor: AppTheme.muted,
-            indicatorColor: AppTheme.primary,
-          ),
-
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildLogFoodTab(),
-                _buildHistoryTab(),
-                _buildMealIdeasTab(),
-              ],
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _StickyTabBarDelegate(
+              TabBar(
+                controller: _tabController,
+                tabs: const [
+                  Tab(text: 'Log Food'),
+                  Tab(text: 'History'),
+                  Tab(text: 'Meal Ideas'),
+                ],
+                labelColor: Colors.white,
+                unselectedLabelColor: AppTheme.muted,
+                indicatorColor: AppTheme.primary,
+              ),
             ),
           ),
         ],
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildLogFoodTab(),
+            _buildHistoryTab(),
+            _buildMealIdeasTab(),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildStatCard({
+  Widget _buildStatsGrid({
+    required double calorieProgress,
+    required double proteinProgress,
+    required double carbsProgress,
+    required double fatProgress,
+    required double waterProgress,
+  }) {
+    final glasses = (_todayWater / 250).floor();
+    final goalGlasses = (_waterGoal / 250).ceil();
+
+    return Column(
+      children: [
+        // First row - Calories (full width) + Protein
+        Row(
+          children: [
+            Expanded(
+              child: _buildCompactStatCard(
+                icon: Icons.local_fire_department,
+                iconColor: Colors.orange,
+                label: 'Calories',
+                value: '$_todayCalories',
+                goal: '/${_profile!.recommendedCalories}',
+                progress: calorieProgress,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildCompactStatCard(
+                icon: Icons.egg,
+                iconColor: Colors.red.shade300,
+                label: 'Protein',
+                value: '${_todayProtein.round()}g',
+                goal: '/${_profile!.recommendedProtein}g',
+                progress: proteinProgress,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        // Second row - Carbs + Fat
+        Row(
+          children: [
+            Expanded(
+              child: _buildCompactStatCard(
+                icon: Icons.grain,
+                iconColor: Colors.amber,
+                label: 'Carbs',
+                value: '${_todayCarbs.round()}g',
+                goal: '/${_profile!.recommendedCarbs}g',
+                progress: carbsProgress,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildCompactStatCard(
+                icon: Icons.water_drop,
+                iconColor: Colors.blue,
+                label: 'Fat',
+                value: '${_todayFat.round()}g',
+                goal: '/${_profile!.recommendedFat}g',
+                progress: fatProgress,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        // Third row - Water (full width)
+        _buildWaterCard(waterProgress, glasses, goalGlasses),
+      ],
+    );
+  }
+
+  Widget _buildCompactStatCard({
     required IconData icon,
     required Color iconColor,
     required String label,
@@ -416,88 +458,103 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
     required double progress,
   }) {
     return Container(
-      width: 120,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppTheme.secondary,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, color: iconColor, size: 20),
+              Icon(icon, color: iconColor, size: 18),
               Text(
                 '${(progress * 100).round()}%',
                 style: const TextStyle(fontSize: 10, color: AppTheme.muted),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.muted)),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
+          Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.muted)),
+          const SizedBox(height: 2),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(width: 2),
               Text(goal, style: const TextStyle(fontSize: 10, color: AppTheme.muted)),
             ],
           ),
           const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: progress,
-            backgroundColor: AppTheme.border,
-            valueColor: AlwaysStoppedAnimation(iconColor),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: AppTheme.border,
+              valueColor: AlwaysStoppedAnimation(iconColor),
+              minHeight: 4,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildWaterCard(double progress) {
-    final glasses = (_todayWater / 250).floor();
-    final goalGlasses = (_waterGoal / 250).ceil();
-
+  Widget _buildWaterCard(double progress, int glasses, int goalGlasses) {
     return Container(
-      width: 140,
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppTheme.secondary,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Icon(Icons.local_drink, color: Colors.cyan, size: 20),
-              Text(
-                '$glasses/$goalGlasses 🥛',
-                style: const TextStyle(fontSize: 10, color: AppTheme.muted),
-              ),
-            ],
+          const Icon(Icons.local_drink, color: Colors.cyan, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Water', style: TextStyle(fontSize: 12, color: AppTheme.muted)),
+                    Text('$glasses/$goalGlasses 🥛', style: const TextStyle(fontSize: 11, color: AppTheme.muted)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text('${_todayWater}ml', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    backgroundColor: AppTheme.border,
+                    valueColor: const AlwaysStoppedAnimation(Colors.cyan),
+                    minHeight: 4,
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          const Text('Water', style: TextStyle(fontSize: 12, color: AppTheme.muted)),
-          Text('${_todayWater}ml', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
+          const SizedBox(width: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               IconButton(
-                icon: const Icon(Icons.remove, size: 16),
+                icon: const Icon(Icons.remove_circle_outline, size: 22),
                 onPressed: _todayWater > 0 ? _removeWater : null,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                color: AppTheme.muted,
               ),
-              const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: () => _addWater(250),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   minimumSize: Size.zero,
                 ),
                 child: const Text('+250ml', style: TextStyle(fontSize: 12)),
@@ -511,8 +568,7 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
 
   Widget _buildProgressRing(double progress, int remaining, bool isOverGoal) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.secondary,
         borderRadius: BorderRadius.circular(20),
@@ -520,14 +576,14 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
       child: Row(
         children: [
           SizedBox(
-            width: 100,
-            height: 100,
+            width: 80,
+            height: 80,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 CircularProgressIndicator(
                   value: progress,
-                  strokeWidth: 10,
+                  strokeWidth: 8,
                   backgroundColor: AppTheme.border,
                   valueColor: AlwaysStoppedAnimation(
                     isOverGoal ? AppTheme.destructive : AppTheme.primary,
@@ -538,35 +594,28 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
                   children: [
                     Text(
                       '${(progress * 100).round()}%',
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                    const Text('of goal', style: TextStyle(fontSize: 10, color: AppTheme.muted)),
+                    const Text('of goal', style: TextStyle(fontSize: 9, color: AppTheme.muted)),
                   ],
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 20),
+          const SizedBox(width: 16),
           Expanded(
-            child: Column(
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildMiniStat(
-                        'Consumed',
-                        '$_todayCalories kcal',
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildMiniStat(
-                        'Remaining',
-                        '${remaining >= 0 ? remaining : "+${remaining.abs()}"} kcal',
-                        isNegative: isOverGoal,
-                      ),
-                    ),
-                  ],
+                Expanded(
+                  child: _buildMiniStat('Consumed', '$_todayCalories kcal'),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildMiniStat(
+                    'Remaining',
+                    '${remaining >= 0 ? remaining : "+${remaining.abs()}"} kcal',
+                    isNegative: isOverGoal,
+                  ),
                 ),
               ],
             ),
@@ -578,22 +627,23 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
 
   Widget _buildMiniStat(String label, String value, {bool isNegative = false}) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: AppTheme.background,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.muted)),
-          const SizedBox(height: 4),
+          Text(label, style: const TextStyle(fontSize: 10, color: AppTheme.muted)),
+          const SizedBox(height: 2),
           Text(
             value,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
               color: isNegative ? AppTheme.destructive : null,
             ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -601,144 +651,140 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
   }
 
   Widget _buildLogFoodTab() {
-    return SingleChildScrollView(
+    return ListView(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Image or Text input section
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.secondary,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Scan or describe your food', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
+      children: [
+        // Image or Text input section
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.secondary,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Scan or describe your food', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
 
-                // Image upload buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _pickImage,
-                        icon: const Icon(Icons.camera_alt),
-                        label: const Text('Camera'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primary,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
+              // Image upload buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _pickImage,
+                      icon: const Icon(Icons.camera_alt, size: 18),
+                      label: const Text('Camera'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _pickGalleryImage,
-                        icon: const Icon(Icons.photo_library),
-                        label: const Text('Gallery'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Selected image preview
-                if (_selectedImageBase64 != null) ...[
-                  const SizedBox(height: 16),
-                  Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.memory(
-                          base64Decode(_selectedImageBase64!.split(',').last),
-                          width: double.infinity,
-                          height: 200,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: IconButton(
-                          onPressed: () => setState(() {
-                            _selectedImageBase64 = null;
-                            _analysisResult = null;
-                          }),
-                          icon: const Icon(Icons.close),
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.black54,
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isAnalyzing ? null : _analyzeImage,
-                      child: _isAnalyzing
-                          ? const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                                SizedBox(width: 12),
-                                Text('Analyzing...'),
-                              ],
-                            )
-                          : const Text('Analyze Image (2 credits)'),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _pickGalleryImage,
+                      icon: const Icon(Icons.photo_library, size: 18),
+                      label: const Text('Gallery'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
                     ),
                   ),
                 ],
+              ),
 
+              // Selected image preview
+              if (_selectedImageBase64 != null) ...[
                 const SizedBox(height: 16),
-                const Divider(),
-                const SizedBox(height: 16),
-
-                // Text input
-                const Text('Or describe your meal:', style: TextStyle(fontSize: 14, color: AppTheme.muted)),
-                const SizedBox(height: 8),
-                TextField(
-                  onChanged: (v) => _foodDescription = v,
-                  decoration: const InputDecoration(
-                    hintText: 'e.g., 2 eggs, toast with butter, orange juice',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 2,
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.memory(
+                        base64Decode(_selectedImageBase64!.split(',').last),
+                        width: double.infinity,
+                        height: 180,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: IconButton(
+                        onPressed: () => setState(() {
+                          _selectedImageBase64 = null;
+                          _analysisResult = null;
+                        }),
+                        icon: const Icon(Icons.close),
+                        style: IconButton.styleFrom(backgroundColor: Colors.black54),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _isAnalyzing || _foodDescription.isEmpty ? null : _analyzeText,
-                    child: _isAnalyzing && _selectedImageBase64 == null
+                    onPressed: _isAnalyzing ? null : _analyzeImage,
+                    child: _isAnalyzing
                         ? const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                              SizedBox(width: 12),
+                              SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                              SizedBox(width: 10),
                               Text('Analyzing...'),
                             ],
                           )
-                        : const Text('Get Nutrition Info (1 credit)'),
+                        : const Text('Analyze Image (2 credits)'),
                   ),
                 ),
               ],
-            ),
-          ),
 
-          // Analysis results
-          if (_analysisResult != null) ...[
-            const SizedBox(height: 20),
-            _buildAnalysisResults(),
-          ],
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 16),
+
+              // Text input
+              const Text('Or describe your meal:', style: TextStyle(fontSize: 13, color: AppTheme.muted)),
+              const SizedBox(height: 8),
+              TextField(
+                onChanged: (v) => _foodDescription = v,
+                decoration: const InputDecoration(
+                  hintText: 'e.g., 2 eggs, toast with butter',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isAnalyzing || _foodDescription.isEmpty ? null : _analyzeText,
+                  child: _isAnalyzing && _selectedImageBase64 == null
+                      ? const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                            SizedBox(width: 10),
+                            Text('Analyzing...'),
+                          ],
+                        )
+                      : const Text('Get Nutrition Info (1 credit)'),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Analysis results
+        if (_analysisResult != null) ...[
+          const SizedBox(height: 16),
+          _buildAnalysisResults(),
         ],
-      ),
+      ],
     );
   }
 
@@ -754,30 +800,30 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Nutrition Results', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 16),
+          const Text('Nutrition Results', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const SizedBox(height: 14),
 
           // Total calories
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppTheme.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
               children: [
-                const Icon(Icons.local_fire_department, color: Colors.orange, size: 32),
-                const SizedBox(height: 8),
+                const Icon(Icons.local_fire_department, color: Colors.orange, size: 28),
+                const SizedBox(height: 6),
                 Text(
                   '${result.totalCalories}',
-                  style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                 ),
-                const Text('Total Calories', style: TextStyle(color: AppTheme.muted)),
+                const Text('Total Calories', style: TextStyle(color: AppTheme.muted, fontSize: 12)),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // Macros row
           Row(
@@ -789,28 +835,28 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
               Expanded(child: _buildMacroChip('Fat', '${result.totalFat.round()}g', Colors.blue)),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // Health score
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: AppTheme.background,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    Icon(Icons.favorite, color: _getHealthScoreColor(result.healthScore)),
+                    Icon(Icons.favorite, color: _getHealthScoreColor(result.healthScore), size: 20),
                     const SizedBox(width: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Health Score', style: TextStyle(fontWeight: FontWeight.w500)),
+                        const Text('Health Score', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
                         Text(_getHealthScoreLabel(result.healthScore), 
-                             style: const TextStyle(fontSize: 12, color: AppTheme.muted)),
+                             style: const TextStyle(fontSize: 11, color: AppTheme.muted)),
                       ],
                     ),
                   ],
@@ -818,7 +864,7 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
                 Text(
                   '${result.healthScore}/10',
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: _getHealthScoreColor(result.healthScore),
                   ),
@@ -826,42 +872,44 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // Meal type selector
-          const Text('Meal Type:', style: TextStyle(fontSize: 14)),
+          const Text('Meal Type:', style: TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
           Wrap(
-            spacing: 8,
+            spacing: 6,
+            runSpacing: 6,
             children: mealTypes.map((type) => ChoiceChip(
-              label: Text('${type.emoji} ${type.label}'),
+              label: Text('${type.emoji} ${type.label}', style: const TextStyle(fontSize: 12)),
               selected: _selectedMealType == type.value,
               onSelected: (s) => setState(() => _selectedMealType = type.value),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
             )).toList(),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // Save button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _saveMeal,
-              icon: const Icon(Icons.add),
+              icon: const Icon(Icons.add, size: 18),
               label: const Text('Save to History'),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ),
 
           // Food items list
           if (result.foods.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Text('Food Items:', style: TextStyle(fontSize: 14, color: AppTheme.muted)),
+            const SizedBox(height: 14),
+            const Text('Food Items:', style: TextStyle(fontSize: 13, color: AppTheme.muted)),
             const SizedBox(height: 8),
             ...result.foods.map((food) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: AppTheme.background,
                 borderRadius: BorderRadius.circular(8),
@@ -873,16 +921,16 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(food.foodName, style: const TextStyle(fontWeight: FontWeight.w500)),
-                        Text(food.servingSize, style: const TextStyle(fontSize: 12, color: AppTheme.muted)),
+                        Text(food.foodName, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+                        Text(food.servingSize, style: const TextStyle(fontSize: 11, color: AppTheme.muted)),
                       ],
                     ),
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('${food.calories} cal', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
-                      Text('${(food.confidence * 100).round()}% conf', style: const TextStyle(fontSize: 10, color: AppTheme.muted)),
+                      Text('${food.calories} cal', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 13)),
+                      Text('${(food.confidence * 100).round()}%', style: const TextStyle(fontSize: 10, color: AppTheme.muted)),
                     ],
                   ),
                 ],
@@ -892,15 +940,15 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
 
           // Suggestions
           if (result.suggestions.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             const Row(
               children: [
-                Icon(Icons.lightbulb, color: Colors.amber, size: 18),
-                SizedBox(width: 8),
-                Text('Suggestions', style: TextStyle(fontSize: 14, color: AppTheme.muted)),
+                Icon(Icons.lightbulb, color: Colors.amber, size: 16),
+                SizedBox(width: 6),
+                Text('Tips', style: TextStyle(fontSize: 13, color: AppTheme.muted)),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             ...result.suggestions.map((s) => Container(
               margin: const EdgeInsets.only(bottom: 4),
               padding: const EdgeInsets.all(8),
@@ -908,7 +956,7 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
                 color: AppTheme.background,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(s, style: const TextStyle(fontSize: 13)),
+              child: Text(s, style: const TextStyle(fontSize: 12)),
             )),
           ],
         ],
@@ -918,15 +966,15 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
 
   Widget _buildMacroChip(String label, String value, Color color) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         children: [
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.muted)),
+          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(label, style: const TextStyle(fontSize: 10, color: AppTheme.muted)),
         ],
       ),
     );
@@ -938,8 +986,8 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.restaurant, size: 64, color: AppTheme.muted),
-            SizedBox(height: 16),
+            Icon(Icons.restaurant, size: 56, color: AppTheme.muted),
+            SizedBox(height: 14),
             Text('No meals logged today', style: TextStyle(color: AppTheme.muted)),
             Text('Start by logging your first meal!', style: TextStyle(fontSize: 12, color: AppTheme.muted)),
           ],
@@ -963,31 +1011,43 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
           background: Container(
             alignment: Alignment.centerRight,
             padding: const EdgeInsets.only(right: 20),
-            color: AppTheme.destructive,
+            decoration: BoxDecoration(
+              color: AppTheme.destructive,
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: const Icon(Icons.delete, color: Colors.white),
           ),
           onDismissed: (_) => _deleteMeal(meal.id),
           child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: AppTheme.secondary,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
-                Text(mealType.emoji, style: const TextStyle(fontSize: 28)),
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Text(mealType.emoji, style: const TextStyle(fontSize: 18)),
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(mealType.label, style: const TextStyle(fontWeight: FontWeight.bold)),
                       Text(
                         meal.mealDescription.isNotEmpty 
                             ? meal.mealDescription 
-                            : '${meal.foods.length} items',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.muted),
+                            : mealType.label,
+                        style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1003,11 +1063,11 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
                   children: [
                     Text(
                       '${meal.totalCalories} cal',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 13),
                     ),
                     Text(
-                      'P:${meal.totalProtein.round()}g C:${meal.totalCarbs.round()}g F:${meal.totalFat.round()}g',
-                      style: const TextStyle(fontSize: 10, color: AppTheme.muted),
+                      'P:${meal.totalProtein.round()} C:${meal.totalCarbs.round()} F:${meal.totalFat.round()}',
+                      style: const TextStyle(fontSize: 9, color: AppTheme.muted),
                     ),
                   ],
                 ),
@@ -1027,167 +1087,168 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
       'fat': (_profile!.recommendedFat - _todayFat).clamp(0, double.infinity).toInt(),
     };
 
-    return SingleChildScrollView(
+    return ListView(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Remaining macros summary
-          Container(
-            padding: const EdgeInsets.all(16),
+      children: [
+        // Remaining macros summary
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppTheme.secondary,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Remaining Today', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(child: _buildRemainingChip('🔥', '${remaining['calories']}', 'kcal')),
+                  const SizedBox(width: 6),
+                  Expanded(child: _buildRemainingChip('🥩', '${remaining['protein']}g', 'protein')),
+                  const SizedBox(width: 6),
+                  Expanded(child: _buildRemainingChip('🌾', '${remaining['carbs']}g', 'carbs')),
+                  const SizedBox(width: 6),
+                  Expanded(child: _buildRemainingChip('💧', '${remaining['fat']}g', 'fat')),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // Meal type filter
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  ChoiceChip(
+                    label: const Text('Any', style: TextStyle(fontSize: 12)),
+                    selected: _suggestionMealType == 'any',
+                    onSelected: (s) => setState(() => _suggestionMealType = 'any'),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                  ),
+                  ...mealTypes.map((type) => ChoiceChip(
+                    label: Text('${type.emoji} ${type.label}', style: const TextStyle(fontSize: 12)),
+                    selected: _suggestionMealType == type.value,
+                    onSelected: (s) => setState(() => _suggestionMealType = type.value),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                  )),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isLoadingSuggestions ? null : _loadMealSuggestions,
+                  icon: _isLoadingSuggestions
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.lightbulb, size: 18),
+                  label: Text(_isLoadingSuggestions ? 'Finding...' : 'Get Meal Ideas (1 credit)'),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Suggestions list
+        if (_mealSuggestions.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const Text('Suggested Meals', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const SizedBox(height: 10),
+          ...(_mealSuggestions.map((meal) => Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: AppTheme.secondary,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Remaining Today', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: _buildRemainingChip('🔥', '${remaining['calories']}', 'kcal')),
-                    const SizedBox(width: 8),
-                    Expanded(child: _buildRemainingChip('🥩', '${remaining['protein']}g', 'protein')),
-                    const SizedBox(width: 8),
-                    Expanded(child: _buildRemainingChip('🌾', '${remaining['carbs']}g', 'carbs')),
-                    const SizedBox(width: 8),
-                    Expanded(child: _buildRemainingChip('💧', '${remaining['fat']}g', 'fat')),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Meal type filter
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    ChoiceChip(
-                      label: const Text('Any'),
-                      selected: _suggestionMealType == 'any',
-                      onSelected: (s) => setState(() => _suggestionMealType = 'any'),
-                    ),
-                    ...mealTypes.map((type) => ChoiceChip(
-                      label: Text('${type.emoji} ${type.label}'),
-                      selected: _suggestionMealType == type.value,
-                      onSelected: (s) => setState(() => _suggestionMealType = type.value),
-                    )),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _isLoadingSuggestions ? null : _loadMealSuggestions,
-                    icon: _isLoadingSuggestions
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.lightbulb),
-                    label: Text(_isLoadingSuggestions ? 'Finding meals...' : 'Get Meal Ideas (1 credit)'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Suggestions list
-          if (_mealSuggestions.isNotEmpty) ...[
-            const Text('Suggested Meals', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 12),
-            ...(_mealSuggestions.map((meal) => Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.secondary,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(meal.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primary.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(meal.mealType, style: const TextStyle(fontSize: 10)),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Row(
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.timer, size: 14, color: AppTheme.muted),
-                          const SizedBox(width: 4),
-                          Text(meal.prepTime, style: const TextStyle(fontSize: 12, color: AppTheme.muted)),
+                          Text(meal.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primary.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(meal.mealType, style: const TextStyle(fontSize: 10)),
+                          ),
                         ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(meal.description, style: const TextStyle(fontSize: 13, color: AppTheme.muted)),
-                  const SizedBox(height: 12),
-
-                  // Macros
-                  Row(
-                    children: [
-                      _buildSuggestionMacro('${meal.calories}', 'kcal', Colors.orange),
-                      const SizedBox(width: 8),
-                      _buildSuggestionMacro('${meal.protein.round()}g', 'protein', Colors.red.shade300),
-                      const SizedBox(width: 8),
-                      _buildSuggestionMacro('${meal.carbs.round()}g', 'carbs', Colors.amber),
-                      const SizedBox(width: 8),
-                      _buildSuggestionMacro('${meal.fat.round()}g', 'fat', Colors.blue),
-                    ],
-                  ),
-
-                  if (meal.ingredients.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    const Text('Ingredients:', style: TextStyle(fontSize: 12, color: AppTheme.muted)),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: meal.ingredients.map((i) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.background,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(i, style: const TextStyle(fontSize: 11)),
-                      )).toList(),
+                    ),
+                    Row(
+                      children: [
+                        const Icon(Icons.timer, size: 12, color: AppTheme.muted),
+                        const SizedBox(width: 4),
+                        Text(meal.prepTime, style: const TextStyle(fontSize: 11, color: AppTheme.muted)),
+                      ],
                     ),
                   ],
+                ),
+                const SizedBox(height: 8),
+                Text(meal.description, style: const TextStyle(fontSize: 12, color: AppTheme.muted)),
+                const SizedBox(height: 10),
+
+                // Macros
+                Row(
+                  children: [
+                    _buildSuggestionMacro('${meal.calories}', 'kcal', Colors.orange),
+                    const SizedBox(width: 6),
+                    _buildSuggestionMacro('${meal.protein.round()}g', 'protein', Colors.red.shade300),
+                    const SizedBox(width: 6),
+                    _buildSuggestionMacro('${meal.carbs.round()}g', 'carbs', Colors.amber),
+                    const SizedBox(width: 6),
+                    _buildSuggestionMacro('${meal.fat.round()}g', 'fat', Colors.blue),
+                  ],
+                ),
+
+                if (meal.ingredients.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  const Text('Ingredients:', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: meal.ingredients.take(6).map((i) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.background,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(i, style: const TextStyle(fontSize: 10)),
+                    )).toList(),
+                  ),
                 ],
-              ),
-            ))),
-          ],
+              ],
+            ),
+          ))),
         ],
-      ),
+      ],
     );
   }
 
   Widget _buildRemainingChip(String emoji, String value, String label) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: AppTheme.background,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 16)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-          Text(label, style: const TextStyle(fontSize: 9, color: AppTheme.muted)),
+          Text(emoji, style: const TextStyle(fontSize: 14)),
+          const SizedBox(height: 2),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          Text(label, style: const TextStyle(fontSize: 8, color: AppTheme.muted)),
         ],
       ),
     );
@@ -1196,15 +1257,15 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
   Widget _buildSuggestionMacro(String value, String label, Color color) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Column(
           children: [
-            Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-            Text(label, style: const TextStyle(fontSize: 9, color: AppTheme.muted)),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            Text(label, style: const TextStyle(fontSize: 8, color: AppTheme.muted)),
           ],
         ),
       ),
@@ -1277,4 +1338,27 @@ class _CalorieDashboardScreenState extends State<CalorieDashboardScreen>
       if (mounted) context.go('/calorie-onboarding');
     }
   }
+}
+
+class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+
+  _StickyTabBarDelegate(this.tabBar);
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: AppTheme.background,
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_StickyTabBarDelegate oldDelegate) => false;
 }
