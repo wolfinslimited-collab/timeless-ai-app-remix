@@ -1,7 +1,16 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:path/path.dart' as path;
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/theme.dart';
+import '../../services/tools_service.dart';
+import '../../widgets/dialogs/add_credits_dialog.dart';
 
 /// Reusable layout for image processing tools
 class ImageToolLayout extends StatefulWidget {
@@ -50,9 +59,20 @@ class StyleOption {
 }
 
 class _ImageToolLayoutState extends State<ImageToolLayout> {
+  final SupabaseClient _supabase = Supabase.instance.client;
+  final ToolsService _toolsService = ToolsService();
+  final ImagePicker _picker = ImagePicker();
+  
   VideoPlayerController? _videoController;
   bool _isVideoInitialized = false;
 
+  // State
+  String? _inputImageUrl;
+  File? _inputImageFile;
+  String? _outputImageUrl;
+  bool _isUploading = false;
+  bool _isProcessing = false;
+  
   // Form state
   String _prompt = '';
   double _intensity = 50;
@@ -89,6 +109,206 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
     super.dispose();
   }
 
+  Future<void> _pickImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 4096,
+        maxHeight: 4096,
+        imageQuality: 95,
+      );
+      
+      if (image == null) return;
+      
+      final file = File(image.path);
+      final fileSize = await file.length();
+      
+      // Check file size (max 10MB)
+      if (fileSize > 10 * 1024 * 1024) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('File too large. Maximum size is 10MB.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      
+      setState(() {
+        _inputImageFile = file;
+        _outputImageUrl = null;
+      });
+      
+      // Upload to Supabase storage
+      await _uploadImage(file);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to pick image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadImage(File file) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please sign in to use this tool'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isUploading = true);
+
+    try {
+      final fileExt = path.extension(file.path).replaceFirst('.', '');
+      final fileName = '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      
+      await _supabase.storage
+          .from('generation-inputs')
+          .upload(fileName, file);
+      
+      final publicUrl = _supabase.storage
+          .from('generation-inputs')
+          .getPublicUrl(fileName);
+      
+      setState(() {
+        _inputImageUrl = publicUrl;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Upload failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
+    }
+  }
+
+  Future<void> _processImage() async {
+    if (_inputImageUrl == null) return;
+    
+    // Check credits - open dialog if not enough
+    // For now, proceed with processing
+    setState(() {
+      _isProcessing = true;
+      _outputImageUrl = null;
+    });
+
+    try {
+      final options = <String, dynamic>{};
+      
+      if (widget.showPrompt && _prompt.isNotEmpty) {
+        options['prompt'] = _prompt;
+      }
+      if (widget.showIntensity) {
+        options['intensity'] = _intensity.round();
+      }
+      if (widget.showScale) {
+        options['scale'] = _scale;
+      }
+      if (widget.showStyleSelector && _selectedStyle != null) {
+        options['style'] = _selectedStyle;
+      }
+
+      final result = await _toolsService.runImageTool(
+        tool: widget.toolId,
+        imageUrl: _inputImageUrl!,
+        options: options.isEmpty ? null : options,
+      );
+
+      if (result['outputUrl'] != null) {
+        setState(() {
+          _outputImageUrl = result['outputUrl'] as String;
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${widget.toolName} completed!'),
+              backgroundColor: AppTheme.primary,
+            ),
+          );
+        }
+      } else {
+        throw Exception('No output received');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Processing failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
+
+  Future<void> _downloadImage() async {
+    if (_outputImageUrl == null) return;
+
+    try {
+      final response = await http.get(Uri.parse(_outputImageUrl!));
+      final tempDir = await getTemporaryDirectory();
+      final fileName = '${widget.toolId}-${DateTime.now().millisecondsSinceEpoch}.png';
+      final file = File('${tempDir.path}/$fileName');
+      await file.writeAsBytes(response.bodyBytes);
+      
+      await Share.shareXFiles([XFile(file.path)], text: 'Processed with ${widget.toolName}');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Download failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _useAsInput() {
+    if (_outputImageUrl != null) {
+      setState(() {
+        _inputImageUrl = _outputImageUrl;
+        _inputImageFile = null;
+        _outputImageUrl = null;
+      });
+    }
+  }
+
+  void _reset() {
+    setState(() {
+      _inputImageUrl = null;
+      _inputImageFile = null;
+      _outputImageUrl = null;
+      _prompt = '';
+      _intensity = 50;
+      _scale = 2;
+      _selectedStyle = widget.styleOptions?.firstOrNull?.id;
+    });
+  }
+
   IconData _getToolIcon() {
     switch (widget.toolId) {
       case 'relight':
@@ -121,6 +341,14 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
           onPressed: () => context.go('/create/image'),
         ),
         title: Text(widget.toolName),
+        actions: [
+          if (_inputImageUrl != null || _outputImageUrl != null)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _reset,
+              tooltip: 'Reset',
+            ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -128,24 +356,30 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Preview Card with Video
-              _buildPreviewCard(),
-              
-              const SizedBox(height: 24),
-              
-              // Tool Info
+              // Tool Info Header
               _buildToolInfo(),
               
               const SizedBox(height: 24),
               
-              // Controls (if applicable)
-              if (widget.showPrompt || widget.showIntensity || widget.showScale || widget.showStyleSelector)
-                _buildControls(),
+              // Input Section
+              _buildInputSection(),
               
               const SizedBox(height: 24),
               
-              // Upload Button
-              _buildUploadButton(),
+              // Controls (if image is uploaded)
+              if (_inputImageUrl != null && _outputImageUrl == null) ...[
+                _buildControls(),
+                const SizedBox(height: 24),
+              ],
+              
+              // Output Section
+              if (_outputImageUrl != null) ...[
+                _buildOutputSection(),
+                const SizedBox(height: 24),
+              ],
+              
+              // Action Button
+              _buildActionButton(),
             ],
           ),
         ),
@@ -153,121 +387,267 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
     );
   }
 
-  Widget _buildPreviewCard() {
+  Widget _buildToolInfo() {
     return Container(
-      width: double.infinity,
-      height: 280,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.border.withOpacity(0.5)),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Video or Placeholder
-            if (_isVideoInitialized && _videoController != null)
-              FittedBox(
-                fit: BoxFit.cover,
-                child: SizedBox(
-                  width: _videoController!.value.size.width,
-                  height: _videoController!.value.size.height,
-                  child: VideoPlayer(_videoController!),
-                ),
-              )
-            else
-              Container(
-                color: AppTheme.primary.withOpacity(0.1),
-                child: Center(
-                  child: Icon(
-                    _getToolIcon(),
-                    size: 64,
-                    color: AppTheme.primary.withOpacity(0.5),
-                  ),
-                ),
-              ),
-            
-            // Overlay gradient
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withOpacity(0.3),
-                  ],
-                ),
-              ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
-            
-            // Upload hint
-            Positioned(
-              left: 16,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.border.withOpacity(0.5)),
+            child: Icon(
+              _getToolIcon(),
+              color: AppTheme.primary,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.toolName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
-                  child: const Icon(
-                    Icons.add,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.toolDescription,
+                  style: const TextStyle(
                     color: AppTheme.muted,
+                    fontSize: 13,
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.bolt, color: AppTheme.primary, size: 14),
+                const SizedBox(width: 4),
+                Text(
+                  '${widget.creditCost}',
+                  style: const TextStyle(
+                    color: AppTheme.primary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildToolInfo() {
+  Widget _buildInputSection() {
+    final hasInput = _inputImageUrl != null || _inputImageFile != null;
+    
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          widget.toolName.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
+        const Text(
+          'Input Image',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          widget.toolDescription,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: AppTheme.muted,
-            fontSize: 14,
+        const SizedBox(height: 12),
+        GestureDetector(
+          onTap: hasInput ? null : _pickImage,
+          child: Container(
+            width: double.infinity,
+            height: 280,
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: hasInput ? AppTheme.primary.withOpacity(0.5) : AppTheme.border.withOpacity(0.5),
+                width: hasInput ? 2 : 1,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(15),
+              child: hasInput ? _buildInputPreview() : _buildUploadPlaceholder(),
+            ),
           ),
         ),
-        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildInputPreview() {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Image preview
+        if (_inputImageFile != null)
+          Image.file(
+            _inputImageFile!,
+            fit: BoxFit.contain,
+          )
+        else if (_inputImageUrl != null)
+          Image.network(
+            _inputImageUrl!,
+            fit: BoxFit.contain,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                      : null,
+                  color: AppTheme.primary,
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return const Center(
+                child: Icon(Icons.error_outline, color: Colors.red, size: 48),
+              );
+            },
+          ),
+        
+        // Upload indicator
+        if (_isUploading)
+          Container(
+            color: Colors.black.withOpacity(0.5),
+            child: const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: Colors.white),
+                  SizedBox(height: 12),
+                  Text(
+                    'Uploading...',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        
+        // Clear button
+        if (!_isUploading)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: _reset,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildUploadPlaceholder() {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Video preview background
+        if (_isVideoInitialized && _videoController != null)
+          Opacity(
+            opacity: 0.6,
+            child: FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: _videoController!.value.size.width,
+                height: _videoController!.value.size.height,
+                child: VideoPlayer(_videoController!),
+              ),
+            ),
+          )
+        else
+          Container(
+            color: AppTheme.primary.withOpacity(0.05),
+          ),
+        
+        // Upload overlay
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: AppTheme.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.transparent,
+                Colors.black.withOpacity(0.3),
+              ],
+            ),
           ),
-          child: Row(
+        ),
+        
+        // Upload icon and text
+        Center(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.bolt, color: AppTheme.primary, size: 16),
-              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.surface.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.border.withOpacity(0.5)),
+                ),
+                child: Icon(
+                  Icons.add_photo_alternate,
+                  size: 48,
+                  color: AppTheme.primary.withOpacity(0.8),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Tap to upload image',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  shadows: [
+                    Shadow(color: Colors.black54, blurRadius: 4),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
               Text(
-                '${widget.creditCost} credits',
-                style: const TextStyle(
-                  color: AppTheme.primary,
-                  fontWeight: FontWeight.w600,
+                'JPG, PNG, WEBP up to 10MB',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 13,
+                  shadows: const [
+                    Shadow(color: Colors.black54, blurRadius: 4),
+                  ],
                 ),
               ),
             ],
@@ -278,6 +658,10 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
   }
 
   Widget _buildControls() {
+    if (!widget.showPrompt && !widget.showIntensity && !widget.showScale && !widget.showStyleSelector) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -288,12 +672,21 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            'Settings',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 16),
+          
           // Prompt input
           if (widget.showPrompt) ...[
             Text(
               widget.promptLabel ?? 'Prompt',
               style: const TextStyle(
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 fontSize: 14,
               ),
             ),
@@ -313,6 +706,10 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(color: AppTheme.border.withOpacity(0.5)),
                 ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppTheme.primary),
+                ),
               ),
               onChanged: (value) => setState(() => _prompt = value),
             ),
@@ -327,27 +724,41 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
                 Text(
                   widget.intensityLabel ?? 'Intensity',
                   style: const TextStyle(
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     fontSize: 14,
                   ),
                 ),
-                Text(
-                  '${_intensity.round()}%',
-                  style: const TextStyle(
-                    color: AppTheme.primary,
-                    fontWeight: FontWeight.w600,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${_intensity.round()}%',
+                    style: const TextStyle(
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            Slider(
-              value: _intensity,
-              min: 10,
-              max: 100,
-              divisions: 9,
-              activeColor: AppTheme.primary,
-              onChanged: (value) => setState(() => _intensity = value),
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: AppTheme.primary,
+                inactiveTrackColor: AppTheme.border,
+                thumbColor: AppTheme.primary,
+                overlayColor: AppTheme.primary.withOpacity(0.2),
+              ),
+              child: Slider(
+                value: _intensity,
+                min: 10,
+                max: 100,
+                divisions: 9,
+                onChanged: (value) => setState(() => _intensity = value),
+              ),
             ),
             const SizedBox(height: 16),
           ],
@@ -360,27 +771,41 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
                 const Text(
                   'Scale',
                   style: TextStyle(
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     fontSize: 14,
                   ),
                 ),
-                Text(
-                  '${_scale}x',
-                  style: const TextStyle(
-                    color: AppTheme.primary,
-                    fontWeight: FontWeight.w600,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${_scale}x',
+                    style: const TextStyle(
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            Slider(
-              value: _scale.toDouble(),
-              min: 2,
-              max: 4,
-              divisions: 2,
-              activeColor: AppTheme.primary,
-              onChanged: (value) => setState(() => _scale = value.round()),
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: AppTheme.primary,
+                inactiveTrackColor: AppTheme.border,
+                thumbColor: AppTheme.primary,
+                overlayColor: AppTheme.primary.withOpacity(0.2),
+              ),
+              child: Slider(
+                value: _scale.toDouble(),
+                min: 2,
+                max: 4,
+                divisions: 2,
+                onChanged: (value) => setState(() => _scale = value.round()),
+              ),
             ),
             const SizedBox(height: 16),
           ],
@@ -390,11 +815,11 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
             const Text(
               'Style',
               style: TextStyle(
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 fontSize: 14,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -403,7 +828,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
                 return GestureDetector(
                   onTap: () => setState(() => _selectedStyle = style.id),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
                       color: isSelected ? AppTheme.primary : AppTheme.background,
                       borderRadius: BorderRadius.circular(20),
@@ -429,21 +854,174 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
     );
   }
 
-  Widget _buildUploadButton() {
+  Widget _buildOutputSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Result',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.primary.withOpacity(0.5), width: 2),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(15),
+            child: Column(
+              children: [
+                // Output image
+                Image.network(
+                  _outputImageUrl!,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      height: 280,
+                      color: AppTheme.surface,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                              : null,
+                          color: AppTheme.primary,
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 280,
+                      color: AppTheme.surface,
+                      child: const Center(
+                        child: Icon(Icons.error_outline, color: Colors.red, size: 48),
+                      ),
+                    );
+                  },
+                ),
+                
+                // Action buttons
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.background,
+                    border: Border(
+                      top: BorderSide(color: AppTheme.border.withOpacity(0.5)),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _downloadImage,
+                          icon: const Icon(Icons.download, size: 18),
+                          label: const Text('Save'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.foreground,
+                            side: BorderSide(color: AppTheme.border.withOpacity(0.5)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _useAsInput,
+                          icon: const Icon(Icons.replay, size: 18),
+                          label: const Text('Use as Input'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.foreground,
+                            side: BorderSide(color: AppTheme.border.withOpacity(0.5)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton() {
+    // If no image uploaded, show upload button
+    if (_inputImageUrl == null) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: _pickImage,
+          icon: const Icon(Icons.add_photo_alternate),
+          label: const Text('Select Image'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      );
+    }
+    
+    // If output exists, show new image button
+    if (_outputImageUrl != null) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: _reset,
+          icon: const Icon(Icons.add_photo_alternate),
+          label: const Text('Process New Image'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      );
+    }
+    
+    // Show process button
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: () {
-          // TODO: Implement image picker and processing
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Image upload coming soon')),
-          );
-        },
-        icon: const Icon(Icons.upload),
-        label: const Text('Upload Image'),
+        onPressed: _isProcessing || _isUploading ? null : _processImage,
+        icon: _isProcessing 
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : const Icon(Icons.auto_awesome),
+        label: Text(_isProcessing ? 'Processing...' : 'Apply ${widget.toolName}'),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.primary,
           foregroundColor: Colors.white,
+          disabledBackgroundColor: AppTheme.primary.withOpacity(0.6),
+          disabledForegroundColor: Colors.white70,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
