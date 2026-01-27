@@ -126,9 +126,9 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
         <div className="grid grid-cols-2 gap-3">
           {[
             { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/47f98df2-8f0d-4cf0-a32f-f582f3c0f90f-video11080.1080.mp4", title: "Cinema Studio", description: "Professional cinematic video creation with AI", badge: "Featured" },
-            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/25bd0bda-0068-47e9-a2c3-c51330245765-video21080.1080 - RESIZE - Videobolt.net.mp4", title: "Video Upscale", description: "Enhance video quality up to 4K resolution", badge: "Popular" },
-            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/559a3bef-5733-4be4-b79b-324924945429-video31080.1080 - RESIZE - Videobolt.net.mp4", title: "Draw to Video", description: "Transform sketches into animated videos", badge: "New" },
-            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/33ee7581-6b7d-4d50-87d0-98acd87a53f3-video41080.1080 - RESIZE - Videobolt.net.mp4", title: "Music Studio", description: "AI-powered music creation and remixing", badge: "Hot" },
+            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/25bd0bda-0068-47e9-a2c3-c51330245765-video21080.1080%20-%20RESIZE%20-%20Videobolt.net.mp4", title: "Video Upscale", description: "Enhance video quality up to 4K resolution", badge: "Popular" },
+            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/559a3bef-5733-4be4-b79b-324924945429-video31080.1080%20-%20RESIZE%20-%20Videobolt.net.mp4", title: "Draw to Video", description: "Transform sketches into animated videos", badge: "New" },
+            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/33ee7581-6b7d-4d50-87d0-98acd87a53f3-video41080.1080%20-%20RESIZE%20-%20Videobolt.net.mp4", title: "Music Studio", description: "AI-powered music creation and remixing", badge: "Hot" },
           ].map((item, index) => (
             <div key={index} className="flex flex-col gap-2">
               <div className="aspect-square rounded-xl overflow-hidden bg-white/5 relative">
@@ -160,12 +160,12 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
         <h2 className="text-white text-sm font-semibold mb-3">AI Video Tools</h2>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { url: "https://placeholder-video.com/light.mp4", title: "Lighting", description: "Add cinematic lighting effects to your videos", badge: "New" },
-            { url: "https://placeholder-video.com/skin-enhancer.mp4", title: "Skin Enhancer", description: "AI-powered skin smoothing and enhancement", badge: "Popular" },
-            { url: "https://placeholder-video.com/upscale.mp4", title: "Upscale", description: "Enhance video resolution up to 4K quality", badge: "Hot" },
-            { url: "https://placeholder-video.com/remove-bg.mp4", title: "Remove Background", description: "Instantly remove video backgrounds with AI", badge: "Featured" },
-            { url: "https://placeholder-video.com/change-angle.mp4", title: "Change Angle", description: "Transform camera perspectives dynamically", badge: "New" },
-            { url: "https://placeholder-video.com/inpainting.mp4", title: "Inpainting", description: "Fill and edit regions seamlessly in videos", badge: "Beta" },
+            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/07a011ff-ab2e-4e4f-adc4-8d42bf4bfd23-light-ezgif.com-resize-video.mp4", title: "Relight", description: "AI-powered relighting for professional photo results", badge: "Image" },
+            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/c2ad8cb7-8bb3-43a4-92c2-09c83ae80b40-shot-ezgif.com-resize-video.mp4", title: "Shots", description: "Generate multiple angles and variations", badge: "Image" },
+            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/09a58559-4b85-4053-ac90-42b30d151a5c-Inpainting-ezgif.com-resize-video.mp4", title: "Inpainting", description: "Edit and replace parts of your images seamlessly", badge: "Image" },
+            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/b1157a2e-6259-4af8-b909-85c28b4562c7-ChangeAngle-ezgif.com-resize-video.mp4", title: "Change Angle", description: "View your image from different perspectives", badge: "Image" },
+            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/a731fd6d-3262-4718-91d3-a0edc524310d-RemoveBackground-ezgif.com-resize-video.mp4", title: "Remove Background", description: "Instantly remove backgrounds from any image", badge: "Image" },
+            { url: "https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/07a011ff-ab2e-4e4f-adc4-8d42bf4bfd23-light-ezgif.com-resize-video.mp4", title: "Skin Enhancer", description: "Professional portrait retouching and skin smoothing", badge: "Image" },
           ].map((item, index) => (
             <div key={index} className="flex flex-col gap-2">
               <div className="aspect-square rounded-xl overflow-hidden bg-white/5 relative">
