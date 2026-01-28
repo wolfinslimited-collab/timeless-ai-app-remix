@@ -61,7 +61,7 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
   int get _selectedModelCredits {
     final model = _musicModels.firstWhere(
       (m) => m['id'] == _selectedMusicModel,
-      orElse: () => {'credits': 8},
+      orElse: () => {'credits': 5},
     );
     return model['credits'] as int;
   }
@@ -129,15 +129,13 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
     }
   }
 
-  // Music models matching web app
+  // Music models - Kie.ai Suno models
   static const List<Map<String, dynamic>> _musicModels = [
-    {'id': 'stable-audio', 'name': 'Stable Audio', 'credits': 8, 'badge': 'FAST'},
-    {'id': 'cassetteai', 'name': 'CassetteAI', 'credits': 10, 'badge': null},
-    {'id': 'lyria2', 'name': 'Lyria 2', 'credits': 12, 'badge': 'PRO'},
-    {'id': 'sonauto', 'name': 'Sonauto (Suno)', 'credits': 15, 'badge': 'TOP'},
+    {'id': 'kie-music-v4', 'name': 'Suno V4', 'credits': 5, 'badge': 'TOP'},
+    {'id': 'kie-music-v3.5', 'name': 'Suno V3.5', 'credits': 4, 'badge': 'FAST'},
   ];
   
-  String _selectedMusicModel = 'stable-audio';
+  String _selectedMusicModel = 'kie-music-v4';
 
   Future<void> _generateMusic() async {
     final session = _supabase.auth.currentSession;
