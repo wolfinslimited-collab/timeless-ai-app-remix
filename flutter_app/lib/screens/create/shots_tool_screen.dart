@@ -151,7 +151,7 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
         _currentStep = 'grid';
       });
       
-      creditsProvider.refreshCredits();
+      creditsProvider.refresh();
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -236,7 +236,7 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
         _upscaledImages = successfulResults;
       });
       
-      creditsProvider.refreshCredits();
+      creditsProvider.refresh();
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
