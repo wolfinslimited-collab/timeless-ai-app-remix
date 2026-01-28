@@ -8,6 +8,7 @@ import 'package:path/path.dart' as path;
 import 'package:share_plus/share_plus.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../../widgets/common/smart_media_image.dart';
 
 class InpaintingToolScreen extends StatefulWidget {
   final String mode;
@@ -627,7 +628,7 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.network(
+                child: SmartNetworkImage(
                   _inputImageUrl!,
                   height: 200,
                   width: double.infinity,
@@ -721,7 +722,7 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
+                  child: SmartNetworkImage(
                     _outputImageUrl!,
                     fit: BoxFit.contain,
                     height: 300,

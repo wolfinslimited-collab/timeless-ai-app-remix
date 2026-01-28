@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme.dart';
 import '../../providers/credits_provider.dart';
+import '../../widgets/common/smart_media_image.dart';
 
 class ShotsToolScreen extends StatefulWidget {
   const ShotsToolScreen({super.key});
@@ -418,7 +419,7 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(16),
-                        child: Image.network(
+                        child: SmartNetworkImage(
                           _inputImageUrl!,
                           width: double.infinity,
                           height: double.infinity,
@@ -615,7 +616,7 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(11),
-                          child: Image.network(
+                          child: SmartNetworkImage(
                             _generatedImages[index],
                             fit: BoxFit.cover,
                           ),
@@ -756,7 +757,7 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(11),
-                              child: Image.network(
+                              child: SmartNetworkImage(
                                 _upscaledImages[index],
                                 fit: BoxFit.cover,
                               ),

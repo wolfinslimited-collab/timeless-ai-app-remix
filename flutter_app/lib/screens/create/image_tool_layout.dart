@@ -13,6 +13,7 @@ import '../../core/theme.dart';
 import '../../services/tools_service.dart';
 import '../../models/download_model.dart';
 import '../../providers/download_provider.dart';
+import '../../widgets/common/smart_media_image.dart';
 
 /// Reusable layout for image processing tools
 class ImageToolLayout extends StatefulWidget {
@@ -550,7 +551,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
             fit: BoxFit.contain,
           )
         else if (_inputImageUrl != null)
-          Image.network(
+          SmartNetworkImage(
             _inputImageUrl!,
             fit: BoxFit.contain,
             loadingBuilder: (context, child, loadingProgress) {
@@ -935,7 +936,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
             child: Column(
               children: [
                 // Output image
-                Image.network(
+                SmartNetworkImage(
                   _outputImageUrl!,
                   fit: BoxFit.contain,
                   loadingBuilder: (context, child, loadingProgress) {

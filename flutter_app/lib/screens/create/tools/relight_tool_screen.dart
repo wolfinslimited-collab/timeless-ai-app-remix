@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'dart:convert';
 import '../../../core/theme.dart';
+import '../../../widgets/common/smart_media_image.dart';
 
 const List<Map<String, dynamic>> LIGHT_DIRECTIONS = [
   {'id': 'top', 'label': 'Top'},
@@ -304,7 +305,7 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
               ? _buildUploadPlaceholder()
               : Stack(
                   children: [
-                    Image.network(
+                    SmartNetworkImage(
                       _displayedImage,
                       width: double.infinity,
                       height: double.infinity,
@@ -593,7 +594,7 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        Image.network(
+                        SmartNetworkImage(
                           isOriginal ? _inputImageUrl! : _generationHistory[index - 1],
                           fit: BoxFit.cover,
                         ),

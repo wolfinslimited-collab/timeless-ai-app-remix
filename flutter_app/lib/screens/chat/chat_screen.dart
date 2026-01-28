@@ -12,6 +12,7 @@ import '../../widgets/chat/model_logo.dart';
 import '../../widgets/chat/chat_message_skeleton.dart';
 import '../../widgets/chat/chat_message_bubble.dart';
 import '../../widgets/chat/conversation_drawer.dart';
+import '../../widgets/common/smart_media_image.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -512,7 +513,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
+                          child: SmartNetworkImage(
                             _pendingImages[index],
                             width: 70,
                             height: 70,
