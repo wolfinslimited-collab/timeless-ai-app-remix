@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http/http.dart' as http;
 
 /// Native authentication service for platform-specific OAuth flows
 /// 
@@ -18,6 +19,9 @@ class NativeAuthService {
 
   // OAuth configuration
   static const String _redirectUrl = 'io.supabase.genaiapp://login-callback/';
+  
+  // Mobile auth edge function URL (external Supabase project)
+  static const String _mobileAuthUrl = 'https://ifesxveahsbjhmrhkhhy.supabase.co/functions/v1/mobile-auth';
   
   // Google Web Client ID (required for Android native sign-in)
   // This should match the Web Client ID from Google Cloud Console
@@ -36,6 +40,74 @@ class NativeAuthService {
     final bytes = utf8.encode(input);
     final digest = sha256.convert(bytes);
     return digest.toString();
+  }
+
+  /// Call the mobile-auth edge function to authenticate with ID token
+  Future<AuthResponse?> _authenticateWithMobileAuth({
+    required String provider,
+    required String idToken,
+    String? nonce,
+    String? name,
+  }) async {
+    try {
+      debugPrint('Calling mobile-auth edge function for $provider...');
+
+      final response = await http.post(
+        Uri.parse(_mobileAuthUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'provider': provider,
+          'idToken': idToken,
+          if (nonce != null) 'nonce': nonce,
+          if (name != null) 'name': name,
+        }),
+      );
+
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode != 200 || responseData['success'] != true) {
+        final error = responseData['error'] ?? 'Authentication failed';
+        throw Exception(error);
+      }
+
+      debugPrint('Mobile auth successful: ${responseData['user']?['id']}');
+
+      // Extract session data from response
+      final sessionData = responseData['session'] as Map<String, dynamic>;
+      final userData = responseData['user'] as Map<String, dynamic>;
+
+      // Set the session in Supabase client
+      final session = await _supabase.auth.setSession(sessionData['access_token']);
+
+      if (session.session == null) {
+        // If setSession didn't work, try to recover the session
+        await _supabase.auth.recoverSession(
+          jsonEncode({
+            'access_token': sessionData['access_token'],
+            'refresh_token': sessionData['refresh_token'],
+            'expires_at': sessionData['expires_at'],
+          }),
+        );
+      }
+
+      // Return the current session
+      final currentSession = _supabase.auth.currentSession;
+      final currentUser = _supabase.auth.currentUser;
+
+      if (currentUser == null || currentSession == null) {
+        throw Exception('Failed to establish session after authentication');
+      }
+
+      return AuthResponse(
+        session: currentSession,
+        user: currentUser,
+      );
+    } catch (e) {
+      debugPrint('Mobile auth error: $e');
+      rethrow;
+    }
   }
 
   /// Native Google Sign-In for Android
@@ -64,22 +136,19 @@ class NativeAuthService {
 
       final googleAuth = await googleUser.authentication;
       final idToken = googleAuth.idToken;
-      final accessToken = googleAuth.accessToken;
 
       if (idToken == null) {
         throw Exception('Failed to get ID token from Google');
       }
 
-      debugPrint('Google Sign-In successful, exchanging tokens with Supabase...');
+      debugPrint('Google Sign-In successful, calling mobile-auth...');
 
-      final response = await _supabase.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
+      // Use mobile-auth edge function for authentication
+      return await _authenticateWithMobileAuth(
+        provider: 'google',
         idToken: idToken,
-        accessToken: accessToken,
+        name: googleUser.displayName,
       );
-
-      debugPrint('Supabase auth successful: ${response.user?.id}');
-      return response;
     } catch (e) {
       debugPrint('Native Google Sign-In error: $e');
       rethrow;
@@ -118,54 +187,26 @@ class NativeAuthService {
         throw Exception('Failed to get ID token from Apple');
       }
 
-      debugPrint('Apple Sign-In successful, exchanging tokens with Supabase...');
-
-      final response = await _supabase.auth.signInWithIdToken(
-        provider: OAuthProvider.apple,
-        idToken: idToken,
-        nonce: rawNonce,
-      );
-
-      debugPrint('Supabase auth successful: ${response.user?.id}');
-
-      // Sync Apple-provided name to profile (only available on first sign-in)
-      if (response.user != null && credential.givenName != null) {
-        await _syncAppleUserName(
-          userId: response.user!.id,
-          givenName: credential.givenName,
-          familyName: credential.familyName,
-        );
+      // Get name from Apple (only available on first sign-in)
+      String? fullName;
+      if (credential.givenName != null || credential.familyName != null) {
+        fullName = [credential.givenName, credential.familyName]
+            .where((n) => n != null && n.isNotEmpty)
+            .join(' ');
       }
 
-      return response;
+      debugPrint('Apple Sign-In successful, calling mobile-auth...');
+
+      // Use mobile-auth edge function for authentication
+      return await _authenticateWithMobileAuth(
+        provider: 'apple',
+        idToken: idToken,
+        nonce: rawNonce,
+        name: fullName,
+      );
     } catch (e) {
       debugPrint('Native Apple Sign-In error: $e');
       rethrow;
-    }
-  }
-
-  /// Sync Apple-provided name to user profile
-  Future<void> _syncAppleUserName({
-    required String userId,
-    String? givenName,
-    String? familyName,
-  }) async {
-    try {
-      final fullName = [givenName, familyName]
-          .where((n) => n != null && n.isNotEmpty)
-          .join(' ');
-
-      if (fullName.isNotEmpty) {
-        await _supabase.from('profiles').update({
-          'display_name': fullName,
-          'updated_at': DateTime.now().toIso8601String(),
-        }).eq('user_id', userId);
-
-        debugPrint('Synced Apple user name: $fullName');
-      }
-    } catch (e) {
-      // Non-critical error, just log it
-      debugPrint('Failed to sync Apple user name: $e');
     }
   }
 
