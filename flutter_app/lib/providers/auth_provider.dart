@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/native_auth_service.dart';
 import '../services/tiktok_service.dart';
 import '../services/facebook_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
+  final NativeAuthService _nativeAuthService = NativeAuthService();
 
   User? _user;
   UserProfile? _profile;
@@ -106,7 +109,7 @@ class AuthProvider extends ChangeNotifier {
 
       return false;
     } catch (e) {
-      _error = e.toString();
+      _error = _parseAuthError(e);
       _isLoading = false;
       notifyListeners();
       return false;
@@ -135,7 +138,7 @@ class AuthProvider extends ChangeNotifier {
 
       return false;
     } catch (e) {
-      _error = e.toString();
+      _error = _parseAuthError(e);
       _isLoading = false;
       notifyListeners();
       return false;
@@ -152,58 +155,125 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Sign in with Google
+  /// Uses native Google Sign-In on Android, web-based OAuth on iOS
   Future<bool> signInWithGoogle() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final success = await _authService.signInWithGoogle();
-      _isLoading = false;
-      notifyListeners();
-      return success;
+      if (Platform.isAndroid && _nativeAuthService.isNativeGoogleAvailable) {
+        // Android: Use native Google Sign-In
+        final response = await _nativeAuthService.signInWithGoogleNative();
+        if (response?.user != null) {
+          _user = response!.user;
+          await _fetchProfile();
+          await _trackOAuthSignIn(response.user!, 'google');
+          return true;
+        }
+        return false;
+      } else {
+        // iOS/Other: Use web-based OAuth
+        final success = await _nativeAuthService.signInWithOAuthWeb(OAuthProvider.google);
+        _isLoading = false;
+        notifyListeners();
+        return success;
+      }
     } catch (e) {
-      _error = e.toString();
+      _error = _parseAuthError(e);
       _isLoading = false;
       notifyListeners();
       return false;
     }
   }
 
+  /// Sign in with Apple
+  /// Uses native Sign In with Apple on iOS, web-based OAuth on Android
   Future<bool> signInWithApple() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final success = await _authService.signInWithApple();
-      _isLoading = false;
-      notifyListeners();
-      return success;
+      if (Platform.isIOS && _nativeAuthService.isNativeAppleAvailable) {
+        // iOS: Use native Sign In with Apple
+        final response = await _nativeAuthService.signInWithAppleNative();
+        if (response?.user != null) {
+          _user = response!.user;
+          await _fetchProfile();
+          await _trackOAuthSignIn(response.user!, 'apple');
+          return true;
+        }
+        return false;
+      } else {
+        // Android/Other: Use web-based OAuth
+        final success = await _nativeAuthService.signInWithOAuthWeb(OAuthProvider.apple);
+        _isLoading = false;
+        notifyListeners();
+        return success;
+      }
     } catch (e) {
-      _error = e.toString();
+      _error = _parseAuthError(e);
       _isLoading = false;
       notifyListeners();
       return false;
     }
   }
 
+  /// Sign in with Facebook (web-based OAuth on all platforms)
   Future<bool> signInWithFacebook() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final success = await _authService.signInWithFacebook();
+      final success = await _nativeAuthService.signInWithOAuthWeb(OAuthProvider.facebook);
       _isLoading = false;
       notifyListeners();
       return success;
     } catch (e) {
-      _error = e.toString();
+      _error = _parseAuthError(e);
       _isLoading = false;
       notifyListeners();
       return false;
     }
+  }
+
+  /// Track OAuth sign-in for attribution
+  Future<void> _trackOAuthSignIn(User user, String method) async {
+    try {
+      await tiktokService.trackRegister(userId: user.id, method: method);
+      await facebookService.trackRegister(userId: user.id, method: method);
+      await tiktokService.identify(externalId: user.id, email: user.email);
+      await facebookService.setUserId(user.id);
+      if (user.email != null) {
+        await facebookService.setUserData(email: user.email!);
+      }
+    } catch (e) {
+      debugPrint('Error tracking OAuth sign-in: $e');
+    }
+  }
+
+  /// Parse authentication errors into user-friendly messages
+  String _parseAuthError(dynamic error) {
+    final errorStr = error.toString().toLowerCase();
+    
+    if (errorStr.contains('invalid login credentials')) {
+      return 'Invalid email or password';
+    } else if (errorStr.contains('email not confirmed')) {
+      return 'Please verify your email address';
+    } else if (errorStr.contains('user already registered')) {
+      return 'An account with this email already exists';
+    } else if (errorStr.contains('cancelled') || errorStr.contains('canceled')) {
+      return 'Sign-in was cancelled';
+    } else if (errorStr.contains('network')) {
+      return 'Network error. Please check your connection';
+    } else if (errorStr.contains('popup_closed')) {
+      return 'Sign-in popup was closed';
+    }
+    
+    return 'An error occurred. Please try again';
   }
 
   Future<void> resetPassword(String email) async {
