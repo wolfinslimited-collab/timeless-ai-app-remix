@@ -58,6 +58,14 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
     super.dispose();
   }
 
+  int get _selectedModelCredits {
+    final model = _musicModels.firstWhere(
+      (m) => m['id'] == _selectedMusicModel,
+      orElse: () => {'credits': 8},
+    );
+    return model['credits'] as int;
+  }
+
   Future<void> _loadTracks() async {
     try {
       final user = _supabase.auth.currentUser;
@@ -121,6 +129,16 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
     }
   }
 
+  // Music models matching web app
+  static const List<Map<String, dynamic>> _musicModels = [
+    {'id': 'stable-audio', 'name': 'Stable Audio', 'credits': 8, 'badge': 'FAST'},
+    {'id': 'cassetteai', 'name': 'CassetteAI', 'credits': 10, 'badge': null},
+    {'id': 'lyria2', 'name': 'Lyria 2', 'credits': 12, 'badge': 'PRO'},
+    {'id': 'sonauto', 'name': 'Sonauto (Suno)', 'credits': 15, 'badge': 'TOP'},
+  ];
+  
+  String _selectedMusicModel = 'stable-audio';
+
   Future<void> _generateMusic() async {
     final session = _supabase.auth.currentSession;
     if (session == null) {
@@ -133,18 +151,21 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
     setState(() => _isGenerating = true);
 
     try {
+      // Build prompt with styles if provided
       final prompt = [
         if (_lyricsController.text.isNotEmpty) _lyricsController.text,
         if (_selectedStyles.isNotEmpty) 'Style: ${_selectedStyles.join(', ')}',
       ].join('\n\n');
 
+      // Call unified generate endpoint with type='music' (same as web app)
       final response = await _supabase.functions.invoke(
-        'music-generation',
+        'generate',
         body: {
           'prompt': prompt.isNotEmpty ? prompt : 'Create an instrumental track',
-          'title': _titleController.text.isNotEmpty ? _titleController.text : null,
-          'styles': _selectedStyles.toList(),
+          'type': 'music',
+          'model': _selectedMusicModel,
           'duration': _duration,
+          'lyrics': _lyricsController.text,
           'instrumental': _isInstrumental,
           'vocalGender': _vocalGender,
           'weirdness': _weirdness,
@@ -158,12 +179,24 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
         throw Exception(result['error']);
       }
 
+      // Music generation returns immediately with output_url in result
+      final outputUrl = result['result']?['output_url'] as String?;
+      
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Music is being generated! Check the list for results.'),
-          ),
-        );
+        if (outputUrl != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🎵 Music generated successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Music is being generated! Check the library for results.'),
+            ),
+          );
+        }
         _loadTracks();
       }
     } catch (e) {
@@ -246,6 +279,82 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Model selector section
+                _buildSectionHeader(title: 'Model'),
+                const SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _musicModels.map((model) {
+                      final isSelected = _selectedMusicModel == model['id'];
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: InkWell(
+                          onTap: () => setState(() => _selectedMusicModel = model['id'] as String),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: isSelected ? AppTheme.primary.withOpacity(0.1) : AppTheme.card,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected ? AppTheme.primary : AppTheme.border,
+                                width: isSelected ? 2 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          model['name'] as String,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: isSelected ? AppTheme.primary : AppTheme.foreground,
+                                          ),
+                                        ),
+                                        if (model['badge'] != null) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.accent,
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              model['badge'] as String,
+                                              style: const TextStyle(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${model['credits']} credits',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppTheme.muted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
                 // Lyrics / Prompt section
                 _buildSectionHeader(
                   title: 'Lyrics / Prompt',
@@ -558,9 +667,9 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
                                   color: Colors.white.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: const Text(
-                                  '20',
-                                  style: TextStyle(
+                                child: Text(
+                                  '$_selectedModelCredits',
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
