@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../providers/generation_provider.dart';
 import '../../providers/credits_provider.dart';
+import '../../widgets/common/smart_media_image.dart';
 
 class ImageCreateScreen extends StatefulWidget {
   const ImageCreateScreen({super.key});
@@ -240,12 +240,9 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
                 if (_generatedImageUrl != null) {
                   return ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: CachedNetworkImage(
+                    child: SmartMediaImage(
                       imageUrl: _generatedImageUrl!,
                       fit: BoxFit.contain,
-                      placeholder: (context, url) => const Center(
-                        child: CircularProgressIndicator(),
-                      ),
                     ),
                   );
                 }

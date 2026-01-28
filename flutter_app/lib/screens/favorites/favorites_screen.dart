@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../providers/favorites_provider.dart';
+import '../../widgets/common/smart_media_image.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
@@ -372,17 +372,16 @@ class _FavoriteCard extends StatelessWidget {
                 ),
               )
             else if (imageUrl != null)
-              CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => const Center(
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  color: AppTheme.secondary,
-                  child: const Icon(Icons.error_outline, color: AppTheme.muted),
-                ),
-              )
+              isVideo
+                ? VideoThumbnailImage(
+                    thumbnailUrl: favorite.thumbnailUrl,
+                    videoUrl: favorite.url,
+                    fit: BoxFit.cover,
+                  )
+                : SmartMediaImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                  )
             else
               Center(
                 child: Icon(
@@ -527,10 +526,16 @@ class _FavoriteCard extends StatelessWidget {
                 else if (favorite.url != null)
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: CachedNetworkImage(
-                      imageUrl: favorite.url!,
-                      fit: BoxFit.contain,
-                    ),
+                    child: favorite.type == 'video'
+                      ? VideoThumbnailImage(
+                          thumbnailUrl: favorite.thumbnailUrl,
+                          videoUrl: favorite.url,
+                          fit: BoxFit.contain,
+                        )
+                      : SmartMediaImage(
+                          imageUrl: favorite.url!,
+                          fit: BoxFit.contain,
+                        ),
                   ),
                 const SizedBox(height: 16),
 

@@ -14,6 +14,7 @@ import '../../providers/generation_provider.dart';
 import '../../providers/credits_provider.dart';
 import '../../providers/download_provider.dart';
 import '../../models/download_model.dart';
+import '../../widgets/common/smart_media_image.dart';
 import 'video_model_selector.dart';
 
 // Extended video models list matching web
@@ -966,7 +967,7 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
+                    child: SmartNetworkImage(
                       imageUrl,
                       width: double.infinity,
                       height: double.infinity,

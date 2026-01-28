@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../core/theme.dart';
+import '../common/smart_media_image.dart';
 import 'model_logo.dart';
 
 class ChatMessageBubble extends StatefulWidget {
@@ -76,7 +77,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                           children: widget.images!.map((img) {
                             return ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
+                              child: SmartNetworkImage(
                                 img,
                                 width: 150,
                                 height: 150,

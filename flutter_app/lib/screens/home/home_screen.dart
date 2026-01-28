@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/credits_provider.dart';
 import '../../providers/generation_provider.dart';
 import '../../widgets/common/credit_badge.dart';
+import '../../widgets/common/smart_media_image.dart';
 import '../../models/generation_model.dart';
 
 // Storage base URL for video assets - using DigitalOcean Spaces CDN
@@ -882,24 +882,15 @@ class _RecentCard extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           if (imageUrl != null)
-            CachedNetworkImage(
-              imageUrl: imageUrl,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
-                color: AppTheme.secondary,
-                child: const Center(
-                  child: CircularProgressIndicator(strokeWidth: 2),
+            isVideo
+              ? VideoThumbnailImage(
+                  thumbnailUrl: imageUrl,
+                  fit: BoxFit.cover,
+                )
+              : SmartMediaImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.cover,
                 ),
-              ),
-              errorWidget: (context, url, error) => Container(
-                color: AppTheme.secondary,
-                child: Icon(
-                  isVideo ? Icons.videocam : Icons.image,
-                  color: AppTheme.muted,
-                  size: 32,
-                ),
-              ),
-            ),
           if (isVideo)
             const Center(
               child: Icon(Icons.play_arrow, color: Colors.white70, size: 32),

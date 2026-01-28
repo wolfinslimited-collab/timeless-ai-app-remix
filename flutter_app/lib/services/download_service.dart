@@ -26,7 +26,49 @@ class DownloadService {
     return downloadsDir;
   }
 
-  /// Download a file from URL and save locally + to gallery
+  /// Check if URL is a base64 data URI
+  bool _isBase64DataUri(String url) {
+    return url.startsWith('data:image/') || url.startsWith('data:video/') || url.startsWith('data:audio/');
+  }
+
+  /// Extract bytes from base64 data URI
+  Uint8List? _decodeBase64DataUri(String dataUri) {
+    try {
+      final parts = dataUri.split(',');
+      if (parts.length != 2) return null;
+      return base64Decode(parts[1]);
+    } catch (e) {
+      debugPrint('Error decoding base64: $e');
+      return null;
+    }
+  }
+
+  /// Get extension from base64 data URI
+  String? _getExtensionFromBase64(String dataUri) {
+    try {
+      // Format: data:image/png;base64,...
+      final mimeMatch = RegExp(r'data:(\w+)/(\w+);').firstMatch(dataUri);
+      if (mimeMatch != null) {
+        final subtype = mimeMatch.group(2);
+        switch (subtype) {
+          case 'jpeg':
+            return 'jpg';
+          case 'png':
+          case 'gif':
+          case 'webp':
+          case 'mp4':
+          case 'mp3':
+          case 'wav':
+            return subtype;
+          default:
+            return subtype;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Download a file from URL (or base64) and save locally + to gallery
   Future<Download?> downloadFile({
     required String url,
     required String title,
@@ -40,24 +82,38 @@ class DownloadService {
         throw Exception('User not authenticated');
       }
 
-      // Determine file extension from URL or type
-      String extension = _getExtensionFromUrl(url) ?? _getDefaultExtension(type);
+      Uint8List bytes;
+      String extension;
+
+      // Handle base64 data URI
+      if (_isBase64DataUri(url)) {
+        final decodedBytes = _decodeBase64DataUri(url);
+        if (decodedBytes == null) {
+          throw Exception('Failed to decode base64 data');
+        }
+        bytes = decodedBytes;
+        extension = _getExtensionFromBase64(url) ?? _getDefaultExtension(type);
+      } else {
+        // Handle regular URL
+        extension = _getExtensionFromUrl(url) ?? _getDefaultExtension(type);
+        
+        // Download the file
+        final response = await http.get(Uri.parse(url));
+        if (response.statusCode != 200) {
+          throw Exception('Failed to download file: ${response.statusCode}');
+        }
+        bytes = response.bodyBytes;
+      }
       
       // Generate unique filename
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName = '${type.name}_$timestamp.$extension';
-      
-      // Download the file
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode != 200) {
-        throw Exception('Failed to download file: ${response.statusCode}');
-      }
 
       // Save to local storage
       final downloadsDir = await _downloadsDirectory;
       final filePath = '${downloadsDir.path}/$fileName';
       final file = File(filePath);
-      await file.writeAsBytes(response.bodyBytes);
+      await file.writeAsBytes(bytes);
 
       // Save to gallery if requested (for images and videos)
       if (saveToGallery && (type == DownloadType.image || type == DownloadType.video)) {
@@ -70,9 +126,9 @@ class DownloadService {
         userId: user.id,
         title: title.isNotEmpty ? title : 'Untitled ${type.name}',
         filePath: filePath,
-        originalUrl: url,
+        originalUrl: url.length > 500 ? 'base64_data' : url, // Don't store huge base64 strings
         type: type,
-        fileSize: response.bodyBytes.length,
+        fileSize: bytes.length,
         thumbnailPath: type == DownloadType.image ? filePath : null,
         downloadedAt: DateTime.now(),
         metadata: metadata,

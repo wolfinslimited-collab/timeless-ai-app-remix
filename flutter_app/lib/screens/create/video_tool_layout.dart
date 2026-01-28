@@ -12,6 +12,7 @@ import '../../core/theme.dart';
 import '../../providers/credits_provider.dart';
 import '../../models/download_model.dart';
 import '../../providers/download_provider.dart';
+import '../../widgets/common/smart_media_image.dart';
 
 class VideoToolLayout extends StatefulWidget {
   final String title;
@@ -396,7 +397,7 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
+                  child: SmartNetworkImage(
                     _inputVideoUrl!,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => const Center(
@@ -488,7 +489,7 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.network(_inputImageUrl!, fit: BoxFit.contain),
+                  child: SmartNetworkImage(_inputImageUrl!, fit: BoxFit.contain),
                 ),
               ),
               Positioned(
@@ -684,7 +685,7 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                     else
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.network(_outputUrl!, fit: BoxFit.contain),
+                        child: SmartNetworkImage(_outputUrl!, fit: BoxFit.contain),
                       ),
                     Positioned(
                       bottom: 8,

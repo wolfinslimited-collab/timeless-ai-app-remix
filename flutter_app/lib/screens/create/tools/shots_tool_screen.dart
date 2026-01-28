@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'dart:convert';
 import '../../../core/theme.dart';
+import '../../../widgets/common/smart_media_image.dart';
 
 const List<Map<String, String>> CINEMATIC_ANGLES = [
   {'prompt': 'SHOT 1 - MEDIUM PORTRAIT: Front-facing, head and shoulders visible, warm smile, standard headshot with space around the head', 'label': 'Portrait'},
@@ -442,7 +443,7 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
                       : Stack(
                           fit: StackFit.expand,
                           children: [
-                            Image.network(
+                            SmartNetworkImage(
                               _inputImageUrl!,
                               fit: BoxFit.contain,
                             ),
@@ -548,7 +549,7 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
+                      child: SmartNetworkImage(
                         _generatedImages[index],
                         fit: BoxFit.cover,
                       ),
@@ -660,7 +661,7 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
+                          child: SmartNetworkImage(
                             _upscaledImages[index],
                             fit: BoxFit.cover,
                           ),

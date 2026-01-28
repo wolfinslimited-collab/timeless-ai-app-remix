@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../models/generation_model.dart';
@@ -9,6 +8,7 @@ import '../../providers/download_provider.dart';
 import '../../providers/favorites_provider.dart';
 import '../../services/audio_player_service.dart';
 import '../../widgets/music_player_bar.dart';
+import '../../widgets/common/smart_media_image.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -362,17 +362,16 @@ class _GenerationCard extends StatelessWidget {
                     },
                   )
                 else if (imageUrl != null)
-                  CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: AppTheme.secondary,
-                      child: const Icon(Icons.error_outline, color: AppTheme.muted),
-                    ),
-                  )
+                  isVideo
+                    ? VideoThumbnailImage(
+                        thumbnailUrl: generation.thumbnailUrl,
+                        videoUrl: generation.outputUrl,
+                        fit: BoxFit.cover,
+                      )
+                    : SmartMediaImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.cover,
+                      )
                 else
                   Center(
                     child: Icon(
@@ -592,10 +591,16 @@ class _GenerationCard extends StatelessWidget {
                 else if (generation.outputUrl != null)
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: CachedNetworkImage(
-                      imageUrl: generation.outputUrl!,
-                      fit: BoxFit.contain,
-                    ),
+                    child: generation.type == GenerationType.video
+                      ? VideoThumbnailImage(
+                          thumbnailUrl: generation.thumbnailUrl,
+                          videoUrl: generation.outputUrl,
+                          fit: BoxFit.contain,
+                        )
+                      : SmartMediaImage(
+                          imageUrl: generation.outputUrl!,
+                          fit: BoxFit.contain,
+                        ),
                   ),
                 const SizedBox(height: 16),
 
