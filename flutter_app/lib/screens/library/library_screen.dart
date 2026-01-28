@@ -49,26 +49,35 @@ class _LibraryScreenState extends State<LibraryScreen> {
           // Filter Tabs
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                _FilterChip(
-                  label: 'All',
-                  isSelected: _filter == 'all',
-                  onTap: () => setState(() => _filter = 'all'),
-                ),
-                const SizedBox(width: 8),
-                _FilterChip(
-                  label: 'Images',
-                  isSelected: _filter == 'image',
-                  onTap: () => setState(() => _filter = 'image'),
-                ),
-                const SizedBox(width: 8),
-                _FilterChip(
-                  label: 'Videos',
-                  isSelected: _filter == 'video',
-                  onTap: () => setState(() => _filter = 'video'),
-                ),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _FilterChip(
+                    label: 'All',
+                    isSelected: _filter == 'all',
+                    onTap: () => setState(() => _filter = 'all'),
+                  ),
+                  const SizedBox(width: 8),
+                  _FilterChip(
+                    label: 'Images',
+                    isSelected: _filter == 'image',
+                    onTap: () => setState(() => _filter = 'image'),
+                  ),
+                  const SizedBox(width: 8),
+                  _FilterChip(
+                    label: 'Videos',
+                    isSelected: _filter == 'video',
+                    onTap: () => setState(() => _filter = 'video'),
+                  ),
+                  const SizedBox(width: 8),
+                  _FilterChip(
+                    label: 'Music',
+                    isSelected: _filter == 'music',
+                    onTap: () => setState(() => _filter = 'music'),
+                  ),
+                ],
+              ),
             ),
           ),
           
@@ -79,9 +88,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 final filteredGenerations = _filter == 'all'
                     ? provider.generations
                     : provider.generations.where((g) {
-                        return _filter == 'image'
-                            ? g.type == GenerationType.image
-                            : g.type == GenerationType.video;
+                        switch (_filter) {
+                          case 'image':
+                            return g.type == GenerationType.image;
+                          case 'video':
+                            return g.type == GenerationType.video;
+                          case 'music':
+                            return g.type == GenerationType.music;
+                          default:
+                            return true;
+                        }
                       }).toList();
 
                 if (filteredGenerations.isEmpty) {
@@ -183,6 +199,7 @@ class _GenerationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isVideo = generation.type == GenerationType.video;
+    final isMusic = generation.type == GenerationType.music;
     final imageUrl = generation.thumbnailUrl ?? generation.outputUrl;
 
     return GestureDetector(
@@ -190,10 +207,9 @@ class _GenerationCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              AppTheme.primary.withOpacity(0.3),
-              const Color(0xFF3B82F6).withOpacity(0.3),
-            ],
+            colors: isMusic
+                ? [const Color(0xFF10B981).withOpacity(0.3), const Color(0xFF059669).withOpacity(0.3)]
+                : [AppTheme.primary.withOpacity(0.3), const Color(0xFF3B82F6).withOpacity(0.3)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -218,6 +234,55 @@ class _GenerationCard extends StatelessWidget {
               const Center(
                 child: Text('Failed', style: TextStyle(color: AppTheme.destructive, fontSize: 12)),
               )
+            else if (isMusic)
+              // Music/Audio card with waveform visualization
+              Container(
+                color: AppTheme.card,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF10B981), Color(0xFF059669)],
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: const Icon(Icons.music_note, color: Colors.white, size: 24),
+                    ),
+                    const SizedBox(height: 8),
+                    // Static waveform bars
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(12, (i) {
+                        final height = 8.0 + (i % 3) * 6.0 + (i % 2) * 4.0;
+                        return Container(
+                          width: 3,
+                          height: height,
+                          margin: const EdgeInsets.symmetric(horizontal: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(
+                        generation.title ?? generation.prompt,
+                        style: const TextStyle(fontSize: 11),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              )
             else if (imageUrl != null)
               CachedNetworkImage(
                 imageUrl: imageUrl,
@@ -239,8 +304,8 @@ class _GenerationCard extends StatelessWidget {
                 ),
               ),
 
-            // Video play indicator
-            if (isVideo && !generation.isPending)
+            // Video/Music play indicator
+            if ((isVideo || isMusic) && !generation.isPending && !isMusic)
               Positioned.fill(
                 child: Container(
                   color: Colors.black26,
@@ -261,7 +326,7 @@ class _GenerationCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  isVideo ? 'video' : 'image',
+                  isMusic ? 'music' : (isVideo ? 'video' : 'image'),
                   style: const TextStyle(color: Colors.white, fontSize: 10),
                 ),
               ),
@@ -282,7 +347,6 @@ class _GenerationCard extends StatelessWidget {
               ),
             ),
           ],
-        ),
       ),
     );
   }
@@ -321,7 +385,53 @@ class _GenerationCard extends StatelessWidget {
                 const SizedBox(height: 24),
 
                 // Preview
-                if (generation.outputUrl != null)
+                if (generation.type == GenerationType.music)
+                  // Audio player preview
+                  Container(
+                    height: 120,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF10B981), Color(0xFF059669)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.play_arrow,
+                            color: Colors.white,
+                            size: 32,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Waveform visualization
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(20, (i) {
+                            final height = 8.0 + (i % 3) * 8.0 + (i % 2) * 4.0;
+                            return Container(
+                              width: 3,
+                              height: height,
+                              margin: const EdgeInsets.symmetric(horizontal: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.8),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            );
+                          }),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (generation.outputUrl != null)
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: CachedNetworkImage(
@@ -353,7 +463,7 @@ class _GenerationCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        generation.type == GenerationType.video ? 'Video' : 'Image',
+                        _getTypeLabel(generation.type),
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
@@ -401,6 +511,28 @@ class _GenerationCard extends StatelessWidget {
     );
   }
 
+  String _getTypeLabel(GenerationType type) {
+    switch (type) {
+      case GenerationType.video:
+        return 'Video';
+      case GenerationType.music:
+        return 'Music';
+      default:
+        return 'Image';
+    }
+  }
+
+  DownloadType _getDownloadType(GenerationType type) {
+    switch (type) {
+      case GenerationType.video:
+        return DownloadType.video;
+      case GenerationType.music:
+        return DownloadType.audio;
+      default:
+        return DownloadType.image;
+    }
+  }
+
   Future<void> _downloadGeneration(BuildContext context) async {
     if (generation.outputUrl == null) return;
 
@@ -411,10 +543,9 @@ class _GenerationCard extends StatelessWidget {
         url: generation.outputUrl!,
         title: generation.prompt.isNotEmpty 
             ? generation.prompt 
-            : '${generation.type == GenerationType.video ? 'Video' : 'Image'} Generation',
-        type: generation.type == GenerationType.video 
-            ? DownloadType.video 
-            : DownloadType.image,
+            : '${_getTypeLabel(generation.type)} Generation',
+        type: _getDownloadType(generation.type),
+        saveToGallery: generation.type != GenerationType.music, // Audio doesn't go to photo gallery
         metadata: {
           'model': generation.model,
           'prompt': generation.prompt,
@@ -424,8 +555,10 @@ class _GenerationCard extends StatelessWidget {
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Saved to Downloads & Gallery'),
+          SnackBar(
+            content: Text(generation.type == GenerationType.music 
+                ? 'Saved to Downloads' 
+                : 'Saved to Downloads & Gallery'),
             backgroundColor: AppTheme.primary,
           ),
         );

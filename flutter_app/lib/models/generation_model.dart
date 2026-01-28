@@ -1,4 +1,4 @@
-enum GenerationType { image, video }
+enum GenerationType { image, video, music }
 
 enum GenerationStatus { pending, processing, completed, failed }
 
@@ -43,7 +43,7 @@ class Generation {
       userId: json['user_id'] as String?,
       prompt: json['prompt'] as String? ?? '',
       model: json['model'] as String? ?? '',
-      type: json['type'] == 'video' ? GenerationType.video : GenerationType.image,
+      type: _parseType(json['type'] as String? ?? 'image'),
       status: _parseStatus(json['status'] as String? ?? 'pending'),
       outputUrl: json['output_url'] as String?,
       thumbnailUrl: json['thumbnail_url'] as String?,
@@ -55,6 +55,17 @@ class Generation {
       creditsUsed: json['credits_used'] as int? ?? 0,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
+  }
+
+  static GenerationType _parseType(String type) {
+    switch (type) {
+      case 'video':
+        return GenerationType.video;
+      case 'music':
+        return GenerationType.music;
+      default:
+        return GenerationType.image;
+    }
   }
 
   static GenerationStatus _parseStatus(String status) {
@@ -83,7 +94,7 @@ class Generation {
       'user_id': userId,
       'prompt': prompt,
       'model': model,
-      'type': type == GenerationType.video ? 'video' : 'image',
+      'type': _typeToString(type),
       'status': status.name,
       'output_url': outputUrl,
       'thumbnail_url': thumbnailUrl,
@@ -95,5 +106,16 @@ class Generation {
       'credits_used': creditsUsed,
       'created_at': createdAt.toIso8601String(),
     };
+  }
+
+  static String _typeToString(GenerationType type) {
+    switch (type) {
+      case GenerationType.video:
+        return 'video';
+      case GenerationType.music:
+        return 'music';
+      default:
+        return 'image';
+    }
   }
 }

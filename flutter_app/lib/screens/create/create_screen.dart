@@ -45,6 +45,16 @@ class CreateScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
+            // Audio/Music Generation Card
+            _CreateOptionCard(
+              icon: Icons.music_note,
+              title: 'Music & Audio',
+              description: 'Generate music, vocals, and sound effects',
+              gradient: [const Color(0xFF10B981), const Color(0xFF059669)],
+              onTap: () => context.go('/create/audio'),
+            ),
+            const SizedBox(height: 16),
+
             // Cinema Studio Card
             _CreateOptionCard(
               icon: Icons.movie_creation,
