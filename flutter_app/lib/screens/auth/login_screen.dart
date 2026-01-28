@@ -127,10 +127,12 @@ class _LoginScreenState extends State<LoginScreen>
                             ],
                           ),
                         ),
-                        child: const Icon(
-                          Icons.auto_awesome,
-                          size: 48,
-                          color: AppTheme.primary,
+                        child: SizedBox(
+                          width: MediaQuery.of(context).size.width * 0.2,
+                          height: MediaQuery.of(context).size.width * 0.2,
+                          child: Image.asset(
+                            "assets/logos/logo.png",
+                          ),
                         ),
                       ),
                       const SizedBox(height: 24),

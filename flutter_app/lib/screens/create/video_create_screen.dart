@@ -20,26 +20,120 @@ import 'video_model_selector.dart';
 
 // Video tools matching web sidebar
 const List<Map<String, dynamic>> videoTools = [
-  {'id': 'mixed-media', 'name': 'Mixed Media', 'description': 'Create mixed media projects', 'icon': Icons.auto_awesome_mosaic, 'badge': 'NEW', 'route': 'mixed-media'},
-  {'id': 'click-to-ad', 'name': 'Click to Ad', 'description': 'Product URLs to video ads', 'icon': Icons.ads_click, 'badge': null, 'route': 'click-to-ad'},
-  {'id': 'sora-trends', 'name': 'Sora 2 Trends', 'description': 'Turn ideas into viral videos', 'icon': Icons.trending_up, 'badge': null, 'route': 'sora-trends'},
-  {'id': 'lip-sync', 'name': 'Lipsync Studio', 'description': 'Create talking clips', 'icon': Icons.record_voice_over, 'badge': null, 'route': 'lip-sync'},
-  {'id': 'draw-to-video', 'name': 'Draw to Video', 'description': 'Sketch to cinematic video', 'icon': Icons.brush, 'badge': null, 'route': 'draw-to-video'},
-  {'id': 'sketch-to-video', 'name': 'Sketch to Video', 'description': 'From sketch to video with Sora', 'icon': Icons.edit, 'badge': null, 'route': 'sketch-to-video'},
-  {'id': 'ugc-factory', 'name': 'UGC Factory', 'description': 'Build UGC with AI avatars', 'icon': Icons.person_pin, 'badge': null, 'route': 'ugc-factory'},
-  {'id': 'video-upscale', 'name': 'Video Upscale', 'description': 'Enhance video quality', 'icon': Icons.hd, 'badge': null, 'route': 'video-upscale'},
-  {'id': 'extend', 'name': 'Extend', 'description': 'Extend video length', 'icon': Icons.add_circle_outline, 'badge': null, 'route': 'extend'},
-  {'id': 'interpolate', 'name': 'Interpolate', 'description': 'Smooth frame rate', 'icon': Icons.animation, 'badge': null, 'route': 'interpolate'},
+  {
+    'id': 'mixed-media',
+    'name': 'Mixed Media',
+    'description': 'Create mixed media projects',
+    'icon': Icons.auto_awesome_mosaic,
+    'badge': 'NEW',
+    'route': 'mixed-media'
+  },
+  {
+    'id': 'click-to-ad',
+    'name': 'Click to Ad',
+    'description': 'Product URLs to video ads',
+    'icon': Icons.ads_click,
+    'badge': null,
+    'route': 'click-to-ad'
+  },
+  {
+    'id': 'sora-trends',
+    'name': 'Sora 2 Trends',
+    'description': 'Turn ideas into viral videos',
+    'icon': Icons.trending_up,
+    'badge': null,
+    'route': 'sora-trends'
+  },
+  {
+    'id': 'lip-sync',
+    'name': 'Lipsync Studio',
+    'description': 'Create talking clips',
+    'icon': Icons.record_voice_over,
+    'badge': null,
+    'route': 'lip-sync'
+  },
+  {
+    'id': 'draw-to-video',
+    'name': 'Draw to Video',
+    'description': 'Sketch to cinematic video',
+    'icon': Icons.brush,
+    'badge': null,
+    'route': 'draw-to-video'
+  },
+  {
+    'id': 'sketch-to-video',
+    'name': 'Sketch to Video',
+    'description': 'From sketch to video with Sora',
+    'icon': Icons.edit,
+    'badge': null,
+    'route': 'sketch-to-video'
+  },
+  {
+    'id': 'ugc-factory',
+    'name': 'UGC Factory',
+    'description': 'Build UGC with AI avatars',
+    'icon': Icons.person_pin,
+    'badge': null,
+    'route': 'ugc-factory'
+  },
+  {
+    'id': 'video-upscale',
+    'name': 'Video Upscale',
+    'description': 'Enhance video quality',
+    'icon': Icons.hd,
+    'badge': null,
+    'route': 'video-upscale'
+  },
+  {
+    'id': 'extend',
+    'name': 'Extend',
+    'description': 'Extend video length',
+    'icon': Icons.add_circle_outline,
+    'badge': null,
+    'route': 'extend'
+  },
+  {
+    'id': 'interpolate',
+    'name': 'Interpolate',
+    'description': 'Smooth frame rate',
+    'icon': Icons.animation,
+    'badge': null,
+    'route': 'interpolate'
+  },
 ];
 
 // Video Templates
 const List<Map<String, String>> videoTemplates = [
-  {'label': 'Cinematic', 'prompt': 'A cinematic wide shot of a beautiful sunset over mountains, golden hour, 4K quality'},
-  {'label': 'Action', 'prompt': 'Dynamic action shot with dramatic lighting, fast-paced, professional cinematography'},
-  {'label': 'Nature', 'prompt': 'Peaceful nature scene with flowing water and lush greenery, National Geographic style'},
-  {'label': 'Urban', 'prompt': 'Modern city skyline at night with neon lights reflecting, cyberpunk aesthetic'},
-  {'label': 'Abstract', 'prompt': 'Mesmerizing abstract patterns morphing and flowing, vibrant colors, artistic'},
-  {'label': 'Portrait', 'prompt': 'Elegant portrait with cinematic bokeh background, professional lighting'},
+  {
+    'label': 'Cinematic',
+    'prompt':
+        'A cinematic wide shot of a beautiful sunset over mountains, golden hour, 4K quality'
+  },
+  {
+    'label': 'Action',
+    'prompt':
+        'Dynamic action shot with dramatic lighting, fast-paced, professional cinematography'
+  },
+  {
+    'label': 'Nature',
+    'prompt':
+        'Peaceful nature scene with flowing water and lush greenery, National Geographic style'
+  },
+  {
+    'label': 'Urban',
+    'prompt':
+        'Modern city skyline at night with neon lights reflecting, cyberpunk aesthetic'
+  },
+  {
+    'label': 'Abstract',
+    'prompt':
+        'Mesmerizing abstract patterns morphing and flowing, vibrant colors, artistic'
+  },
+  {
+    'label': 'Portrait',
+    'prompt':
+        'Elegant portrait with cinematic bokeh background, professional lighting'
+  },
 ];
 
 class VideoCreateScreen extends StatefulWidget {
@@ -49,7 +143,8 @@ class VideoCreateScreen extends StatefulWidget {
   State<VideoCreateScreen> createState() => _VideoCreateScreenState();
 }
 
-class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTickerProviderStateMixin {
+class _VideoCreateScreenState extends State<VideoCreateScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _promptController = TextEditingController();
   String _selectedModel = 'wan-2.6';
@@ -102,7 +197,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
 
       final file = File(image.path);
       final bytes = await file.readAsBytes();
-      final fileName = '${session.user.id}/${DateTime.now().millisecondsSinceEpoch}-start-${image.name}';
+      final fileName =
+          '${session.user.id}/${DateTime.now().millisecondsSinceEpoch}-start-${image.name}';
 
       await Supabase.instance.client.storage
           .from('generation-inputs')
@@ -133,7 +229,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
 
       final file = File(image.path);
       final bytes = await file.readAsBytes();
-      final fileName = '${session.user.id}/${DateTime.now().millisecondsSinceEpoch}-end-${image.name}';
+      final fileName =
+          '${session.user.id}/${DateTime.now().millisecondsSinceEpoch}-end-${image.name}';
 
       await Supabase.instance.client.storage
           .from('generation-inputs')
@@ -172,7 +269,7 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
     }
 
     final generationProvider = context.read<GenerationProvider>();
-    
+
     final result = await generationProvider.generate(
       prompt: _promptController.text.trim(),
       model: _selectedModel,
@@ -183,7 +280,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
     );
 
     if (result != null) {
-      _showSnackBar('Video generation started. Check your library for the result.');
+      _showSnackBar(
+          'Video generation started. Check your library for the result.');
       creditsProvider.refresh();
       _pollForCompletion(result.id);
     }
@@ -195,18 +293,19 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
 
     Future<void> poll() async {
       if (!mounted) return;
-      
+
       final provider = context.read<GenerationProvider>();
       await provider.loadGenerations();
-      
-      final generation = provider.generations.where((g) => g.id == generationId).firstOrNull;
-      
+
+      final generation =
+          provider.generations.where((g) => g.id == generationId).firstOrNull;
+
       if (generation?.isCompleted == true && generation?.outputUrl != null) {
         setState(() {
           _generatedVideoUrl = generation!.outputUrl;
         });
         _initializeVideoPlayer(generation!.outputUrl!);
-        
+
         if (mounted) {
           _showSnackBar('Video ready!');
         }
@@ -245,11 +344,11 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
 
     try {
       final downloadProvider = context.read<DownloadProvider>();
-      
+
       await downloadProvider.downloadFile(
         url: _generatedVideoUrl!,
-        title: _promptController.text.isNotEmpty 
-            ? _promptController.text 
+        title: _promptController.text.isNotEmpty
+            ? _promptController.text
             : 'Generated Video',
         type: DownloadType.video,
         metadata: {
@@ -278,7 +377,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
       final file = File('${tempDir.path}/$fileName');
       await file.writeAsBytes(response.bodyBytes);
 
-      await Share.shareXFiles([XFile(file.path)], text: 'Created with Timeless AI');
+      await Share.shareXFiles([XFile(file.path)],
+          text: 'Created with Timeless AI');
     } catch (e) {
       if (mounted) {
         _showSnackBar('Share failed: $e');
@@ -286,7 +386,9 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
     }
   }
 
-  Widget _buildVideoActionButton(IconData icon, String label, VoidCallback onTap, {bool isPrimary = false}) {
+  Widget _buildVideoActionButton(
+      IconData icon, String label, VoidCallback onTap,
+      {bool isPrimary = false}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -300,7 +402,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
           children: [
             Icon(icon, size: 16, color: Colors.white),
             const SizedBox(width: 6),
-            Text(label, style: const TextStyle(fontSize: 12, color: Colors.white)),
+            Text(label,
+                style: const TextStyle(fontSize: 12, color: Colors.white)),
           ],
         ),
       ),
@@ -392,10 +495,12 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       decoration: BoxDecoration(
-                        color: isSelected ? AppTheme.primary : AppTheme.secondary,
+                        color:
+                            isSelected ? AppTheme.primary : AppTheme.secondary,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isSelected ? AppTheme.primary : AppTheme.border,
+                          color:
+                              isSelected ? AppTheme.primary : AppTheme.border,
                         ),
                       ),
                       child: Center(
@@ -403,7 +508,9 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                           '${d}s',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: isSelected ? Colors.white : AppTheme.mutedForeground,
+                            color: isSelected
+                                ? Colors.white
+                                : AppTheme.mutedForeground,
                           ),
                         ),
                       ),
@@ -448,7 +555,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                     Navigator.pop(context);
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12),
                     decoration: BoxDecoration(
                       color: isSelected ? AppTheme.primary : AppTheme.secondary,
                       borderRadius: BorderRadius.circular(12),
@@ -460,7 +568,9 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                       ratio,
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
-                        color: isSelected ? Colors.white : AppTheme.mutedForeground,
+                        color: isSelected
+                            ? Colors.white
+                            : AppTheme.mutedForeground,
                       ),
                     ),
                   ),
@@ -505,10 +615,12 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       decoration: BoxDecoration(
-                        color: isSelected ? AppTheme.primary : AppTheme.secondary,
+                        color:
+                            isSelected ? AppTheme.primary : AppTheme.secondary,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isSelected ? AppTheme.primary : AppTheme.border,
+                          color:
+                              isSelected ? AppTheme.primary : AppTheme.border,
                         ),
                       ),
                       child: Center(
@@ -516,7 +628,9 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                           q,
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: isSelected ? Colors.white : AppTheme.mutedForeground,
+                            color: isSelected
+                                ? Colors.white
+                                : AppTheme.mutedForeground,
                           ),
                         ),
                       ),
@@ -551,37 +665,38 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
             ),
             const SizedBox(height: 16),
             ...videoTemplates.map((template) => GestureDetector(
-              onTap: () {
-                _promptController.text = template['prompt']!;
-                Navigator.pop(context);
-              },
-              child: Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.secondary,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      template['label']!,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                  onTap: () {
+                    _promptController.text = template['prompt']!;
+                    Navigator.pop(context);
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.secondary,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.border),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      template['prompt']!,
-                      style: const TextStyle(fontSize: 12, color: AppTheme.muted),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          template['label']!,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          template['prompt']!,
+                          style: const TextStyle(
+                              fontSize: 12, color: AppTheme.muted),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            )),
+                  ),
+                )),
             const SizedBox(height: 12),
           ],
         ),
@@ -651,7 +766,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                       children: [
                         CircularProgressIndicator(),
                         SizedBox(height: 16),
-                        Text('Generating video...', style: TextStyle(color: AppTheme.muted)),
+                        Text('Generating video...',
+                            style: TextStyle(color: AppTheme.muted)),
                         SizedBox(height: 8),
                         Text(
                           'This may take a few minutes',
@@ -661,8 +777,9 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                     ),
                   );
                 }
-                
-                if (_videoController != null && _videoController!.value.isInitialized) {
+
+                if (_videoController != null &&
+                    _videoController!.value.isInitialized) {
                   return ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: Stack(
@@ -682,7 +799,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                           },
                           child: _videoController!.value.isPlaying
                               ? null
-                              : const Icon(Icons.play_circle_fill, size: 64, color: Colors.white70),
+                              : const Icon(Icons.play_circle_fill,
+                                  size: 64, color: Colors.white70),
                         ),
                         // Save/Share buttons
                         if (_generatedVideoUrl != null)
@@ -711,12 +829,13 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                     ),
                   );
                 }
-                
+
                 return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.videocam_off_outlined, size: 48, color: AppTheme.muted),
+                      const Icon(Icons.videocam_off_outlined,
+                          size: 48, color: AppTheme.muted),
                       const SizedBox(height: 16),
                       const Text(
                         'No videos yet',
@@ -777,13 +896,17 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    _buildOptionChip(Icons.dashboard_outlined, 'Templates', _showTemplatesSelector),
+                    _buildOptionChip(Icons.dashboard_outlined, 'Templates',
+                        _showTemplatesSelector),
                     const SizedBox(width: 8),
-                    _buildOptionChip(Icons.timer_outlined, '${_selectedDuration}s', _showDurationSelector),
+                    _buildOptionChip(Icons.timer_outlined,
+                        '${_selectedDuration}s', _showDurationSelector),
                     const SizedBox(width: 8),
-                    _buildOptionChip(Icons.aspect_ratio, _selectedAspectRatio, _showAspectRatioSelector),
+                    _buildOptionChip(Icons.aspect_ratio, _selectedAspectRatio,
+                        _showAspectRatioSelector),
                     const SizedBox(width: 8),
-                    _buildOptionChip(Icons.high_quality, _selectedQuality, _showQualitySelector),
+                    _buildOptionChip(Icons.high_quality, _selectedQuality,
+                        _showQualitySelector),
                     const SizedBox(width: 8),
                     _buildSoundToggle(),
                   ],
@@ -820,7 +943,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                   GestureDetector(
                     onTap: _showModelSelector,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: AppTheme.secondary,
                         borderRadius: BorderRadius.circular(12),
@@ -829,16 +953,19 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.bolt, size: 18, color: AppTheme.primary),
+                          const Icon(Icons.bolt,
+                              size: 18, color: AppTheme.primary),
                           const SizedBox(width: 6),
                           Text(
-                            _selectedModelName.length > 12 
-                                ? '${_selectedModelName.substring(0, 12)}...' 
+                            _selectedModelName.length > 12
+                                ? '${_selectedModelName.substring(0, 12)}...'
                                 : _selectedModelName,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                            style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w500),
                           ),
                           const SizedBox(width: 4),
-                          const Icon(Icons.keyboard_arrow_down, size: 18, color: AppTheme.muted),
+                          const Icon(Icons.keyboard_arrow_down,
+                              size: 18, color: AppTheme.muted),
                         ],
                       ),
                     ),
@@ -854,7 +981,7 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: provider.isGenerating 
+                                colors: provider.isGenerating
                                     ? [AppTheme.muted, AppTheme.muted]
                                     : [AppTheme.primary, AppTheme.accent],
                               ),
@@ -873,10 +1000,13 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                                     ),
                                   )
                                 else
-                                  const Icon(Icons.auto_awesome, size: 18, color: Colors.white),
+                                  const Icon(Icons.auto_awesome,
+                                      size: 18, color: Colors.white),
                                 const SizedBox(width: 8),
                                 Text(
-                                  provider.isGenerating ? 'Generating...' : 'Generate',
+                                  provider.isGenerating
+                                      ? 'Generating...'
+                                      : 'Generate',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 15,
@@ -886,7 +1016,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                                 if (!provider.isGenerating) ...[
                                   const SizedBox(width: 8),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
                                       color: Colors.white.withOpacity(0.2),
                                       borderRadius: BorderRadius.circular(8),
@@ -959,7 +1090,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                           color: Colors.red,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.close, color: Colors.white, size: 14),
+                        child: const Icon(Icons.close,
+                            color: Colors.white, size: 14),
                       ),
                     ),
                   ),
@@ -967,14 +1099,16 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                     bottom: 4,
                     left: 4,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: Colors.black54,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         label,
-                        style: const TextStyle(fontSize: 10, color: Colors.white),
+                        style:
+                            const TextStyle(fontSize: 10, color: Colors.white),
                       ),
                     ),
                   ),
@@ -990,7 +1124,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   else
-                    const Icon(Icons.add_photo_alternate_outlined, size: 24, color: AppTheme.muted),
+                    const Icon(Icons.add_photo_alternate_outlined,
+                        size: 24, color: AppTheme.muted),
                   const SizedBox(height: 4),
                   Text(
                     label,
@@ -1017,7 +1152,9 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
           children: [
             Icon(icon, size: 16, color: AppTheme.muted),
             const SizedBox(width: 6),
-            Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.mutedForeground)),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 12, color: AppTheme.mutedForeground)),
           ],
         ),
       ),
@@ -1030,7 +1167,9 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: _soundEnabled ? AppTheme.primary.withOpacity(0.2) : AppTheme.secondary,
+          color: _soundEnabled
+              ? AppTheme.primary.withOpacity(0.2)
+              : AppTheme.secondary,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: _soundEnabled ? AppTheme.primary : AppTheme.border,
@@ -1049,7 +1188,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
               _soundEnabled ? 'Sound On' : 'Sound Off',
               style: TextStyle(
                 fontSize: 12,
-                color: _soundEnabled ? AppTheme.primary : AppTheme.mutedForeground,
+                color:
+                    _soundEnabled ? AppTheme.primary : AppTheme.mutedForeground,
               ),
             ),
           ],
@@ -1089,7 +1229,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                 color: AppTheme.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(tool['icon'] as IconData, color: AppTheme.primary, size: 22),
+              child: Icon(tool['icon'] as IconData,
+                  color: AppTheme.primary, size: 22),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1100,14 +1241,16 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                     children: [
                       Text(
                         tool['name'] as String,
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 15),
                       ),
                       if (tool['badge'] != null) ...[
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: tool['badge'] == 'NEW' 
+                            color: tool['badge'] == 'NEW'
                                 ? Colors.green.withOpacity(0.2)
                                 : AppTheme.primary.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(4),
@@ -1117,7 +1260,9 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                             style: TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.bold,
-                              color: tool['badge'] == 'NEW' ? Colors.green : AppTheme.primary,
+                              color: tool['badge'] == 'NEW'
+                                  ? Colors.green
+                                  : AppTheme.primary,
                             ),
                           ),
                         ),

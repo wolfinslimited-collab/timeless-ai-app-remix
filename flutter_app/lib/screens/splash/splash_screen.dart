@@ -329,10 +329,12 @@ class _SplashScreenState extends State<SplashScreen>
                             end: Alignment.bottomRight,
                             colors: [AppTheme.primary, AppTheme.accent],
                           ).createShader(bounds),
-                          child: const Icon(
-                            Icons.auto_awesome,
-                            size: 48,
-                            color: Colors.white,
+                          child: SizedBox(
+                            width: MediaQuery.of(context).size.width * 0.2,
+                            height: MediaQuery.of(context).size.width * 0.2,
+                            child: Image.asset(
+                              "assets/logos/logo.png",
+                            ),
                           ),
                         ),
                       );
