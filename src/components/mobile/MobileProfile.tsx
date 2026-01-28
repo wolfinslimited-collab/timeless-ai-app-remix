@@ -69,7 +69,6 @@ export function MobileProfile({ onNavigate }: MobileProfileProps) {
         <ProfileMenuItem icon={Download} label="Downloads" />
         <ProfileMenuItem icon={Heart} label="Favorites" />
         <ProfileMenuItem icon={Share2} label="Share App" />
-        <ProfileMenuItem icon={Settings} label="Settings" />
         <button
           onClick={signOut}
           className="w-full flex items-center gap-4 p-4 bg-red-500/10 rounded-xl hover:bg-red-500/20 transition-all"
