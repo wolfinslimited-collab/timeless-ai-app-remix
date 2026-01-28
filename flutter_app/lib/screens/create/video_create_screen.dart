@@ -380,7 +380,7 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
             ),
             const SizedBox(height: 16),
             Row(
-              children: durations.map((d) {
+              children: VideoModels.durations.map((d) {
                 final isSelected = _selectedDuration == d;
                 return Expanded(
                   child: GestureDetector(
@@ -440,7 +440,7 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: aspectRatios.map((ratio) {
+              children: VideoModels.aspectRatios.map((ratio) {
                 final isSelected = _selectedAspectRatio == ratio;
                 return GestureDetector(
                   onTap: () {
@@ -493,7 +493,7 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
             ),
             const SizedBox(height: 16),
             Row(
-              children: qualities.map((q) {
+              children: VideoModels.qualities.map((q) {
                 final isSelected = _selectedQuality == q;
                 return Expanded(
                   child: GestureDetector(
