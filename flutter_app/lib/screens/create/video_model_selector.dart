@@ -213,6 +213,10 @@ class _VideoModelSelectorState extends State<VideoModelSelector> {
           return Colors.green;
         case 'TOP':
           return Colors.purple;
+        case 'PRO':
+          return Colors.blue;
+        case 'ECONOMY':
+          return Colors.teal;
         default:
           return AppTheme.primary;
       }
@@ -276,6 +280,10 @@ class _VideoModelSelectorState extends State<VideoModelSelector> {
                             children: [
                               if (badge == 'HOT')
                                 Icon(Icons.local_fire_department, size: 10, color: getBadgeColor(badge)),
+                              if (badge == 'PRO')
+                                Icon(Icons.star, size: 10, color: getBadgeColor(badge)),
+                              if (badge == 'ECONOMY')
+                                Icon(Icons.savings, size: 10, color: getBadgeColor(badge)),
                               Text(
                                 badge,
                                 style: TextStyle(
