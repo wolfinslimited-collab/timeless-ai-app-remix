@@ -5,9 +5,13 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 import 'package:http/http.dart' as http;
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:convert';
 import '../../core/theme.dart';
 import '../../providers/credits_provider.dart';
+import '../../models/download_model.dart';
+import '../../providers/download_provider.dart';
 
 class VideoToolLayout extends StatefulWidget {
   final String title;
@@ -654,17 +658,31 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                     Positioned(
                       bottom: 8,
                       right: 8,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          _showSnackBar('Download started');
-                        },
-                        icon: const Icon(Icons.download, size: 16),
-                        label: const Text('Download'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.card,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: _downloadOutput,
+                            icon: const Icon(Icons.download, size: 16),
+                            label: const Text('Save'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: _shareOutput,
+                            icon: const Icon(Icons.share, size: 16),
+                            label: const Text('Share'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.card,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -676,6 +694,71 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                     SizedBox(height: 12),
                     Text('Result will appear here', style: TextStyle(color: AppTheme.muted)),
                   ],
+                ),
+    );
+  }
+
+  Future<void> _downloadOutput() async {
+    if (_outputUrl == null) return;
+
+    try {
+      final downloadProvider = context.read<DownloadProvider>();
+      
+      await downloadProvider.downloadFile(
+        url: _outputUrl!,
+        title: _promptController.text.isNotEmpty 
+            ? _promptController.text 
+            : '${widget.title} Output',
+        type: DownloadType.video,
+        metadata: {
+          'tool': widget.toolId,
+          'prompt': _promptController.text,
+        },
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Saved to Downloads & Gallery'),
+            backgroundColor: AppTheme.primary,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Save failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _shareOutput() async {
+    if (_outputUrl == null) return;
+
+    try {
+      final response = await http.get(Uri.parse(_outputUrl!));
+      final tempDir = await getTemporaryDirectory();
+      final fileName = '${widget.toolId}-${DateTime.now().millisecondsSinceEpoch}.mp4';
+      final file = File('${tempDir.path}/$fileName');
+      await file.writeAsBytes(response.bodyBytes);
+
+      await Share.shareXFiles([XFile(file.path)], text: 'Created with ${widget.title}');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Share failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+}
                 ),
     );
   }

@@ -217,7 +217,7 @@ class ProfileScreen extends StatelessWidget {
                   _ProfileMenuItem(
                     icon: Icons.download_outlined,
                     label: 'Downloads',
-                    onTap: () {},
+                    onTap: () => context.push('/downloads'),
                   ),
                   const SizedBox(height: 8),
                   _ProfileMenuItem(
