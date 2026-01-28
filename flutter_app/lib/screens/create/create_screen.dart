@@ -25,6 +25,17 @@ class CreateScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
+            // Shots Tool Card (Featured)
+            _CreateOptionCard(
+              icon: Icons.grid_3x3,
+              title: 'Shots',
+              description: 'Upload 1 image → Get 9 cinematic angles',
+              gradient: [const Color(0xFFE879F9), const Color(0xFF8B5CF6)],
+              onTap: () => context.go('/create/shots'),
+              badge: 'NEW',
+            ),
+            const SizedBox(height: 16),
+
             // Image Generation Card
             _CreateOptionCard(
               icon: Icons.image,
@@ -86,6 +97,7 @@ class _CreateOptionCard extends StatelessWidget {
   final String description;
   final List<Color> gradient;
   final VoidCallback onTap;
+  final String? badge;
 
   const _CreateOptionCard({
     required this.icon,
@@ -93,6 +105,7 @@ class _CreateOptionCard extends StatelessWidget {
     required this.description,
     required this.gradient,
     required this.onTap,
+    this.badge,
   });
 
   @override
@@ -122,12 +135,34 @@ class _CreateOptionCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      if (badge != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            badge!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(

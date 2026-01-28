@@ -13,7 +13,8 @@ import '../screens/create/audio_create_screen.dart';
 // Image Tools
 import '../screens/create/tools/relight_tool_screen.dart';
 import '../screens/create/tools/upscale_tool_screen.dart';
-import '../screens/create/tools/shots_tool_screen.dart';
+import '../screens/create/tools/shots_tool_screen.dart' as tools_shots;
+import '../screens/create/shots_tool_screen.dart';
 import '../screens/create/tools/inpainting_tool_screen.dart';
 import '../screens/create/tools/object_erase_tool_screen.dart';
 import '../screens/create/tools/angle_tool_screen.dart';
@@ -130,6 +131,11 @@ final appRouter = GoRouter(
             child: CreateScreen(),
           ),
           routes: [
+            // Shots - direct access from Create menu
+            GoRoute(
+              path: 'shots',
+              builder: (context, state) => const ShotsToolScreen(),
+            ),
             GoRoute(
               path: 'image',
               builder: (context, state) => const ImageCreateScreen(),
@@ -145,7 +151,7 @@ final appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'shots',
-                  builder: (context, state) => const ShotsToolScreen(),
+                  builder: (context, state) => const tools_shots.ShotsToolScreen(),
                 ),
                 GoRoute(
                   path: 'inpainting',
