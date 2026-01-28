@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
 import '../../core/theme.dart';
 import '../../models/generation_model.dart';
 import '../../models/download_model.dart';
@@ -9,6 +10,7 @@ import '../../providers/favorites_provider.dart';
 import '../../services/audio_player_service.dart';
 import '../../widgets/music_player_bar.dart';
 import '../../widgets/common/smart_media_image.dart';
+import '../../widgets/common/cached_video_player.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -363,10 +365,39 @@ class _GenerationCard extends StatelessWidget {
                   )
                 else if (imageUrl != null)
                   isVideo
-                    ? VideoThumbnailImage(
-                        thumbnailUrl: generation.thumbnailUrl,
-                        videoUrl: generation.outputUrl,
-                        fit: BoxFit.cover,
+                    ? Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // Use thumbnail if available, otherwise show placeholder
+                          if (generation.thumbnailUrl != null && generation.thumbnailUrl!.isNotEmpty)
+                            SmartMediaImage(
+                              imageUrl: generation.thumbnailUrl,
+                              fit: BoxFit.cover,
+                              isVideo: true,
+                            )
+                          else if (generation.outputUrl != null)
+                            // Use CachedVideoPlayer to show first frame
+                            CachedVideoPlayer(
+                              videoUrl: generation.outputUrl!,
+                              autoPlay: false,
+                              looping: false,
+                              muted: true,
+                              fit: BoxFit.cover,
+                              placeholder: Container(
+                                color: AppTheme.secondary,
+                                child: const Center(
+                                  child: Icon(Icons.videocam_outlined, color: AppTheme.muted, size: 32),
+                                ),
+                              ),
+                            )
+                          else
+                            Container(
+                              color: AppTheme.secondary,
+                              child: const Center(
+                                child: Icon(Icons.videocam_outlined, color: AppTheme.muted, size: 32),
+                              ),
+                            ),
+                        ],
                       )
                     : SmartMediaImage(
                         imageUrl: imageUrl,
@@ -592,11 +623,7 @@ class _GenerationCard extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: generation.type == GenerationType.video
-                      ? VideoThumbnailImage(
-                          thumbnailUrl: generation.thumbnailUrl,
-                          videoUrl: generation.outputUrl,
-                          fit: BoxFit.contain,
-                        )
+                      ? _VideoPlayerWidget(videoUrl: generation.outputUrl!)
                       : SmartMediaImage(
                           imageUrl: generation.outputUrl!,
                           fit: BoxFit.contain,
@@ -745,5 +772,167 @@ class _GenerationCard extends StatelessWidget {
         );
       }
     }
+  }
+}
+
+/// Video player widget for the detail modal with play/pause controls
+class _VideoPlayerWidget extends StatefulWidget {
+  final String videoUrl;
+
+  const _VideoPlayerWidget({required this.videoUrl});
+
+  @override
+  State<_VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
+}
+
+class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
+  late VideoPlayerController _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+  bool _showControls = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeVideo();
+  }
+
+  Future<void> _initializeVideo() async {
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+    
+    try {
+      await _controller.initialize();
+      _controller.setLooping(true);
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error initializing video: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _togglePlayPause() {
+    setState(() {
+      if (_controller.value.isPlaying) {
+        _controller.pause();
+      } else {
+        _controller.play();
+        // Hide controls after a delay when playing
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted && _controller.value.isPlaying) {
+            setState(() => _showControls = false);
+          }
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: AppTheme.secondary,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, color: AppTheme.muted, size: 40),
+              SizedBox(height: 8),
+              Text('Video unavailable', style: TextStyle(color: AppTheme.muted)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!_isInitialized) {
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: AppTheme.secondary,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () {
+        setState(() => _showControls = !_showControls);
+        if (!_controller.value.isPlaying) {
+          _togglePlayPause();
+        }
+      },
+      child: AspectRatio(
+        aspectRatio: _controller.value.aspectRatio,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            VideoPlayer(_controller),
+            
+            // Play/Pause overlay
+            AnimatedOpacity(
+              opacity: _showControls ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(32),
+                ),
+                child: IconButton(
+                  icon: Icon(
+                    _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                  onPressed: _togglePlayPause,
+                ),
+              ),
+            ),
+            
+            // Progress indicator
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: AnimatedOpacity(
+                opacity: _showControls ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: VideoProgressIndicator(
+                  _controller,
+                  allowScrubbing: true,
+                  colors: const VideoProgressColors(
+                    playedColor: AppTheme.primary,
+                    bufferedColor: Colors.white30,
+                    backgroundColor: Colors.white10,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
