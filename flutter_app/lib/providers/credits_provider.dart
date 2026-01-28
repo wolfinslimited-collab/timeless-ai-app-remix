@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/config.dart';
 import '../core/image_models.dart';
+import '../core/video_models.dart';
 
 class CreditsProvider extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -60,6 +61,12 @@ class CreditsProvider extends ChangeNotifier {
       return _credits >= imageCost;
     }
 
+    // Check video models
+    final videoCost = VideoModels.credits[model];
+    if (videoCost != null) {
+      return _credits >= videoCost;
+    }
+
     final cost = AppConfig.modelCredits[model] ?? 5;
     return _credits >= cost;
   }
@@ -78,6 +85,11 @@ class CreditsProvider extends ChangeNotifier {
     final imageCost = ImageModels.credits[model];
     if (imageCost != null) {
       return imageCost;
+    }
+    // Check video models
+    final videoCost = VideoModels.credits[model];
+    if (videoCost != null) {
+      return videoCost;
     }
     return AppConfig.modelCredits[model] ?? 5;
   }

@@ -10,35 +10,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config.dart';
 import '../../core/theme.dart';
+import '../../core/video_models.dart';
 import '../../providers/generation_provider.dart';
 import '../../providers/credits_provider.dart';
 import '../../providers/download_provider.dart';
 import '../../models/download_model.dart';
 import '../../widgets/common/smart_media_image.dart';
 import 'video_model_selector.dart';
-
-// Extended video models list matching web
-const List<Map<String, dynamic>> allVideoModels = [
-  // Economy tier
-  {'id': 'kie-sora2', 'name': 'Sora 2', 'description': 'OpenAI video gen', 'credits': 12, 'tier': 'economy', 'badge': 'HOT'},
-  {'id': 'kie-kling', 'name': 'Kling 2.1', 'description': 'Kuaishou video AI', 'credits': 12, 'tier': 'economy', 'badge': 'HOT'},
-  {'id': 'kie-runway', 'name': 'Runway Gen', 'description': 'Kie.ai video gen', 'credits': 8, 'tier': 'economy', 'badge': null},
-  {'id': 'kie-runway-i2v', 'name': 'Runway I2V', 'description': 'Image to video', 'credits': 10, 'tier': 'economy', 'badge': null},
-  {'id': 'kie-sora2-pro', 'name': 'Sora 2 Pro', 'description': 'OpenAI best quality', 'credits': 18, 'tier': 'economy', 'badge': null},
-  {'id': 'kie-veo31', 'name': 'Veo 3.1', 'description': 'Google latest video', 'credits': 15, 'tier': 'economy', 'badge': null},
-  {'id': 'kie-veo31-fast', 'name': 'Veo 3.1 Fast', 'description': 'Google fast video', 'credits': 10, 'tier': 'economy', 'badge': null},
-  {'id': 'kie-hailuo', 'name': 'Hailuo', 'description': 'MiniMax video', 'credits': 10, 'tier': 'economy', 'badge': null},
-  {'id': 'kie-wan', 'name': 'Wan 2.2', 'description': 'Alibaba video AI', 'credits': 8, 'tier': 'economy', 'badge': null},
-  // High quality tier
-  {'id': 'wan-2.6', 'name': 'Wan 2.6', 'description': 'Latest Alibaba model', 'credits': 15, 'tier': 'hq', 'badge': 'NEW'},
-  {'id': 'veo-3', 'name': 'Veo 3', 'description': "Google's best with audio", 'credits': 30, 'tier': 'hq', 'badge': 'HOT'},
-  {'id': 'luma', 'name': 'Luma Dream Machine', 'description': 'Creative video', 'credits': 22, 'tier': 'hq', 'badge': 'HOT'},
-  {'id': 'kling-2.6', 'name': 'Kling 2.6 Pro', 'description': 'Cinematic with audio', 'credits': 25, 'tier': 'hq', 'badge': 'TOP'},
-  {'id': 'veo-3-fast', 'name': 'Veo 3 Fast', 'description': 'Faster Veo 3', 'credits': 20, 'tier': 'hq', 'badge': null},
-  {'id': 'hailuo-02', 'name': 'Hailuo-02', 'description': 'MiniMax video model', 'credits': 18, 'tier': 'hq', 'badge': 'NEW'},
-  {'id': 'seedance-1.5', 'name': 'Seedance 1.5', 'description': 'With audio support', 'credits': 20, 'tier': 'hq', 'badge': 'NEW'},
-  {'id': 'hunyuan-1.5', 'name': 'Hunyuan 1.5', 'description': 'Tencent video model', 'credits': 18, 'tier': 'hq', 'badge': 'NEW'},
-];
 
 // Video tools matching web sidebar
 const List<Map<String, dynamic>> videoTools = [
@@ -63,10 +41,6 @@ const List<Map<String, String>> videoTemplates = [
   {'label': 'Abstract', 'prompt': 'Mesmerizing abstract patterns morphing and flowing, vibrant colors, artistic'},
   {'label': 'Portrait', 'prompt': 'Elegant portrait with cinematic bokeh background, professional lighting'},
 ];
-
-const List<String> aspectRatios = ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'];
-const List<String> qualities = ['480p', '720p', '1080p'];
-const List<int> durations = [3, 5, 7, 10];
 
 class VideoCreateScreen extends StatefulWidget {
   const VideoCreateScreen({super.key});
@@ -105,15 +79,11 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
   }
 
   int get _selectedModelCredits {
-    final model = allVideoModels.firstWhere(
-      (m) => m['id'] == _selectedModel,
-      orElse: () => {'credits': 15},
-    );
-    return model['credits'] as int;
+    return VideoModels.getCredits(_selectedModel);
   }
 
   String get _selectedModelName {
-    final model = allVideoModels.firstWhere(
+    final model = VideoModels.allModels.firstWhere(
       (m) => m['id'] == _selectedModel,
       orElse: () => {'name': 'Wan 2.6'},
     );
@@ -382,7 +352,7 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
       ),
       builder: (context) => VideoModelSelector(
         selectedModel: _selectedModel,
-        models: allVideoModels,
+        models: VideoModels.allModels,
         onSelect: (modelId) {
           setState(() => _selectedModel = modelId);
           Navigator.pop(context);
