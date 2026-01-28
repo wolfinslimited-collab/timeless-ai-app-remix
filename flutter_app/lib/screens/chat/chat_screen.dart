@@ -459,8 +459,11 @@ class _ChatScreenState extends State<ChatScreen> {
         },
         onNewConversation: _startNewChat,
       ),
-      body: Column(
-        children: [
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          children: [
           // Messages
           Expanded(
             child: _messages.isEmpty && _streamingContent.isEmpty
@@ -699,6 +702,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

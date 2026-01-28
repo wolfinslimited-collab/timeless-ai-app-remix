@@ -96,8 +96,11 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
             ],
           ),
         ),
-        child: SafeArea(
-          child: SingleChildScrollView(
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          behavior: HitTestBehavior.opaque,
+          child: SafeArea(
+            child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: FadeTransition(
               opacity: _fadeAnimation,
