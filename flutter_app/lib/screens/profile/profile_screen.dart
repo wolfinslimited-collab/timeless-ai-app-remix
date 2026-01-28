@@ -1,12 +1,106 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme.dart';
 import '../../providers/credits_provider.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
+
+  static const String _appStoreId = '6740804440';
+  static const String _playStoreId = 'com.wolfine.app';
+
+  Future<void> _shareApp(BuildContext context) async {
+    const String appStoreUrl = 'https://apps.apple.com/us/app/timeless-all-in-one-ai/id$_appStoreId';
+    const String playStoreUrl = 'https://play.google.com/store/apps/details?id=$_playStoreId';
+    
+    final String shareUrl = Platform.isIOS ? appStoreUrl : playStoreUrl;
+    const String shareText = '🎨 Check out Timeless AI - Create amazing images, videos, and music with AI!\n\n';
+    
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          text: '$shareText$shareUrl',
+          subject: 'Timeless AI - All-in-One AI Creative Studio',
+        ),
+      );
+      
+      // Show rate app dialog after sharing
+      if (context.mounted) {
+        _showRateAppDialog(context);
+      }
+    } catch (e) {
+      debugPrint('Share failed: $e');
+    }
+  }
+
+  void _showRateAppDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.secondary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.star, color: Colors.amber, size: 28),
+            SizedBox(width: 12),
+            Text(
+              'Enjoying Timeless AI?',
+              style: TextStyle(fontSize: 18),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Would you like to rate us on the app store? Your feedback helps us improve!',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Maybe Later',
+              style: TextStyle(color: Colors.white60),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _openAppStore();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8B5CF6),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Rate Now'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openAppStore() async {
+    final Uri url;
+    if (Platform.isIOS) {
+      url = Uri.parse('https://apps.apple.com/app/id$_appStoreId?action=write-review');
+    } else {
+      url = Uri.parse('https://play.google.com/store/apps/details?id=$_playStoreId');
+    }
+    
+    try {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('Could not open app store: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -229,7 +323,13 @@ class ProfileScreen extends StatelessWidget {
                   _ProfileMenuItem(
                     icon: Icons.share_outlined,
                     label: 'Share App',
-                    onTap: () {},
+                    onTap: () => _shareApp(context),
+                  ),
+                  const SizedBox(height: 8),
+                  _ProfileMenuItem(
+                    icon: Icons.star_outline,
+                    label: 'Rate App',
+                    onTap: () => _openAppStore(),
                   ),
                   const SizedBox(height: 8),
                   _ProfileMenuItem(
