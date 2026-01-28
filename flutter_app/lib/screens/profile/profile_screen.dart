@@ -408,12 +408,6 @@ class ProfileScreen extends StatelessWidget {
                     onTap: () => _requestInAppReview(),
                   ),
                   const SizedBox(height: 8),
-                  _ProfileMenuItem(
-                    icon: Icons.settings_outlined,
-                    label: 'Settings',
-                    onTap: () {},
-                  ),
-                  const SizedBox(height: 8),
 
                   // Sign Out Button
                   GestureDetector(
