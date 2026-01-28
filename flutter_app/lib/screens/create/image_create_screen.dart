@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../core/config.dart';
 import '../../core/theme.dart';
+import '../../core/image_models.dart';
 import '../../providers/generation_provider.dart';
 import '../../providers/credits_provider.dart';
 import '../../widgets/common/smart_media_image.dart';
 import '../../widgets/common/shimmer_loading.dart';
 import '../../widgets/common/full_screen_image_viewer.dart';
+import 'image_model_selector.dart';
 
 class ImageCreateScreen extends StatefulWidget {
   const ImageCreateScreen({super.key});
@@ -22,6 +23,8 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
   final _promptController = TextEditingController();
   String _selectedModel = 'nano-banana';
   String _selectedAspectRatio = '1:1';
+  String _selectedQuality = '1024';
+  String? _selectedStyle;
   String? _generatedImageUrl;
   String? _generatedGenerationId;
   bool _isLoadingImage = false;
@@ -115,11 +118,39 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
   }
 
   int get _selectedModelCredits {
-    final model = AppConfig.imageModels.firstWhere(
-      (m) => m['id'] == _selectedModel,
-      orElse: () => {'credits': 4},
+    return ImageModels.getCredits(_selectedModel);
+  }
+
+  Map<String, dynamic>? get _selectedModelData {
+    try {
+      return ImageModels.allModels.firstWhere(
+        (m) => m['id'] == _selectedModel,
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+
+  String get _selectedModelName {
+    return _selectedModelData?['name'] ?? 'Select Model';
+  }
+
+  List<String> get _availableQualityOptions {
+    return ImageModels.getQualityOptionsForModel(_selectedModel);
+  }
+
+  String get _finalPrompt {
+    if (_selectedStyle == null) return _promptController.text.trim();
+    
+    final stylePreset = ImageModels.stylePresets.firstWhere(
+      (s) => s['id'] == _selectedStyle,
+      orElse: () => {},
     );
-    return model['credits'] as int;
+    
+    final stylePrompt = stylePreset['prompt'] as String?;
+    if (stylePrompt == null) return _promptController.text.trim();
+    
+    return '${_promptController.text.trim()}, $stylePrompt';
   }
 
   Future<void> _handleGenerate() async {
@@ -144,10 +175,11 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
 
     final generationProvider = context.read<GenerationProvider>();
     final result = await generationProvider.generate(
-      prompt: _promptController.text.trim(),
+      prompt: _finalPrompt,
       model: _selectedModel,
       type: 'image',
       aspectRatio: _selectedAspectRatio,
+      quality: _selectedQuality,
     );
 
     if (result != null && result.outputUrl != null) {
@@ -202,6 +234,31 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showModelSelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.card,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => ImageModelSelector(
+        selectedModel: _selectedModel,
+        models: ImageModels.allModels,
+        onSelect: (modelId) {
+          setState(() {
+            _selectedModel = modelId;
+            // Reset quality if not available for new model
+            if (!_availableQualityOptions.contains(_selectedQuality)) {
+              _selectedQuality = _availableQualityOptions.first;
+            }
+          });
+          Navigator.pop(context);
+        },
       ),
     );
   }
@@ -367,77 +424,188 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
           ),
           child: Column(
             children: [
-              // Model Selection
+              // Model Selector Button
+              GestureDetector(
+                onTap: _showModelSelector,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.secondary,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.auto_awesome, color: AppTheme.primary, size: 18),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _selectedModelName,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              '$_selectedModelCredits credits',
+                              style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.expand_more, color: AppTheme.muted),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Quality and Aspect Ratio Row
+              Row(
+                children: [
+                  // Quality selector
+                  Expanded(
+                    child: Container(
+                      height: 40,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _availableQualityOptions.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          final quality = _availableQualityOptions[index];
+                          final qualityData = ImageModels.qualityOptions[quality];
+                          final isSelected = quality == _selectedQuality;
+                          return GestureDetector(
+                            onTap: () => setState(() => _selectedQuality = quality),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppTheme.primary.withOpacity(0.2)
+                                    : AppTheme.secondary,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isSelected ? AppTheme.primary : AppTheme.border,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                qualityData?['name'] ?? quality,
+                                style: TextStyle(
+                                  color: isSelected ? AppTheme.primary : AppTheme.mutedForeground,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Aspect Ratio Dropdown
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.secondary,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.border),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedAspectRatio,
+                        dropdownColor: AppTheme.card,
+                        items: ImageModels.aspectRatios.map((ratio) {
+                          return DropdownMenuItem(
+                            value: ratio,
+                            child: Text(ratio, style: const TextStyle(fontSize: 12)),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => _selectedAspectRatio = value);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Style Presets
               SizedBox(
                 height: 36,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  itemCount: AppConfig.imageModels.length,
+                  itemCount: ImageModels.stylePresets.length + 1,
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (context, index) {
-                    final model = AppConfig.imageModels[index];
-                    final isSelected = model['id'] == _selectedModel;
+                    if (index == 0) {
+                      // No style option
+                      final isSelected = _selectedStyle == null;
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedStyle = null),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppTheme.primary : AppTheme.secondary,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            'None',
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : AppTheme.mutedForeground,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                    
+                    final style = ImageModels.stylePresets[index - 1];
+                    final isSelected = _selectedStyle == style['id'];
                     return GestureDetector(
-                      onTap: () =>
-                          setState(() => _selectedModel = model['id'] as String),
+                      onTap: () => setState(() => _selectedStyle = style['id'] as String),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          color:
-                              isSelected ? AppTheme.primary : AppTheme.secondary,
+                          color: isSelected ? AppTheme.primary : AppTheme.secondary,
                           borderRadius: BorderRadius.circular(18),
                         ),
                         alignment: Alignment.center,
-                        child: Text(
-                          model['name'] as String,
-                          style: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : AppTheme.mutedForeground,
-                            fontSize: 12,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getStyleIcon(style['icon'] as String),
+                              size: 14,
+                              color: isSelected ? Colors.white : AppTheme.mutedForeground,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              style['name'] as String,
+                              style: TextStyle(
+                                color: isSelected ? Colors.white : AppTheme.mutedForeground,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );
                   },
                 ),
-              ),
-              const SizedBox(height: 12),
-
-              // Aspect Ratio
-              Row(
-                children: [
-                  const Text('Ratio:',
-                      style: TextStyle(color: AppTheme.muted, fontSize: 12)),
-                  const SizedBox(width: 8),
-                  ...['1:1', '16:9', '9:16'].map((ratio) {
-                    final isSelected = ratio == _selectedAspectRatio;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () =>
-                            setState(() => _selectedAspectRatio = ratio),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.primary.withOpacity(0.2)
-                                : AppTheme.secondary,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            ratio,
-                            style: TextStyle(
-                              color: isSelected ? AppTheme.primary : AppTheme.muted,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                ],
               ),
               const SizedBox(height: 16),
 
@@ -498,6 +666,25 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
         ),
       ],
     );
+  }
+
+  IconData _getStyleIcon(String iconName) {
+    switch (iconName) {
+      case 'movie_creation':
+        return Icons.movie_creation;
+      case 'person':
+        return Icons.person;
+      case 'auto_fix_high':
+        return Icons.auto_fix_high;
+      case 'tv':
+        return Icons.tv;
+      case 'camera_alt':
+        return Icons.camera_alt;
+      case 'palette':
+        return Icons.palette;
+      default:
+        return Icons.style;
+    }
   }
 
   Widget _buildToolsTab() {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/config.dart';
+import '../core/image_models.dart';
 
 class CreditsProvider extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -53,6 +54,12 @@ class CreditsProvider extends ChangeNotifier {
   bool hasEnoughCreditsForModel(String model) {
     if (_hasActiveSubscription) return true;
 
+    // Check image models first
+    final imageCost = ImageModels.credits[model];
+    if (imageCost != null) {
+      return _credits >= imageCost;
+    }
+
     final cost = AppConfig.modelCredits[model] ?? 5;
     return _credits >= cost;
   }
@@ -67,6 +74,11 @@ class CreditsProvider extends ChangeNotifier {
 
   /// Get cost for a specific model
   int getModelCost(String model) {
+    // Check image models first
+    final imageCost = ImageModels.credits[model];
+    if (imageCost != null) {
+      return imageCost;
+    }
     return AppConfig.modelCredits[model] ?? 5;
   }
 
