@@ -393,7 +393,7 @@ class ProfileScreen extends StatelessWidget {
                   _ProfileMenuItem(
                     icon: Icons.favorite_outline,
                     label: 'Favorites',
-                    onTap: () {},
+                    onTap: () => context.push('/favorites'),
                   ),
                   const SizedBox(height: 8),
                   _ProfileMenuItem(
