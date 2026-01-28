@@ -88,11 +88,15 @@ class DownloadService {
     }
   }
 
-  /// Save file to device gallery
+  /// Save file to device gallery or music folder
   Future<void> _saveToGallery(File file, DownloadType type, String fileName) async {
     try {
       if (Platform.isIOS) {
-        // Use iOS Photos framework via method channel
+        // Use iOS Photos framework via method channel (only for images/videos)
+        if (type == DownloadType.audio) {
+          // Audio files are saved locally only on iOS
+          return;
+        }
         final bytes = await file.readAsBytes();
         await _methodChannel.invokeMethod('saveToGallery', {
           'bytes': bytes,
@@ -100,10 +104,12 @@ class DownloadService {
           'isVideo': type == DownloadType.video,
         });
       } else if (Platform.isAndroid) {
-        // On Android, copy to Pictures/Videos directory
+        // On Android, copy to appropriate directory
         final Directory? externalDir;
         if (type == DownloadType.video) {
           externalDir = Directory('/storage/emulated/0/Movies/Timeless AI');
+        } else if (type == DownloadType.audio) {
+          externalDir = Directory('/storage/emulated/0/Music/Timeless AI');
         } else {
           externalDir = Directory('/storage/emulated/0/Pictures/Timeless AI');
         }
