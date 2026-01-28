@@ -26,6 +26,10 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
   bool _stylesExpanded = true;
   bool _advancedExpanded = false;
   int _duration = 30;
+  bool _isInstrumental = false;
+  String _vocalGender = 'female';
+  int _weirdness = 50;
+  int _styleInfluence = 50;
 
   final List<String> _styleOptions = [
     'overdrive', 'drunk', 'chitarra acustica', 'hybrid', 'hall',
@@ -141,6 +145,10 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
           'title': _titleController.text.isNotEmpty ? _titleController.text : null,
           'styles': _selectedStyles.toList(),
           'duration': _duration,
+          'instrumental': _isInstrumental,
+          'vocalGender': _vocalGender,
+          'weirdness': _weirdness,
+          'styleInfluence': _styleInfluence,
         },
       );
 
@@ -188,15 +196,18 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
           ],
         ),
       ),
-      body: Stack(
-        children: [
-          TabBarView(
-            controller: _tabController,
-            children: [
-              _buildCreateTab(),
-              _buildToolsTab(),
-            ],
-          ),
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: Stack(
+          children: [
+            TabBarView(
+              controller: _tabController,
+              children: [
+                _buildCreateTab(),
+                _buildToolsTab(),
+              ],
+            ),
           // Bottom music player bar
           Positioned(
             left: 0,
@@ -204,10 +215,11 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
             bottom: 0,
             child: const MusicPlayerBar(),
         ),
-      ],
-    ),
-  );
-  }
+          ],
+        ),
+        ),
+      ),
+    );
 
   Widget _buildCreateTab() {
     return SingleChildScrollView(
@@ -368,37 +380,127 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
                       ),
                       const SizedBox(height: 16),
                       
-                      // Duration slider
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Duration',
-                            style: TextStyle(color: AppTheme.muted, fontSize: 14),
-                          ),
-                          Text(
-                            '${_duration}s',
-                            style: TextStyle(
-                              color: AppTheme.primary,
-                              fontWeight: FontWeight.w600,
+                      // Instrumental Toggle
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.card,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.border),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Instrumental Only',
+                                  style: TextStyle(
+                                    color: AppTheme.foreground,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Tooltip(
+                                  message: 'Generate music without vocals',
+                                  child: Icon(
+                                    Icons.info_outline,
+                                    size: 16,
+                                    color: AppTheme.muted,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
+                            Switch(
+                              value: _isInstrumental,
+                              onChanged: (value) => setState(() => _isInstrumental = value),
+                              activeColor: AppTheme.primary,
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      SliderTheme(
-                        data: SliderThemeData(
-                          activeTrackColor: AppTheme.primary,
-                          inactiveTrackColor: AppTheme.border,
-                          thumbColor: AppTheme.primary,
+                      const SizedBox(height: 12),
+
+                      // Vocal Gender (only when not instrumental)
+                      if (!_isInstrumental)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.card,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppTheme.border),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    'Vocal Gender',
+                                    style: TextStyle(
+                                      color: AppTheme.foreground,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Tooltip(
+                                    message: 'Choose the voice type for vocals',
+                                    child: Icon(
+                                      Icons.info_outline,
+                                      size: 16,
+                                      color: AppTheme.muted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  _buildGenderButton('Male', 'male'),
+                                  const SizedBox(width: 8),
+                                  _buildGenderButton('Female', 'female'),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                        child: Slider(
-                          value: _duration.toDouble(),
-                          min: 15,
-                          max: 120,
-                          divisions: 7,
-                          onChanged: (value) => setState(() => _duration = value.round()),
-                        ),
+                      if (!_isInstrumental) const SizedBox(height: 12),
+                      
+                      // Duration slider
+                      _buildSliderOption(
+                        label: 'Duration',
+                        value: _duration,
+                        min: 15,
+                        max: 120,
+                        divisions: 7,
+                        suffix: 's',
+                        tooltip: 'Length of the generated track',
+                        onChanged: (value) => setState(() => _duration = value.round()),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Weirdness slider
+                      _buildSliderOption(
+                        label: 'Weirdness',
+                        value: _weirdness,
+                        min: 0,
+                        max: 100,
+                        divisions: 20,
+                        suffix: '%',
+                        tooltip: 'Higher values create more experimental sounds',
+                        onChanged: (value) => setState(() => _weirdness = value.round()),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Style Influence slider
+                      _buildSliderOption(
+                        label: 'Style Influence',
+                        value: _styleInfluence,
+                        min: 0,
+                        max: 100,
+                        divisions: 20,
+                        suffix: '%',
+                        tooltip: 'How closely to follow genre conventions',
+                        onChanged: (value) => setState(() => _styleInfluence = value.round()),
                       ),
                     ],
                   ),
@@ -911,6 +1013,106 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildGenderButton(String label, String value) {
+    final isSelected = _vocalGender == value;
+    return GestureDetector(
+      onTap: () => setState(() => _vocalGender = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? AppTheme.primary : AppTheme.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : AppTheme.muted,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSliderOption({
+    required String label,
+    required num value,
+    required double min,
+    required double max,
+    required int divisions,
+    required String suffix,
+    required String tooltip,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: AppTheme.foreground,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: tooltip,
+                    child: Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: AppTheme.muted,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                '$value$suffix',
+                style: TextStyle(
+                  color: AppTheme.primary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SliderTheme(
+            data: SliderThemeData(
+              activeTrackColor: AppTheme.primary,
+              inactiveTrackColor: AppTheme.border,
+              thumbColor: AppTheme.primary,
+              overlayColor: AppTheme.primary.withOpacity(0.1),
+              trackHeight: 4,
+            ),
+            child: Slider(
+              value: value.toDouble(),
+              min: min,
+              max: max,
+              divisions: divisions,
+              onChanged: onChanged,
+            ),
+          ),
+        ],
       ),
     );
   }
