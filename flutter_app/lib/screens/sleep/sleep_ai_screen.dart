@@ -322,7 +322,8 @@ class _SleepAIScreenState extends State<SleepAIScreen>
           value,
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        Text(label, style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+        Text(label,
+            style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
       ],
     );
   }

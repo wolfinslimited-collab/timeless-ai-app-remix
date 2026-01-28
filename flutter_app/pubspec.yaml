@@ -57,6 +57,7 @@ dependencies:
   # Analytics & Attribution
   tiktok_events_sdk: ^1.0.9
   facebook_app_events: ^0.24.0
+  in_app_review: ^2.0.11
 
 dev_dependencies:
   flutter_test:
