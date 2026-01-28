@@ -1,7 +1,7 @@
 name: timeless_ai
 description: AI-powered creative studio for image, video, music generation and chat.
 publish_to: "none"
-version: 2.1.0+311
+version: 2.1.0+312
 
 environment:
   sdk: ">=3.2.0 <4.0.0"
