@@ -6,6 +6,8 @@ import 'package:video_player/video_player.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../providers/generation_provider.dart';
@@ -51,6 +53,20 @@ const List<Map<String, dynamic>> videoTools = [
   {'id': 'interpolate', 'name': 'Interpolate', 'description': 'Smooth frame rate', 'icon': Icons.animation, 'badge': null, 'route': 'interpolate'},
 ];
 
+// Video Templates
+const List<Map<String, String>> videoTemplates = [
+  {'label': 'Cinematic', 'prompt': 'A cinematic wide shot of a beautiful sunset over mountains, golden hour, 4K quality'},
+  {'label': 'Action', 'prompt': 'Dynamic action shot with dramatic lighting, fast-paced, professional cinematography'},
+  {'label': 'Nature', 'prompt': 'Peaceful nature scene with flowing water and lush greenery, National Geographic style'},
+  {'label': 'Urban', 'prompt': 'Modern city skyline at night with neon lights reflecting, cyberpunk aesthetic'},
+  {'label': 'Abstract', 'prompt': 'Mesmerizing abstract patterns morphing and flowing, vibrant colors, artistic'},
+  {'label': 'Portrait', 'prompt': 'Elegant portrait with cinematic bokeh background, professional lighting'},
+];
+
+const List<String> aspectRatios = ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'];
+const List<String> qualities = ['480p', '720p', '1080p'];
+const List<int> durations = [3, 5, 7, 10];
+
 class VideoCreateScreen extends StatefulWidget {
   const VideoCreateScreen({super.key});
 
@@ -64,7 +80,12 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
   String _selectedModel = 'wan-2.6';
   String _selectedAspectRatio = '16:9';
   String _selectedQuality = '1080p';
-  String _selectedDuration = '5s';
+  int _selectedDuration = 5;
+  bool _soundEnabled = true;
+  String? _startingImageUrl;
+  String? _endingImageUrl;
+  bool _isUploadingStart = false;
+  bool _isUploadingEnd = false;
   String? _generatedVideoUrl;
   VideoPlayerController? _videoController;
 
@@ -98,11 +119,77 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
     return model['name'] as String;
   }
 
+  Future<void> _pickStartImage() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery);
+    if (image == null) return;
+
+    setState(() => _isUploadingStart = true);
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session == null) throw Exception('Not authenticated');
+
+      final file = File(image.path);
+      final bytes = await file.readAsBytes();
+      final fileName = '${session.user.id}/${DateTime.now().millisecondsSinceEpoch}-start-${image.name}';
+
+      await Supabase.instance.client.storage
+          .from('generation-inputs')
+          .uploadBinary(fileName, bytes);
+
+      final publicUrl = Supabase.instance.client.storage
+          .from('generation-inputs')
+          .getPublicUrl(fileName);
+
+      setState(() => _startingImageUrl = publicUrl);
+      _showSnackBar('Start frame uploaded');
+    } catch (e) {
+      _showSnackBar('Failed to upload image');
+    } finally {
+      setState(() => _isUploadingStart = false);
+    }
+  }
+
+  Future<void> _pickEndImage() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery);
+    if (image == null) return;
+
+    setState(() => _isUploadingEnd = true);
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session == null) throw Exception('Not authenticated');
+
+      final file = File(image.path);
+      final bytes = await file.readAsBytes();
+      final fileName = '${session.user.id}/${DateTime.now().millisecondsSinceEpoch}-end-${image.name}';
+
+      await Supabase.instance.client.storage
+          .from('generation-inputs')
+          .uploadBinary(fileName, bytes);
+
+      final publicUrl = Supabase.instance.client.storage
+          .from('generation-inputs')
+          .getPublicUrl(fileName);
+
+      setState(() => _endingImageUrl = publicUrl);
+      _showSnackBar('End frame uploaded');
+    } catch (e) {
+      _showSnackBar('Failed to upload image');
+    } finally {
+      setState(() => _isUploadingEnd = false);
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   Future<void> _handleGenerate() async {
     if (_promptController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a prompt')),
-      );
+      _showSnackBar('Please enter a prompt');
       return;
     }
 
@@ -125,12 +212,7 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
     );
 
     if (result != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Video generation started. Check your library for the result.'),
-          duration: Duration(seconds: 3),
-        ),
-      );
+      _showSnackBar('Video generation started. Check your library for the result.');
       creditsProvider.refresh();
       _pollForCompletion(result.id);
     }
@@ -155,18 +237,14 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
         _initializeVideoPlayer(generation!.outputUrl!);
         
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Video ready!')),
-          );
+          _showSnackBar('Video ready!');
         }
         return;
       }
 
       if (generation?.isFailed == true) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Video generation failed')),
-          );
+          _showSnackBar('Video generation failed');
         }
         return;
       }
@@ -210,21 +288,11 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Saved to Downloads & Gallery'),
-            backgroundColor: AppTheme.primary,
-          ),
-        );
+        _showSnackBar('Saved to Downloads & Gallery');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Save failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnackBar('Save failed: $e');
       }
     }
   }
@@ -242,12 +310,7 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
       await Share.shareXFiles([XFile(file.path)], text: 'Created with Timeless AI');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Share failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnackBar('Share failed: $e');
       }
     }
   }
@@ -323,6 +386,234 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
           setState(() => _selectedModel = modelId);
           Navigator.pop(context);
         },
+      ),
+    );
+  }
+
+  void _showDurationSelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Duration',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: durations.map((d) {
+                final isSelected = _selectedDuration == d;
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() => _selectedDuration = d);
+                      Navigator.pop(context);
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppTheme.primary : AppTheme.secondary,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected ? AppTheme.primary : AppTheme.border,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${d}s',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: isSelected ? Colors.white : AppTheme.mutedForeground,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAspectRatioSelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Aspect Ratio',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: aspectRatios.map((ratio) {
+                final isSelected = _selectedAspectRatio == ratio;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() => _selectedAspectRatio = ratio);
+                    Navigator.pop(context);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppTheme.primary : AppTheme.secondary,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected ? AppTheme.primary : AppTheme.border,
+                      ),
+                    ),
+                    child: Text(
+                      ratio,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: isSelected ? Colors.white : AppTheme.mutedForeground,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showQualitySelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Quality',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: qualities.map((q) {
+                final isSelected = _selectedQuality == q;
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() => _selectedQuality = q);
+                      Navigator.pop(context);
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppTheme.primary : AppTheme.secondary,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected ? AppTheme.primary : AppTheme.border,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          q,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: isSelected ? Colors.white : AppTheme.mutedForeground,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTemplatesSelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Templates',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ...videoTemplates.map((template) => GestureDetector(
+              onTap: () {
+                _promptController.text = template['prompt']!;
+                Navigator.pop(context);
+              },
+              child: Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      template['label']!,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      template['prompt']!,
+                      style: const TextStyle(fontSize: 12, color: AppTheme.muted),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            )),
+            const SizedBox(height: 12),
+          ],
+        ),
       ),
     );
   }
@@ -478,128 +769,169 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
           ),
           child: Column(
             children: [
-              // Quick options row
+              // Start/End Frame Pickers
               Row(
                 children: [
-                  _buildOptionChip(Icons.dashboard_outlined, 'Templates'),
-                  const SizedBox(width: 8),
-                  _buildOptionChip(Icons.person_add_outlined, '+ Character'),
-                  const SizedBox(width: 8),
-                  _buildOptionChip(Icons.timer_outlined, _selectedDuration),
-                  const SizedBox(width: 8),
-                  _buildOptionChip(Icons.aspect_ratio, _selectedAspectRatio),
-                  const SizedBox(width: 8),
-                  _buildOptionChip(Icons.high_quality, _selectedQuality),
+                  // Start Frame
+                  Expanded(
+                    child: _buildFramePicker(
+                      label: 'Start Frame',
+                      imageUrl: _startingImageUrl,
+                      isUploading: _isUploadingStart,
+                      onPick: _pickStartImage,
+                      onClear: () => setState(() => _startingImageUrl = null),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // End Frame
+                  Expanded(
+                    child: _buildFramePicker(
+                      label: 'End Frame',
+                      imageUrl: _endingImageUrl,
+                      isUploading: _isUploadingEnd,
+                      onPick: _pickEndImage,
+                      onClear: () => setState(() => _endingImageUrl = null),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
 
-              // Prompt Input
+              // Options row
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildOptionChip(Icons.dashboard_outlined, 'Templates', _showTemplatesSelector),
+                    const SizedBox(width: 8),
+                    _buildOptionChip(Icons.timer_outlined, '${_selectedDuration}s', _showDurationSelector),
+                    const SizedBox(width: 8),
+                    _buildOptionChip(Icons.aspect_ratio, _selectedAspectRatio, _showAspectRatioSelector),
+                    const SizedBox(width: 8),
+                    _buildOptionChip(Icons.high_quality, _selectedQuality, _showQualitySelector),
+                    const SizedBox(width: 8),
+                    _buildSoundToggle(),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Full-width Prompt Input
+              Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.border),
+                ),
+                child: TextField(
+                  controller: _promptController,
+                  maxLines: 3,
+                  minLines: 2,
+                  decoration: const InputDecoration(
+                    hintText: 'Describe your video in detail...',
+                    hintStyle: TextStyle(color: AppTheme.muted),
+                    contentPadding: EdgeInsets.all(16),
+                    border: InputBorder.none,
+                  ),
+                  style: const TextStyle(fontSize: 15),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Bottom row with Model + Generate
               Row(
                 children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppTheme.secondary,
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      child: TextField(
-                        controller: _promptController,
-                        decoration: const InputDecoration(
-                          hintText: 'Describe your video...',
-                          hintStyle: TextStyle(color: AppTheme.muted),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          border: InputBorder.none,
-                        ),
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
                   // Model selector button
                   GestureDetector(
                     onTap: _showModelSelector,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: AppTheme.secondary,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: AppTheme.border),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.bolt, size: 16, color: AppTheme.primary),
-                          const SizedBox(width: 4),
+                          const Icon(Icons.bolt, size: 18, color: AppTheme.primary),
+                          const SizedBox(width: 6),
                           Text(
-                            _selectedModelName.length > 8 
-                                ? '${_selectedModelName.substring(0, 8)}...' 
+                            _selectedModelName.length > 12 
+                                ? '${_selectedModelName.substring(0, 12)}...' 
                                 : _selectedModelName,
-                            style: const TextStyle(fontSize: 12),
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                           ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.keyboard_arrow_down, size: 18, color: AppTheme.muted),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Consumer<GenerationProvider>(
-                    builder: (context, provider, child) {
-                      return GestureDetector(
-                        onTap: provider.isGenerating ? null : _handleGenerate,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: provider.isGenerating 
-                                  ? [AppTheme.muted, AppTheme.muted]
-                                  : [AppTheme.primary, AppTheme.accent],
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (provider.isGenerating)
-                                const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              else
-                                const Icon(Icons.auto_awesome, size: 16, color: Colors.white),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Generate',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                  const SizedBox(width: 12),
+                  // Generate button
+                  Expanded(
+                    child: Consumer<GenerationProvider>(
+                      builder: (context, provider, child) {
+                        return GestureDetector(
+                          onTap: provider.isGenerating ? null : _handleGenerate,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: provider.isGenerating 
+                                    ? [AppTheme.muted, AppTheme.muted]
+                                    : [AppTheme.primary, AppTheme.accent],
                               ),
-                              const SizedBox(width: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  '$_selectedModelCredits',
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (provider.isGenerating)
+                                  const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                else
+                                  const Icon(Icons.auto_awesome, size: 18, color: Colors.white),
+                                const SizedBox(width: 8),
+                                Text(
+                                  provider.isGenerating ? 'Generating...' : 'Generate',
                                   style: const TextStyle(
                                     color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              ),
-                            ],
+                                if (!provider.isGenerating) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      '$_selectedModelCredits',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -610,21 +942,143 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
     );
   }
 
-  Widget _buildOptionChip(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppTheme.secondary,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.border),
+  Widget _buildFramePicker({
+    required String label,
+    required String? imageUrl,
+    required bool isUploading,
+    required VoidCallback onPick,
+    required VoidCallback onClear,
+  }) {
+    return GestureDetector(
+      onTap: imageUrl == null && !isUploading ? onPick : null,
+      child: Container(
+        height: 80,
+        decoration: BoxDecoration(
+          color: AppTheme.secondary,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: imageUrl != null ? AppTheme.primary : AppTheme.border,
+            width: imageUrl != null ? 2 : 1,
+          ),
+        ),
+        child: imageUrl != null
+            ? Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      imageUrl,
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: onClear,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.close, color: Colors.white, size: 14),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 4,
+                    left: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        label,
+                        style: const TextStyle(fontSize: 10, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (isUploading)
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else
+                    const Icon(Icons.add_photo_alternate_outlined, size: 24, color: AppTheme.muted),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    style: const TextStyle(fontSize: 11, color: AppTheme.muted),
+                  ),
+                ],
+              ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: AppTheme.muted),
-          const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.mutedForeground)),
-        ],
+    );
+  }
+
+  Widget _buildOptionChip(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.secondary,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: AppTheme.muted),
+            const SizedBox(width: 6),
+            Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.mutedForeground)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSoundToggle() {
+    return GestureDetector(
+      onTap: () => setState(() => _soundEnabled = !_soundEnabled),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: _soundEnabled ? AppTheme.primary.withOpacity(0.2) : AppTheme.secondary,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: _soundEnabled ? AppTheme.primary : AppTheme.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _soundEnabled ? Icons.volume_up : Icons.volume_off,
+              size: 16,
+              color: _soundEnabled ? AppTheme.primary : AppTheme.muted,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              _soundEnabled ? 'Sound On' : 'Sound Off',
+              style: TextStyle(
+                fontSize: 12,
+                color: _soundEnabled ? AppTheme.primary : AppTheme.mutedForeground,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
