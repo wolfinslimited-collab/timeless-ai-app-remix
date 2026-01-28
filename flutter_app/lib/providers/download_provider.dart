@@ -49,6 +49,7 @@ class DownloadProvider extends ChangeNotifier {
     required String url,
     required String title,
     required DownloadType type,
+    bool saveToGallery = true,
     Map<String, dynamic>? metadata,
   }) async {
     try {
@@ -56,6 +57,7 @@ class DownloadProvider extends ChangeNotifier {
         url: url,
         title: title,
         type: type,
+        saveToGallery: saveToGallery,
         metadata: metadata,
       );
 
