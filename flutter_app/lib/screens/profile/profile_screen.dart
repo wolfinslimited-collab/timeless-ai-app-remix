@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:in_app_review/in_app_review.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme.dart';
 import '../../providers/credits_provider.dart';
 
@@ -29,76 +29,152 @@ class ProfileScreen extends StatelessWidget {
         ),
       );
       
-      // Show rate app dialog after sharing
+      // Show rate app bottom sheet after sharing
       if (context.mounted) {
-        _showRateAppDialog(context);
+        _showRateAppBottomSheet(context);
       }
     } catch (e) {
       debugPrint('Share failed: $e');
     }
   }
 
-  void _showRateAppDialog(BuildContext context) {
-    showDialog(
+  void _showRateAppBottomSheet(BuildContext context) {
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.secondary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: AppTheme.secondary,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border.all(color: AppTheme.border),
         ),
-        title: const Row(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.star, color: Colors.amber, size: 28),
-            SizedBox(width: 12),
-            Text(
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Star icons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(5, (index) => 
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(
+                    Icons.star_rounded,
+                    color: Colors.amber,
+                    size: 36,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Title
+            const Text(
               'Enjoying Timeless AI?',
-              style: TextStyle(fontSize: 18),
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Description
+            Text(
+              'Your feedback helps us create a better experience for everyone. Would you take a moment to rate us?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.white.withOpacity(0.7),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 28),
+            // Rate button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _requestInAppReview();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8B5CF6),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.star_rounded, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Rate Timeless AI',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Maybe later button
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white60,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Maybe Later',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
-        content: const Text(
-          'Would you like to rate us on the app store? Your feedback helps us improve!',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Maybe Later',
-              style: TextStyle(color: Colors.white60),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _openAppStore();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8B5CF6),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('Rate Now'),
-          ),
-        ],
       ),
     );
   }
 
-  Future<void> _openAppStore() async {
-    final Uri url;
-    if (Platform.isIOS) {
-      url = Uri.parse('https://apps.apple.com/app/id$_appStoreId?action=write-review');
-    } else {
-      url = Uri.parse('https://play.google.com/store/apps/details?id=$_playStoreId');
-    }
+  Future<void> _requestInAppReview() async {
+    final InAppReview inAppReview = InAppReview.instance;
     
     try {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (await inAppReview.isAvailable()) {
+        await inAppReview.requestReview();
+      } else {
+        // Fallback to opening store listing
+        await inAppReview.openStoreListing(
+          appStoreId: _appStoreId,
+          microsoftStoreId: null,
+        );
+      }
     } catch (e) {
-      debugPrint('Could not open app store: $e');
+      debugPrint('In-app review failed: $e');
     }
   }
 
@@ -329,7 +405,7 @@ class ProfileScreen extends StatelessWidget {
                   _ProfileMenuItem(
                     icon: Icons.star_outline,
                     label: 'Rate App',
-                    onTap: () => _openAppStore(),
+                    onTap: () => _requestInAppReview(),
                   ),
                   const SizedBox(height: 8),
                   _ProfileMenuItem(
