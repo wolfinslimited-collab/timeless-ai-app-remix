@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:video_player/video_player.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
@@ -9,6 +8,7 @@ import '../../providers/credits_provider.dart';
 import '../../providers/generation_provider.dart';
 import '../../widgets/common/credit_badge.dart';
 import '../../widgets/common/smart_media_image.dart';
+import '../../widgets/common/cached_video_player.dart';
 import '../../models/generation_model.dart';
 
 // Storage base URL for video assets - using DigitalOcean Spaces CDN
@@ -454,59 +454,13 @@ class _TrendingGrid extends StatelessWidget {
   }
 }
 
-class _TrendingTile extends StatefulWidget {
+class _TrendingTile extends StatelessWidget {
   final FeaturedItem item;
 
   const _TrendingTile({required this.item});
 
-  @override
-  State<_TrendingTile> createState() => _TrendingTileState();
-}
-
-class _TrendingTileState extends State<_TrendingTile> {
-  late VideoPlayerController _controller;
-  bool _isInitialized = false;
-  bool _hasError = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeVideo();
-  }
-
-  Future<void> _initializeVideo() async {
-    _controller = VideoPlayerController.networkUrl(
-      Uri.parse(widget.item.videoUrl),
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-    );
-
-    try {
-      await _controller.initialize();
-      _controller.setLooping(true);
-      _controller.setVolume(0); // Muted
-      _controller.play();
-      if (mounted) {
-        setState(() {
-          _isInitialized = true;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _hasError = true;
-        });
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _handleTap() {
-    final linkUrl = widget.item.linkUrl;
+  void _handleTap(BuildContext context) {
+    final linkUrl = item.linkUrl;
     if (linkUrl != null && linkUrl.isNotEmpty) {
       // Parse link_url and navigate to corresponding Flutter routes
       // Handle all patterns from featured_items table
@@ -552,7 +506,7 @@ class _TrendingTileState extends State<_TrendingTile> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: _handleTap,
+      onTap: () => _handleTap(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -562,29 +516,13 @@ class _TrendingTileState extends State<_TrendingTile> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Video or placeholder
-                  Container(
-                    color: AppTheme.card,
-                    child: _hasError
-                        ? const Center(
-                            child: Icon(Icons.error_outline,
-                                color: AppTheme.muted),
-                          )
-                        : _isInitialized
-                            ? FittedBox(
-                                fit: BoxFit.cover,
-                                child: SizedBox(
-                                  width: _controller.value.size.width,
-                                  height: _controller.value.size.height,
-                                  child: VideoPlayer(_controller),
-                                ),
-                              )
-                            : const Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppTheme.primary,
-                                ),
-                              ),
+                  // Cached Video Player
+                  CachedVideoPlayer(
+                    videoUrl: item.videoUrl,
+                    autoPlay: true,
+                    looping: true,
+                    muted: true,
+                    fit: BoxFit.cover,
                   ),
                   // Badge
                   Positioned(
@@ -598,7 +536,7 @@ class _TrendingTileState extends State<_TrendingTile> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        widget.item.tag,
+                        item.tag,
                         style: const TextStyle(
                           color: Color(0xFF374151),
                           fontSize: 10,
@@ -613,7 +551,7 @@ class _TrendingTileState extends State<_TrendingTile> {
           ),
           const SizedBox(height: 8),
           Text(
-            widget.item.title,
+            item.title,
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -623,7 +561,7 @@ class _TrendingTileState extends State<_TrendingTile> {
           ),
           const SizedBox(height: 2),
           Text(
-            widget.item.description,
+            item.description,
             style: const TextStyle(
               color: AppTheme.muted,
               fontSize: 10,
