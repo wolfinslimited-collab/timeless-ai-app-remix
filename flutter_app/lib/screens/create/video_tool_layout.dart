@@ -139,7 +139,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
     }
 
     final creditsProvider = context.read<CreditsProvider>();
-    if (!creditsProvider.hasEnoughCredits(widget.creditCost)) {
+    if (!creditsProvider.hasActiveSubscription &&
+        creditsProvider.credits < widget.creditCost) {
       _showSnackBar('Insufficient credits. Need ${widget.creditCost} credits.');
       return;
     }

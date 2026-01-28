@@ -101,7 +101,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
     }
 
     final creditsProvider = context.read<CreditsProvider>();
-    if (!creditsProvider.hasEnoughCredits(_selectedModelCredits)) {
+    if (!creditsProvider.hasActiveSubscription &&
+        creditsProvider.credits < _selectedModelCredits) {
       _showAddCreditsDialog();
       return;
     }
