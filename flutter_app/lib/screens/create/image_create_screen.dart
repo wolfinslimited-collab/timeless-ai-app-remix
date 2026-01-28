@@ -6,6 +6,8 @@ import '../../core/theme.dart';
 import '../../providers/generation_provider.dart';
 import '../../providers/credits_provider.dart';
 import '../../widgets/common/smart_media_image.dart';
+import '../../widgets/common/shimmer_loading.dart';
+import '../../widgets/common/full_screen_image_viewer.dart';
 
 class ImageCreateScreen extends StatefulWidget {
   const ImageCreateScreen({super.key});
@@ -21,6 +23,8 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
   String _selectedModel = 'nano-banana';
   String _selectedAspectRatio = '1:1';
   String? _generatedImageUrl;
+  String? _generatedGenerationId;
+  bool _isLoadingImage = false;
 
   static const List<Map<String, dynamic>> _imageTools = [
     {
@@ -132,6 +136,12 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
       return;
     }
 
+    // Clear previous result
+    setState(() {
+      _generatedImageUrl = null;
+      _generatedGenerationId = null;
+    });
+
     final generationProvider = context.read<GenerationProvider>();
     final result = await generationProvider.generate(
       prompt: _promptController.text.trim(),
@@ -141,9 +151,22 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
     );
 
     if (result != null && result.outputUrl != null) {
+      // Show shimmer while image loads
       setState(() {
+        _isLoadingImage = true;
         _generatedImageUrl = result.outputUrl;
+        _generatedGenerationId = result.id;
       });
+
+      // Short delay to show shimmer effect, image loads in background
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      if (mounted) {
+        setState(() {
+          _isLoadingImage = false;
+        });
+      }
+      
       creditsProvider.refresh();
     }
   }
@@ -180,6 +203,22 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
           ],
         ),
       ),
+    );
+  }
+
+  void _showFullScreenImage() {
+    if (_generatedImageUrl == null) return;
+    
+    FullScreenImageViewer.show(
+      context,
+      imageUrl: _generatedImageUrl!,
+      prompt: _promptController.text,
+      model: _selectedModel,
+      generationId: _generatedGenerationId,
+      onRecreate: () {
+        // Set up for regeneration with same prompt
+        _handleGenerate();
+      },
     );
   }
 
@@ -227,6 +266,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
             ),
             child: Consumer<GenerationProvider>(
               builder: (context, provider, child) {
+                // Show shimmer while generating or loading image
                 if (provider.isGenerating) {
                   return const Center(
                     child: Column(
@@ -241,12 +281,61 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
                   );
                 }
 
+                // Show shimmer while image is loading
+                if (_isLoadingImage && _generatedImageUrl != null) {
+                  return const ImageShimmer(
+                    message: 'Loading image...',
+                  );
+                }
+
+                // Show the generated image with tap to view full screen
                 if (_generatedImageUrl != null) {
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: SmartMediaImage(
-                      imageUrl: _generatedImageUrl!,
-                      fit: BoxFit.contain,
+                  return GestureDetector(
+                    onTap: () => _showFullScreenImage(),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: SmartMediaImage(
+                            imageUrl: _generatedImageUrl!,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                        // Tap to view indicator
+                        Positioned(
+                          bottom: 12,
+                          right: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.zoom_out_map,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Tap to view',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }
