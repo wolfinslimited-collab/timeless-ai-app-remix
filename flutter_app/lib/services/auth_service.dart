@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 
 class AuthService {
@@ -13,6 +14,9 @@ class AuthService {
   // OAuth configuration
   static const String _redirectUrl = 'io.supabase.genaiapp://login-callback/';
   static const String _webCallbackUrl = 'https://ifesxveahsbjhmrhkhhy.supabase.co/auth/v1/callback';
+  
+  // Mobile auth edge function URL (handles native token validation)
+  static const String _mobileAuthUrl = 'https://ifesxveahsbjhmrhkhhy.supabase.co/functions/v1/mobile-auth';
 
   User? get currentUser => _supabase.auth.currentUser;
   Session? get currentSession => _supabase.auth.currentSession;
@@ -153,11 +157,13 @@ class AuthService {
     }
   }
 
-  /// Native Apple Sign-In for iOS
+  /// Native Apple Sign-In for iOS using mobile-auth edge function
   Future<bool> _signInWithAppleNative() async {
     try {
       final rawNonce = _generateNonce();
       final hashedNonce = _sha256ofString(rawNonce);
+      
+      debugPrint('Starting native Apple Sign-In...');
       
       final credential = await SignInWithApple.getAppleIDCredential(
         scopes: [
@@ -172,32 +178,80 @@ class AuthService {
         throw Exception('No ID token found from Apple');
       }
       
-      final response = await _supabase.auth.signInWithIdToken(
-        provider: OAuthProvider.apple,
-        idToken: idToken,
-        nonce: rawNonce,
-      );
-      
-      // If this is a new user, sync the name from Apple
-      if (response.user != null && credential.givenName != null) {
-        final fullName = [credential.givenName, credential.familyName]
-            .where((n) => n != null)
+      // Get name from Apple (only available on first sign-in)
+      String? fullName;
+      if (credential.givenName != null || credential.familyName != null) {
+        fullName = [credential.givenName, credential.familyName]
+            .where((n) => n != null && n.isNotEmpty)
             .join(' ');
-        
-        if (fullName.isNotEmpty) {
-          try {
-            await _supabase.from('profiles').update({
-              'display_name': fullName,
-            }).eq('user_id', response.user!.id);
-          } catch (e) {
-            debugPrint('Failed to update profile name: $e');
-          }
-        }
       }
       
-      return response.user != null;
+      debugPrint('Apple credential obtained, calling mobile-auth edge function...');
+      
+      // Use mobile-auth edge function to handle token validation
+      // This bypasses Supabase's audience check which expects Services ID
+      final authResponse = await _authenticateWithMobileAuth(
+        provider: 'apple',
+        idToken: idToken,
+        nonce: rawNonce,
+        name: fullName,
+      );
+      
+      return authResponse;
     } catch (e) {
       debugPrint('Native Apple Sign-In error: $e');
+      rethrow;
+    }
+  }
+  
+  /// Authenticate using the mobile-auth edge function
+  /// This handles native ID token validation for Apple/Google sign-in
+  Future<bool> _authenticateWithMobileAuth({
+    required String provider,
+    required String idToken,
+    String? nonce,
+    String? name,
+  }) async {
+    try {
+      debugPrint('Calling mobile-auth edge function for $provider...');
+
+      final response = await http.post(
+        Uri.parse(_mobileAuthUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'provider': provider,
+          'idToken': idToken,
+          if (nonce != null) 'nonce': nonce,
+          if (name != null) 'name': name,
+        }),
+      );
+
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode != 200 || responseData['success'] != true) {
+        final error = responseData['error'] ?? 'Authentication failed';
+        throw Exception('Mobile auth error: $error');
+      }
+
+      debugPrint('Mobile auth successful: ${responseData['user']?['id']}');
+
+      // Extract session data from response
+      final sessionData = responseData['session'] as Map<String, dynamic>;
+
+      // Set the session in Supabase client
+      await _supabase.auth.setSession(sessionData['access_token'] as String);
+
+      // Verify session was established
+      final currentUser = _supabase.auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('Failed to establish session after authentication');
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('Mobile auth error: $e');
       rethrow;
     }
   }
