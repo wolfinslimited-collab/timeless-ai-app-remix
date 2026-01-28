@@ -57,6 +57,7 @@ import '../screens/notify/notify_ai_screen.dart';
 import '../screens/upgrade_plan/upgrade_plan_wizard_page.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/downloads/downloads_screen.dart';
+import '../screens/favorites/favorites_screen.dart';
 import '../widgets/common/main_scaffold.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -337,6 +338,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/downloads',
           builder: (context, state) => const DownloadsScreen(),
+        ),
+        GoRoute(
+          path: '/favorites',
+          builder: (context, state) => const FavoritesScreen(),
         ),
       ],
     ),

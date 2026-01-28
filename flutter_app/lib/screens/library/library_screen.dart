@@ -6,6 +6,7 @@ import '../../models/generation_model.dart';
 import '../../models/download_model.dart';
 import '../../providers/generation_provider.dart';
 import '../../providers/download_provider.dart';
+import '../../providers/favorites_provider.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -198,171 +199,210 @@ class _GenerationCard extends StatelessWidget {
 
   const _GenerationCard({required this.generation});
 
+  String get _typeString {
+    switch (generation.type) {
+      case GenerationType.image:
+        return 'image';
+      case GenerationType.video:
+        return 'video';
+      case GenerationType.music:
+        return 'music';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isVideo = generation.type == GenerationType.video;
     final isMusic = generation.type == GenerationType.music;
     final imageUrl = generation.thumbnailUrl ?? generation.outputUrl;
 
-    return GestureDetector(
-      onTap: () => _showGenerationDetail(context),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: isMusic
-                ? [
-                    const Color(0xFF10B981).withOpacity(0.3),
-                    const Color(0xFF059669).withOpacity(0.3)
-                  ]
-                : [
-                    AppTheme.primary.withOpacity(0.3),
-                    const Color(0xFF3B82F6).withOpacity(0.3)
-                  ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (generation.isPending)
-              const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(strokeWidth: 2),
-                    SizedBox(height: 8),
-                    Text('Processing...',
-                        style: TextStyle(color: AppTheme.muted, fontSize: 12)),
-                  ],
-                ),
-              )
-            else if (generation.isFailed)
-              const Center(
-                child: Text('Failed',
-                    style:
-                        TextStyle(color: AppTheme.destructive, fontSize: 12)),
-              )
-            else if (isMusic)
-              // Music/Audio card with waveform visualization
-              Container(
-                color: AppTheme.card,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF10B981), Color(0xFF059669)],
-                        ),
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: const Icon(Icons.music_note,
-                          color: Colors.white, size: 24),
-                    ),
-                    const SizedBox(height: 8),
-                    // Static waveform bars
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(12, (i) {
-                        final height = 8.0 + (i % 3) * 6.0 + (i % 2) * 4.0;
-                        return Container(
-                          width: 3,
-                          height: height,
-                          margin: const EdgeInsets.symmetric(horizontal: 1),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF10B981),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        generation.title ?? generation.prompt,
-                        style: const TextStyle(fontSize: 11),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else if (imageUrl != null)
-              CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => const Center(
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  color: AppTheme.secondary,
-                  child: const Icon(Icons.error_outline, color: AppTheme.muted),
-                ),
-              )
-            else
-              Center(
-                child: Icon(
-                  isVideo ? Icons.videocam : Icons.image,
-                  color: AppTheme.muted,
-                  size: 32,
-                ),
-              ),
+    return Consumer<FavoritesProvider>(
+      builder: (context, favoritesProvider, _) {
+        final isFavorite = favoritesProvider.isFavorite(generation.id);
 
-            // Video/Music play indicator
-            if ((isVideo || isMusic) && !generation.isPending && !isMusic)
-              Positioned.fill(
-                child: Container(
-                  color: Colors.black26,
-                  child: const Center(
-                    child:
-                        Icon(Icons.play_arrow, color: Colors.white, size: 32),
+        return GestureDetector(
+          onTap: () => _showGenerationDetail(context),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isMusic
+                    ? [
+                        const Color(0xFF10B981).withOpacity(0.3),
+                        const Color(0xFF059669).withOpacity(0.3)
+                      ]
+                    : [
+                        AppTheme.primary.withOpacity(0.3),
+                        const Color(0xFF3B82F6).withOpacity(0.3)
+                      ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (generation.isPending)
+                  const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(strokeWidth: 2),
+                        SizedBox(height: 8),
+                        Text('Processing...',
+                            style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+                      ],
+                    ),
+                  )
+                else if (generation.isFailed)
+                  const Center(
+                    child: Text('Failed',
+                        style:
+                            TextStyle(color: AppTheme.destructive, fontSize: 12)),
+                  )
+                else if (isMusic)
+                  Container(
+                    color: AppTheme.card,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF10B981), Color(0xFF059669)],
+                            ),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: const Icon(Icons.music_note,
+                              color: Colors.white, size: 24),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(12, (i) {
+                            final height = 8.0 + (i % 3) * 6.0 + (i % 2) * 4.0;
+                            return Container(
+                              width: 3,
+                              height: height,
+                              margin: const EdgeInsets.symmetric(horizontal: 1),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            );
+                          }),
+                        ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                            generation.title ?? generation.prompt,
+                            style: const TextStyle(fontSize: 11),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (imageUrl != null)
+                  CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: AppTheme.secondary,
+                      child: const Icon(Icons.error_outline, color: AppTheme.muted),
+                    ),
+                  )
+                else
+                  Center(
+                    child: Icon(
+                      isVideo ? Icons.videocam : Icons.image,
+                      color: AppTheme.muted,
+                      size: 32,
+                    ),
+                  ),
+
+                // Video play indicator
+                if (isVideo && !generation.isPending)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black26,
+                      child: const Center(
+                        child:
+                            Icon(Icons.play_arrow, color: Colors.white, size: 32),
+                      ),
+                    ),
+                  ),
+
+                // Type badge
+                Positioned(
+                  bottom: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _typeString,
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                    ),
                   ),
                 ),
-              ),
 
-            // Type badge
-            Positioned(
-              bottom: 8,
-              left: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(12),
+                // Favorite button
+                Positioned(
+                  bottom: 8,
+                  right: 8,
+                  child: GestureDetector(
+                    onTap: () {
+                      favoritesProvider.toggleFavorite(
+                        id: generation.id,
+                        type: _typeString,
+                        url: generation.outputUrl,
+                        thumbnailUrl: generation.thumbnailUrl,
+                        title: generation.title,
+                        prompt: generation.prompt,
+                      );
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            isFavorite ? 'Removed from favorites' : 'Added to favorites',
+                          ),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
+                        color: isFavorite ? Colors.redAccent : Colors.white,
+                        size: 14,
+                      ),
+                    ),
+                  ),
                 ),
-                child: Text(
-                  isMusic ? 'music' : (isVideo ? 'video' : 'image'),
-                  style: const TextStyle(color: Colors.white, fontSize: 10),
-                ),
-              ),
+              ],
             ),
-
-            // Favorite button
-            Positioned(
-              bottom: 8,
-              right: 8,
-              child: Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.favorite_border,
-                    color: Colors.white, size: 12),
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
