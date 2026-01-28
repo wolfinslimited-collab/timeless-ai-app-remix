@@ -3,7 +3,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../models/generation_model.dart';
+import '../../models/download_model.dart';
 import '../../providers/generation_provider.dart';
+import '../../providers/download_provider.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -373,9 +375,9 @@ class _GenerationCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () {},
+                        onPressed: () => _downloadGeneration(context),
                         icon: const Icon(Icons.download),
-                        label: const Text('Download'),
+                        label: const Text('Save'),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -397,5 +399,46 @@ class _GenerationCard extends StatelessWidget {
         },
       ),
     );
+  }
+
+  Future<void> _downloadGeneration(BuildContext context) async {
+    if (generation.outputUrl == null) return;
+
+    try {
+      final downloadProvider = context.read<DownloadProvider>();
+      
+      await downloadProvider.downloadFile(
+        url: generation.outputUrl!,
+        title: generation.prompt.isNotEmpty 
+            ? generation.prompt 
+            : '${generation.type == GenerationType.video ? 'Video' : 'Image'} Generation',
+        type: generation.type == GenerationType.video 
+            ? DownloadType.video 
+            : DownloadType.image,
+        metadata: {
+          'model': generation.model,
+          'prompt': generation.prompt,
+          'generationId': generation.id,
+        },
+      );
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Saved to Downloads & Gallery'),
+            backgroundColor: AppTheme.primary,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Save failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

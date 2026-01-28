@@ -1,11 +1,17 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../providers/generation_provider.dart';
 import '../../providers/credits_provider.dart';
+import '../../providers/download_provider.dart';
+import '../../models/download_model.dart';
 import 'video_model_selector.dart';
 
 // Extended video models list matching web
@@ -184,6 +190,88 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
     setState(() {});
   }
 
+  Future<void> _saveGeneratedVideo() async {
+    if (_generatedVideoUrl == null) return;
+
+    try {
+      final downloadProvider = context.read<DownloadProvider>();
+      
+      await downloadProvider.downloadFile(
+        url: _generatedVideoUrl!,
+        title: _promptController.text.isNotEmpty 
+            ? _promptController.text 
+            : 'Generated Video',
+        type: DownloadType.video,
+        metadata: {
+          'model': _selectedModel,
+          'prompt': _promptController.text,
+        },
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Saved to Downloads & Gallery'),
+            backgroundColor: AppTheme.primary,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Save failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _shareGeneratedVideo() async {
+    if (_generatedVideoUrl == null) return;
+
+    try {
+      final response = await http.get(Uri.parse(_generatedVideoUrl!));
+      final tempDir = await getTemporaryDirectory();
+      final fileName = 'video-${DateTime.now().millisecondsSinceEpoch}.mp4';
+      final file = File('${tempDir.path}/$fileName');
+      await file.writeAsBytes(response.bodyBytes);
+
+      await Share.shareXFiles([XFile(file.path)], text: 'Created with Timeless AI');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Share failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildVideoActionButton(IconData icon, String label, VoidCallback onTap, {bool isPrimary = false}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isPrimary ? AppTheme.primary : AppTheme.card,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: Colors.white),
+            const SizedBox(width: 6),
+            Text(label, style: const TextStyle(fontSize: 12, color: Colors.white)),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showAddCreditsDialog() {
     showModalBottomSheet(
       context: context,
@@ -329,6 +417,29 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
                               ? null
                               : const Icon(Icons.play_circle_fill, size: 64, color: Colors.white70),
                         ),
+                        // Save/Share buttons
+                        if (_generatedVideoUrl != null)
+                          Positioned(
+                            bottom: 12,
+                            right: 12,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildVideoActionButton(
+                                  Icons.download,
+                                  'Save',
+                                  _saveGeneratedVideo,
+                                  isPrimary: true,
+                                ),
+                                const SizedBox(width: 8),
+                                _buildVideoActionButton(
+                                  Icons.share,
+                                  'Share',
+                                  _shareGeneratedVideo,
+                                ),
+                              ],
+                            ),
+                          ),
                       ],
                     ),
                   );
