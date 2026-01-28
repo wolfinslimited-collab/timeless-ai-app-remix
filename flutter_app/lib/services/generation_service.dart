@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/generation_model.dart';
 
@@ -16,23 +17,33 @@ class GenerationService {
     String? endImageUrl,
     bool background = false,
   }) async {
+    debugPrint('🎨 GenerationService.generate: type=$type, model=$model, prompt=${prompt.substring(0, prompt.length > 50 ? 50 : prompt.length)}...');
+    
+    final body = {
+      'prompt': prompt,
+      'model': model,
+      'type': type,
+      'stream': false,
+      'background': background,
+      if (aspectRatio != null) 'aspectRatio': aspectRatio,
+      if (quality != null) 'quality': quality,
+      if (imageUrl != null) 'imageUrl': imageUrl,
+      if (endImageUrl != null) 'endImageUrl': endImageUrl,
+    };
+    
+    debugPrint('🎨 Request body: $body');
+    
     final response = await _supabase.functions.invoke(
       'generate',
-      body: {
-        'prompt': prompt,
-        'model': model,
-        'type': type,
-        'stream': false,
-        'background': background,
-        if (aspectRatio != null) 'aspectRatio': aspectRatio,
-        if (quality != null) 'quality': quality,
-        if (imageUrl != null) 'imageUrl': imageUrl,
-        if (endImageUrl != null) 'endImageUrl': endImageUrl,
-      },
+      body: body,
     );
 
+    debugPrint('🎨 Response status: ${response.status}');
+    debugPrint('🎨 Response data: ${response.data}');
+
     if (response.status != 200) {
-      final error = response.data['error'] ?? 'Generation failed';
+      final error = response.data is Map ? (response.data['error'] ?? 'Generation failed') : 'Generation failed';
+      debugPrint('🎨 Generation error: $error');
       throw Exception(error);
     }
 
@@ -45,6 +56,8 @@ class GenerationService {
     required String endpoint,
     required String generationId,
   }) async {
+    debugPrint('🔄 Checking generation: taskId=$taskId, endpoint=$endpoint');
+    
     final response = await _supabase.functions.invoke(
       'check-generation',
       body: {
@@ -54,8 +67,11 @@ class GenerationService {
       },
     );
 
+    debugPrint('🔄 Check response status: ${response.status}');
+    debugPrint('🔄 Check response data: ${response.data}');
+
     if (response.status != 200) {
-      final error = response.data['error'] ?? 'Status check failed';
+      final error = response.data is Map ? (response.data['error'] ?? 'Status check failed') : 'Status check failed';
       throw Exception(error);
     }
 
@@ -103,7 +119,12 @@ class GenerationService {
     int offset = 0,
   }) async {
     final user = _supabase.auth.currentUser;
-    if (user == null) return [];
+    if (user == null) {
+      debugPrint('📚 getGenerations: No user logged in');
+      return [];
+    }
+
+    debugPrint('📚 getGenerations: Fetching for user ${user.id}, type=$type, limit=$limit');
 
     var query = _supabase.from('generations').select().eq('user_id', user.id);
 
@@ -114,7 +135,10 @@ class GenerationService {
     final response = await query
         .order('created_at', ascending: false)
         .range(offset, offset + limit - 1);
-    return (response as List).map((json) => Generation.fromJson(json)).toList();
+    
+    debugPrint('📚 getGenerations: Found ${(response as List).length} generations');
+    
+    return response.map((json) => Generation.fromJson(json)).toList();
   }
 
   /// Delete a generation

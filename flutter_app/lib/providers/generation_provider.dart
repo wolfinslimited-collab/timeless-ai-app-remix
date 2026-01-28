@@ -64,32 +64,94 @@ class GenerationProvider extends ChangeNotifier {
         background: background,
       );
 
+      debugPrint('Generation API response: $result');
+
+      // Handle image generation response
+      // API returns: { success: true, result: { type: 'image', output_url: '...' }, credits_remaining: X }
+      if (type == 'image') {
+        final resultData = result['result'] as Map<String, dynamic>?;
+        final outputUrl = resultData?['output_url'] as String?;
+        
+        if (outputUrl != null) {
+          _isGenerating = false;
+          notifyListeners();
+          
+          // Reload generations to get the saved record
+          await loadGenerations();
+          
+          // Return a generation object with the output URL
+          return Generation(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            prompt: prompt,
+            model: model,
+            type: GenerationType.image,
+            status: GenerationStatus.completed,
+            outputUrl: outputUrl,
+            thumbnailUrl: outputUrl,
+            createdAt: DateTime.now(),
+          );
+        }
+      }
+
+      // Handle video generation response
+      // API returns: { success: true, message: "Video generation started", taskId: "..." }
+      if (type == 'video') {
+        final taskId = result['taskId'] as String?;
+        final generationId = result['generationId'] as String?;
+        
+        // For background video generation, return a pending generation
+        if (background || taskId != null) {
+          _isGenerating = false;
+          notifyListeners();
+          
+          // Reload to get the pending generation from DB
+          await loadGenerations();
+          
+          return Generation(
+            id: generationId ?? taskId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+            prompt: prompt,
+            model: model,
+            type: GenerationType.video,
+            status: GenerationStatus.pending,
+            taskId: taskId,
+            createdAt: DateTime.now(),
+          );
+        }
+      }
+
+      // Handle music generation response
+      // API returns: { success: true, result: { type: 'music', output_url: '...' }, credits_remaining: X }
+      if (type == 'music') {
+        final resultData = result['result'] as Map<String, dynamic>?;
+        final outputUrl = resultData?['output_url'] as String?;
+        
+        if (outputUrl != null) {
+          _isGenerating = false;
+          notifyListeners();
+          
+          await loadGenerations();
+          
+          return Generation(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            prompt: prompt,
+            model: model,
+            type: GenerationType.music,
+            status: GenerationStatus.completed,
+            outputUrl: outputUrl,
+            createdAt: DateTime.now(),
+          );
+        }
+      }
+
+      // Legacy handling: check for generationId and poll if needed
       final status = result['status'] as String?;
       final generationId = result['generationId'] as String?;
 
-      // For background generation, return immediately with generation ID
-      if (background && generationId != null) {
-        _isGenerating = false;
-        notifyListeners();
-        
-        // Return a placeholder generation
-        return Generation(
-          id: generationId,
-          prompt: prompt,
-          model: model,
-          type: type == 'video' ? GenerationType.video : GenerationType.image,
-          status: GenerationStatus.pending,
-          createdAt: DateTime.now(),
-        );
-      }
-
-      // If async generation (pending)
       if (status == 'pending' || status == 'processing') {
         final taskId = result['taskId'] as String?;
         final endpoint = result['endpoint'] as String?;
 
         if (taskId != null && endpoint != null && generationId != null) {
-          // Start polling
           await _pollForCompletion(
             taskId: taskId,
             endpoint: endpoint,
@@ -106,6 +168,7 @@ class GenerationProvider extends ChangeNotifier {
 
       return _generations.isNotEmpty ? _generations.first : null;
     } catch (e) {
+      debugPrint('Generation error: $e');
       _error = e.toString();
       _isGenerating = false;
       notifyListeners();
