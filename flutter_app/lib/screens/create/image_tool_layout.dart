@@ -390,9 +390,12 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -422,6 +425,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
               _buildActionButton(),
             ],
           ),
+        ),
         ),
       ),
     );

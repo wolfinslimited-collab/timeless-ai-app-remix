@@ -98,9 +98,12 @@ class _LoginScreenState extends State<LoginScreen>
             ],
           ),
         ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          behavior: HitTestBehavior.opaque,
+          child: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
             child: FadeTransition(
               opacity: _fadeAnimation,
               child: SlideTransition(

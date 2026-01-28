@@ -646,12 +646,16 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> with SingleTicker
           ),
         ],
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildCreateTab(),
-          _buildToolsTab(),
-        ],
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildCreateTab(),
+            _buildToolsTab(),
+          ],
+        ),
       ),
     );
   }

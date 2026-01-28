@@ -199,12 +199,16 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildGenerateTab(),
-          _buildToolsTab(),
-        ],
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildGenerateTab(),
+            _buildToolsTab(),
+          ],
+        ),
       ),
     );
   }
