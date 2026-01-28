@@ -11,7 +11,7 @@ class CreateScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Create'),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,6 +84,7 @@ class CreateScreen extends StatelessWidget {
               gradient: [const Color(0xFFEF4444), const Color(0xFFBE185D)],
               onTap: () => context.go('/cinema'),
             ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -125,10 +126,10 @@ class _CreateOptionCard extends StatelessWidget {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: gradient),
+                color: AppTheme.secondary,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: Colors.white, size: 28),
+              child: Icon(icon, color: AppTheme.foreground, size: 28),
             ),
             const SizedBox(width: 16),
             Expanded(
