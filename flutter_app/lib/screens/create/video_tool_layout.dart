@@ -79,7 +79,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
 
       final file = File(video.path);
       final bytes = await file.readAsBytes();
-      final fileName = '${session.user.id}/${DateTime.now().millisecondsSinceEpoch}-${video.name}';
+      final fileName =
+          '${session.user.id}/${DateTime.now().millisecondsSinceEpoch}-${video.name}';
 
       await Supabase.instance.client.storage
           .from('generation-inputs')
@@ -110,7 +111,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
 
       final file = File(image.path);
       final bytes = await file.readAsBytes();
-      final fileName = '${session.user.id}/${DateTime.now().millisecondsSinceEpoch}-${image.name}';
+      final fileName =
+          '${session.user.id}/${DateTime.now().millisecondsSinceEpoch}-${image.name}';
 
       await Supabase.instance.client.storage
           .from('generation-inputs')
@@ -155,7 +157,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
     });
 
     try {
-      final supabaseUrl = Supabase.instance.client.rest.url.replaceAll('/rest/v1', '');
+      final supabaseUrl =
+          Supabase.instance.client.rest.url.replaceAll('/rest/v1', '');
       final response = await http.post(
         Uri.parse('$supabaseUrl/functions/v1/video-tools'),
         headers: {
@@ -168,7 +171,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
           'videoUrl': _inputVideoUrl,
           'imageUrl': _inputImageUrl,
           'audioUrl': _inputAudioUrl,
-          'prompt': _promptController.text.isNotEmpty ? _promptController.text : null,
+          'prompt':
+              _promptController.text.isNotEmpty ? _promptController.text : null,
           'duration': _duration,
           'upscaleFactor': _upscaleFactor,
           'targetFps': _targetFps,
@@ -182,7 +186,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
       }
 
       if (result['status'] == 'processing') {
-        _showSnackBar('Video is being processed! Check your Library for results.');
+        _showSnackBar(
+            'Video is being processed! Check your Library for results.');
         creditsProvider.refresh();
       } else if (result['outputUrl'] != null) {
         setState(() => _outputUrl = result['outputUrl']);
@@ -228,7 +233,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
             padding: const EdgeInsets.only(right: 16),
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: AppTheme.primary.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(16),
@@ -270,7 +276,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
             // Prompt
             if (widget.showPrompt) ...[
               const SizedBox(height: 16),
-              const Text('Prompt', style: TextStyle(fontWeight: FontWeight.w500)),
+              const Text('Prompt',
+                  style: TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
               TextField(
                 controller: _promptController,
@@ -291,7 +298,9 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
             // Duration Slider
             if (widget.showDuration) ...[
               const SizedBox(height: 16),
-              _buildSlider('Duration', '${_duration}s', _duration.toDouble(), 3, 10, (v) {
+              _buildSlider(
+                  'Duration', '${_duration}s', _duration.toDouble(), 3, 10,
+                  (v) {
                 setState(() => _duration = v.round());
               }),
             ],
@@ -299,7 +308,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
             // Upscale Factor
             if (widget.showUpscaleFactor) ...[
               const SizedBox(height: 16),
-              _buildSlider('Upscale Factor', '${_upscaleFactor}x', _upscaleFactor.toDouble(), 2, 4, (v) {
+              _buildSlider('Upscale Factor', '${_upscaleFactor}x',
+                  _upscaleFactor.toDouble(), 2, 4, (v) {
                 setState(() => _upscaleFactor = v.round());
               }),
             ],
@@ -307,7 +317,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
             // Target FPS
             if (widget.showTargetFps) ...[
               const SizedBox(height: 16),
-              _buildSlider('Target FPS', '$_targetFps fps', _targetFps.toDouble(), 30, 120, (v) {
+              _buildSlider('Target FPS', '$_targetFps fps',
+                  _targetFps.toDouble(), 30, 120, (v) {
                 setState(() => _targetFps = (v / 15).round() * 15);
               }),
             ],
@@ -369,7 +380,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Input Video', style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text('Input Video',
+            style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         if (_inputVideoUrl != null)
           Stack(
@@ -388,7 +400,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                     _inputVideoUrl!,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => const Center(
-                      child: Icon(Icons.videocam, size: 48, color: AppTheme.muted),
+                      child:
+                          Icon(Icons.videocam, size: 48, color: AppTheme.muted),
                     ),
                   ),
                 ),
@@ -404,7 +417,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                       color: Colors.red,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: const Icon(Icons.close, color: Colors.white, size: 16),
+                    child:
+                        const Icon(Icons.close, color: Colors.white, size: 16),
                   ),
                 ),
               ),
@@ -436,12 +450,15 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                         color: AppTheme.primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(32),
                       ),
-                      child: const Icon(Icons.videocam, size: 32, color: AppTheme.primary),
+                      child: const Icon(Icons.videocam,
+                          size: 32, color: AppTheme.primary),
                     ),
                     const SizedBox(height: 12),
-                    const Text('Upload Video', style: TextStyle(fontWeight: FontWeight.w500)),
+                    const Text('Upload Video',
+                        style: TextStyle(fontWeight: FontWeight.w500)),
                     const SizedBox(height: 4),
-                    const Text('Max 100MB', style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+                    const Text('Max 100MB',
+                        style: TextStyle(color: AppTheme.muted, fontSize: 12)),
                   ],
                 ],
               ),
@@ -455,7 +472,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Input Image / Sketch', style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text('Input Image / Sketch',
+            style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         if (_inputImageUrl != null)
           Stack(
@@ -484,7 +502,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                       color: Colors.red,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: const Icon(Icons.close, color: Colors.white, size: 16),
+                    child:
+                        const Icon(Icons.close, color: Colors.white, size: 16),
                   ),
                 ),
               ),
@@ -513,12 +532,15 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                         color: AppTheme.primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(32),
                       ),
-                      child: const Icon(Icons.image, size: 32, color: AppTheme.primary),
+                      child: const Icon(Icons.image,
+                          size: 32, color: AppTheme.primary),
                     ),
                     const SizedBox(height: 12),
-                    const Text('Upload Image', style: TextStyle(fontWeight: FontWeight.w500)),
+                    const Text('Upload Image',
+                        style: TextStyle(fontWeight: FontWeight.w500)),
                     const SizedBox(height: 4),
-                    const Text('Max 10MB', style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+                    const Text('Max 10MB',
+                        style: TextStyle(color: AppTheme.muted, fontSize: 12)),
                   ],
                 ],
               ),
@@ -547,7 +569,9 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
               children: [
                 const Icon(Icons.music_note, color: AppTheme.primary),
                 const SizedBox(width: 12),
-                const Expanded(child: Text('Audio uploaded', style: TextStyle(color: AppTheme.muted))),
+                const Expanded(
+                    child: Text('Audio uploaded',
+                        style: TextStyle(color: AppTheme.muted))),
                 GestureDetector(
                   onTap: () => setState(() => _inputAudioUrl = null),
                   child: const Icon(Icons.close, color: Colors.red, size: 20),
@@ -571,7 +595,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                 children: [
                   Icon(Icons.music_note, color: AppTheme.primary),
                   SizedBox(height: 8),
-                  Text('Upload Audio (Max 50MB)', style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+                  Text('Upload Audio (Max 50MB)',
+                      style: TextStyle(color: AppTheme.muted, fontSize: 12)),
                 ],
               ),
             ),
@@ -580,7 +605,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
     );
   }
 
-  Widget _buildSlider(String label, String value, double current, double min, double max, ValueChanged<double> onChanged) {
+  Widget _buildSlider(String label, String value, double current, double min,
+      double max, ValueChanged<double> onChanged) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -588,7 +614,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-            Text(value, style: const TextStyle(color: AppTheme.muted, fontSize: 14)),
+            Text(value,
+                style: const TextStyle(color: AppTheme.muted, fontSize: 14)),
           ],
         ),
         const SizedBox(height: 8),
@@ -633,17 +660,20 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                         color: AppTheme.primary.withOpacity(0.3),
                       ),
                     ),
-                    const Icon(Icons.auto_awesome, color: AppTheme.primary, size: 24),
+                    const Icon(Icons.auto_awesome,
+                        color: AppTheme.primary, size: 24),
                   ],
                 ),
                 const SizedBox(height: 16),
-                const Text('Processing video...', style: TextStyle(color: AppTheme.muted)),
+                const Text('Processing video...',
+                    style: TextStyle(color: AppTheme.muted)),
               ],
             )
           : _outputUrl != null
               ? Stack(
                   children: [
-                    if (_videoController != null && _videoController!.value.isInitialized)
+                    if (_videoController != null &&
+                        _videoController!.value.isInitialized)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: AspectRatio(
@@ -669,7 +699,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.primary,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -680,7 +711,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.card,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
                             ),
                           ),
                         ],
@@ -693,7 +725,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                   children: [
                     Icon(Icons.videocam, size: 48, color: AppTheme.muted),
                     SizedBox(height: 12),
-                    Text('Result will appear here', style: TextStyle(color: AppTheme.muted)),
+                    Text('Result will appear here',
+                        style: TextStyle(color: AppTheme.muted)),
                   ],
                 ),
     );
@@ -704,11 +737,11 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
 
     try {
       final downloadProvider = context.read<DownloadProvider>();
-      
+
       await downloadProvider.downloadFile(
         url: _outputUrl!,
-        title: _promptController.text.isNotEmpty 
-            ? _promptController.text 
+        title: _promptController.text.isNotEmpty
+            ? _promptController.text
             : '${widget.title} Output',
         type: DownloadType.video,
         metadata: {
@@ -743,11 +776,13 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
     try {
       final response = await http.get(Uri.parse(_outputUrl!));
       final tempDir = await getTemporaryDirectory();
-      final fileName = '${widget.toolId}-${DateTime.now().millisecondsSinceEpoch}.mp4';
+      final fileName =
+          '${widget.toolId}-${DateTime.now().millisecondsSinceEpoch}.mp4';
       final file = File('${tempDir.path}/$fileName');
       await file.writeAsBytes(response.bodyBytes);
 
-      await Share.shareXFiles([XFile(file.path)], text: 'Created with ${widget.title}');
+      await Share.shareXFiles([XFile(file.path)],
+          text: 'Created with ${widget.title}');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -758,9 +793,5 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
         );
       }
     }
-  }
-}
-                ),
-    );
   }
 }

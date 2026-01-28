@@ -80,7 +80,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ),
             ),
           ),
-          
+
           // Grid
           Expanded(
             child: Consumer<GenerationProvider>(
@@ -108,7 +108,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   onRefresh: _handleRefresh,
                   child: GridView.builder(
                     padding: const EdgeInsets.all(12),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       mainAxisSpacing: 12,
                       crossAxisSpacing: 12,
@@ -116,7 +117,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     ),
                     itemCount: filteredGenerations.length,
                     itemBuilder: (context, index) {
-                      return _GenerationCard(generation: filteredGenerations[index]);
+                      return _GenerationCard(
+                          generation: filteredGenerations[index]);
                     },
                   ),
                 );
@@ -208,8 +210,14 @@ class _GenerationCard extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isMusic
-                ? [const Color(0xFF10B981).withOpacity(0.3), const Color(0xFF059669).withOpacity(0.3)]
-                : [AppTheme.primary.withOpacity(0.3), const Color(0xFF3B82F6).withOpacity(0.3)],
+                ? [
+                    const Color(0xFF10B981).withOpacity(0.3),
+                    const Color(0xFF059669).withOpacity(0.3)
+                  ]
+                : [
+                    AppTheme.primary.withOpacity(0.3),
+                    const Color(0xFF3B82F6).withOpacity(0.3)
+                  ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -226,13 +234,16 @@ class _GenerationCard extends StatelessWidget {
                   children: [
                     CircularProgressIndicator(strokeWidth: 2),
                     SizedBox(height: 8),
-                    Text('Processing...', style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+                    Text('Processing...',
+                        style: TextStyle(color: AppTheme.muted, fontSize: 12)),
                   ],
                 ),
               )
             else if (generation.isFailed)
               const Center(
-                child: Text('Failed', style: TextStyle(color: AppTheme.destructive, fontSize: 12)),
+                child: Text('Failed',
+                    style:
+                        TextStyle(color: AppTheme.destructive, fontSize: 12)),
               )
             else if (isMusic)
               // Music/Audio card with waveform visualization
@@ -250,7 +261,8 @@ class _GenerationCard extends StatelessWidget {
                         ),
                         borderRadius: BorderRadius.circular(24),
                       ),
-                      child: const Icon(Icons.music_note, color: Colors.white, size: 24),
+                      child: const Icon(Icons.music_note,
+                          color: Colors.white, size: 24),
                     ),
                     const SizedBox(height: 8),
                     // Static waveform bars
@@ -310,7 +322,8 @@ class _GenerationCard extends StatelessWidget {
                 child: Container(
                   color: Colors.black26,
                   child: const Center(
-                    child: Icon(Icons.play_arrow, color: Colors.white, size: 32),
+                    child:
+                        Icon(Icons.play_arrow, color: Colors.white, size: 32),
                   ),
                 ),
               ),
@@ -343,10 +356,12 @@ class _GenerationCard extends StatelessWidget {
                   color: Colors.black54,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.favorite_border, color: Colors.white, size: 12),
+                child: const Icon(Icons.favorite_border,
+                    color: Colors.white, size: 12),
               ),
             ),
           ],
+        ),
       ),
     );
   }
@@ -445,19 +460,22 @@ class _GenerationCard extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: AppTheme.primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         generation.model,
-                        style: const TextStyle(color: AppTheme.primary, fontSize: 12),
+                        style: const TextStyle(
+                            color: AppTheme.primary, fontSize: 12),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: AppTheme.secondary,
                         borderRadius: BorderRadius.circular(20),
@@ -472,7 +490,8 @@ class _GenerationCard extends StatelessWidget {
                 const SizedBox(height: 16),
 
                 // Prompt
-                const Text('Prompt', style: TextStyle(fontWeight: FontWeight.w600)),
+                const Text('Prompt',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 Text(
                   generation.prompt,
@@ -494,11 +513,15 @@ class _GenerationCard extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () {
-                          context.read<GenerationProvider>().deleteGeneration(generation.id);
+                          context
+                              .read<GenerationProvider>()
+                              .deleteGeneration(generation.id);
                           Navigator.pop(context);
                         },
-                        icon: const Icon(Icons.delete_outline, color: AppTheme.destructive),
-                        label: const Text('Delete', style: TextStyle(color: AppTheme.destructive)),
+                        icon: const Icon(Icons.delete_outline,
+                            color: AppTheme.destructive),
+                        label: const Text('Delete',
+                            style: TextStyle(color: AppTheme.destructive)),
                       ),
                     ),
                   ],
@@ -538,14 +561,15 @@ class _GenerationCard extends StatelessWidget {
 
     try {
       final downloadProvider = context.read<DownloadProvider>();
-      
+
       await downloadProvider.downloadFile(
         url: generation.outputUrl!,
-        title: generation.prompt.isNotEmpty 
-            ? generation.prompt 
+        title: generation.prompt.isNotEmpty
+            ? generation.prompt
             : '${_getTypeLabel(generation.type)} Generation',
         type: _getDownloadType(generation.type),
-        saveToGallery: generation.type != GenerationType.music, // Audio doesn't go to photo gallery
+        saveToGallery: generation.type !=
+            GenerationType.music, // Audio doesn't go to photo gallery
         metadata: {
           'model': generation.model,
           'prompt': generation.prompt,
@@ -556,8 +580,8 @@ class _GenerationCard extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(generation.type == GenerationType.music 
-                ? 'Saved to Downloads' 
+            content: Text(generation.type == GenerationType.music
+                ? 'Saved to Downloads'
                 : 'Saved to Downloads & Gallery'),
             backgroundColor: AppTheme.primary,
           ),
