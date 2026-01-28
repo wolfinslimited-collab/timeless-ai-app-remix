@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme.dart';
+import '../../services/audio_player_service.dart';
+import '../../widgets/music_player_bar.dart';
 
 class AudioCreateScreen extends StatefulWidget {
   const AudioCreateScreen({super.key});
@@ -14,29 +17,32 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _supabase = Supabase.instance.client;
-  
+
   final _lyricsController = TextEditingController();
   final _customStyleController = TextEditingController();
   final _titleController = TextEditingController();
-  
+
   bool _isGenerating = false;
   bool _stylesExpanded = true;
   bool _advancedExpanded = false;
-  
+  int _duration = 30;
+
   final List<String> _styleOptions = [
-    'overdrive', 'drunk', 'chitarra acustica', 'hybrid',
-    'hall', 'pop', 'rock', 'jazz', 'electronic', 'ambient',
-    'cinematic', 'lofi', 'trap', 'classical', 'reggae',
+    'overdrive', 'drunk', 'chitarra acustica', 'hybrid', 'hall',
+    'pop', 'rock', 'jazz', 'electronic', 'ambient', 'cinematic',
+    'lofi', 'trap', 'classical', 'reggae', 'hip-hop', 'r&b',
   ];
-  
+
   final Set<String> _selectedStyles = {};
   List<Map<String, dynamic>> _libraryTracks = [];
+  List<Map<String, dynamic>> _pendingTracks = [];
+  bool _isLoadingTracks = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadLibraryTracks();
+    _loadTracks();
   }
 
   @override
@@ -48,24 +54,42 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
     super.dispose();
   }
 
-  Future<void> _loadLibraryTracks() async {
+  Future<void> _loadTracks() async {
     try {
       final user = _supabase.auth.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        setState(() => _isLoadingTracks = false);
+        return;
+      }
 
-      final response = await _supabase
+      // Load completed tracks
+      final completedResponse = await _supabase
           .from('generations')
           .select()
           .eq('user_id', user.id)
           .eq('type', 'music')
+          .eq('status', 'completed')
+          .not('output_url', 'is', null)
           .order('created_at', ascending: false)
-          .limit(20);
+          .limit(50);
+
+      // Load pending tracks
+      final pendingResponse = await _supabase
+          .from('generations')
+          .select()
+          .eq('user_id', user.id)
+          .eq('type', 'music')
+          .inFilter('status', ['pending', 'processing'])
+          .order('created_at', ascending: false);
 
       setState(() {
-        _libraryTracks = List<Map<String, dynamic>>.from(response);
+        _libraryTracks = List<Map<String, dynamic>>.from(completedResponse);
+        _pendingTracks = List<Map<String, dynamic>>.from(pendingResponse);
+        _isLoadingTracks = false;
       });
     } catch (e) {
       debugPrint('Error loading tracks: $e');
+      setState(() => _isLoadingTracks = false);
     }
   }
 
@@ -105,21 +129,18 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
     setState(() => _isGenerating = true);
 
     try {
-      // Build prompt from lyrics and styles
       final prompt = [
         if (_lyricsController.text.isNotEmpty) _lyricsController.text,
-        if (_selectedStyles.isNotEmpty)
-          'Style: ${_selectedStyles.join(', ')}',
+        if (_selectedStyles.isNotEmpty) 'Style: ${_selectedStyles.join(', ')}',
       ].join('\n\n');
 
       final response = await _supabase.functions.invoke(
         'music-generation',
         body: {
           'prompt': prompt.isNotEmpty ? prompt : 'Create an instrumental track',
-          'title': _titleController.text.isNotEmpty 
-              ? _titleController.text 
-              : null,
+          'title': _titleController.text.isNotEmpty ? _titleController.text : null,
           'styles': _selectedStyles.toList(),
+          'duration': _duration,
         },
       );
 
@@ -132,10 +153,10 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Music is being generated! Check Library for results.'),
+            content: Text('Music is being generated! Check the list for results.'),
           ),
         );
-        _loadLibraryTracks();
+        _loadTracks();
       }
     } catch (e) {
       if (mounted) {
@@ -154,7 +175,7 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Music'),
+        title: const Text('Music Studio'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/create'),
@@ -167,137 +188,82 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Stack(
         children: [
-          _buildCreateTab(),
-          _buildToolsTab(),
-        ],
-      ),
-    );
+          TabBarView(
+            controller: _tabController,
+            children: [
+              _buildCreateTab(),
+              _buildToolsTab(),
+            ],
+          ),
+          // Bottom music player bar
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: const MusicPlayerBar(),
+        ),
+      ],
+    ),
+  );
   }
 
   Widget _buildCreateTab() {
-    return Row(
-      children: [
-        // Left sidebar - Music Apps
-        Container(
-          width: 200,
-          decoration: BoxDecoration(
-            color: AppTheme.card,
-            border: Border(
-              right: BorderSide(color: AppTheme.border),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'MUSIC APPS',
-                  style: TextStyle(
-                    color: AppTheme.muted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1,
-                  ),
-                ),
-              ),
-              _buildMusicAppItem(
-                icon: Icons.music_note,
-                title: 'Generate Music',
-                subtitle: 'Create music from text',
-                isSelected: true,
-                badge: 'AI',
-                badgeColor: AppTheme.primary,
-                onTap: () {},
-              ),
-              _buildMusicAppItem(
-                icon: Icons.layers,
-                title: 'Stem Separation',
-                subtitle: 'Separate vocals, drums,...',
-                badge: 'TOP',
-                badgeColor: Colors.blue,
-                onTap: () => context.go('/create/audio/stems'),
-              ),
-              _buildMusicAppItem(
-                icon: Icons.tune,
-                title: 'AI Remix',
-                subtitle: 'Remix with AI variations',
-                badge: 'NEW',
-                badgeColor: AppTheme.primary,
-                onTap: () => context.go('/create/audio/remix'),
-              ),
-              _buildMusicAppItem(
-                icon: Icons.mic,
-                title: 'Voice Generator',
-                subtitle: 'Generate singing vocals',
-                onTap: () => context.go('/create/audio/vocals'),
-              ),
-              _buildMusicAppItem(
-                icon: Icons.volume_up,
-                title: 'AI Mastering',
-                subtitle: 'Professional audio mast...',
-                onTap: () => context.go('/create/audio/mastering'),
-              ),
-              _buildMusicAppItem(
-                icon: Icons.graphic_eq,
-                title: 'Sound Effects',
-                subtitle: 'Generate SFX from text',
-                onTap: () => context.go('/create/audio/sound-effects'),
-              ),
-              _buildMusicAppItem(
-                icon: Icons.auto_awesome,
-                title: 'Audio Enhance',
-                subtitle: 'Clean and enhance audio',
-                onTap: () => context.go('/create/audio/enhance'),
-              ),
-              _buildMusicAppItem(
-                icon: Icons.speed,
-                title: 'Tempo & Pitch',
-                subtitle: 'Adjust speed and key',
-                onTap: () => context.go('/create/audio/tempo-pitch'),
-              ),
-            ],
-          ),
-        ),
-        // Center - Generation controls
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 100),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Generated music list on top
+          if (_isLoadingTracks)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_pendingTracks.isNotEmpty || _libraryTracks.isNotEmpty)
+            _buildMusicLibrary(),
+          
+          // Divider
+          if (_libraryTracks.isNotEmpty || _pendingTracks.isNotEmpty)
+            Divider(color: AppTheme.border, height: 1),
+          
+          // Generation form
+          Padding(
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Lyrics section
+                // Lyrics / Prompt section
                 _buildSectionHeader(
-                  title: 'Lyrics',
-                  icon: Icons.arrow_drop_down,
+                  title: 'Lyrics / Prompt',
                   trailing: IconButton(
                     icon: const Icon(Icons.auto_fix_high, size: 20),
                     onPressed: () {
-                      // AI enhance lyrics
+                      // AI enhance
                     },
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _lyricsController,
-                  maxLines: 6,
+                  maxLines: 5,
                   decoration: InputDecoration(
-                    hintText: 'Write some lyrics or a prompt — or leave blank for instrumental',
+                    hintText: 'Write some lyrics or a prompt — or leave blank for instrumental...',
                     hintStyle: TextStyle(color: AppTheme.muted),
                     filled: true,
-                    fillColor: AppTheme.background,
+                    fillColor: AppTheme.card,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                      borderSide: BorderSide(color: AppTheme.border),
                     ),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.open_in_full, size: 18),
-                      onPressed: () {
-                        // Expand editor
-                      },
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppTheme.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppTheme.primary),
                     ),
                   ),
                 ),
@@ -306,16 +272,14 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
                 // Styles section
                 _buildCollapsibleSection(
                   title: 'Styles',
+                  subtitle: _selectedStyles.isEmpty
+                      ? 'Select up to 5 styles'
+                      : _selectedStyles.join(', '),
                   isExpanded: _stylesExpanded,
                   onToggle: () => setState(() => _stylesExpanded = !_stylesExpanded),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Select up to 5 styles or type your own',
-                        style: TextStyle(color: AppTheme.muted, fontSize: 13),
-                      ),
-                      const SizedBox(height: 12),
                       // Custom style input
                       Row(
                         children: [
@@ -326,14 +290,18 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
                                 hintText: 'Type a custom style...',
                                 hintStyle: TextStyle(color: AppTheme.muted),
                                 filled: true,
-                                fillColor: AppTheme.background,
+                                fillColor: AppTheme.card,
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide.none,
+                                  borderRadius: BorderRadius.circular(24),
+                                  borderSide: BorderSide(color: AppTheme.border),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                  borderSide: BorderSide(color: AppTheme.border),
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
+                                  horizontal: 16,
+                                  vertical: 12,
                                 ),
                               ),
                               onSubmitted: (_) => _addCustomStyle(),
@@ -341,21 +309,26 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
                           ),
                           const SizedBox(width: 8),
                           IconButton(
-                            icon: const Icon(Icons.add),
+                            icon: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(Icons.add, color: AppTheme.primary),
+                            ),
                             onPressed: _addCustomStyle,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       // Style chips
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          // Selected styles first
                           for (final style in _selectedStyles)
                             _buildStyleChip(style, isSelected: true),
-                          // Then available options
                           for (final style in _styleOptions)
                             if (!_selectedStyles.contains(style))
                               _buildStyleChip(style),
@@ -366,7 +339,7 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
                 ),
                 const SizedBox(height: 16),
 
-                // Advanced Options section
+                // Advanced Options
                 _buildCollapsibleSection(
                   title: 'Advanced Options',
                   isExpanded: _advancedExpanded,
@@ -374,30 +347,58 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Song Title
+                      TextField(
+                        controller: _titleController,
+                        decoration: InputDecoration(
+                          hintText: 'Song Title (Optional)',
+                          hintStyle: TextStyle(color: AppTheme.muted),
+                          prefixIcon: Icon(Icons.music_note, color: AppTheme.muted),
+                          filled: true,
+                          fillColor: AppTheme.card,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: AppTheme.border),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: AppTheme.border),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Duration slider
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Icon(Icons.music_note, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: _titleController,
-                              decoration: InputDecoration(
-                                hintText: 'Song Title (Optional)',
-                                hintStyle: TextStyle(color: AppTheme.muted),
-                                filled: true,
-                                fillColor: AppTheme.background,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide.none,
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                              ),
+                          Text(
+                            'Duration',
+                            style: TextStyle(color: AppTheme.muted, fontSize: 14),
+                          ),
+                          Text(
+                            '${_duration}s',
+                            style: TextStyle(
+                              color: AppTheme.primary,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 8),
+                      SliderTheme(
+                        data: SliderThemeData(
+                          activeTrackColor: AppTheme.primary,
+                          inactiveTrackColor: AppTheme.border,
+                          thumbColor: AppTheme.primary,
+                        ),
+                        child: Slider(
+                          value: _duration.toDouble(),
+                          min: 15,
+                          max: 120,
+                          divisions: 7,
+                          onChanged: (value) => setState(() => _duration = value.round()),
+                        ),
                       ),
                     ],
                   ),
@@ -429,21 +430,39 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
                                 ),
                               ),
                               SizedBox(width: 12),
-                              Text('Generating...'),
+                              Text('Generating...', style: TextStyle(color: Colors.white)),
                             ],
                           )
-                        : const Row(
+                        : Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.auto_awesome, size: 20),
-                              SizedBox(width: 8),
-                              Text('Create'),
-                              SizedBox(width: 8),
-                              Text(
-                                '20',
+                              const Icon(Icons.auto_awesome, size: 20, color: Colors.white),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Create Music',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  color: Colors.white,
                                   fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Text(
+                                  '20',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ],
@@ -453,147 +472,230 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
               ],
             ),
           ),
-        ),
-        // Right sidebar - Library
-        Container(
-          width: 280,
-          decoration: BoxDecoration(
-            color: AppTheme.card,
-            border: Border(
-              left: BorderSide(color: AppTheme.border),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMusicLibrary() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    const Text(
-                      'My Library',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.border,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '${_libraryTracks.length} tracks',
-                        style: TextStyle(
-                          color: AppTheme.muted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
+              const Text(
+                'My Library',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
                 ),
               ),
-              Expanded(
-                child: _libraryTracks.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.library_music,
-                              size: 48,
-                              color: AppTheme.muted.withOpacity(0.5),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'No tracks yet',
-                              style: TextStyle(color: AppTheme.muted),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: _libraryTracks.length,
-                        itemBuilder: (context, index) {
-                          final track = _libraryTracks[index];
-                          return _buildTrackItem(track);
-                        },
-                      ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.border,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${_libraryTracks.length} tracks',
+                  style: TextStyle(color: AppTheme.muted, fontSize: 12),
+                ),
               ),
             ],
           ),
         ),
+        
+        // Pending tracks
+        for (final track in _pendingTracks)
+          _buildPendingTrackItem(track),
+        
+        // Completed tracks
+        SizedBox(
+          height: 180,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _libraryTracks.length,
+            itemBuilder: (context, index) {
+              final track = _libraryTracks[index];
+              return _buildTrackCard(track);
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
       ],
+    );
+  }
+
+  Widget _buildPendingTrackItem(Map<String, dynamic> track) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.primary.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primary.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppTheme.primary.withOpacity(0.3), AppTheme.primary.withOpacity(0.1)],
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Creating...',
+                  style: TextStyle(
+                    color: AppTheme.primary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  track['prompt'] ?? '',
+                  style: TextStyle(color: AppTheme.muted, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.close, color: AppTheme.muted, size: 20),
+            onPressed: () {
+              // Cancel generation
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrackCard(Map<String, dynamic> track) {
+    final player = Provider.of<AudioPlayerService>(context);
+    final isCurrentTrack = player.currentUrl == track['output_url'];
+    final isPlaying = isCurrentTrack && player.isPlaying;
+
+    return GestureDetector(
+      onTap: () {
+        if (track['output_url'] != null) {
+          player.play(
+            url: track['output_url'],
+            title: track['title'] ?? 'AI Track',
+            artist: 'AI Generated',
+          );
+        }
+      },
+      child: Container(
+        width: 140,
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Album art with play button
+            Container(
+              height: 120,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isCurrentTrack
+                      ? [AppTheme.primary, Colors.purple]
+                      : [AppTheme.primary.withOpacity(0.3), AppTheme.primary.withOpacity(0.1)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Stack(
+                children: [
+                  Center(
+                    child: Icon(
+                      Icons.music_note,
+                      size: 40,
+                      color: Colors.white.withOpacity(0.5),
+                    ),
+                  ),
+                  // Play/Pause overlay
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.4),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isPlaying ? Icons.pause : Icons.play_arrow,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              track['title'] ?? 'AI Track',
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              track['model'] ?? 'AI',
+              style: TextStyle(
+                color: AppTheme.muted,
+                fontSize: 11,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildToolsTab() {
     final tools = [
-      {
-        'icon': Icons.layers,
-        'title': 'Stem Separation',
-        'description': 'Separate vocals, drums, bass, and other',
-        'badge': 'TOP',
-        'badgeColor': Colors.blue,
-        'route': '/create/audio/stems',
-        'credits': 8,
-      },
-      {
-        'icon': Icons.tune,
-        'title': 'AI Remix',
-        'description': 'Create unique AI-powered remixes',
-        'badge': 'NEW',
-        'badgeColor': AppTheme.primary,
-        'route': '/create/audio/remix',
-        'credits': 12,
-      },
-      {
-        'icon': Icons.mic,
-        'title': 'Voice Generator',
-        'description': 'Generate AI singing vocals',
-        'route': '/create/audio/vocals',
-        'credits': 15,
-      },
-      {
-        'icon': Icons.volume_up,
-        'title': 'AI Mastering',
-        'description': 'Professional-quality mastering',
-        'route': '/create/audio/mastering',
-        'credits': 6,
-      },
-      {
-        'icon': Icons.graphic_eq,
-        'title': 'Sound Effects',
-        'description': 'Generate SFX from text',
-        'route': '/create/audio/sound-effects',
-        'credits': 5,
-      },
-      {
-        'icon': Icons.auto_awesome,
-        'title': 'Audio Enhance',
-        'description': 'Clean and enhance audio quality',
-        'route': '/create/audio/enhance',
-        'credits': 4,
-      },
-      {
-        'icon': Icons.speed,
-        'title': 'Tempo & Pitch',
-        'description': 'Adjust speed and key',
-        'route': '/create/audio/tempo-pitch',
-        'credits': 3,
-      },
+      {'icon': Icons.layers, 'title': 'Stem Separation', 'description': 'Separate vocals, drums, bass, and other', 'badge': 'TOP', 'badgeColor': Colors.blue, 'route': '/create/audio/stems', 'credits': 8},
+      {'icon': Icons.tune, 'title': 'AI Remix', 'description': 'Create unique AI-powered remixes', 'badge': 'NEW', 'badgeColor': AppTheme.primary, 'route': '/create/audio/remix', 'credits': 12},
+      {'icon': Icons.mic, 'title': 'Voice Generator', 'description': 'Generate AI singing vocals', 'route': '/create/audio/vocals', 'credits': 15},
+      {'icon': Icons.volume_up, 'title': 'AI Mastering', 'description': 'Professional-quality mastering', 'route': '/create/audio/mastering', 'credits': 6},
+      {'icon': Icons.graphic_eq, 'title': 'Sound Effects', 'description': 'Generate SFX from text', 'route': '/create/audio/sound-effects', 'credits': 5},
+      {'icon': Icons.auto_awesome, 'title': 'Audio Enhance', 'description': 'Clean and enhance audio quality', 'route': '/create/audio/enhance', 'credits': 4},
+      {'icon': Icons.speed, 'title': 'Tempo & Pitch', 'description': 'Adjust speed and key', 'route': '/create/audio/tempo-pitch', 'credits': 3},
     ];
 
     return GridView.builder(
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 1.6,
+        childAspectRatio: 1.5,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -613,115 +715,20 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
     );
   }
 
-  Widget _buildMusicAppItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    String? badge,
-    Color? badgeColor,
-    bool isSelected = false,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primary.withOpacity(0.1) : null,
-          border: Border(
-            left: BorderSide(
-              color: isSelected ? AppTheme.primary : Colors.transparent,
-              width: 3,
-            ),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: isSelected 
-                    ? AppTheme.primary.withOpacity(0.2)
-                    : AppTheme.border,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, size: 18),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 13,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (badge != null) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: badgeColor ?? AppTheme.primary,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            badge,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: AppTheme.muted,
-                      fontSize: 11,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildSectionHeader({
     required String title,
-    IconData? icon,
     Widget? trailing,
   }) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        if (icon != null) Icon(icon, size: 20),
         Text(
           title,
           style: const TextStyle(
             fontWeight: FontWeight.w600,
-            fontSize: 15,
+            fontSize: 16,
           ),
         ),
-        const Spacer(),
         if (trailing != null) trailing,
       ],
     );
@@ -729,37 +736,70 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
 
   Widget _buildCollapsibleSection({
     required String title,
+    String? subtitle,
     required bool isExpanded,
     required VoidCallback onToggle,
     required Widget child,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        InkWell(
-          onTap: onToggle,
-          child: Row(
-            children: [
-              Icon(
-                isExpanded ? Icons.arrow_drop_down : Icons.arrow_right,
-                size: 20,
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: onToggle,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+                    size: 20,
+                    color: AppTheme.muted,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            style: TextStyle(
+                              color: AppTheme.muted,
+                              fontSize: 12,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 4),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-        if (isExpanded) ...[
-          const SizedBox(height: 12),
-          child,
+          if (isExpanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: child,
+            ),
         ],
-      ],
+      ),
     );
   }
 
@@ -769,9 +809,7 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected 
-              ? AppTheme.primary.withOpacity(0.2) 
-              : AppTheme.background,
+          color: isSelected ? AppTheme.primary.withOpacity(0.15) : AppTheme.background,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? AppTheme.primary : AppTheme.border,
@@ -795,41 +833,6 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildTrackItem(Map<String, dynamic> track) {
-    return ListTile(
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: AppTheme.border,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Icon(Icons.music_note, size: 20),
-      ),
-      title: Text(
-        track['title'] ?? track['prompt'] ?? 'Untitled',
-        style: const TextStyle(fontSize: 14),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(
-        track['status'] ?? 'completed',
-        style: TextStyle(
-          color: track['status'] == 'processing' 
-              ? Colors.orange 
-              : AppTheme.muted,
-          fontSize: 12,
-        ),
-      ),
-      trailing: IconButton(
-        icon: const Icon(Icons.play_arrow, size: 20),
-        onPressed: () {
-          // Play track
-        },
       ),
     );
   }
@@ -858,34 +861,25 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
             Row(
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppTheme.primary, Colors.deepPurple],
-                    ),
+                    gradient: LinearGradient(colors: [AppTheme.primary, Colors.deepPurple]),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(icon, color: Colors.white, size: 22),
+                  child: Icon(icon, color: Colors.white, size: 20),
                 ),
                 const Spacer(),
                 if (badge != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
                       color: badgeColor ?? AppTheme.primary,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       badge,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
                     ),
                   ),
               ],
@@ -893,37 +887,26 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
             const SizedBox(height: 12),
             Text(
               title,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             const SizedBox(height: 4),
             Expanded(
               child: Text(
                 description,
-                style: TextStyle(
-                  color: AppTheme.muted,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: AppTheme.muted, fontSize: 11),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               decoration: BoxDecoration(
                 color: AppTheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 '$credits credits',
-                style: TextStyle(
-                  color: AppTheme.primary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(color: AppTheme.primary, fontSize: 10, fontWeight: FontWeight.w500),
               ),
             ),
           ],

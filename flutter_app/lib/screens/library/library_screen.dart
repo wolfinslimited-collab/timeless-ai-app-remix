@@ -7,6 +7,8 @@ import '../../models/download_model.dart';
 import '../../providers/generation_provider.dart';
 import '../../providers/download_provider.dart';
 import '../../providers/favorites_provider.dart';
+import '../../services/audio_player_service.dart';
+import '../../widgets/music_player_bar.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -45,8 +47,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
+          Column(
+            children: [
           // Filter Tabs
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -126,6 +130,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
               },
             ),
           ),
+          ],
+        ),
+        // Bottom music player bar
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: const MusicPlayerBar(),
+        ),
         ],
       ),
     );
@@ -262,52 +275,91 @@ class _GenerationCard extends StatelessWidget {
                             TextStyle(color: AppTheme.destructive, fontSize: 12)),
                   )
                 else if (isMusic)
-                  Container(
-                    color: AppTheme.card,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF10B981), Color(0xFF059669)],
-                            ),
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          child: const Icon(Icons.music_note,
-                              color: Colors.white, size: 24),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(12, (i) {
-                            final height = 8.0 + (i % 3) * 6.0 + (i % 2) * 4.0;
-                            return Container(
-                              width: 3,
-                              height: height,
-                              margin: const EdgeInsets.symmetric(horizontal: 1),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF10B981),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
+                  Consumer<AudioPlayerService>(
+                    builder: (context, player, _) {
+                      final isCurrentTrack = player.currentUrl == generation.outputUrl;
+                      final isPlaying = isCurrentTrack && player.isPlaying;
+                      
+                      return GestureDetector(
+                        onTap: () {
+                          if (generation.outputUrl != null) {
+                            player.play(
+                              url: generation.outputUrl!,
+                              title: generation.title ?? 'AI Track',
+                              artist: 'AI Generated',
                             );
-                          }),
-                        ),
-                        const SizedBox(height: 8),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Text(
-                            generation.title ?? generation.prompt,
-                            style: const TextStyle(fontSize: 11),
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                          }
+                        },
+                        child: Container(
+                          color: isCurrentTrack 
+                              ? const Color(0xFF10B981).withOpacity(0.2) 
+                              : AppTheme.card,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: isCurrentTrack
+                                        ? [const Color(0xFF10B981), Colors.teal]
+                                        : [const Color(0xFF10B981), const Color(0xFF059669)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                child: Icon(
+                                  isPlaying ? Icons.pause : Icons.play_arrow,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              if (isCurrentTrack)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(2),
+                                    child: LinearProgressIndicator(
+                                      value: player.progress,
+                                      backgroundColor: AppTheme.border,
+                                      valueColor: const AlwaysStoppedAnimation(Color(0xFF10B981)),
+                                      minHeight: 3,
+                                    ),
+                                  ),
+                                )
+                              else
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: List.generate(12, (i) {
+                                    final height = 8.0 + (i % 3) * 6.0 + (i % 2) * 4.0;
+                                    return Container(
+                                      width: 3,
+                                      height: height,
+                                      margin: const EdgeInsets.symmetric(horizontal: 1),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF10B981),
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                              const SizedBox(height: 8),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: Text(
+                                  generation.title ?? generation.prompt,
+                                  style: const TextStyle(fontSize: 11),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   )
                 else if (imageUrl != null)
                   CachedNetworkImage(
@@ -442,49 +494,100 @@ class _GenerationCard extends StatelessWidget {
                 // Preview
                 if (generation.type == GenerationType.music)
                   // Audio player preview
-                  Container(
-                    height: 120,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF10B981), Color(0xFF059669)],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.play_arrow,
-                            color: Colors.white,
-                            size: 32,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        // Waveform visualization
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(20, (i) {
-                            final height = 8.0 + (i % 3) * 8.0 + (i % 2) * 4.0;
-                            return Container(
-                              width: 3,
-                              height: height,
-                              margin: const EdgeInsets.symmetric(horizontal: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.8),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
+                  Consumer<AudioPlayerService>(
+                    builder: (context, player, _) {
+                      final isCurrentTrack = player.currentUrl == generation.outputUrl;
+                      final isPlaying = isCurrentTrack && player.isPlaying;
+                      
+                      return GestureDetector(
+                        onTap: () {
+                          if (generation.outputUrl != null) {
+                            player.play(
+                              url: generation.outputUrl!,
+                              title: generation.title ?? 'AI Track',
+                              artist: 'AI Generated',
                             );
-                          }),
+                          }
+                        },
+                        child: Container(
+                          height: 140,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF10B981), Color(0xFF059669)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  isPlaying ? Icons.pause : Icons.play_arrow,
+                                  color: Colors.white,
+                                  size: 32,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              // Progress bar
+                              if (isCurrentTrack)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                                  child: Column(
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(2),
+                                        child: LinearProgressIndicator(
+                                          value: player.progress,
+                                          backgroundColor: Colors.white.withOpacity(0.3),
+                                          valueColor: const AlwaysStoppedAnimation(Colors.white),
+                                          minHeight: 4,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            player.formatDuration(player.position),
+                                            style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10),
+                                          ),
+                                          Text(
+                                            player.formatDuration(player.duration),
+                                            style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              else
+                                // Waveform visualization
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: List.generate(20, (i) {
+                                    final height = 8.0 + (i % 3) * 8.0 + (i % 2) * 4.0;
+                                    return Container(
+                                      width: 3,
+                                      height: height,
+                                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.8),
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   )
                 else if (generation.outputUrl != null)
                   ClipRRect(

@@ -94,6 +94,10 @@ class FavoritesProvider extends ChangeNotifier {
     return _favorites.any((item) => item.id == id);
   }
 
+  bool isFavoriteByUrl(String url) {
+    return _favorites.any((item) => item.url == url);
+  }
+
   Future<void> toggleFavorite({
     required String id,
     required String type,

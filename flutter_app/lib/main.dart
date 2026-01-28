@@ -13,6 +13,7 @@ import 'providers/download_provider.dart';
 import 'providers/favorites_provider.dart';
 import 'services/tiktok_service.dart';
 import 'services/facebook_service.dart';
+import 'services/audio_player_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,6 +43,7 @@ class TimelessAIApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => IAPProvider()),
         ChangeNotifierProvider(create: (_) => DownloadProvider()),
         ChangeNotifierProvider(create: (_) => FavoritesProvider()),
+        ChangeNotifierProvider(create: (_) => AudioPlayerService()),
       ],
       child: MaterialApp.router(
         title: 'Timeless AI',
