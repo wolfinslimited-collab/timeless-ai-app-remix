@@ -208,18 +208,18 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
                 _buildToolsTab(),
               ],
             ),
-          // Bottom music player bar
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: const MusicPlayerBar(),
-        ),
+            // Bottom music player bar
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: const MusicPlayerBar(),
+            ),
           ],
-        ),
         ),
       ),
     );
+  }
 
   Widget _buildCreateTab() {
     return SingleChildScrollView(
