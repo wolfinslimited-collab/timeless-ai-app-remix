@@ -9,6 +9,7 @@ import 'providers/auth_provider.dart';
 import 'providers/credits_provider.dart';
 import 'providers/generation_provider.dart';
 import 'providers/iap_provider.dart';
+import 'providers/download_provider.dart';
 import 'services/tiktok_service.dart';
 import 'services/facebook_service.dart';
 
@@ -38,6 +39,7 @@ class TimelessAIApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CreditsProvider()),
         ChangeNotifierProvider(create: (_) => GenerationProvider()),
         ChangeNotifierProvider(create: (_) => IAPProvider()),
+        ChangeNotifierProvider(create: (_) => DownloadProvider()),
       ],
       child: MaterialApp.router(
         title: 'Timeless AI',

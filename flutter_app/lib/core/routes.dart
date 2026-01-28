@@ -9,6 +9,7 @@ import '../screens/home/home_screen.dart';
 import '../screens/create/create_screen.dart';
 import '../screens/create/image_create_screen.dart';
 import '../screens/create/video_create_screen.dart';
+import '../screens/create/audio_create_screen.dart';
 // Image Tools
 import '../screens/create/tools/relight_tool_screen.dart';
 import '../screens/create/tools/upscale_tool_screen.dart';
@@ -30,6 +31,14 @@ import '../screens/create/tools/mixed_media_tool_screen.dart';
 import '../screens/create/tools/click_to_ad_tool_screen.dart';
 import '../screens/create/tools/ugc_factory_tool_screen.dart';
 import '../screens/create/tools/sora_trends_tool_screen.dart';
+// Audio Tools
+import '../screens/create/tools/stems_tool_screen.dart';
+import '../screens/create/tools/remix_tool_screen.dart';
+import '../screens/create/tools/vocals_tool_screen.dart';
+import '../screens/create/tools/mastering_tool_screen.dart';
+import '../screens/create/tools/sound_effects_tool_screen.dart';
+import '../screens/create/tools/audio_enhance_tool_screen.dart';
+import '../screens/create/tools/tempo_pitch_tool_screen.dart';
 import '../screens/chat/chat_screen.dart';
 import '../screens/library/library_screen.dart';
 import '../screens/apps/apps_screen.dart';
@@ -47,6 +56,7 @@ import '../screens/brain/brain_ai_screen.dart';
 import '../screens/notify/notify_ai_screen.dart';
 import '../screens/upgrade_plan/upgrade_plan_wizard_page.dart';
 import '../screens/profile/profile_screen.dart';
+import '../screens/downloads/downloads_screen.dart';
 import '../widgets/common/main_scaffold.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -209,6 +219,41 @@ final appRouter = GoRouter(
                 ),
               ],
             ),
+            GoRoute(
+              path: 'audio',
+              builder: (context, state) => const AudioCreateScreen(),
+              routes: [
+                // Audio tool sub-routes
+                GoRoute(
+                  path: 'stems',
+                  builder: (context, state) => const StemsToolScreen(),
+                ),
+                GoRoute(
+                  path: 'remix',
+                  builder: (context, state) => const RemixToolScreen(),
+                ),
+                GoRoute(
+                  path: 'vocals',
+                  builder: (context, state) => const VocalsToolScreen(),
+                ),
+                GoRoute(
+                  path: 'mastering',
+                  builder: (context, state) => const MasteringToolScreen(),
+                ),
+                GoRoute(
+                  path: 'sound-effects',
+                  builder: (context, state) => const SoundEffectsToolScreen(),
+                ),
+                GoRoute(
+                  path: 'enhance',
+                  builder: (context, state) => const AudioEnhanceToolScreen(),
+                ),
+                GoRoute(
+                  path: 'tempo-pitch',
+                  builder: (context, state) => const TempoPitchToolScreen(),
+                ),
+              ],
+            ),
           ],
         ),
         GoRoute(
@@ -288,6 +333,10 @@ final appRouter = GoRouter(
           pageBuilder: (context, state) => const NoTransitionPage(
             child: ProfileScreen(),
           ),
+        ),
+        GoRoute(
+          path: '/downloads',
+          builder: (context, state) => const DownloadsScreen(),
         ),
       ],
     ),

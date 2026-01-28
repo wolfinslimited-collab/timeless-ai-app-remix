@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart' as path;
@@ -10,6 +11,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/theme.dart';
 import '../../services/tools_service.dart';
+import '../../models/download_model.dart';
+import '../../providers/download_provider.dart';
 
 /// Reusable layout for image processing tools
 class ImageToolLayout extends StatefulWidget {
@@ -265,6 +268,43 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
     if (_outputImageUrl == null) return;
 
     try {
+      // Use download provider to save and track
+      final downloadProvider = context.read<DownloadProvider>();
+      
+      await downloadProvider.downloadFile(
+        url: _outputImageUrl!,
+        title: _prompt.isNotEmpty ? _prompt : '${widget.toolName} Output',
+        type: DownloadType.image,
+        metadata: {
+          'tool': widget.toolId,
+          'prompt': _prompt,
+        },
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Saved to Downloads & Gallery'),
+            backgroundColor: AppTheme.primary,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Download failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _shareImage() async {
+    if (_outputImageUrl == null) return;
+
+    try {
       final response = await http.get(Uri.parse(_outputImageUrl!));
       final tempDir = await getTemporaryDirectory();
       final fileName =
@@ -273,12 +313,12 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
       await file.writeAsBytes(response.bodyBytes);
 
       await Share.shareXFiles([XFile(file.path)],
-          text: 'Processed with ${widget.toolName}');
+          text: 'Created with ${widget.toolName}');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Download failed: $e'),
+            content: Text('Share failed: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -953,12 +993,29 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _shareImage,
+                          icon: const Icon(Icons.share, size: 18),
+                          label: const Text('Share'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.foreground,
+                            side: BorderSide(
+                                color: AppTheme.border.withOpacity(0.5)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _useAsInput,
                           icon: const Icon(Icons.replay, size: 18),
-                          label: const Text('Use as Input'),
+                          label: const Text('Use'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.foreground,
                             side: BorderSide(
