@@ -259,122 +259,124 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Description
-            Text(
-              widget.description,
-              style: const TextStyle(color: AppTheme.muted, fontSize: 14),
-            ),
-            const SizedBox(height: 24),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Description
+              Text(
+                widget.description,
+                style: const TextStyle(color: AppTheme.muted, fontSize: 14),
+              ),
+              const SizedBox(height: 24),
 
-            // Video Upload
-            if (widget.showVideoUpload) _buildVideoUpload(),
+              // Video Upload
+              if (widget.showVideoUpload) _buildVideoUpload(),
 
-            // Image Upload
-            if (widget.showImageUpload) _buildImageUpload(),
+              // Image Upload
+              if (widget.showImageUpload) _buildImageUpload(),
 
-            // Audio Upload
-            if (widget.showAudioUpload) _buildAudioUpload(),
+              // Audio Upload
+              if (widget.showAudioUpload) _buildAudioUpload(),
 
-            // Prompt
-            if (widget.showPrompt) ...[
-              const SizedBox(height: 16),
-              const Text('Prompt',
+              // Prompt
+              if (widget.showPrompt) ...[
+                const SizedBox(height: 16),
+                const Text('Prompt',
+                    style: TextStyle(fontWeight: FontWeight.w500)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _promptController,
+                  decoration: InputDecoration(
+                    hintText: widget.promptPlaceholder,
+                    hintStyle: const TextStyle(color: AppTheme.muted),
+                    filled: true,
+                    fillColor: AppTheme.secondary,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  maxLines: 2,
+                ),
+              ],
+
+              // Duration Slider
+              if (widget.showDuration) ...[
+                const SizedBox(height: 16),
+                _buildSlider(
+                    'Duration', '${_duration}s', _duration.toDouble(), 3, 10,
+                    (v) {
+                  setState(() => _duration = v.round());
+                }),
+              ],
+
+              // Upscale Factor
+              if (widget.showUpscaleFactor) ...[
+                const SizedBox(height: 16),
+                _buildSlider('Upscale Factor', '${_upscaleFactor}x',
+                    _upscaleFactor.toDouble(), 2, 4, (v) {
+                  setState(() => _upscaleFactor = v.round());
+                }),
+              ],
+
+              // Target FPS
+              if (widget.showTargetFps) ...[
+                const SizedBox(height: 16),
+                _buildSlider('Target FPS', '$_targetFps fps',
+                    _targetFps.toDouble(), 30, 120, (v) {
+                  setState(() => _targetFps = (v / 15).round() * 15);
+                }),
+              ],
+
+              const SizedBox(height: 24),
+
+              // Process Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isProcessing || !_canProcess ? null : _process,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isProcessing
+                      ? const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Text('Processing...'),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.auto_awesome, size: 20),
+                            const SizedBox(width: 8),
+                            Text('Process (${widget.creditCost} credits)'),
+                          ],
+                        ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Output Section
+              const Text('Output',
                   style: TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
-              TextField(
-                controller: _promptController,
-                decoration: InputDecoration(
-                  hintText: widget.promptPlaceholder,
-                  hintStyle: const TextStyle(color: AppTheme.muted),
-                  filled: true,
-                  fillColor: AppTheme.secondary,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                maxLines: 2,
-              ),
+              _buildOutputSection(),
             ],
-
-            // Duration Slider
-            if (widget.showDuration) ...[
-              const SizedBox(height: 16),
-              _buildSlider(
-                  'Duration', '${_duration}s', _duration.toDouble(), 3, 10,
-                  (v) {
-                setState(() => _duration = v.round());
-              }),
-            ],
-
-            // Upscale Factor
-            if (widget.showUpscaleFactor) ...[
-              const SizedBox(height: 16),
-              _buildSlider('Upscale Factor', '${_upscaleFactor}x',
-                  _upscaleFactor.toDouble(), 2, 4, (v) {
-                setState(() => _upscaleFactor = v.round());
-              }),
-            ],
-
-            // Target FPS
-            if (widget.showTargetFps) ...[
-              const SizedBox(height: 16),
-              _buildSlider('Target FPS', '$_targetFps fps',
-                  _targetFps.toDouble(), 30, 120, (v) {
-                setState(() => _targetFps = (v / 15).round() * 15);
-              }),
-            ],
-
-            const SizedBox(height: 24),
-
-            // Process Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isProcessing || !_canProcess ? null : _process,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: _isProcessing
-                    ? const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                          Text('Processing...'),
-                        ],
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.auto_awesome, size: 20),
-                          const SizedBox(width: 8),
-                          Text('Process (${widget.creditCost} credits)'),
-                        ],
-                      ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Output Section
-            const Text('Output', style: TextStyle(fontWeight: FontWeight.w500)),
-            const SizedBox(height: 8),
-            _buildOutputSection(),
-          ],
+          ),
         ),
       ),
     );
@@ -492,7 +494,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: SmartNetworkImage(_inputImageUrl!, fit: BoxFit.contain),
+                  child:
+                      SmartNetworkImage(_inputImageUrl!, fit: BoxFit.contain),
                 ),
               ),
               Positioned(
@@ -688,7 +691,8 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                     else
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: SmartNetworkImage(_outputUrl!, fit: BoxFit.contain),
+                        child:
+                            SmartNetworkImage(_outputUrl!, fit: BoxFit.contain),
                       ),
                     Positioned(
                       bottom: 8,

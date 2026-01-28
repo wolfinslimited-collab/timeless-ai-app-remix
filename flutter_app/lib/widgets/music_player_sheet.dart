@@ -32,7 +32,7 @@ class MusicPlayerSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              
+
               // Header
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -60,9 +60,9 @@ class MusicPlayerSheet extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
               const Spacer(),
-              
+
               // Album art
               Container(
                 width: 280,
@@ -94,9 +94,9 @@ class MusicPlayerSheet extends StatelessWidget {
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 40),
-              
+
               // Track info
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -124,9 +124,9 @@ class MusicPlayerSheet extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 32),
-              
+
               // Progress bar
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -175,9 +175,9 @@ class MusicPlayerSheet extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Controls
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -233,9 +233,9 @@ class MusicPlayerSheet extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
               const Spacer(),
-              
+
               // Bottom actions
               Padding(
                 padding: const EdgeInsets.all(32),
@@ -244,10 +244,12 @@ class MusicPlayerSheet extends StatelessWidget {
                   children: [
                     Consumer<FavoritesProvider>(
                       builder: (context, favorites, _) {
-                        final isFavorite = player.currentUrl != null && 
+                        final isFavorite = player.currentUrl != null &&
                             favorites.isFavoriteByUrl(player.currentUrl!);
                         return _buildActionButton(
-                          icon: isFavorite ? Icons.favorite : Icons.favorite_border,
+                          icon: isFavorite
+                              ? Icons.favorite
+                              : Icons.favorite_border,
                           label: 'Like',
                           isActive: isFavorite,
                           onTap: () {
@@ -270,14 +272,15 @@ class MusicPlayerSheet extends StatelessWidget {
                         if (player.currentUrl != null) {
                           try {
                             await context.read<DownloadProvider>().downloadFile(
-                              url: player.currentUrl!,
-                              title: player.currentTitle ?? 'AI Track',
-                              type: DownloadType.audio,
-                              saveToGallery: false,
-                            );
+                                  url: player.currentUrl!,
+                                  title: player.currentTitle ?? 'AI Track',
+                                  type: DownloadType.audio,
+                                  saveToGallery: false,
+                                );
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Saved to Downloads')),
+                                const SnackBar(
+                                    content: Text('Saved to Downloads')),
                               );
                             }
                           } catch (e) {
@@ -326,7 +329,8 @@ class MusicPlayerSheet extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: isActive ? AppTheme.primary.withOpacity(0.1) : AppTheme.card,
+              color:
+                  isActive ? AppTheme.primary.withOpacity(0.1) : AppTheme.card,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isActive ? AppTheme.primary : AppTheme.border,
@@ -350,3 +354,4 @@ class MusicPlayerSheet extends StatelessWidget {
       ),
     );
   }
+}

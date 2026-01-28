@@ -86,24 +86,24 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.background,
-              AppTheme.background,
-              AppTheme.primary.withOpacity(0.05),
-            ],
-          ),
+        body: Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.background,
+            AppTheme.background,
+            AppTheme.primary.withOpacity(0.05),
+          ],
         ),
-        child: GestureDetector(
-          onTap: () => FocusScope.of(context).unfocus(),
-          behavior: HitTestBehavior.opaque,
-          child: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+      ),
+      child: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
             child: FadeTransition(
               opacity: _fadeAnimation,
               child: SlideTransition(
@@ -425,7 +425,7 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildOAuthButton({

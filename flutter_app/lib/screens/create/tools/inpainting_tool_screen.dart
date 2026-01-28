@@ -12,7 +12,7 @@ import '../../../widgets/common/smart_media_image.dart';
 
 class InpaintingToolScreen extends StatefulWidget {
   final String mode;
-  
+
   const InpaintingToolScreen({
     super.key,
     this.mode = 'inpainting',
@@ -25,7 +25,7 @@ class InpaintingToolScreen extends StatefulWidget {
 class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
   final ImagePicker _picker = ImagePicker();
   final GlobalKey _canvasKey = GlobalKey();
-  
+
   String? _inputImageUrl;
   Uint8List? _inputImageBytes;
   String? _outputImageUrl;
@@ -35,19 +35,21 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
   double _brushSize = 30;
   bool _isPaintMode = true; // true = paint, false = erase
   bool _isEditorMode = false; // Full screen editor mode
-  
+
   // Drawing state
   List<DrawingStroke> _strokes = [];
   DrawingStroke? _currentStroke;
   ui.Image? _loadedImage;
   Size? _imageSize;
 
-  String get toolName => widget.mode == 'inpainting' ? 'Inpainting' : 'Object Erase';
-  String get toolDescription => widget.mode == 'inpainting' 
-    ? 'Paint over areas to replace with AI-generated content' 
-    : 'Paint over objects to remove them from the image';
+  String get toolName =>
+      widget.mode == 'inpainting' ? 'Inpainting' : 'Object Erase';
+  String get toolDescription => widget.mode == 'inpainting'
+      ? 'Paint over areas to replace with AI-generated content'
+      : 'Paint over objects to remove them from the image';
   int get creditCost => widget.mode == 'inpainting' ? 5 : 4;
-  String get toolId => widget.mode == 'inpainting' ? 'inpainting' : 'object-erase';
+  String get toolId =>
+      widget.mode == 'inpainting' ? 'inpainting' : 'object-erase';
 
   Future<void> _pickImage() async {
     try {
@@ -56,9 +58,9 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
         maxWidth: 2048,
         maxHeight: 2048,
       );
-      
+
       if (image == null) return;
-      
+
       setState(() {
         _isUploading = true;
         _outputImageUrl = null;
@@ -68,7 +70,7 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
 
       final bytes = await image.readAsBytes();
       final user = Supabase.instance.client.auth.currentUser;
-      
+
       if (user == null) {
         _showError('Please sign in to use this tool');
         setState(() => _isUploading = false);
@@ -76,7 +78,8 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
       }
 
       final ext = path.extension(image.path).replaceAll('.', '');
-      final fileName = '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final fileName =
+          '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$ext';
 
       await Supabase.instance.client.storage
           .from('generation-inputs')
@@ -89,12 +92,13 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
       // Load the image for canvas display
       final codec = await ui.instantiateImageCodec(bytes);
       final frame = await codec.getNextFrame();
-      
+
       setState(() {
         _inputImageUrl = publicUrl;
         _inputImageBytes = bytes;
         _loadedImage = frame.image;
-        _imageSize = Size(frame.image.width.toDouble(), frame.image.height.toDouble());
+        _imageSize =
+            Size(frame.image.width.toDouble(), frame.image.height.toDouble());
         _isUploading = false;
         _isEditorMode = true; // Enter full screen editor mode
       });
@@ -135,7 +139,7 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    
+
     // Fill with black (unmasked area)
     canvas.drawRect(
       Rect.fromLTWH(0, 0, _imageSize!.width, _imageSize!.height),
@@ -151,7 +155,8 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
         ..style = PaintingStyle.stroke;
 
       if (stroke.points.length == 1) {
-        canvas.drawCircle(stroke.points.first, stroke.brushSize / 2, paint..style = PaintingStyle.fill);
+        canvas.drawCircle(stroke.points.first, stroke.brushSize / 2,
+            paint..style = PaintingStyle.fill);
       } else {
         final maskPath = Path();
         maskPath.moveTo(stroke.points.first.dx, stroke.points.first.dy);
@@ -163,9 +168,10 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
     }
 
     final picture = recorder.endRecording();
-    final img = await picture.toImage(_imageSize!.width.toInt(), _imageSize!.height.toInt());
+    final img = await picture.toImage(
+        _imageSize!.width.toInt(), _imageSize!.height.toInt());
     final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
-    
+
     return byteData?.buffer.asUint8List();
   }
 
@@ -193,7 +199,8 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
       }
 
       // Get Supabase URL from the client
-      final supabaseUrl = Supabase.instance.client.rest.url.replaceAll('/rest/v1', '');
+      final supabaseUrl =
+          Supabase.instance.client.rest.url.replaceAll('/rest/v1', '');
 
       final response = await http.post(
         Uri.parse('$supabaseUrl/functions/v1/image-tools'),
@@ -206,9 +213,11 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
           'tool': toolId,
           'imageUrl': _inputImageUrl,
           'maskUrl': maskDataUrl,
-          'prompt': _prompt.isNotEmpty 
-            ? _prompt 
-            : (widget.mode == 'inpainting' ? 'seamless blend' : 'remove object'),
+          'prompt': _prompt.isNotEmpty
+              ? _prompt
+              : (widget.mode == 'inpainting'
+                  ? 'seamless blend'
+                  : 'remove object'),
         }),
       );
 
@@ -233,7 +242,7 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
 
   Future<void> _downloadOutput() async {
     if (_outputImageUrl == null) return;
-    
+
     try {
       final response = await http.get(Uri.parse(_outputImageUrl!));
       await Share.shareXFiles([
@@ -266,13 +275,13 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
     if (_isEditorMode) {
       return _buildFullScreenEditor();
     }
-    
+
     return _buildMainScreen();
   }
 
   Widget _buildMainScreen() {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
@@ -331,9 +340,9 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
                   ? _buildUploadArea(theme)
                   : _buildImagePreview(theme),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Result Section
             _buildSectionCard(
               theme: theme,
@@ -348,7 +357,7 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
 
   Widget _buildFullScreenEditor() {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -375,7 +384,9 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
                   ),
                   const Spacer(),
                   TextButton(
-                    onPressed: _strokes.isEmpty || _isProcessing ? null : _processImage,
+                    onPressed: _strokes.isEmpty || _isProcessing
+                        ? null
+                        : _processImage,
                     child: _isProcessing
                         ? const SizedBox(
                             width: 20,
@@ -397,7 +408,7 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
                 ],
               ),
             ),
-            
+
             // Canvas area - full screen
             Expanded(
               child: GestureDetector(
@@ -412,7 +423,8 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
                       builder: (context, constraints) {
                         return CustomPaint(
                           key: _canvasKey,
-                          size: Size(constraints.maxWidth, constraints.maxHeight),
+                          size:
+                              Size(constraints.maxWidth, constraints.maxHeight),
                           painter: InpaintingCanvasPainter(
                             image: _loadedImage,
                             strokes: _strokes,
@@ -426,7 +438,7 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
                 ),
               ),
             ),
-            
+
             // Bottom toolbar
             Container(
               padding: const EdgeInsets.all(16),
@@ -459,9 +471,9 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Brush size slider
                   Row(
                     children: [
@@ -474,18 +486,19 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
                           divisions: 19,
                           activeColor: theme.colorScheme.primary,
                           inactiveColor: Colors.white24,
-                          onChanged: (value) => setState(() => _brushSize = value),
+                          onChanged: (value) =>
+                              setState(() => _brushSize = value),
                         ),
                       ),
                       const Icon(Icons.circle, color: Colors.white54, size: 24),
                     ],
                   ),
-                  
+
                   Text(
                     'Brush Size: ${_brushSize.toInt()}px',
                     style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
-                  
+
                   // Prompt input (only for inpainting mode)
                   if (widget.mode == 'inpainting') ...[
                     const SizedBox(height: 16),
@@ -495,7 +508,8 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
                       maxLines: 2,
                       decoration: InputDecoration(
                         hintText: 'What to generate in masked area...',
-                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                        hintStyle:
+                            TextStyle(color: Colors.white.withOpacity(0.4)),
                         filled: true,
                         fillColor: Colors.white.withOpacity(0.1),
                         border: OutlineInputBorder(
@@ -641,7 +655,8 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
                   top: 8,
                   left: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.green.withOpacity(0.8),
                       borderRadius: BorderRadius.circular(12),
@@ -663,7 +678,8 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
                       color: Colors.black.withOpacity(0.6),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.close, color: Colors.white, size: 18),
+                    child:
+                        const Icon(Icons.close, color: Colors.white, size: 18),
                   ),
                 ),
               ),
@@ -688,14 +704,16 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: _strokes.isEmpty || _isProcessing ? null : _processImage,
-                  icon: _isProcessing 
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.auto_awesome),
+                  onPressed:
+                      _strokes.isEmpty || _isProcessing ? null : _processImage,
+                  icon: _isProcessing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.auto_awesome),
                   label: Text(_isProcessing ? 'Processing...' : 'Apply'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.colorScheme.primary,
@@ -760,7 +778,8 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     if (_isProcessing)
-                      CircularProgressIndicator(color: theme.colorScheme.primary)
+                      CircularProgressIndicator(
+                          color: theme.colorScheme.primary)
                     else
                       Icon(
                         Icons.auto_awesome,
@@ -769,7 +788,9 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
                       ),
                     const SizedBox(height: 12),
                     Text(
-                      _isProcessing ? 'Processing...' : 'Result will appear here',
+                      _isProcessing
+                          ? 'Processing...'
+                          : 'Result will appear here',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurface.withOpacity(0.5),
                       ),
@@ -782,27 +803,31 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
   }
 
   void _onPanStart(DragStartDetails details) {
-    final renderBox = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    final renderBox =
+        _canvasKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null || _loadedImage == null || _imageSize == null) return;
 
     final localPosition = renderBox.globalToLocal(details.globalPosition);
     final canvasSize = renderBox.size;
-    
+
     // Convert to image coordinates
     final scaleX = _imageSize!.width / canvasSize.width;
     final scaleY = _imageSize!.height / canvasSize.height;
     final scale = scaleX > scaleY ? scaleX : scaleY;
-    
+
     final scaledWidth = _imageSize!.width / scale;
     final scaledHeight = _imageSize!.height / scale;
     final offsetX = (canvasSize.width - scaledWidth) / 2;
     final offsetY = (canvasSize.height - scaledHeight) / 2;
-    
+
     final imageX = (localPosition.dx - offsetX) * scale;
     final imageY = (localPosition.dy - offsetY) * scale;
 
     // Clamp to image bounds
-    if (imageX < 0 || imageX > _imageSize!.width || imageY < 0 || imageY > _imageSize!.height) {
+    if (imageX < 0 ||
+        imageX > _imageSize!.width ||
+        imageY < 0 ||
+        imageY > _imageSize!.height) {
       return;
     }
 
@@ -817,22 +842,23 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
 
   void _onPanUpdate(DragUpdateDetails details) {
     if (_currentStroke == null) return;
-    
-    final renderBox = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+
+    final renderBox =
+        _canvasKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null || _imageSize == null) return;
 
     final localPosition = renderBox.globalToLocal(details.globalPosition);
     final canvasSize = renderBox.size;
-    
+
     final scaleX = _imageSize!.width / canvasSize.width;
     final scaleY = _imageSize!.height / canvasSize.height;
     final scale = scaleX > scaleY ? scaleX : scaleY;
-    
+
     final scaledWidth = _imageSize!.width / scale;
     final scaledHeight = _imageSize!.height / scale;
     final offsetX = (canvasSize.width - scaledWidth) / 2;
     final offsetY = (canvasSize.height - scaledHeight) / 2;
-    
+
     final imageX = (localPosition.dx - offsetX) * scale;
     final imageY = (localPosition.dy - offsetY) * scale;
 
@@ -888,7 +914,7 @@ class InpaintingCanvasPainter extends CustomPainter {
     final scaleX = size.width / imageSize!.width;
     final scaleY = size.height / imageSize!.height;
     final scale = scaleX < scaleY ? scaleX : scaleY;
-    
+
     final scaledWidth = imageSize!.width * scale;
     final scaledHeight = imageSize!.height * scale;
     final offsetX = (size.width - scaledWidth) / 2;
@@ -913,9 +939,9 @@ class InpaintingCanvasPainter extends CustomPainter {
 
   void _drawStroke(Canvas canvas, DrawingStroke stroke) {
     final paint = Paint()
-      ..color = stroke.isErase 
-        ? Colors.black.withOpacity(0.5) 
-        : Colors.red.withOpacity(0.5)
+      ..color = stroke.isErase
+          ? Colors.black.withOpacity(0.5)
+          : Colors.red.withOpacity(0.5)
       ..strokeWidth = stroke.brushSize
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
@@ -939,7 +965,7 @@ class InpaintingCanvasPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant InpaintingCanvasPainter oldDelegate) {
     return oldDelegate.image != image ||
-           oldDelegate.strokes != strokes ||
-           oldDelegate.currentStroke != currentStroke;
+        oldDelegate.strokes != strokes ||
+        oldDelegate.currentStroke != currentStroke;
   }
 }
