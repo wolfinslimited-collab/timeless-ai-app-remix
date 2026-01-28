@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../models/user_model.dart';
 
 class AuthService {
@@ -155,13 +156,6 @@ class AuthService {
   /// Native Apple Sign-In for iOS
   Future<bool> _signInWithAppleNative() async {
     try {
-      // Dynamic import to avoid Android build issues
-      // The sign_in_with_apple package must be added to pubspec.yaml:
-      // sign_in_with_apple: ^6.1.1
-      
-      // For now, fall back to web-based flow
-      // When sign_in_with_apple is properly configured, uncomment this:
-      /*
       final rawNonce = _generateNonce();
       final hashedNonce = _sha256ofString(rawNonce);
       
@@ -175,7 +169,7 @@ class AuthService {
       
       final idToken = credential.identityToken;
       if (idToken == null) {
-        throw Exception('No ID token found');
+        throw Exception('No ID token found from Apple');
       }
       
       final response = await _supabase.auth.signInWithIdToken(
@@ -191,21 +185,20 @@ class AuthService {
             .join(' ');
         
         if (fullName.isNotEmpty) {
-          await _supabase.from('profiles').update({
-            'display_name': fullName,
-          }).eq('user_id', response.user!.id);
+          try {
+            await _supabase.from('profiles').update({
+              'display_name': fullName,
+            }).eq('user_id', response.user!.id);
+          } catch (e) {
+            debugPrint('Failed to update profile name: $e');
+          }
         }
       }
       
       return response.user != null;
-      */
-      
-      // Fallback to web-based OAuth until native is configured
-      return await _signInWithAppleWeb();
     } catch (e) {
       debugPrint('Native Apple Sign-In error: $e');
-      // Fallback to web-based OAuth
-      return await _signInWithAppleWeb();
+      rethrow;
     }
   }
 
