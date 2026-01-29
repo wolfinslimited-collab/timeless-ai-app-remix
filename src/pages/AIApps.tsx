@@ -34,7 +34,6 @@ interface AIApp {
   icon: LucideIcon;
   category: AppCategory;
   badge?: "NEW" | "POPULAR" | "BETA";
-  gradient: string;
 }
 
 const aiApps: AIApp[] = [
@@ -45,7 +44,6 @@ const aiApps: AIApp[] = [
     icon: Heart,
     category: "health",
     badge: "POPULAR",
-    gradient: "from-rose-500/20 to-pink-500/20",
   },
   {
     id: "translate-ai",
@@ -54,7 +52,6 @@ const aiApps: AIApp[] = [
     icon: Languages,
     category: "productivity",
     badge: "NEW",
-    gradient: "from-blue-500/20 to-cyan-500/20",
   },
   {
     id: "notify-ai",
@@ -62,7 +59,6 @@ const aiApps: AIApp[] = [
     description: "Smart notifications that learn your preferences",
     icon: Bell,
     category: "productivity",
-    gradient: "from-amber-500/20 to-orange-500/20",
   },
   {
     id: "sleep-ai",
@@ -70,7 +66,6 @@ const aiApps: AIApp[] = [
     description: "Optimize your sleep patterns with AI analysis",
     icon: Moon,
     category: "health",
-    gradient: "from-indigo-500/20 to-purple-500/20",
   },
   {
     id: "brain-ai",
@@ -79,7 +74,6 @@ const aiApps: AIApp[] = [
     icon: Brain,
     category: "productivity",
     badge: "POPULAR",
-    gradient: "from-violet-500/20 to-purple-500/20",
   },
   {
     id: "skin-ai",
@@ -88,7 +82,6 @@ const aiApps: AIApp[] = [
     icon: Sparkles,
     category: "health",
     badge: "NEW",
-    gradient: "from-pink-500/20 to-rose-500/20",
   },
   {
     id: "financial-ai",
@@ -97,7 +90,6 @@ const aiApps: AIApp[] = [
     icon: DollarSign,
     category: "finance",
     badge: "POPULAR",
-    gradient: "from-emerald-500/20 to-green-500/20",
   },
   {
     id: "calorie-ai",
@@ -105,7 +97,6 @@ const aiApps: AIApp[] = [
     description: "Track and optimize your nutrition with AI",
     icon: Apple,
     category: "health",
-    gradient: "from-lime-500/20 to-green-500/20",
   },
   {
     id: "fingerprint-ai",
@@ -114,7 +105,6 @@ const aiApps: AIApp[] = [
     icon: Fingerprint,
     category: "security",
     badge: "BETA",
-    gradient: "from-slate-500/20 to-zinc-500/20",
   },
   {
     id: "timefarm",
@@ -122,7 +112,6 @@ const aiApps: AIApp[] = [
     description: "AI-powered time management and productivity",
     icon: Clock,
     category: "productivity",
-    gradient: "from-teal-500/20 to-cyan-500/20",
   },
   {
     id: "ads-ai",
@@ -131,7 +120,6 @@ const aiApps: AIApp[] = [
     icon: Megaphone,
     category: "marketing",
     badge: "NEW",
-    gradient: "from-orange-500/20 to-red-500/20",
   },
 ];
 
@@ -285,13 +273,8 @@ const AIApps = () => {
                 )}
 
                 {/* Icon */}
-                <div
-                  className={cn(
-                    "w-14 h-14 rounded-xl flex items-center justify-center mb-4 bg-gradient-to-br",
-                    app.gradient
-                  )}
-                >
-                  <app.icon className="h-7 w-7 text-foreground" />
+                <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-4 bg-secondary">
+                  <app.icon className="h-7 w-7 text-muted-foreground" />
                 </div>
 
                 {/* Content */}

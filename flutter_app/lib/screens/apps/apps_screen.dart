@@ -9,7 +9,6 @@ class AIAppItem {
   final IconData icon;
   final String category;
   final String? badge;
-  final List<Color> gradientColors;
   final bool comingSoon;
 
   const AIAppItem({
@@ -19,7 +18,6 @@ class AIAppItem {
     required this.icon,
     required this.category,
     this.badge,
-    required this.gradientColors,
     this.comingSoon = false,
   });
 }
@@ -32,8 +30,6 @@ const List<AIAppItem> _aiApps = [
     icon: Icons.notifications_outlined,
     category: 'productivity',
     badge: 'POPULAR',
-    gradientColors: [Color(0x33F59E0B), Color(0x33F97316)],
-    comingSoon: false,
   ),
   AIAppItem(
     id: 'sleep-ai',
@@ -42,8 +38,6 @@ const List<AIAppItem> _aiApps = [
     icon: Icons.bedtime_outlined,
     category: 'health',
     badge: 'NEW',
-    gradientColors: [Color(0x336366F1), Color(0x33A855F7)],
-    comingSoon: false,
   ),
   AIAppItem(
     id: 'brain-ai',
@@ -52,8 +46,6 @@ const List<AIAppItem> _aiApps = [
     icon: Icons.psychology_outlined,
     category: 'productivity',
     badge: 'NEW',
-    gradientColors: [Color(0x338B5CF6), Color(0x33A855F7)],
-    comingSoon: false,
   ),
   AIAppItem(
     id: 'skin-ai',
@@ -62,8 +54,6 @@ const List<AIAppItem> _aiApps = [
     icon: Icons.auto_awesome,
     category: 'health',
     badge: 'NEW',
-    gradientColors: [Color(0x33EC4899), Color(0x33F43F5E)],
-    comingSoon: false,
   ),
   AIAppItem(
     id: 'financial-ai',
@@ -73,8 +63,6 @@ const List<AIAppItem> _aiApps = [
     icon: Icons.attach_money,
     category: 'finance',
     badge: 'NEW',
-    gradientColors: [Color(0x3310B981), Color(0x3322C55E)],
-    comingSoon: false,
   ),
   AIAppItem(
     id: 'calorie-ai',
@@ -83,8 +71,6 @@ const List<AIAppItem> _aiApps = [
     icon: Icons.apple,
     category: 'health',
     badge: 'NEW',
-    gradientColors: [Color(0x3384CC16), Color(0x3322C55E)],
-    comingSoon: false,
   ),
   AIAppItem(
     id: 'fingerprint-ai',
@@ -93,8 +79,6 @@ const List<AIAppItem> _aiApps = [
     icon: Icons.fingerprint,
     category: 'productivity',
     badge: 'NEW',
-    gradientColors: [Color(0x3364748B), Color(0x3371717A)],
-    comingSoon: false,
   ),
   AIAppItem(
     id: 'ads-ai',
@@ -103,7 +87,6 @@ const List<AIAppItem> _aiApps = [
     icon: Icons.campaign_outlined,
     category: 'marketing',
     badge: 'SOON',
-    gradientColors: [Color(0x33F97316), Color(0x33EF4444)],
     comingSoon: true,
   ),
 ];
@@ -380,23 +363,19 @@ class _AppCard extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Icon with gradient background
+                // Icon with mono background
                 Container(
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: app.gradientColors,
-                    ),
+                    color: AppTheme.secondary,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Center(
                     child: Icon(
                       app.icon,
                       size: 26,
-                      color: AppTheme.foreground,
+                      color: AppTheme.muted,
                     ),
                   ),
                 ),

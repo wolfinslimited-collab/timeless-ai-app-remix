@@ -6,21 +6,13 @@ import {
 import { cn } from "@/lib/utils";
 import type { Screen } from "./MobileNav";
 
-// Import custom app icons
-import brainAiIcon from "@/assets/app-icons/brain-ai.png";
-import skinAiIcon from "@/assets/app-icons/skin-ai.png";
-import sleepAiIcon from "@/assets/app-icons/sleep-ai.png";
-import calorieAiIcon from "@/assets/app-icons/calorie-ai.png";
-
 interface AIAppItem {
   id: string;
   name: string;
   description: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  iconImage?: string;
+  icon: React.ComponentType<{ className?: string }>;
   category: string;
   badge?: string;
-  gradientColors: string;
   comingSoon?: boolean;
 }
 
@@ -32,41 +24,30 @@ const aiApps: AIAppItem[] = [
     icon: Bell,
     category: "productivity",
     badge: "POPULAR",
-    gradientColors: "from-amber-500/20 to-orange-500/20",
-    comingSoon: false,
   },
   {
     id: "sleep-ai",
     name: "Sleep AI",
     description: "Optimize your sleep patterns with AI analysis",
     icon: Moon,
-    iconImage: sleepAiIcon,
     category: "health",
     badge: "NEW",
-    gradientColors: "from-indigo-500/20 to-purple-500/20",
-    comingSoon: false,
   },
   {
     id: "brain-ai",
     name: "Brain AI",
     description: "Cognitive wellness & focus tracking powered by AI",
     icon: Brain,
-    iconImage: brainAiIcon,
     category: "productivity",
     badge: "NEW",
-    gradientColors: "from-violet-500/20 to-purple-500/20",
-    comingSoon: false,
   },
   {
     id: "skin-ai",
     name: "Skin AI",
     description: "AI-powered skin analysis and care recommendations",
     icon: Sparkles,
-    iconImage: skinAiIcon,
     category: "health",
     badge: "NEW",
-    gradientColors: "from-pink-500/20 to-rose-500/20",
-    comingSoon: false,
   },
   {
     id: "financial-ai",
@@ -75,19 +56,14 @@ const aiApps: AIAppItem[] = [
     icon: DollarSign,
     category: "finance",
     badge: "NEW",
-    gradientColors: "from-emerald-500/20 to-green-500/20",
-    comingSoon: false,
   },
   {
     id: "calorie-ai",
     name: "Calorie AI",
     description: "Track and optimize your nutrition with AI",
     icon: Apple,
-    iconImage: calorieAiIcon,
     category: "health",
     badge: "NEW",
-    gradientColors: "from-lime-500/20 to-green-500/20",
-    comingSoon: false,
   },
   {
     id: "fingerprint-ai",
@@ -96,8 +72,6 @@ const aiApps: AIAppItem[] = [
     icon: Fingerprint,
     category: "productivity",
     badge: "NEW",
-    gradientColors: "from-slate-500/20 to-zinc-500/20",
-    comingSoon: false,
   },
   {
     id: "ads-ai",
@@ -106,7 +80,6 @@ const aiApps: AIAppItem[] = [
     icon: Megaphone,
     category: "marketing",
     badge: "SOON",
-    gradientColors: "from-orange-500/20 to-red-500/20",
     comingSoon: true,
   },
 ];
@@ -245,15 +218,8 @@ function AppCard({ app, onTap }: { app: AIAppItem; onTap: () => void }) {
     >
       {/* Badge positioned at top-right */}
       <div className="flex justify-between items-start mb-auto">
-        <div className={cn(
-          "w-[52px] h-[52px] rounded-[14px] flex items-center justify-center bg-gradient-to-br",
-          app.gradientColors
-        )}>
-          {app.iconImage ? (
-            <img src={app.iconImage} alt={app.name} className="w-7 h-7 object-contain" />
-          ) : Icon ? (
-            <Icon className="w-[26px] h-[26px] text-foreground" />
-          ) : null}
+        <div className="w-[52px] h-[52px] rounded-[14px] flex items-center justify-center bg-secondary">
+          <Icon className="w-[26px] h-[26px] text-muted-foreground" />
         </div>
         {app.badge && (
           <span className={cn(
