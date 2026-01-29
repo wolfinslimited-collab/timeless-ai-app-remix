@@ -36,8 +36,8 @@ class PushNotificationService {
     if (_isInitialized) return;
 
     try {
-      // Set up background message handler
-      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      // Note: Background message handler is registered in main.dart
+      // to avoid duplicate registration
 
       // Request notification permissions
       await _requestPermissions();
