@@ -454,13 +454,14 @@ export function MobileChat() {
                             {model.badge}
                           </span>
                         )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{model.description}</span>
                         {model.supportsImages && (
-                          <ImageIcon className="w-3 h-3 text-muted-foreground" />
+                          <span className="flex items-center gap-1 px-1.5 py-0.5 bg-accent/20 rounded text-[9px] font-medium text-accent">
+                            <ImageIcon className="w-2.5 h-2.5" />
+                            Vision
+                          </span>
                         )}
                       </div>
+                      <span className="text-xs text-muted-foreground line-clamp-1">{model.description}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="px-2 py-1 bg-card rounded-lg flex items-center gap-1">

@@ -155,26 +155,43 @@ class _ModelCard extends StatelessWidget {
                           ),
                         ),
                       ],
+                      if (supportsImages) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accent.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.visibility, size: 10, color: AppTheme.accent),
+                              const SizedBox(width: 3),
+                              Text(
+                                'Vision',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.accent,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          description,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.muted,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (supportsImages) ...[
-                        const SizedBox(width: 4),
-                        const Icon(Icons.image, size: 12, color: AppTheme.muted),
-                      ],
-                    ],
+                  Text(
+                    description,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.muted,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ],
               ),
