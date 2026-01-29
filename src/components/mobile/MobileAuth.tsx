@@ -115,8 +115,16 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
         },
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      // Handle network/fetch errors
+      if (error) {
+        console.error("Edge function error:", error);
+        throw new Error(error.message || "Network error. Please check your connection and try again.");
+      }
+      
+      // Handle API-level errors returned in the response
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       changeView("verification");
       setResendCountdown(30);
@@ -125,10 +133,11 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
         description: "Please check your email for the 4-digit code.",
       });
     } catch (error: any) {
+      console.error("Sign up error:", error);
       toast({
         variant: "destructive",
         title: "Sign up failed",
-        description: error.message || "Failed to send verification code",
+        description: error.message || "Failed to send verification code. Please try again.",
       });
     } finally {
       setIsLoading(false);
