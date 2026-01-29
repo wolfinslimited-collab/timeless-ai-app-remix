@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
+import '../../widgets/model_brand_logo.dart';
 
 class ImageModelSelector extends StatefulWidget {
   final String selectedModel;
@@ -218,6 +219,10 @@ class _ImageModelSelectorState extends State<ImageModelSelector> {
           return Colors.purple;
         case 'FAST':
           return Colors.cyan;
+        case 'PRO':
+          return Colors.blue;
+        case 'ECONOMY':
+          return Colors.teal;
         default:
           return AppTheme.primary;
       }
@@ -238,19 +243,10 @@ class _ImageModelSelectorState extends State<ImageModelSelector> {
         ),
         child: Row(
           children: [
-            // Model icon
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: _getModelColor(model['id'] as String).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                _getModelIcon(model['id'] as String),
-                color: _getModelColor(model['id'] as String),
-                size: 22,
-              ),
+            // Model brand logo
+            ModelBrandLogo(
+              modelId: model['id'] as String,
+              size: 44,
             ),
             const SizedBox(width: 12),
             
@@ -286,6 +282,10 @@ class _ImageModelSelectorState extends State<ImageModelSelector> {
                                 Icon(Icons.local_fire_department, size: 10, color: getBadgeColor(badge)),
                               if (badge == 'FAST')
                                 Icon(Icons.bolt, size: 10, color: getBadgeColor(badge)),
+                              if (badge == 'PRO')
+                                Icon(Icons.star, size: 10, color: getBadgeColor(badge)),
+                              if (badge == 'ECONOMY')
+                                Icon(Icons.savings, size: 10, color: getBadgeColor(badge)),
                               Text(
                                 badge,
                                 style: TextStyle(
@@ -304,6 +304,8 @@ class _ImageModelSelectorState extends State<ImageModelSelector> {
                   Text(
                     model['description'] as String,
                     style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -341,37 +343,5 @@ class _ImageModelSelectorState extends State<ImageModelSelector> {
         ),
       ),
     );
-  }
-
-  Color _getModelColor(String modelId) {
-    if (modelId.contains('gpt') || modelId.contains('4o')) return Colors.green;
-    if (modelId.contains('flux')) return Colors.purple;
-    if (modelId.contains('midjourney')) return Colors.blue;
-    if (modelId.contains('ideogram')) return Colors.orange;
-    if (modelId.contains('imagen')) return Colors.red;
-    if (modelId.contains('nano-banana')) return Colors.amber;
-    if (modelId.contains('stable')) return Colors.teal;
-    if (modelId.contains('recraft')) return Colors.indigo;
-    if (modelId.contains('grok')) return Colors.pink;
-    if (modelId.contains('kling')) return Colors.cyan;
-    if (modelId.contains('qwen')) return Colors.deepOrange;
-    if (modelId.contains('seedream')) return Colors.lime;
-    return AppTheme.primary;
-  }
-
-  IconData _getModelIcon(String modelId) {
-    if (modelId.contains('gpt') || modelId.contains('4o')) return Icons.smart_toy;
-    if (modelId.contains('flux')) return Icons.auto_awesome;
-    if (modelId.contains('midjourney')) return Icons.palette;
-    if (modelId.contains('ideogram')) return Icons.text_fields;
-    if (modelId.contains('imagen')) return Icons.star;
-    if (modelId.contains('nano-banana')) return Icons.bolt;
-    if (modelId.contains('stable')) return Icons.brush;
-    if (modelId.contains('recraft')) return Icons.design_services;
-    if (modelId.contains('grok')) return Icons.insights;
-    if (modelId.contains('kling')) return Icons.image;
-    if (modelId.contains('qwen')) return Icons.blur_on;
-    if (modelId.contains('seedream')) return Icons.cloud;
-    return Icons.image;
   }
 }

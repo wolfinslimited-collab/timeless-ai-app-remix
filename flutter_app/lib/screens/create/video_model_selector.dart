@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
+import '../../widgets/model_brand_logo.dart';
 
 class VideoModelSelector extends StatefulWidget {
   final String selectedModel;
@@ -237,19 +238,10 @@ class _VideoModelSelectorState extends State<VideoModelSelector> {
         ),
         child: Row(
           children: [
-            // Model icon
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: _getModelColor(model['id'] as String).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                _getModelIcon(model['id'] as String),
-                color: _getModelColor(model['id'] as String),
-                size: 22,
-              ),
+            // Model brand logo
+            ModelBrandLogo(
+              modelId: model['id'] as String,
+              size: 44,
             ),
             const SizedBox(width: 12),
             
@@ -260,11 +252,14 @@ class _VideoModelSelectorState extends State<VideoModelSelector> {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        model['name'] as String,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: isSelected ? AppTheme.primary : Colors.white,
+                      Flexible(
+                        child: Text(
+                          model['name'] as String,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: isSelected ? AppTheme.primary : Colors.white,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (badge != null) ...[
@@ -302,6 +297,8 @@ class _VideoModelSelectorState extends State<VideoModelSelector> {
                   Text(
                     model['description'] as String,
                     style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -339,31 +336,5 @@ class _VideoModelSelectorState extends State<VideoModelSelector> {
         ),
       ),
     );
-  }
-
-  Color _getModelColor(String modelId) {
-    if (modelId.contains('sora')) return Colors.purple;
-    if (modelId.contains('veo')) return Colors.blue;
-    if (modelId.contains('kling')) return Colors.orange;
-    if (modelId.contains('wan')) return Colors.amber;
-    if (modelId.contains('luma')) return Colors.pink;
-    if (modelId.contains('hailuo')) return Colors.red;
-    if (modelId.contains('runway')) return Colors.teal;
-    if (modelId.contains('seedance')) return Colors.cyan;
-    if (modelId.contains('hunyuan')) return Colors.indigo;
-    return AppTheme.primary;
-  }
-
-  IconData _getModelIcon(String modelId) {
-    if (modelId.contains('sora')) return Icons.auto_awesome;
-    if (modelId.contains('veo')) return Icons.star;
-    if (modelId.contains('kling')) return Icons.movie_creation;
-    if (modelId.contains('wan')) return Icons.video_library;
-    if (modelId.contains('luma')) return Icons.wb_twilight;
-    if (modelId.contains('hailuo')) return Icons.play_circle;
-    if (modelId.contains('runway')) return Icons.videocam;
-    if (modelId.contains('seedance')) return Icons.music_video;
-    if (modelId.contains('hunyuan')) return Icons.smart_display;
-    return Icons.movie;
   }
 }
