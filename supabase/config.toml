@@ -1,5 +1,8 @@
 project_id = "hpuqeabtgwbwcnklxolt"
 
+[functions.generate]
+verify_jwt = false
+
 [functions.mobile-subscription]
 verify_jwt = false
 

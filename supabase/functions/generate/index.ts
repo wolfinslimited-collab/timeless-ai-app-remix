@@ -539,20 +539,30 @@ serve(async (req) => {
             sendEvent('status', { stage: 'auth', message: 'Authenticating...' });
 
             const authHeader = req.headers.get('Authorization');
-            const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-            const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-            
-            const supabase = createClient(supabaseUrl, supabaseKey, {
-              global: { headers: { Authorization: authHeader || '' } }
-            });
-
-            const { data: { user }, error: authError } = await supabase.auth.getUser();
-            
-            if (authError || !user) {
+            if (!authHeader?.startsWith('Bearer ')) {
               sendEvent('error', { message: 'Unauthorized' });
               controller.close();
               return;
             }
+            
+            const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+            const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+            
+            const supabase = createClient(supabaseUrl, supabaseKey, {
+              global: { headers: { Authorization: authHeader } }
+            });
+
+            const token = authHeader.replace('Bearer ', '');
+            const { data: claimsData, error: authError } = await supabase.auth.getClaims(token);
+            
+            if (authError || !claimsData?.claims?.sub) {
+              console.log("Auth error:", authError?.message);
+              sendEvent('error', { message: 'Unauthorized' });
+              controller.close();
+              return;
+            }
+            
+            const userId = claimsData.claims.sub as string;
 
             sendEvent('status', { stage: 'credits', message: 'Checking credits...' });
 
@@ -561,7 +571,7 @@ serve(async (req) => {
             const { data: profile, error: profileError } = await supabase
               .from("profiles")
               .select("credits, subscription_status")
-              .eq("user_id", user.id)
+              .eq("user_id", userId)
               .single();
 
             if (profileError) {
@@ -580,13 +590,13 @@ serve(async (req) => {
             }
 
             if (!hasActiveSubscription) {
-              await supabase.from("profiles").update({ credits: currentCredits - creditCost }).eq("user_id", user.id);
+              await supabase.from("profiles").update({ credits: currentCredits - creditCost }).eq("user_id", userId);
             }
 
             const FAL_API_KEY = Deno.env.get("FAL_API_KEY");
             if (!FAL_API_KEY) {
               if (!hasActiveSubscription) {
-                await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+                await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
               }
               sendEvent('error', { message: 'FAL_API_KEY not configured' });
               controller.close();
@@ -596,7 +606,7 @@ serve(async (req) => {
             const modelConfig = FAL_VIDEO_MODELS[model];
             if (!modelConfig) {
               if (!hasActiveSubscription) {
-                await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+                await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
               }
               sendEvent('error', { message: `Unknown video model: ${model}` });
               controller.close();
@@ -630,7 +640,7 @@ serve(async (req) => {
               console.log(`Fal.ai task submitted: ${taskId}`);
             } catch (error) {
               if (!hasActiveSubscription) {
-                await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+                await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
               }
               const errorMsg = error instanceof Error ? error.message : 'Unknown error';
               sendEvent('error', { message: errorMsg });
@@ -645,7 +655,7 @@ serve(async (req) => {
               const { data: generation } = await supabase
                 .from("generations")
                 .insert({
-                  user_id: user.id,
+                  user_id: userId,
                   prompt: prompt,
                   type: type,
                   model: model,
@@ -698,7 +708,7 @@ serve(async (req) => {
                     const { data: generation } = await supabase
                       .from("generations")
                       .insert({
-                        user_id: user.id,
+                        user_id: userId,
                         prompt: prompt,
                         type: type,
                         model: model,
@@ -721,7 +731,7 @@ serve(async (req) => {
                   }
                 } else if (statusResult.status === "FAILED") {
                   if (!hasActiveSubscription) {
-                    await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+                    await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
                   }
                   sendEvent('error', { message: statusResult.error || 'Video generation failed' });
                   controller.close();
@@ -737,7 +747,7 @@ serve(async (req) => {
             const { data: pendingGen } = await supabase
               .from("generations")
               .insert({
-                user_id: user.id,
+                user_id: userId,
                 prompt: prompt,
                 type: type,
                 model: model,
@@ -778,16 +788,24 @@ serve(async (req) => {
 
     // Get user from auth header
     const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     
     const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader || '' } }
+      global: { headers: { Authorization: authHeader } }
     });
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: authError } = await supabase.auth.getClaims(token);
     
-    if (authError || !user) {
+    if (authError || !claimsData?.claims?.sub) {
       console.log("Auth error:", authError?.message);
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
@@ -795,7 +813,8 @@ serve(async (req) => {
       );
     }
 
-    console.log(`User authenticated: ${user.id}`);
+    const userId = claimsData.claims.sub as string;
+    console.log(`User authenticated: ${userId}`);
 
     // Check user profile for credits and subscription
     const creditCost = getModelCost(model, type, quality);
@@ -803,7 +822,7 @@ serve(async (req) => {
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("credits, subscription_status")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .single();
 
     if (profileError) {
@@ -836,7 +855,7 @@ serve(async (req) => {
       const { error: deductError } = await supabase
         .from("profiles")
         .update({ credits: currentCredits - creditCost })
-        .eq("user_id", user.id);
+        .eq("user_id", userId);
 
       if (deductError) {
         console.error("Credit deduction error:", deductError.message);
@@ -855,7 +874,7 @@ serve(async (req) => {
     if (!FAL_API_KEY) {
       // Refund credits
       if (!hasActiveSubscription) {
-        await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+        await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
       }
       return new Response(
         JSON.stringify({ error: "FAL_API_KEY not configured" }),
@@ -871,7 +890,7 @@ serve(async (req) => {
         const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
         if (!LOVABLE_API_KEY) {
           if (!hasActiveSubscription) {
-            await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+            await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
           }
           return new Response(
             JSON.stringify({ error: "LOVABLE_API_KEY not configured" }),
@@ -944,7 +963,7 @@ serve(async (req) => {
 
           // Save to generations
           await supabase.from("generations").insert({
-            user_id: user.id,
+            user_id: userId,
             prompt: prompt,
             type: type,
             model: model,
@@ -966,7 +985,7 @@ serve(async (req) => {
 
         } catch (error) {
           if (!hasActiveSubscription) {
-            await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+            await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
           }
           const errorMessage = error instanceof Error ? error.message : "Unknown error";
           return new Response(
@@ -980,7 +999,7 @@ serve(async (req) => {
       const imageEndpoint = FAL_IMAGE_MODELS[model];
       if (!imageEndpoint) {
         if (!hasActiveSubscription) {
-          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
         }
         return new Response(
           JSON.stringify({ error: `Unknown image model: ${model}` }),
@@ -1019,7 +1038,7 @@ serve(async (req) => {
             if (imageUrl) {
               // Save to generations
               await supabase.from("generations").insert({
-                user_id: user.id,
+                user_id: userId,
                 prompt: prompt,
                 type: type,
                 model: model,
@@ -1041,7 +1060,7 @@ serve(async (req) => {
             }
           } else if (status.status === "FAILED") {
             if (!hasActiveSubscription) {
-              await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+              await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
             }
             return new Response(
               JSON.stringify({ error: status.error || "Image generation failed" }),
@@ -1052,7 +1071,7 @@ serve(async (req) => {
 
         // Timeout
         if (!hasActiveSubscription) {
-          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
         }
         return new Response(
           JSON.stringify({ error: "Image generation timed out" }),
@@ -1061,7 +1080,7 @@ serve(async (req) => {
 
       } catch (error) {
         if (!hasActiveSubscription) {
-          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
         }
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         return new Response(
@@ -1076,7 +1095,7 @@ serve(async (req) => {
       const modelConfig = FAL_VIDEO_MODELS[model];
       if (!modelConfig) {
         if (!hasActiveSubscription) {
-          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
         }
         return new Response(
           JSON.stringify({ error: `Unknown video model: ${model}` }),
@@ -1099,7 +1118,7 @@ serve(async (req) => {
         
         // Save as pending for background check
         await supabase.from("generations").insert({
-          user_id: user.id,
+          user_id: userId,
           prompt: prompt,
           type: type,
           model: model,
@@ -1122,7 +1141,7 @@ serve(async (req) => {
 
       } catch (error) {
         if (!hasActiveSubscription) {
-          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
         }
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         return new Response(
@@ -1137,7 +1156,7 @@ serve(async (req) => {
       const musicConfig = FAL_MUSIC_MODELS[model];
       if (!musicConfig) {
         if (!hasActiveSubscription) {
-          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
         }
         return new Response(
           JSON.stringify({ error: `Unknown music model: ${model}` }),
@@ -1177,7 +1196,7 @@ serve(async (req) => {
             
             if (audioUrl) {
               await supabase.from("generations").insert({
-                user_id: user.id,
+                user_id: userId,
                 prompt: prompt,
                 type: type,
                 model: model,
@@ -1198,7 +1217,7 @@ serve(async (req) => {
             }
           } else if (status.status === "FAILED") {
             if (!hasActiveSubscription) {
-              await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+              await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
             }
             return new Response(
               JSON.stringify({ error: status.error || "Music generation failed" }),
@@ -1209,7 +1228,7 @@ serve(async (req) => {
 
         // Timeout
         if (!hasActiveSubscription) {
-          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
         }
         return new Response(
           JSON.stringify({ error: "Music generation timed out" }),
@@ -1218,7 +1237,7 @@ serve(async (req) => {
 
       } catch (error) {
         if (!hasActiveSubscription) {
-          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", user.id);
+          await supabase.from("profiles").update({ credits: currentCredits }).eq("user_id", userId);
         }
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         return new Response(
