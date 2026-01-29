@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "./useAuth";
-import { useToast } from "./use-toast";
 
 // Model-specific credit costs
 export const MODEL_CREDITS: Record<string, number> = {
@@ -85,30 +84,17 @@ export const getModelCost = (model: string, quality?: string): number => {
   return Math.round(baseCost * multiplier);
 };
 
-const LOW_CREDITS_THRESHOLD = 10;
-
-interface UseCreditsOptions {
-  suppressWarnings?: boolean;
-}
-
-export const useCredits = (options: UseCreditsOptions = {}) => {
-  const { suppressWarnings = false } = options;
+export const useCredits = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [credits, setCredits] = useState<number | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [shouldShowLowCreditsWarning, setShouldShowLowCreditsWarning] = useState(false);
-  const previousCredits = useRef<number | null>(null);
-  const hasShownLowCreditsWarning = useRef(false);
 
   const fetchCredits = async () => {
     if (!user) {
       setCredits(null);
       setSubscriptionStatus(null);
       setLoading(false);
-      previousCredits.current = null;
-      hasShownLowCreditsWarning.current = false;
       return;
     }
 
@@ -120,23 +106,7 @@ export const useCredits = (options: UseCreditsOptions = {}) => {
         .maybeSingle();
 
       if (error) throw error;
-      const newCredits = data?.credits ?? 0;
-      const isSubscribed = data?.subscription_status === 'active';
-      
-      // Check for low credits warning (only if not subscribed and warnings not suppressed)
-      if (!suppressWarnings && !isSubscribed && newCredits < LOW_CREDITS_THRESHOLD) {
-        // Show warning if credits just dropped below threshold OR on first load when low
-        const wasAboveThreshold = previousCredits.current !== null && previousCredits.current >= LOW_CREDITS_THRESHOLD;
-        const isFirstLoadWithLowCredits = previousCredits.current === null && !hasShownLowCreditsWarning.current;
-        
-        if (wasAboveThreshold || isFirstLoadWithLowCredits) {
-          hasShownLowCreditsWarning.current = true;
-          setShouldShowLowCreditsWarning(true);
-        }
-      }
-      
-      previousCredits.current = newCredits;
-      setCredits(newCredits);
+      setCredits(data?.credits ?? 0);
       setSubscriptionStatus(data?.subscription_status ?? null);
     } catch (error) {
       console.error("Error fetching credits:", error);
@@ -146,18 +116,6 @@ export const useCredits = (options: UseCreditsOptions = {}) => {
       setLoading(false);
     }
   };
-
-  // Show low credits warning via useEffect (safe for React's hook rules)
-  useEffect(() => {
-    if (shouldShowLowCreditsWarning && credits !== null) {
-      toast({
-        variant: "destructive",
-        title: "Low credits warning",
-        description: `You have ${credits} credits remaining. Consider purchasing more to continue using premium features.`,
-      });
-      setShouldShowLowCreditsWarning(false);
-    }
-  }, [shouldShowLowCreditsWarning, credits, toast]);
 
   useEffect(() => {
     fetchCredits();

@@ -31,7 +31,7 @@ export default function MobilePreview() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("home");
   const [showSplash, setShowSplash] = useState(true);
   const { user, loading: authLoading } = useAuth();
-  const { credits, loading: creditsLoading, refetch } = useCredits({ suppressWarnings: true });
+  const { credits, loading: creditsLoading, refetch } = useCredits();
 
   // Show auth screen if not logged in (after splash)
   const showAuth = !authLoading && !user && !showSplash;
