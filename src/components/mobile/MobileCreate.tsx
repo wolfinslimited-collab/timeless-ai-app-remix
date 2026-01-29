@@ -1,4 +1,4 @@
-import { Image, Video, Music, Clapperboard, Grid3X3, ChevronRight, Sparkles } from "lucide-react";
+import { Image, Video, Music, Clapperboard, Grid3X3, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Screen } from "./MobileNav";
 
@@ -46,13 +46,6 @@ export function MobileCreate({ onNavigate }: MobileCreateProps) {
           onClick={() => onNavigate("audio")}
         />
 
-        {/* AI Apps Card */}
-        <CreateOption 
-          icon={Sparkles} 
-          title="AI Apps" 
-          description="Skin AI, Calorie AI, Sleep AI & more"
-          onClick={() => onNavigate("apps")}
-        />
 
         {/* Cinema Studio Card */}
         <CreateOption 

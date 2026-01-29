@@ -66,16 +66,6 @@ class CreateScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // AI Apps Card
-            _CreateOptionCard(
-              icon: Icons.apps,
-              title: 'AI Apps',
-              description: 'Skin AI, Calorie AI, Sleep AI & more',
-              gradient: [const Color(0xFFF59E0B), const Color(0xFFEF4444)],
-              onTap: () => context.go('/apps'),
-            ),
-            const SizedBox(height: 16),
-
             // Cinema Studio Card
             _CreateOptionCard(
               icon: Icons.movie_creation,
