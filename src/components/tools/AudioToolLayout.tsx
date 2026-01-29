@@ -54,6 +54,7 @@ const AudioToolLayout = ({
   const [pitch, setPitch] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isOutputPlaying, setIsOutputPlaying] = useState(false);
+  const [showAddCreditsDialog, setShowAddCreditsDialog] = useState(false);
   
   const audioInputRef = useRef<HTMLInputElement>(null);
   const inputAudioRef = useRef<HTMLAudioElement>(null);
@@ -108,7 +109,7 @@ const AudioToolLayout = ({
     }
 
     if (!hasEnoughCreditsForTool(creditCost)) {
-      toast.error(`Insufficient credits. Need ${creditCost} credits.`);
+      setShowAddCreditsDialog(true);
       return;
     }
 
@@ -427,6 +428,14 @@ const AudioToolLayout = ({
           </div>
         </div>
       </div>
+
+      {/* Add Credits Dialog */}
+      <AddCreditsDialog
+        open={showAddCreditsDialog}
+        onOpenChange={setShowAddCreditsDialog}
+        currentCredits={credits ?? 0}
+        requiredCredits={creditCost}
+      />
     </div>
   );
 };

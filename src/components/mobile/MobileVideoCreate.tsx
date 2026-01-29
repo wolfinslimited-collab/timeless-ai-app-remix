@@ -5,6 +5,7 @@ import { supabase, TIMELESS_SUPABASE_URL } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { useToast } from "@/hooks/use-toast";
+import AddCreditsDialog from "@/components/AddCreditsDialog";
 
 interface MobileVideoCreateProps {
   onBack: () => void;
@@ -27,6 +28,7 @@ export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
+  const [showAddCreditsDialog, setShowAddCreditsDialog] = useState(false);
   
   const { user } = useAuth();
   const { credits, refetch, hasEnoughCreditsForModel } = useCredits();
@@ -52,11 +54,7 @@ export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
     }
 
     if (!hasEnoughCreditsForModel(model)) {
-      toast({
-        variant: "destructive",
-        title: "Insufficient credits",
-        description: "Please add more credits to continue",
-      });
+      setShowAddCreditsDialog(true);
       return;
     }
 
@@ -272,6 +270,14 @@ export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
           </button>
         </div>
       </div>
+
+      {/* Add Credits Dialog */}
+      <AddCreditsDialog
+        open={showAddCreditsDialog}
+        onOpenChange={setShowAddCreditsDialog}
+        currentCredits={credits ?? 0}
+        requiredCredits={selectedModel?.credits ?? 15}
+      />
     </div>
   );
 }

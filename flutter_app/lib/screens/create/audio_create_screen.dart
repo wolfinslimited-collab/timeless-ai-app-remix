@@ -3,8 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme.dart';
+import '../../providers/credits_provider.dart';
 import '../../services/audio_player_service.dart';
 import '../../widgets/music_player_bar.dart';
+import '../../widgets/add_credits_dialog.dart';
 
 class AudioCreateScreen extends StatefulWidget {
   const AudioCreateScreen({super.key});
@@ -161,6 +163,18 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
     if (session == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please sign in to generate music')),
+      );
+      return;
+    }
+
+    // Check credits
+    final creditsProvider = context.read<CreditsProvider>();
+    if (!creditsProvider.hasActiveSubscription && 
+        creditsProvider.credits < _selectedModelCredits) {
+      showAddCreditsDialog(
+        context: context,
+        currentCredits: creditsProvider.credits,
+        requiredCredits: _selectedModelCredits,
       );
       return;
     }

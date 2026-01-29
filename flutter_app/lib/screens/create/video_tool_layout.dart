@@ -13,6 +13,7 @@ import '../../providers/credits_provider.dart';
 import '../../models/download_model.dart';
 import '../../providers/download_provider.dart';
 import '../../widgets/common/smart_media_image.dart';
+import '../../widgets/add_credits_dialog.dart';
 
 class VideoToolLayout extends StatefulWidget {
   final String title;
@@ -148,7 +149,11 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
     final creditsProvider = context.read<CreditsProvider>();
     if (!creditsProvider.hasActiveSubscription &&
         creditsProvider.credits < widget.creditCost) {
-      _showSnackBar('Insufficient credits. Need ${widget.creditCost} credits.');
+      showAddCreditsDialog(
+        context: context,
+        currentCredits: creditsProvider.credits,
+        requiredCredits: widget.creditCost,
+      );
       return;
     }
 

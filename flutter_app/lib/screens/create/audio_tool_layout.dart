@@ -4,9 +4,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
+import '../../providers/credits_provider.dart';
 import '../../providers/download_provider.dart';
 import '../../models/download_model.dart';
 import '../create/audio_waveform_widget.dart';
+import '../../widgets/add_credits_dialog.dart';
 
 /// Reusable layout for audio processing tools
 class AudioToolLayout extends StatefulWidget {
@@ -138,6 +140,18 @@ class _AudioToolLayoutState extends State<AudioToolLayout> {
     if (session == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please sign in to use this tool')),
+      );
+      return;
+    }
+
+    // Check credits
+    final creditsProvider = context.read<CreditsProvider>();
+    if (!creditsProvider.hasActiveSubscription &&
+        creditsProvider.credits < widget.creditCost) {
+      showAddCreditsDialog(
+        context: context,
+        currentCredits: creditsProvider.credits,
+        requiredCredits: widget.creditCost,
       );
       return;
     }
