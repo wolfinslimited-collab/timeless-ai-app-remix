@@ -1,7 +1,18 @@
+import { useState } from "react";
 import { Settings, Crown, Download, Heart, Share2, ChevronRight, LogOut, Image as ImageIcon, Star, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import type { Screen } from "./MobileNav";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface MobileProfileProps {
   onNavigate?: (screen: Screen) => void;
@@ -10,6 +21,7 @@ interface MobileProfileProps {
 export function MobileProfile({ onNavigate }: MobileProfileProps) {
   const { user, signOut } = useAuth();
   const { credits, hasActiveSubscription } = useCredits();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const displayName = user?.email?.split("@")[0] || "User";
   const initials = displayName.charAt(0).toUpperCase();
@@ -126,13 +138,34 @@ export function MobileProfile({ onNavigate }: MobileProfileProps) {
         
         {/* Delete Account Button - acts like sign out */}
         <button
-          onClick={signOut}
+          onClick={() => setShowDeleteDialog(true)}
           className="w-full flex items-center gap-4 p-4 bg-destructive/10 rounded-xl hover:bg-destructive/20 transition-all"
         >
           <Trash2 className="w-5 h-5 text-destructive" />
           <span className="text-destructive flex-1 text-left text-[15px]">Delete Account</span>
         </button>
       </div>
+
+      {/* Delete Account Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="bg-background border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={signOut}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Account
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
