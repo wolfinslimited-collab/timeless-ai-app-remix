@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/config.dart';
@@ -6,6 +7,7 @@ import '../core/video_models.dart';
 
 class CreditsProvider extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
+  StreamSubscription<AuthState>? _authSubscription;
 
   int _credits = 0;
   bool _hasActiveSubscription = false;
@@ -17,16 +19,41 @@ class CreditsProvider extends ChangeNotifier {
   bool get isUnlimited => _hasActiveSubscription;
 
   CreditsProvider() {
+    _init();
+  }
+
+  void _init() {
+    // Listen to auth state changes to reset/refresh credits
+    _authSubscription = _supabase.auth.onAuthStateChange.listen((state) {
+      if (state.session?.user != null) {
+        // User logged in - fetch their credits
+        _fetchCredits();
+      } else {
+        // User logged out - clear credits
+        _clearCredits();
+      }
+    });
+
+    // Initial fetch
     _fetchCredits();
+  }
+
+  void _clearCredits() {
+    _credits = 0;
+    _hasActiveSubscription = false;
+    _isLoading = false;
+    notifyListeners();
   }
 
   Future<void> _fetchCredits() async {
     final user = _supabase.auth.currentUser;
     if (user == null) {
-      _isLoading = false;
-      notifyListeners();
+      _clearCredits();
       return;
     }
+
+    _isLoading = true;
+    notifyListeners();
 
     try {
       final response = await _supabase
@@ -38,13 +65,24 @@ class CreditsProvider extends ChangeNotifier {
       if (response != null) {
         _credits = response['credits'] as int? ?? 0;
         _hasActiveSubscription = response['subscription_status'] == 'active';
+      } else {
+        _credits = 0;
+        _hasActiveSubscription = false;
       }
     } catch (e) {
       debugPrint('Error fetching credits: $e');
+      _credits = 0;
+      _hasActiveSubscription = false;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> refresh() async {

@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/credits_provider.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -412,7 +412,7 @@ class ProfileScreen extends StatelessWidget {
                   // Sign Out Button
                   GestureDetector(
                     onTap: () async {
-                      await Supabase.instance.client.auth.signOut();
+                      await context.read<AuthProvider>().signOut();
                       if (context.mounted) {
                         context.go('/login');
                       }
