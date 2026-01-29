@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/oauth_icons.dart';
@@ -89,19 +92,25 @@ class _SignupScreenState extends State<SignupScreen>
     });
 
     try {
-      final supabase = Supabase.instance.client;
-      final response = await supabase.functions.invoke('send-verification', body: {
-        'email': _emailController.text.trim(),
-        'fullName': _nameController.text.trim(),
-        'country': _selectedCountry,
-        'referralCode': _referralController.text.trim().isNotEmpty 
-            ? _referralController.text.trim() 
-            : null,
-        'password': _passwordController.text,
-      });
+      // Direct HTTP call to the primary backend edge function
+      final response = await http.post(
+        Uri.parse('${AppConfig.supabaseUrl}/functions/v1/send-verification'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': _emailController.text.trim(),
+          'fullName': _nameController.text.trim(),
+          'country': _selectedCountry,
+          'referralCode': _referralController.text.trim().isNotEmpty 
+              ? _referralController.text.trim() 
+              : null,
+          'password': _passwordController.text,
+        }),
+      );
 
-      if (response.data?['error'] != null) {
-        throw Exception(response.data['error']);
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode != 200 || data['error'] != null) {
+        throw Exception(data['error'] ?? 'Failed to send verification code');
       }
 
       setState(() {
@@ -138,14 +147,20 @@ class _SignupScreenState extends State<SignupScreen>
     });
 
     try {
-      final supabase = Supabase.instance.client;
-      final response = await supabase.functions.invoke('verify-code', body: {
-        'email': _emailController.text.trim(),
-        'code': _otpController.text,
-      });
+      // Direct HTTP call to verify-code edge function
+      final response = await http.post(
+        Uri.parse('${AppConfig.supabaseUrl}/functions/v1/verify-code'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': _emailController.text.trim(),
+          'code': _otpController.text,
+        }),
+      );
 
-      if (response.data?['error'] != null) {
-        throw Exception(response.data['error']);
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode != 200 || data['error'] != null) {
+        throw Exception(data['error'] ?? 'Verification failed');
       }
 
       // Sign in after verification
@@ -185,19 +200,25 @@ class _SignupScreenState extends State<SignupScreen>
     });
 
     try {
-      final supabase = Supabase.instance.client;
-      final response = await supabase.functions.invoke('send-verification', body: {
-        'email': _emailController.text.trim(),
-        'fullName': _nameController.text.trim(),
-        'country': _selectedCountry,
-        'referralCode': _referralController.text.trim().isNotEmpty 
-            ? _referralController.text.trim() 
-            : null,
-        'password': _passwordController.text,
-      });
+      // Direct HTTP call to resend verification code
+      final response = await http.post(
+        Uri.parse('${AppConfig.supabaseUrl}/functions/v1/send-verification'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': _emailController.text.trim(),
+          'fullName': _nameController.text.trim(),
+          'country': _selectedCountry,
+          'referralCode': _referralController.text.trim().isNotEmpty 
+              ? _referralController.text.trim() 
+              : null,
+          'password': _passwordController.text,
+        }),
+      );
 
-      if (response.data?['error'] != null) {
-        throw Exception(response.data['error']);
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode != 200 || data['error'] != null) {
+        throw Exception(data['error'] ?? 'Failed to resend code');
       }
 
       _otpController.clear();
