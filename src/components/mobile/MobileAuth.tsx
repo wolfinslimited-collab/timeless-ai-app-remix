@@ -115,10 +115,25 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
         },
       });
 
-      // Handle network/fetch errors
+      // Handle errors - extract message from various possible locations
       if (error) {
         console.error("Edge function error:", error);
-        throw new Error(error.message || "Network error. Please check your connection and try again.");
+        // Try to get error message from response body (for 4xx errors)
+        const errorBody = error.context?.body;
+        let errorMessage = "Network error. Please check your connection and try again.";
+        
+        if (errorBody) {
+          try {
+            const parsed = typeof errorBody === 'string' ? JSON.parse(errorBody) : errorBody;
+            errorMessage = parsed.error || parsed.message || errorMessage;
+          } catch {
+            errorMessage = error.message || errorMessage;
+          }
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        throw new Error(errorMessage);
       }
       
       // Handle API-level errors returned in the response
