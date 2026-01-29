@@ -116,29 +116,28 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Check if email is already registered using admin API
     console.log("Checking if email exists:", email);
+    const emailLower = email.toLowerCase();
     
-    // Search through users by fetching with email filter
+    let userExists = false;
+    
+    // List all users and check if email exists
     const { data: allUsers, error: listError } = await supabase.auth.admin.listUsers({
       page: 1,
       perPage: 1000,
     });
     
     if (listError) {
-      console.error("Error checking users:", listError);
-      return new Response(
-        JSON.stringify({ error: "Failed to verify email availability. Please try again." }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      console.error("Error listing users:", listError);
+      // Don't block registration on this error, just log it
+    } else if (allUsers?.users) {
+      userExists = allUsers.users.some(u => u.email?.toLowerCase() === emailLower);
     }
-    
-    const emailLower = email.toLowerCase();
-    const userExists = allUsers?.users?.some(u => u.email?.toLowerCase() === emailLower);
     
     if (userExists) {
       console.log("Email already registered:", email);
       return new Response(
         JSON.stringify({ error: "This email is already registered. Please sign in instead." }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        { status: 409, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
