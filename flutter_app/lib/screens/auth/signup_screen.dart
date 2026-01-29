@@ -1,11 +1,71 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 
+// Popular countries list
+const List<Map<String, String>> countries = [
+  {'code': 'US', 'name': 'United States'},
+  {'code': 'GB', 'name': 'United Kingdom'},
+  {'code': 'CA', 'name': 'Canada'},
+  {'code': 'AU', 'name': 'Australia'},
+  {'code': 'DE', 'name': 'Germany'},
+  {'code': 'FR', 'name': 'France'},
+  {'code': 'ES', 'name': 'Spain'},
+  {'code': 'IT', 'name': 'Italy'},
+  {'code': 'BR', 'name': 'Brazil'},
+  {'code': 'MX', 'name': 'Mexico'},
+  {'code': 'IN', 'name': 'India'},
+  {'code': 'JP', 'name': 'Japan'},
+  {'code': 'KR', 'name': 'South Korea'},
+  {'code': 'CN', 'name': 'China'},
+  {'code': 'AE', 'name': 'United Arab Emirates'},
+  {'code': 'SA', 'name': 'Saudi Arabia'},
+  {'code': 'NL', 'name': 'Netherlands'},
+  {'code': 'SE', 'name': 'Sweden'},
+  {'code': 'CH', 'name': 'Switzerland'},
+  {'code': 'PL', 'name': 'Poland'},
+  {'code': 'RU', 'name': 'Russia'},
+  {'code': 'TR', 'name': 'Turkey'},
+  {'code': 'ZA', 'name': 'South Africa'},
+  {'code': 'NG', 'name': 'Nigeria'},
+  {'code': 'EG', 'name': 'Egypt'},
+  {'code': 'AR', 'name': 'Argentina'},
+  {'code': 'CL', 'name': 'Chile'},
+  {'code': 'CO', 'name': 'Colombia'},
+  {'code': 'PH', 'name': 'Philippines'},
+  {'code': 'ID', 'name': 'Indonesia'},
+  {'code': 'MY', 'name': 'Malaysia'},
+  {'code': 'SG', 'name': 'Singapore'},
+  {'code': 'TH', 'name': 'Thailand'},
+  {'code': 'VN', 'name': 'Vietnam'},
+  {'code': 'PK', 'name': 'Pakistan'},
+  {'code': 'BD', 'name': 'Bangladesh'},
+  {'code': 'IR', 'name': 'Iran'},
+  {'code': 'IL', 'name': 'Israel'},
+  {'code': 'NO', 'name': 'Norway'},
+  {'code': 'DK', 'name': 'Denmark'},
+  {'code': 'FI', 'name': 'Finland'},
+  {'code': 'IE', 'name': 'Ireland'},
+  {'code': 'PT', 'name': 'Portugal'},
+  {'code': 'GR', 'name': 'Greece'},
+  {'code': 'CZ', 'name': 'Czech Republic'},
+  {'code': 'AT', 'name': 'Austria'},
+  {'code': 'BE', 'name': 'Belgium'},
+  {'code': 'HU', 'name': 'Hungary'},
+  {'code': 'RO', 'name': 'Romania'},
+  {'code': 'UA', 'name': 'Ukraine'},
+  {'code': 'NZ', 'name': 'New Zealand'},
+  {'code': 'OTHER', 'name': 'Other'},
+];
+
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({super.key});
+  final String? referralCode;
+  
+  const SignupScreen({super.key, this.referralCode});
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -17,9 +77,16 @@ class _SignupScreenState extends State<SignupScreen>
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
+  final _referralController = TextEditingController();
+  final _otpController = TextEditingController();
+  
+  String? _selectedCountry;
   bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
+  bool _showVerification = false;
+  bool _isLoading = false;
+  String? _error;
+  int _resendCountdown = 0;
+  
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -27,6 +94,10 @@ class _SignupScreenState extends State<SignupScreen>
   @override
   void initState() {
     super.initState();
+    if (widget.referralCode != null) {
+      _referralController.text = widget.referralCode!;
+    }
+    
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -48,24 +119,174 @@ class _SignupScreenState extends State<SignupScreen>
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose();
+    _referralController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleSignup() async {
+  void _startResendCountdown() {
+    setState(() => _resendCountdown = 30);
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return false;
+      setState(() => _resendCountdown = _resendCountdown - 1);
+      return _resendCountdown > 0;
+    });
+  }
+
+  Future<void> _handleSendVerification() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final authProvider = context.read<AuthProvider>();
-    final success = await authProvider.signUp(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-      displayName: _nameController.text.trim(),
-    );
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
 
-    if (success && mounted) {
-      // New users are always non-premium, show the upgrade wizard
-      context.go('/upgrade-wizard', extra: true);
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase.functions.invoke('send-verification', body: {
+        'email': _emailController.text.trim(),
+        'fullName': _nameController.text.trim(),
+        'country': _selectedCountry,
+        'referralCode': _referralController.text.trim().isNotEmpty 
+            ? _referralController.text.trim() 
+            : null,
+        'password': _passwordController.text,
+      });
+
+      if (response.data?['error'] != null) {
+        throw Exception(response.data['error']);
+      }
+
+      setState(() {
+        _showVerification = true;
+        _isLoading = false;
+      });
+      _startResendCountdown();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Verification code sent! Check your email.'),
+            backgroundColor: AppTheme.primary,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _error = _parseError(e);
+        _isLoading = false;
+      });
     }
+  }
+
+  Future<void> _handleVerifyCode() async {
+    if (_otpController.text.length != 4) {
+      setState(() => _error = 'Please enter the complete 4-digit code');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase.functions.invoke('verify-code', body: {
+        'email': _emailController.text.trim(),
+        'code': _otpController.text,
+      });
+
+      if (response.data?['error'] != null) {
+        throw Exception(response.data['error']);
+      }
+
+      // Sign in after verification
+      final authProvider = context.read<AuthProvider>();
+      final success = await authProvider.signIn(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      if (success && mounted) {
+        context.go('/upgrade-wizard', extra: true);
+      } else if (mounted) {
+        // Account created but auto-login failed, go to login
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account created! Please sign in.'),
+            backgroundColor: AppTheme.primary,
+          ),
+        );
+        context.go('/login');
+      }
+    } catch (e) {
+      setState(() {
+        _error = _parseError(e);
+        _isLoading = false;
+        _otpController.clear();
+      });
+    }
+  }
+
+  Future<void> _handleResendCode() async {
+    if (_resendCountdown > 0) return;
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase.functions.invoke('send-verification', body: {
+        'email': _emailController.text.trim(),
+        'fullName': _nameController.text.trim(),
+        'country': _selectedCountry,
+        'referralCode': _referralController.text.trim().isNotEmpty 
+            ? _referralController.text.trim() 
+            : null,
+        'password': _passwordController.text,
+      });
+
+      if (response.data?['error'] != null) {
+        throw Exception(response.data['error']);
+      }
+
+      _otpController.clear();
+      _startResendCountdown();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('New code sent!'),
+            backgroundColor: AppTheme.primary,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _error = _parseError(e));
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  String _parseError(dynamic e) {
+    final msg = e.toString().toLowerCase();
+    if (msg.contains('already registered') || msg.contains('already in use')) {
+      return 'An account with this email already exists';
+    }
+    if (msg.contains('invalid') || msg.contains('incorrect')) {
+      return 'The code you entered is incorrect';
+    }
+    if (msg.contains('expired')) {
+      return 'This code has expired. Please request a new one.';
+    }
+    if (msg.contains('wait') && msg.contains('seconds')) {
+      return e.toString().replaceAll('Exception: ', '');
+    }
+    return e.toString().replaceAll('Exception: ', '');
   }
 
   Future<void> _handleGoogleSignIn() async {
@@ -80,6 +301,261 @@ class _SignupScreenState extends State<SignupScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_showVerification) {
+      return _buildVerificationScreen();
+    }
+    return _buildSignupScreen();
+  }
+
+  Widget _buildVerificationScreen() {
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppTheme.background,
+              AppTheme.background,
+              AppTheme.primary.withOpacity(0.05),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                const SizedBox(height: 48),
+                
+                // Icon
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.primary.withOpacity(0.1),
+                  ),
+                  child: const Icon(
+                    Icons.email_outlined,
+                    size: 48,
+                    color: AppTheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                
+                const Text(
+                  'Verify Your Email',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'We sent a 4-digit code to',
+                  style: TextStyle(
+                    color: AppTheme.muted,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _emailController.text,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 40),
+
+                // Error message
+                if (_error != null)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.destructive.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: AppTheme.destructive.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline,
+                            color: AppTheme.destructive, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(
+                                color: AppTheme.destructive, fontSize: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // OTP Input
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(4, (index) {
+                    return Container(
+                      width: 56,
+                      height: 64,
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      child: TextFormField(
+                        onChanged: (value) {
+                          if (value.length == 1 && index < 3) {
+                            FocusScope.of(context).nextFocus();
+                          }
+                          // Build the full OTP
+                          String otp = '';
+                          for (int i = 0; i < 4; i++) {
+                            if (i < _otpController.text.length) {
+                              otp += _otpController.text[i];
+                            }
+                          }
+                          // Update with single digit
+                          if (value.isNotEmpty) {
+                            final newOtp = _otpController.text.length > index
+                                ? _otpController.text.replaceRange(index, index + 1, value)
+                                : _otpController.text + value;
+                            _otpController.text = newOtp.length > 4 
+                                ? newOtp.substring(0, 4) 
+                                : newOtp;
+                          }
+                        },
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        maxLength: 1,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        decoration: InputDecoration(
+                          counterText: '',
+                          filled: true,
+                          fillColor: AppTheme.card,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: AppTheme.primary,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                      ),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 24),
+
+                // Resend
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      "Didn't receive the code? ",
+                      style: TextStyle(color: AppTheme.muted),
+                    ),
+                    if (_resendCountdown > 0)
+                      Text(
+                        'Resend in ${_resendCountdown}s',
+                        style: TextStyle(color: AppTheme.muted),
+                      )
+                    else
+                      TextButton(
+                        onPressed: _isLoading ? null : _handleResendCode,
+                        child: const Text('Resend'),
+                      ),
+                  ],
+                ),
+                
+                const Spacer(),
+
+                // Verify Button
+                Container(
+                  width: double.infinity,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: LinearGradient(
+                      colors: [
+                        AppTheme.primary,
+                        AppTheme.primary.withOpacity(0.8),
+                      ],
+                    ),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _handleVerifyCode,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(width: 12),
+                              Text(
+                                'Verifying...',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          )
+                        : const Text(
+                            'Verify & Create Account',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Back button
+                TextButton.icon(
+                  onPressed: () => setState(() {
+                    _showVerification = false;
+                    _otpController.clear();
+                    _error = null;
+                  }),
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text('Back to Sign Up'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSignupScreen() {
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -108,7 +584,7 @@ class _SignupScreenState extends State<SignupScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 24),
 
                         // Logo & Title
                         Container(
@@ -146,7 +622,37 @@ class _SignupScreenState extends State<SignupScreen>
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 32),
+                        
+                        // Referral banner
+                        if (_referralController.text.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: AppTheme.primary.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.card_giftcard,
+                                    color: AppTheme.primary, size: 20),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    'You were invited! Sign up to get bonus credits',
+                                    style: TextStyle(
+                                      color: AppTheme.primary,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
 
                         // OAuth Buttons
                         _buildOAuthButton(
@@ -187,52 +693,45 @@ class _SignupScreenState extends State<SignupScreen>
                         const SizedBox(height: 24),
 
                         // Error message
-                        Consumer<AuthProvider>(
-                          builder: (context, auth, child) {
-                            if (auth.error != null) {
-                              return Container(
-                                padding: const EdgeInsets.all(12),
-                                margin: const EdgeInsets.only(bottom: 16),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.destructive.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                      color: AppTheme.destructive
-                                          .withOpacity(0.3)),
+                        if (_error != null)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: AppTheme.destructive.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: AppTheme.destructive.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline,
+                                    color: AppTheme.destructive, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _error!,
+                                    style: const TextStyle(
+                                        color: AppTheme.destructive,
+                                        fontSize: 14),
+                                  ),
                                 ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.error_outline,
-                                        color: AppTheme.destructive, size: 20),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        auth.error!,
-                                        style: const TextStyle(
-                                            color: AppTheme.destructive,
-                                            fontSize: 14),
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.close, size: 18),
-                                      onPressed: () => auth.clearError(),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                    ),
-                                  ],
+                                IconButton(
+                                  icon: const Icon(Icons.close, size: 18),
+                                  onPressed: () => setState(() => _error = null),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
                                 ),
-                              );
-                            }
-                            return const SizedBox.shrink();
-                          },
-                        ),
+                              ],
+                            ),
+                          ),
 
                         // Name field
                         TextFormField(
                           controller: _nameController,
                           textCapitalization: TextCapitalization.words,
                           decoration: InputDecoration(
-                            labelText: 'Display Name',
+                            labelText: 'Full Name',
                             hintText: 'Enter your name',
                             prefixIcon: const Icon(Icons.person_outline),
                             filled: true,
@@ -253,8 +752,11 @@ class _SignupScreenState extends State<SignupScreen>
                             ),
                           ),
                           validator: (value) {
-                            if (value == null || value.isEmpty) {
+                            if (value == null || value.trim().isEmpty) {
                               return 'Please enter your name';
+                            }
+                            if (value.trim().length < 2) {
+                              return 'Name must be at least 2 characters';
                             }
                             return null;
                           },
@@ -291,7 +793,7 @@ class _SignupScreenState extends State<SignupScreen>
                             if (value == null || value.isEmpty) {
                               return 'Please enter your email';
                             }
-                            if (!value.contains('@')) {
+                            if (!value.contains('@') || !value.contains('.')) {
                               return 'Please enter a valid email';
                             }
                             return null;
@@ -348,27 +850,12 @@ class _SignupScreenState extends State<SignupScreen>
                         ),
                         const SizedBox(height: 16),
 
-                        // Confirm password field
-                        TextFormField(
-                          controller: _confirmPasswordController,
-                          obscureText: _obscureConfirmPassword,
+                        // Country dropdown
+                        DropdownButtonFormField<String>(
+                          value: _selectedCountry,
                           decoration: InputDecoration(
-                            labelText: 'Confirm Password',
-                            hintText: 'Confirm your password',
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscureConfirmPassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _obscureConfirmPassword =
-                                      !_obscureConfirmPassword;
-                                });
-                              },
-                            ),
+                            labelText: 'Country',
+                            prefixIcon: const Icon(Icons.public),
                             filled: true,
                             fillColor: AppTheme.card,
                             border: OutlineInputBorder(
@@ -386,93 +873,123 @@ class _SignupScreenState extends State<SignupScreen>
                                   const BorderSide(color: AppTheme.primary),
                             ),
                           ),
-                          validator: (value) {
-                            if (value != _passwordController.text) {
-                              return 'Passwords do not match';
-                            }
-                            return null;
+                          dropdownColor: AppTheme.card,
+                          items: countries.map((country) {
+                            return DropdownMenuItem<String>(
+                              value: country['code'],
+                              child: Text(country['name']!),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() => _selectedCountry = value);
                           },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Referral code field
+                        TextFormField(
+                          controller: _referralController,
+                          textCapitalization: TextCapitalization.characters,
+                          decoration: InputDecoration(
+                            labelText: 'Referral Code (optional)',
+                            hintText: 'Enter referral code',
+                            prefixIcon: const Icon(Icons.card_giftcard_outlined),
+                            filled: true,
+                            fillColor: AppTheme.card,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                  color: AppTheme.muted.withOpacity(0.2)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  const BorderSide(color: AppTheme.primary),
+                            ),
+                          ),
+                          onChanged: (value) {
+                            _referralController.text = value.toUpperCase();
+                            _referralController.selection = TextSelection.fromPosition(
+                              TextPosition(offset: _referralController.text.length),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Terms
+                        Text(
+                          'By signing up, you agree to our Terms of Service and Privacy Policy.',
+                          style: TextStyle(
+                            color: AppTheme.muted.withOpacity(0.7),
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 24),
 
                         // Sign up button
-                        Consumer<AuthProvider>(
-                          builder: (context, auth, child) {
-                            return Container(
-                              height: 56,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                gradient: LinearGradient(
-                                  colors: [
-                                    AppTheme.primary,
-                                    AppTheme.primary.withOpacity(0.8),
-                                  ],
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppTheme.primary.withOpacity(0.3),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
+                        Container(
+                          height: 56,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            gradient: LinearGradient(
+                              colors: [
+                                AppTheme.primary,
+                                AppTheme.primary.withOpacity(0.8),
+                              ],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primary.withOpacity(0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
                               ),
-                              child: ElevatedButton(
-                                onPressed:
-                                    auth.isLoading ? null : _handleSignup,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.transparent,
-                                  shadowColor: Colors.transparent,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: auth.isLoading
-                                    ? const SizedBox(
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _handleSendVerification,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: _isLoading
+                                ? const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      SizedBox(
                                         height: 20,
                                         width: 20,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
                                           color: Colors.white,
                                         ),
-                                      )
-                                    : const Text(
-                                        'Create Account',
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text(
+                                        'Sending verification code...',
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
                                           color: Colors.white,
                                         ),
                                       ),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Bonus message
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: AppTheme.primary.withOpacity(0.2)),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(Icons.card_giftcard,
-                                  color: AppTheme.primary),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Get 50 free credits when you sign up!',
-                                  style: TextStyle(
-                                    color: AppTheme.primary,
-                                    fontWeight: FontWeight.w500,
+                                    ],
+                                  )
+                                : const Text(
+                                    'Create Account',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ],
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -518,37 +1035,48 @@ class _SignupScreenState extends State<SignupScreen>
     required String label,
     required VoidCallback onPressed,
   }) {
-    return Container(
-      height: 52,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.muted.withOpacity(0.2)),
-      ),
-      child: Material(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 24),
-                const SizedBox(width: 12),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
+    return Consumer<AuthProvider>(
+      builder: (context, auth, child) {
+        return Container(
+          height: 52,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.muted.withOpacity(0.2)),
+          ),
+          child: Material(
+            color: AppTheme.card,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: auth.isLoading ? null : onPressed,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (auth.isLoading)
+                      const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      Icon(icon, size: 24),
+                    const SizedBox(width: 12),
+                    Text(
+                      auth.isLoading ? 'Signing in...' : label,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
