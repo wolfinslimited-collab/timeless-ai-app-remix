@@ -87,7 +87,12 @@ export const getModelCost = (model: string, quality?: string): number => {
 
 const LOW_CREDITS_THRESHOLD = 10;
 
-export const useCredits = () => {
+interface UseCreditsOptions {
+  suppressWarnings?: boolean;
+}
+
+export const useCredits = (options: UseCreditsOptions = {}) => {
+  const { suppressWarnings = false } = options;
   const { user } = useAuth();
   const { toast } = useToast();
   const [credits, setCredits] = useState<number | null>(null);
@@ -118,8 +123,8 @@ export const useCredits = () => {
       const newCredits = data?.credits ?? 0;
       const isSubscribed = data?.subscription_status === 'active';
       
-      // Check for low credits warning (only if not subscribed)
-      if (!isSubscribed && newCredits < LOW_CREDITS_THRESHOLD) {
+      // Check for low credits warning (only if not subscribed and warnings not suppressed)
+      if (!suppressWarnings && !isSubscribed && newCredits < LOW_CREDITS_THRESHOLD) {
         // Show warning if credits just dropped below threshold OR on first load when low
         const wasAboveThreshold = previousCredits.current !== null && previousCredits.current >= LOW_CREDITS_THRESHOLD;
         const isFirstLoadWithLowCredits = previousCredits.current === null && !hasShownLowCreditsWarning.current;
