@@ -1,4 +1,4 @@
-import { Home, Sparkles, MessageSquare, User } from "lucide-react";
+import { Home, Sparkles, Grid2X2, MessageSquare, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type Screen = 
@@ -23,7 +23,7 @@ interface MobileNavProps {
 }
 
 export function MobileNav({ currentScreen, onNavigate }: MobileNavProps) {
-  const isCreateActive = ["create", "image", "video", "cinema", "audio", "apps"].includes(currentScreen);
+  const isCreateActive = ["create", "image", "video", "cinema", "audio"].includes(currentScreen);
   const isProfileActive = ["profile", "library", "subscription", "downloads", "favorites"].includes(currentScreen);
 
   return (
@@ -40,6 +40,12 @@ export function MobileNav({ currentScreen, onNavigate }: MobileNavProps) {
           label="Create" 
           active={isCreateActive}
           onClick={() => onNavigate("create")}
+        />
+        <NavItem 
+          icon={Grid2X2} 
+          label="Apps" 
+          active={currentScreen === "apps"}
+          onClick={() => onNavigate("apps")}
         />
         <NavItem 
           icon={MessageSquare} 
@@ -73,7 +79,7 @@ function NavItem({
     <button 
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all",
+        "flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all",
         active ? "text-primary" : "text-muted-foreground"
       )}
     >
