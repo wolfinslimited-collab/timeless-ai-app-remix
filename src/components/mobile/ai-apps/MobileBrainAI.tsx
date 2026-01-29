@@ -1,15 +1,19 @@
 import { useState } from "react";
 import { ArrowLeft, Brain, Gamepad2, TrendingUp, Lightbulb, Plus, Lock, Focus, Heart, Zap, Grid3X3, Calculator, Search, Type, Timer, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MemoryMatchGame, SpeedMathGame } from "./brain-games";
 
 interface MobileBrainAIProps {
   onBack: () => void;
 }
 
+type GameType = "memory-match" | "speed-math" | null;
+
 export function MobileBrainAI({ onBack }: MobileBrainAIProps) {
   const [activeTab, setActiveTab] = useState<"dashboard" | "games" | "trends" | "insights">("dashboard");
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [isPremium] = useState(true); // Simulated premium status
+  const [activeGame, setActiveGame] = useState<GameType>(null);
 
   const tabs = [
     { id: "dashboard", label: "Dashboard" },
@@ -17,6 +21,15 @@ export function MobileBrainAI({ onBack }: MobileBrainAIProps) {
     { id: "trends", label: "Trends" },
     { id: "insights", label: "Insights" },
   ] as const;
+
+  // Show active game if one is selected
+  if (activeGame === "memory-match") {
+    return <MemoryMatchGame onBack={() => setActiveGame(null)} />;
+  }
+  
+  if (activeGame === "speed-math") {
+    return <SpeedMathGame onBack={() => setActiveGame(null)} />;
+  }
 
   if (!isPremium) {
     return (
@@ -180,16 +193,16 @@ export function MobileBrainAI({ onBack }: MobileBrainAIProps) {
             <h3 className="text-base font-semibold text-foreground mb-3">Brain Games</h3>
             <div className="space-y-3">
               {[
-                { name: "Memory Match", desc: "Test your memory", icon: Grid3X3 },
-                { name: "Speed Math", desc: "Quick calculations", icon: Calculator },
-                { name: "Pattern Recognition", desc: "Find the pattern", icon: Search },
-                { name: "Word Puzzle", desc: "Vocabulary challenge", icon: Type },
-                { name: "Reaction Test", desc: "Test your reflexes", icon: Zap },
-                { name: "Focus Timer", desc: "Deep work session", icon: Timer },
+                { name: "Memory Match", desc: "Test your memory", icon: Grid3X3, gameId: "memory-match" as GameType },
+                { name: "Speed Math", desc: "Quick calculations", icon: Calculator, gameId: "speed-math" as GameType },
+                { name: "Pattern Recognition", desc: "Find the pattern", icon: Search, gameId: null },
+                { name: "Word Puzzle", desc: "Vocabulary challenge", icon: Type, gameId: null },
+                { name: "Reaction Test", desc: "Test your reflexes", icon: Zap, gameId: null },
+                { name: "Focus Timer", desc: "Deep work session", icon: Timer, gameId: null },
               ].map((game) => (
                 <button
                   key={game.name}
-                  onClick={() => alert(`Launching ${game.name}...`)}
+                  onClick={() => game.gameId ? setActiveGame(game.gameId) : alert(`${game.name} coming soon!`)}
                   className="w-full flex items-center gap-3 p-4 bg-secondary rounded-xl text-left border border-border"
                 >
                   <div className="w-10 h-10 rounded-xl bg-card flex items-center justify-center">
