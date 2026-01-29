@@ -20,9 +20,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   int _activeTab = 0; // 0 = subscription, 1 = credits
   bool _isYearly = false;
 
-  final PageController _planPageController = PageController(viewportFraction: 0.85, initialPage: 1);
-  int _currentPlanIndex = 1;
-
   // Subscription plans
   final List<Map<String, dynamic>> _monthlyPlans = [
     {
@@ -160,12 +157,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     if (Platform.isIOS) return 'ios';
     if (Platform.isAndroid) return 'android';
     return 'web';
-  }
-
-  @override
-  void dispose() {
-    _planPageController.dispose();
-    super.dispose();
   }
 
   Future<void> _handleSubscribe(Map<String, dynamic> plan) async {
@@ -491,11 +482,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               GestureDetector(
-                onTap: () => setState(() {
-                  _isYearly = false;
-                  _currentPlanIndex = 1;
-                  _planPageController.jumpToPage(1);
-                }),
+                onTap: () => setState(() => _isYearly = false),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
@@ -513,11 +500,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ),
               ),
               GestureDetector(
-                onTap: () => setState(() {
-                  _isYearly = true;
-                  _currentPlanIndex = 1;
-                  _planPageController.jumpToPage(1);
-                }),
+                onTap: () => setState(() => _isYearly = true),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
@@ -561,321 +544,222 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
         const SizedBox(height: 12),
 
-        // Plans Pager
+        // Plans Vertical List
         Expanded(
-          child: PageView.builder(
-            controller: _planPageController,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: _currentPlans.length,
-            onPageChanged: (index) => setState(() => _currentPlanIndex = index),
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final plan = _currentPlans[index];
               final isPopular = plan['popular'] == true;
               final isBestValue = plan['bestValue'] == true;
               final isHighlighted = isPopular || isBestValue;
-              
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: isHighlighted
-                        ? LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              AppTheme.primary.withOpacity(0.2),
-                              const Color(0xFFEC4899).withOpacity(0.1),
-                            ],
-                          )
-                        : null,
-                    color: isHighlighted ? null : AppTheme.secondary,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isHighlighted ? AppTheme.primary : AppTheme.border,
-                      width: isHighlighted ? 2 : 1,
-                    ),
-                  ),
-                  child: Stack(
-                    children: [
-                      // Badge
-                      if (isPopular)
-                        Positioned(
-                          top: -1,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [AppTheme.primary, Color(0xFFEC4899)],
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: const Text(
-                                'Most Popular',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      if (isBestValue)
-                        Positioned(
-                          top: -1,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: const Text(
-                                'Best Value',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
 
-                      // Content
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: isHighlighted
+                      ? LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppTheme.primary.withOpacity(0.2),
+                            const Color(0xFFEC4899).withOpacity(0.1),
+                          ],
+                        )
+                      : null,
+                  color: isHighlighted ? null : AppTheme.secondary,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isHighlighted ? AppTheme.primary : AppTheme.border,
+                    width: isHighlighted ? 2 : 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Badge
+                    if (isPopular || isBestValue)
                       Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 12),
-                            
-                            // Plan Header
-                            Row(
-                              children: [
-                                Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        plan['color'] ?? AppTheme.primary,
-                                        (plan['color'] ?? AppTheme.primary).withOpacity(0.7),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: (plan['color'] ?? AppTheme.primary).withOpacity(0.3),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    plan['icon'] ?? Icons.workspace_premium,
-                                    color: Colors.white,
-                                    size: 22,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        plan['name'],
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        plan['period'],
-                                        style: const TextStyle(color: AppTheme.muted, fontSize: 12),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      '\$${plan['price'].toStringAsFixed(2)}',
-                                      style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      '/${plan['period'] == 'Monthly' ? 'mo' : 'yr'}',
-                                      style: const TextStyle(
-                                        color: AppTheme.muted,
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: isPopular 
+                                    ? [AppTheme.primary, const Color(0xFFEC4899)]
+                                    : [const Color(0xFFF59E0B), const Color(0xFFF97316)],
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              isPopular ? 'Most Popular' : 'Best Value',
+                              style: TextStyle(
+                                color: isPopular ? Colors.white : Colors.black,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // Plan Header
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                plan['color'] ?? AppTheme.primary,
+                                (plan['color'] ?? AppTheme.primary).withOpacity(0.7),
                               ],
                             ),
-
-                            const SizedBox(height: 12),
-
-                            // Credits
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primary.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: (plan['color'] ?? AppTheme.primary).withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                               ),
-                              child: Text(
-                                '${plan['credits']} credits/month',
+                            ],
+                          ),
+                          child: Icon(
+                            plan['icon'] ?? Icons.workspace_premium,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                plan['name'],
                                 style: const TextStyle(
-                                  color: AppTheme.primary,
-                                  fontSize: 14,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            // Features
-                            Expanded(
-                              child: ListView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: (plan['features'] as List).length,
-                                itemBuilder: (context, idx) {
-                                  final feature = plan['features'][idx];
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 4),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 16,
-                                          height: 16,
-                                          decoration: BoxDecoration(
-                                            color: Colors.green.withOpacity(0.2),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.check,
-                                            size: 10,
-                                            color: Colors.green,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            feature['text'],
-                                            style: const TextStyle(fontSize: 12),
-                                          ),
-                                        ),
-                                        if (feature['badge'] != null)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 6,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.primary.withOpacity(0.2),
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            child: Text(
-                                              feature['badge'],
-                                              style: const TextStyle(
-                                                fontSize: 9,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppTheme.primary,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
+                              Row(
+                                children: [
+                                  Text(
+                                    '${plan['credits']} credits/mo',
+                                    style: const TextStyle(
+                                      color: AppTheme.primary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
                                     ),
-                                  );
-                                },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '\$${plan['price'].toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-
-                            // Subscribe Button
-                            SizedBox(
-                              width: double.infinity,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [AppTheme.primary, Color(0xFFEC4899)],
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: ElevatedButton(
-                                  onPressed: _isLoading ? null : () => _handleSubscribe(plan),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    shadowColor: Colors.transparent,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  child: _isLoading
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : const Text(
-                                          'Subscribe Now',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                ),
+                            Text(
+                              '/${plan['period'] == 'Monthly' ? 'mo' : 'yr'}',
+                              style: const TextStyle(
+                                color: AppTheme.muted,
+                                fontSize: 10,
                               ),
                             ),
                           ],
                         ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Features (compact)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: (plan['features'] as List).take(3).map<Widget>((feature) {
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.check, size: 9, color: Colors.green),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              feature['text'],
+                              style: const TextStyle(fontSize: 11, color: AppTheme.muted),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Subscribe Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [AppTheme.primary, Color(0xFFEC4899)],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : () => _handleSubscribe(plan),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Subscribe Now',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               );
             },
           ),
         ),
-
-        // Dots indicator
-        if (_currentPlans.length > 1)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(_currentPlans.length, (index) {
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: index == _currentPlanIndex ? 20 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: index == _currentPlanIndex 
-                        ? AppTheme.primary 
-                        : AppTheme.muted.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                );
-              }),
-            ),
-          ),
       ],
     );
   }
