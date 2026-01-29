@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { MobileNav, type Screen } from "@/components/mobile/MobileNav";
@@ -17,6 +17,7 @@ import { MobileProfile } from "@/components/mobile/MobileProfile";
 import { MobileSubscription } from "@/components/mobile/MobileSubscription";
 import { MobileDownloads } from "@/components/mobile/MobileDownloads";
 import { MobileFavorites } from "@/components/mobile/MobileFavorites";
+import { MobileUpgradeWizard } from "@/components/mobile/MobileUpgradeWizard";
 import {
   MobileNotifyAI,
   MobileSleepAI,
@@ -30,8 +31,10 @@ import {
 export default function MobilePreview() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("home");
   const [showSplash, setShowSplash] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showPostAuthSubscription, setShowPostAuthSubscription] = useState(false);
   const { user, loading: authLoading } = useAuth();
-  const { credits, loading: creditsLoading, refetch } = useCredits();
+  const { credits, hasActiveSubscription, loading: creditsLoading, refetch } = useCredits();
 
   // Show auth screen if not logged in (after splash)
   const showAuth = !authLoading && !user && !showSplash;
@@ -40,9 +43,56 @@ export default function MobilePreview() {
     setShowSplash(false);
   };
 
+  // Handle successful authentication
+  const handleAuthSuccess = () => {
+    // After auth, check if user is premium
+    // If not premium, show onboarding wizard
+    // We'll check hasActiveSubscription after a brief delay to ensure credits are loaded
+    setTimeout(() => {
+      if (!hasActiveSubscription) {
+        setShowOnboarding(true);
+      } else {
+        setCurrentScreen("home");
+      }
+    }, 500);
+  };
+
+  // Handle onboarding complete or skip -> go to subscription
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    setShowPostAuthSubscription(true);
+  };
+
+  const handleOnboardingSkip = () => {
+    setShowOnboarding(false);
+    setShowPostAuthSubscription(true);
+  };
+
+  // Handle back from post-auth subscription -> go to home
+  const handleSubscriptionBack = () => {
+    setShowPostAuthSubscription(false);
+    setCurrentScreen("home");
+  };
+
   const renderScreen = () => {
+    // Show auth screen for non-logged in users
     if (showAuth) {
-      return <MobileAuth onSuccess={() => setCurrentScreen("home")} />;
+      return <MobileAuth onSuccess={handleAuthSuccess} />;
+    }
+
+    // Show onboarding wizard for non-premium users after auth
+    if (showOnboarding && user && !hasActiveSubscription) {
+      return (
+        <MobileUpgradeWizard 
+          onComplete={handleOnboardingComplete}
+          onSkip={handleOnboardingSkip}
+        />
+      );
+    }
+
+    // Show subscription page after onboarding
+    if (showPostAuthSubscription) {
+      return <MobileSubscription onBack={handleSubscriptionBack} />;
     }
 
     switch (currentScreen) {
@@ -91,6 +141,9 @@ export default function MobilePreview() {
     }
   };
 
+  // Determine if bottom nav should be hidden
+  const hideNav = showAuth || showSplash || showOnboarding || showPostAuthSubscription;
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="text-center mb-4 absolute top-4 left-1/2 -translate-x-1/2">
@@ -131,8 +184,8 @@ export default function MobilePreview() {
               {renderScreen()}
             </div>
             
-            {/* Bottom Navigation - only show when logged in */}
-            {!showAuth && !showSplash && (
+            {/* Bottom Navigation - hide during auth/onboarding/subscription flows */}
+            {!hideNav && (
               <MobileNav 
                 currentScreen={currentScreen} 
                 onNavigate={setCurrentScreen} 
