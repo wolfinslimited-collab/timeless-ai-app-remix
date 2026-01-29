@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Mail, Lock, Loader2, Eye, EyeOff, ArrowLeft, User, Globe, Gift } from "lucide-react";
+import { Mail, Lock, Loader2, Eye, EyeOff, ArrowLeft, User, Gift } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { CountryPickerField } from "./CountryPicker";
 import logo from "@/assets/logo.png";
 
 interface MobileAuthProps {
@@ -11,35 +12,6 @@ interface MobileAuthProps {
 }
 
 type AuthView = "welcome" | "signin" | "signup" | "verification" | "forgot-password" | "reset-sent";
-
-const countries = [
-  { code: "US", name: "United States" },
-  { code: "GB", name: "United Kingdom" },
-  { code: "CA", name: "Canada" },
-  { code: "AU", name: "Australia" },
-  { code: "DE", name: "Germany" },
-  { code: "FR", name: "France" },
-  { code: "ES", name: "Spain" },
-  { code: "IT", name: "Italy" },
-  { code: "BR", name: "Brazil" },
-  { code: "MX", name: "Mexico" },
-  { code: "IN", name: "India" },
-  { code: "JP", name: "Japan" },
-  { code: "KR", name: "South Korea" },
-  { code: "CN", name: "China" },
-  { code: "AE", name: "United Arab Emirates" },
-  { code: "SA", name: "Saudi Arabia" },
-  { code: "NL", name: "Netherlands" },
-  { code: "SE", name: "Sweden" },
-  { code: "CH", name: "Switzerland" },
-  { code: "PL", name: "Poland" },
-  { code: "RU", name: "Russia" },
-  { code: "TR", name: "Turkey" },
-  { code: "ZA", name: "South Africa" },
-  { code: "NG", name: "Nigeria" },
-  { code: "EG", name: "Egypt" },
-  { code: "OTHER", name: "Other" },
-];
 
 export function MobileAuth({ onSuccess }: MobileAuthProps) {
   const [view, setView] = useState<AuthView>("welcome");
@@ -497,20 +469,11 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
       </div>
 
       {/* Country */}
-      <div className="relative">
-        <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-        <select
-          value={country}
-          onChange={(e) => setCountry(e.target.value)}
-          disabled={isLoading}
-          className="w-full bg-card/80 border border-border/30 rounded-xl px-12 py-3 text-foreground outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all disabled:opacity-50 appearance-none"
-        >
-          <option value="">Select Country</option>
-          {countries.map((c) => (
-            <option key={c.code} value={c.code}>{c.name}</option>
-          ))}
-        </select>
-      </div>
+      <CountryPickerField
+        value={country}
+        onChange={setCountry}
+        disabled={isLoading}
+      />
 
       {/* Referral Code */}
       <div className="relative">
