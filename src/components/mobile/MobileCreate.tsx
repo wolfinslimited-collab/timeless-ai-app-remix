@@ -1,4 +1,4 @@
-import { Image, Video, Music, Clapperboard, Grid3X3, ChevronRight } from "lucide-react";
+import { Image, Video, Music, Clapperboard, Grid3X3, ChevronRight, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Screen } from "./MobileNav";
 
@@ -9,42 +9,56 @@ interface MobileCreateProps {
 export function MobileCreate({ onNavigate }: MobileCreateProps) {
   return (
     <div className="px-4 py-2">
-      <h1 className="text-white text-xl font-bold mb-2">Create</h1>
-      <p className="text-gray-400 text-sm mb-6">What would you like to create?</p>
+      <h1 className="text-foreground text-2xl font-bold mb-2">Create</h1>
+      <p className="text-muted-foreground text-sm mb-6">What would you like to create?</p>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
+        {/* Shots Tool Card (Featured) - matching Flutter */}
         <CreateOption 
-          icon={Image} 
-          title="Image" 
-          description="Generate stunning images with AI"
-          color="bg-blue-500"
+          icon={Grid3X3} 
+          title="Shots" 
+          description="Upload 1 image → Get 9 cinematic angles"
+          gradient={["from-pink-500", "to-primary"]}
+          badge="NEW"
           onClick={() => onNavigate("image")}
         />
+
+        {/* Image Generation Card */}
+        <CreateOption 
+          icon={Image} 
+          title="Image Generation" 
+          description="Create stunning images with AI"
+          onClick={() => onNavigate("image")}
+        />
+
+        {/* Video Generation Card */}
         <CreateOption 
           icon={Video} 
-          title="Video" 
-          description="Create cinematic videos"
-          color="bg-purple-500"
+          title="Video Generation" 
+          description="Generate videos from text or images"
           onClick={() => onNavigate("video")}
         />
+
+        {/* Audio/Music Generation Card */}
         <CreateOption 
           icon={Music} 
-          title="Music" 
-          description="Compose music and audio"
-          color="bg-pink-500"
+          title="Music & Audio" 
+          description="Generate music, vocals, and sound effects"
         />
+
+        {/* AI Apps Card */}
+        <CreateOption 
+          icon={Sparkles} 
+          title="AI Apps" 
+          description="Skin AI, Calorie AI, Sleep AI & more"
+        />
+
+        {/* Cinema Studio Card */}
         <CreateOption 
           icon={Clapperboard} 
           title="Cinema Studio" 
-          description="Professional video editing"
-          color="bg-orange-500"
+          description="Professional video creation workspace"
           onClick={() => onNavigate("cinema")}
-        />
-        <CreateOption 
-          icon={Grid3X3} 
-          title="AI Apps" 
-          description="Specialized AI tools"
-          color="bg-green-500"
         />
       </div>
     </div>
@@ -55,28 +69,40 @@ function CreateOption({
   icon: Icon, 
   title, 
   description, 
-  color,
+  gradient,
+  badge,
   onClick 
 }: { 
   icon: React.ComponentType<{ className?: string }>; 
   title: string; 
   description: string; 
-  color: string;
+  gradient?: string[];
+  badge?: string;
   onClick?: () => void;
 }) {
   return (
     <button 
       onClick={onClick}
-      className="w-full flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all"
+      className="w-full flex items-center gap-4 p-5 bg-card rounded-2xl border border-border hover:bg-card/80 transition-all"
     >
-      <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", color)}>
-        <Icon className="w-6 h-6 text-white" />
+      <div className={cn(
+        "w-14 h-14 rounded-xl flex items-center justify-center",
+        "bg-secondary"
+      )}>
+        <Icon className="w-7 h-7 text-foreground" />
       </div>
       <div className="flex-1 text-left">
-        <h3 className="text-white font-semibold">{title}</h3>
-        <p className="text-gray-400 text-xs">{description}</p>
+        <div className="flex items-center gap-2">
+          <h3 className="text-foreground font-bold text-lg">{title}</h3>
+          {badge && (
+            <span className="px-2 py-0.5 bg-primary text-white text-[10px] font-bold rounded-full">
+              {badge}
+            </span>
+          )}
+        </div>
+        <p className="text-muted-foreground text-sm">{description}</p>
       </div>
-      <ChevronRight className="w-5 h-5 text-gray-400" />
+      <ChevronRight className="w-5 h-5 text-muted-foreground" />
     </button>
   );
 }

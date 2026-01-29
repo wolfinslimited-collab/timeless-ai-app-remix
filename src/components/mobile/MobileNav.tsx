@@ -1,4 +1,4 @@
-import { Home, Sparkles, MessageSquare, Library, User } from "lucide-react";
+import { Home, Sparkles, MessageSquare, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type Screen = "home" | "create" | "chat" | "library" | "profile" | "image" | "video" | "cinema" | "auth" | "subscription";
@@ -10,7 +10,7 @@ interface MobileNavProps {
 
 export function MobileNav({ currentScreen, onNavigate }: MobileNavProps) {
   return (
-    <div className="absolute bottom-0 left-0 right-0 h-20 bg-[#111118] border-t border-white/10">
+    <div className="absolute bottom-0 left-0 right-0 h-20 bg-background border-t border-border">
       <div className="flex items-center justify-around h-full px-2 pb-4">
         <NavItem 
           icon={Home} 
@@ -31,15 +31,9 @@ export function MobileNav({ currentScreen, onNavigate }: MobileNavProps) {
           onClick={() => onNavigate("chat")}
         />
         <NavItem 
-          icon={Library} 
-          label="Library" 
-          active={currentScreen === "library"}
-          onClick={() => onNavigate("library")}
-        />
-        <NavItem 
           icon={User} 
           label="Profile" 
-          active={currentScreen === "profile"}
+          active={currentScreen === "profile" || currentScreen === "library"}
           onClick={() => onNavigate("profile")}
         />
       </div>
@@ -62,8 +56,8 @@ function NavItem({
     <button 
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all",
-        active ? "text-purple-400" : "text-gray-500"
+        "flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all",
+        active ? "text-primary" : "text-muted-foreground"
       )}
     >
       <Icon className="w-5 h-5" />
