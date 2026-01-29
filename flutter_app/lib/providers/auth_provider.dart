@@ -6,6 +6,7 @@ import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/native_auth_service.dart';
 import '../services/firebase_auth_service.dart';
+import '../services/push_notification_service.dart';
 import '../services/tiktok_service.dart';
 import '../services/facebook_service.dart';
 
@@ -40,7 +41,11 @@ class AuthProvider extends ChangeNotifier {
 
       if (_user != null) {
         // Defer profile fetch to avoid deadlock
-        Future.microtask(() => _fetchProfile());
+        Future.microtask(() async {
+          await _fetchProfile();
+          // Refresh FCM token when user logs in
+          await pushNotificationService.refreshToken();
+        });
       } else {
         _profile = null;
         _isLoading = false;
@@ -148,6 +153,8 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    // Delete FCM token before signing out
+    await pushNotificationService.deleteToken();
     await _authService.signOut();
     // Sign out from Firebase as well
     await _firebaseAuthService.signOut();

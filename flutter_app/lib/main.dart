@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'core/config.dart';
 import 'core/theme.dart';
@@ -16,6 +17,7 @@ import 'providers/favorites_provider.dart';
 import 'services/tiktok_service.dart';
 import 'services/facebook_service.dart';
 import 'services/audio_player_service.dart';
+import 'services/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +27,9 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // Set up background message handler before any other Firebase Messaging calls
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
   await Supabase.initialize(
     url: AppConfig.supabaseUrl,
     anonKey: AppConfig.supabaseAnonKey,
@@ -33,6 +38,9 @@ void main() async {
   // Initialize analytics SDKs for attribution tracking
   await tiktokService.initialize();
   await facebookService.initialize();
+
+  // Initialize push notifications
+  await pushNotificationService.initialize();
 
   runApp(const TimelessAIApp());
 }
