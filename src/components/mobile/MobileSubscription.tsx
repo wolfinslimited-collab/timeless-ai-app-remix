@@ -1,9 +1,59 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Check, Crown, Sparkles, Zap, Star, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, Crown, Sparkles, Zap, Star, Loader2, Calendar, Award, Plus, Coins } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+// Icon mapping for dynamic icon rendering
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  Zap,
+  Calendar,
+  Crown,
+  Award,
+  Sparkles,
+  Star,
+  Coins,
+};
+
+interface PlanFeature {
+  text: string;
+  included: boolean;
+  badge?: string;
+  tooltip?: string;
+}
+
+interface SubscriptionPlan {
+  id: string;
+  name: string;
+  period: string;
+  credits: number;
+  price: number;
+  price_id: string;
+  apple_product_id?: string;
+  android_product_id?: string;
+  popular?: boolean;
+  best_value?: boolean;
+  icon: string;
+  features: PlanFeature[];
+  display_order: number;
+  is_active: boolean;
+}
+
+interface CreditPackage {
+  id: string;
+  name: string;
+  credits: number;
+  price: number;
+  price_id: string;
+  apple_product_id?: string;
+  android_product_id?: string;
+  popular?: boolean;
+  icon: string;
+  display_order: number;
+  is_active: boolean;
+}
 
 // Platform detection helper
 const getPlatform = (): "ios" | "android" | "web" => {
@@ -17,10 +67,8 @@ const getPlatform = (): "ios" | "android" | "web" => {
 const InAppPurchaseService = {
   platform: getPlatform(),
   
-  // Initialize the store based on platform
   async initialize(): Promise<boolean> {
     try {
-      // Check if running in Capacitor native environment
       if (typeof (window as any).Capacitor !== "undefined") {
         console.log("Running in Capacitor, IAP available");
         return true;
@@ -32,15 +80,11 @@ const InAppPurchaseService = {
     }
   },
 
-  // Purchase a product
   async purchase(productId: string): Promise<{ success: boolean; error?: string }> {
     const platform = this.platform;
-    
     console.log(`Initiating ${platform} purchase for:`, productId);
     
-    // Check if we're in a native environment
     if (typeof (window as any).Capacitor === "undefined") {
-      // Web environment - show guidance
       return { 
         success: false, 
         error: "In-app purchases require the native iOS or Android app. Please download the app from the App Store or Google Play." 
@@ -48,31 +92,19 @@ const InAppPurchaseService = {
     }
 
     try {
-      // This will be handled by native plugins (RevenueCat, capacitor-purchases, etc.)
-      // The actual implementation depends on which plugin is used
       if (platform === "ios") {
-        // iOS StoreKit purchase flow
         console.log("Triggering iOS StoreKit purchase:", productId);
-        // Native bridge call would go here
-        // await (window as any).Capacitor.Plugins.InAppPurchase.purchase({ productId });
       } else if (platform === "android") {
-        // Android Billing Library purchase flow  
         console.log("Triggering Android Billing purchase:", productId);
-        // Native bridge call would go here
-        // await (window as any).Capacitor.Plugins.InAppPurchase.purchase({ productId });
       }
-      
-      // Simulated success for development
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message || "Purchase failed" };
     }
   },
 
-  // Restore previous purchases
   async restorePurchases(): Promise<{ success: boolean; restored: string[]; error?: string }> {
     const platform = this.platform;
-    
     console.log(`Restoring purchases for ${platform}`);
     
     if (typeof (window as any).Capacitor === "undefined") {
@@ -84,8 +116,6 @@ const InAppPurchaseService = {
     }
 
     try {
-      // Native restore would go here
-      // const result = await (window as any).Capacitor.Plugins.InAppPurchase.restorePurchases();
       return { success: true, restored: [] };
     } catch (error: any) {
       return { success: false, restored: [], error: error.message || "Restore failed" };
@@ -93,7 +123,7 @@ const InAppPurchaseService = {
   }
 };
 
-// Animated number component with count-up effect
+// Animated number component
 function AnimatedPrice({ value, duration = 400 }: { value: number; duration?: number }) {
   const [displayValue, setDisplayValue] = useState(value);
   const previousValue = useRef(value);
@@ -107,10 +137,7 @@ function AnimatedPrice({ value, duration = 400 }: { value: number; duration?: nu
     const animate = (currentTime: number) => {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      
-      // Easing function for smooth animation
       const easeOutExpo = 1 - Math.pow(2, -10 * progress);
-      
       const currentValue = startValue + (endValue - startValue) * easeOutExpo;
       setDisplayValue(currentValue);
 
@@ -133,86 +160,198 @@ function AnimatedPrice({ value, duration = 400 }: { value: number; duration?: nu
   return <span>${displayValue.toFixed(2)}</span>;
 }
 
+// Fallback plans
+const fallbackSubscriptionPlans: SubscriptionPlan[] = [
+  {
+    id: "premium-monthly",
+    name: "Premium",
+    period: "Monthly",
+    credits: 500,
+    price: 9.99,
+    price_id: "price_1SsTCRCpOaBygRMzaYvMeCVZ",
+    icon: "Zap",
+    features: [
+      { text: "Access to all models", included: true },
+      { text: "Concurrent: up to 3 Videos, 4 Images, 2 Characters", included: true },
+    ],
+    display_order: 1,
+    is_active: true,
+  },
+];
+
+const fallbackCreditPackages: CreditPackage[] = [
+  {
+    id: "starter",
+    name: "Starter",
+    credits: 50,
+    price: 4.99,
+    price_id: "price_starter",
+    icon: "Coins",
+    display_order: 1,
+    is_active: true,
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    credits: 150,
+    price: 9.99,
+    price_id: "price_pro",
+    popular: true,
+    icon: "Zap",
+    display_order: 2,
+    is_active: true,
+  },
+  {
+    id: "ultimate",
+    name: "Ultimate",
+    credits: 500,
+    price: 24.99,
+    price_id: "price_ultimate",
+    icon: "Crown",
+    display_order: 3,
+    is_active: true,
+  },
+];
+
 interface MobileSubscriptionProps {
   onBack: () => void;
 }
 
-type PlanType = "premium" | "premiumPlus";
-type BillingCycle = "monthly" | "yearly";
-
-interface SubscriptionPlan {
-  id: string;
-  name: string;
-  monthlyPrice: number;
-  yearlyPrice: number;
-  monthlyProductId: string;
-  yearlyProductId: string;
-  features: string[];
-  icon: React.ComponentType<{ className?: string }>;
-}
-
-const plans: Record<PlanType, SubscriptionPlan> = {
-  premium: {
-    id: "premium",
-    name: "Premium",
-    monthlyPrice: 9.99,
-    yearlyPrice: 79.99,
-    monthlyProductId: "com.timelessai.premium.monthly",
-    yearlyProductId: "com.timelessai.premium.yearly",
-    features: [
-      "500 credits monthly",
-      "HD quality exports",
-      "Priority processing",
-      "Basic AI models",
-    ],
-    icon: Crown,
-  },
-  premiumPlus: {
-    id: "premiumPlus",
-    name: "Premium+",
-    monthlyPrice: 19.99,
-    yearlyPrice: 149.99,
-    monthlyProductId: "com.timelessai.premiumplus.monthly",
-    yearlyProductId: "com.timelessai.premiumplus.yearly",
-    features: [
-      "Unlimited credits",
-      "4K quality exports",
-      "Faster responses & priority lanes",
-      "Advanced AI models",
-      "Early access to new features",
-    ],
-    icon: Sparkles,
-  },
-};
+type TabType = "subscription" | "credits";
+type BillingPeriod = "Monthly" | "Yearly";
 
 export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
-  const [selectedPlan, setSelectedPlan] = useState<PlanType>("premiumPlus");
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
+  const [activeTab, setActiveTab] = useState<TabType>("subscription");
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("Monthly");
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
+  const [creditPackages, setCreditPackages] = useState<CreditPackage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingPackage, setLoadingPackage] = useState<string | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [plansLoading, setPlansLoading] = useState(true);
+  
   const { user } = useAuth();
-  const { hasActiveSubscription, subscriptionStatus, refetch } = useCredits();
-
-  const currentPlan = plans[selectedPlan];
-  const price = billingCycle === "monthly" ? currentPlan.monthlyPrice : currentPlan.yearlyPrice;
-  const productId = billingCycle === "monthly" ? currentPlan.monthlyProductId : currentPlan.yearlyProductId;
-  const yearlySavings = Math.round(((currentPlan.monthlyPrice * 12 - currentPlan.yearlyPrice) / (currentPlan.monthlyPrice * 12)) * 100);
+  const { credits, hasActiveSubscription, refetch } = useCredits();
   const platform = getPlatform();
 
-  const handleSubscribe = async () => {
+  // Fetch plans from API
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("get-pricing");
+        
+        if (error) throw error;
+        
+        if (data?.subscriptionPlans && data.subscriptionPlans.length > 0) {
+          setSubscriptionPlans(data.subscriptionPlans);
+        } else {
+          setSubscriptionPlans(fallbackSubscriptionPlans);
+        }
+
+        if (data?.creditPackages && data.creditPackages.length > 0) {
+          setCreditPackages(data.creditPackages);
+        } else {
+          setCreditPackages(fallbackCreditPackages);
+        }
+      } catch (error) {
+        console.error("Error fetching pricing:", error);
+        setSubscriptionPlans(fallbackSubscriptionPlans);
+        setCreditPackages(fallbackCreditPackages);
+      } finally {
+        setPlansLoading(false);
+      }
+    };
+
+    fetchPlans();
+  }, []);
+
+  const filteredPlans = subscriptionPlans.filter(plan => plan.period === billingPeriod);
+
+  const handleSubscribe = async (plan: SubscriptionPlan) => {
     if (!user) {
       toast.error("Please sign in to subscribe");
       return;
     }
 
-    setIsLoading(true);
+    setLoadingPackage(plan.id);
     
     try {
+      // Get the correct product ID based on platform
+      const productId = platform === "ios" 
+        ? plan.apple_product_id 
+        : platform === "android" 
+          ? plan.android_product_id 
+          : plan.price_id;
+
+      if (!productId) {
+        // Fall back to web checkout
+        const { data, error } = await supabase.functions.invoke("create-checkout", {
+          body: { priceId: plan.price_id, isSubscription: true }
+        });
+
+        if (error) throw new Error(error.message);
+        if (data.error) throw new Error(data.error);
+        if (data.url) window.location.href = data.url;
+        return;
+      }
+
       const result = await InAppPurchaseService.purchase(productId);
       
       if (result.success) {
         toast.success("Subscription activated! 🎉");
-        // Refresh credits/subscription status
+        refetch?.();
+      } else {
+        // If IAP fails on web, try Stripe checkout
+        if (platform === "web") {
+          const { data, error } = await supabase.functions.invoke("create-checkout", {
+            body: { priceId: plan.price_id, isSubscription: true }
+          });
+
+          if (error) throw new Error(error.message);
+          if (data.error) throw new Error(data.error);
+          if (data.url) window.location.href = data.url;
+        } else {
+          toast.error(result.error || "Purchase failed");
+        }
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Something went wrong");
+    } finally {
+      setLoadingPackage(null);
+    }
+  };
+
+  const handleBuyCredits = async (pkg: CreditPackage) => {
+    if (!user) {
+      toast.error("Please sign in to purchase credits");
+      return;
+    }
+
+    setLoadingPackage(pkg.id);
+    
+    try {
+      const productId = platform === "ios" 
+        ? pkg.apple_product_id 
+        : platform === "android" 
+          ? pkg.android_product_id 
+          : pkg.price_id;
+
+      if (!productId || platform === "web") {
+        // Web checkout via Stripe
+        const { data, error } = await supabase.functions.invoke("create-checkout", {
+          body: { priceId: pkg.price_id, isSubscription: false }
+        });
+
+        if (error) throw new Error(error.message);
+        if (data.error) throw new Error(data.error);
+        if (data.url) window.location.href = data.url;
+        return;
+      }
+
+      const result = await InAppPurchaseService.purchase(productId);
+      
+      if (result.success) {
+        toast.success("Credits added! 🎉");
         refetch?.();
       } else {
         toast.error(result.error || "Purchase failed");
@@ -220,7 +359,7 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
     } catch (error: any) {
       toast.error(error.message || "Something went wrong");
     } finally {
-      setIsLoading(false);
+      setLoadingPackage(null);
     }
   };
 
@@ -257,195 +396,293 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
         >
           <ArrowLeft className="w-5 h-5 text-white" />
         </button>
-        <h1 className="text-white text-lg font-semibold">Subscription</h1>
+        <h1 className="text-white text-lg font-semibold">Pricing</h1>
       </div>
 
-      {/* Current Status */}
-      {hasActiveSubscription && (
-        <div className="mx-4 mb-4 p-4 bg-gradient-to-r from-purple-600/30 to-pink-600/30 rounded-2xl border border-purple-500/30">
-          <div className="flex items-center gap-2">
-            <Crown className="w-5 h-5 text-yellow-400" />
-            <span className="text-white font-medium">Active Subscription</span>
+      {/* Current Credits */}
+      <div className="px-4 mb-4">
+        <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center">
+              <Coins className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs">Your Balance</p>
+              <p className="text-white font-semibold">{credits ?? 0} credits</p>
+            </div>
           </div>
-          <p className="text-gray-400 text-sm mt-1">You're currently on the Pro plan</p>
+          {hasActiveSubscription && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600/30 to-pink-600/30 rounded-full border border-purple-500/30">
+              <Crown className="w-4 h-4 text-yellow-400" />
+              <span className="text-xs text-white font-medium">Subscriber</span>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
-      {/* Plan Toggle */}
+      {/* Tab Toggle */}
       <div className="px-4 mb-4">
         <div className="bg-white/5 rounded-full p-1 flex">
           <button
-            onClick={() => setSelectedPlan("premium")}
+            onClick={() => setActiveTab("subscription")}
             className={cn(
-              "flex-1 py-3 rounded-full text-sm font-medium transition-all",
-              selectedPlan === "premium"
-                ? "bg-white text-black"
+              "flex-1 py-2.5 rounded-full text-sm font-medium transition-all flex items-center justify-center gap-2",
+              activeTab === "subscription"
+                ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
                 : "text-gray-400"
             )}
           >
-            Premium
+            <Crown className="w-4 h-4" />
+            Subscriptions
           </button>
           <button
-            onClick={() => setSelectedPlan("premiumPlus")}
+            onClick={() => setActiveTab("credits")}
             className={cn(
-              "flex-1 py-3 rounded-full text-sm font-medium transition-all",
-              selectedPlan === "premiumPlus"
-                ? "bg-white text-black"
+              "flex-1 py-2.5 rounded-full text-sm font-medium transition-all flex items-center justify-center gap-2",
+              activeTab === "credits"
+                ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
                 : "text-gray-400"
             )}
           >
-            Premium+
+            <Plus className="w-4 h-4" />
+            Credit Packs
           </button>
         </div>
       </div>
 
-      {/* Description */}
-      <p className="text-center text-gray-400 text-sm px-4 mb-6">
-        {selectedPlan === "premium" 
-          ? "Perfect for casual creators and hobbyists."
-          : "Unlocks faster responses and deeper capabilities."}
-      </p>
-
-      {/* Billing Cycle Cards */}
-      <div className="px-4 space-y-3 mb-6">
-        {/* Monthly Card */}
-        <button
-          onClick={() => setBillingCycle("monthly")}
-          className={cn(
-            "w-full p-4 rounded-2xl border-2 transition-all text-left",
-            billingCycle === "monthly"
-              ? "bg-gradient-to-br from-purple-900/50 to-purple-800/30 border-purple-500"
-              : "bg-white/5 border-transparent"
-          )}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <p className="text-white font-semibold text-sm uppercase tracking-wide">Monthly Access</p>
-              <p className="text-gray-400 text-xs uppercase">Flexible monthly billing</p>
-            </div>
-            <div className={cn(
-              "w-6 h-6 rounded-full border-2 flex items-center justify-center",
-              billingCycle === "monthly" ? "border-purple-500 bg-purple-500" : "border-gray-600"
-            )}>
-              {billingCycle === "monthly" && <Check className="w-4 h-4 text-white" />}
-            </div>
+      {/* Content */}
+      <div className="px-4 pb-32">
+        {plansLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
           </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-white text-3xl font-bold">
-              <AnimatedPrice value={currentPlan.monthlyPrice} />
-            </span>
-            <span className="text-gray-400 text-sm">/mo</span>
-          </div>
-        </button>
-
-        {/* Yearly Card */}
-        <button
-          onClick={() => setBillingCycle("yearly")}
-          className={cn(
-            "w-full p-4 rounded-2xl border-2 transition-all text-left relative overflow-hidden",
-            billingCycle === "yearly"
-              ? "bg-gradient-to-br from-purple-900/50 to-purple-800/30 border-purple-500"
-              : "bg-white/5 border-transparent"
-          )}
-        >
-          {/* Best Value Badge */}
-          <div className="absolute top-3 right-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
-            Save {yearlySavings}%
-          </div>
-          
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <p className="text-white font-semibold text-sm uppercase tracking-wide">Yearly Access</p>
-              <p className="text-gray-400 text-xs uppercase">Best value</p>
-            </div>
-            <div className={cn(
-              "w-6 h-6 rounded-full border-2 flex items-center justify-center",
-              billingCycle === "yearly" ? "border-purple-500 bg-purple-500" : "border-gray-600"
-            )}>
-              {billingCycle === "yearly" && <Check className="w-4 h-4 text-white" />}
-            </div>
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-white text-3xl font-bold">
-              <AnimatedPrice value={currentPlan.yearlyPrice} />
-            </span>
-            <span className="text-gray-400 text-sm">/year</span>
-          </div>
-          <p className="text-purple-400 text-xs mt-1">
-            ${(currentPlan.yearlyPrice / 12).toFixed(2)}/mo billed annually
-          </p>
-        </button>
-      </div>
-
-      {/* Features List */}
-      <div className="px-4 mb-6 pb-48">
-        <div className="bg-white/5 rounded-2xl p-4">
-          <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
-            <currentPlan.icon className="w-5 h-5 text-purple-400" />
-            What's included
-          </h3>
-          <div className="space-y-3">
-            {currentPlan.features.map((feature, index) => (
-              <div key={index} className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
-                  <Check className="w-3 h-3 text-purple-400" />
-                </div>
-                <span className="text-gray-300 text-sm">{feature}</span>
+        ) : activeTab === "subscription" ? (
+          <>
+            {/* Billing Period Toggle */}
+            <div className="flex justify-center mb-4">
+              <div className="bg-white/5 rounded-full p-1 flex">
+                <button
+                  onClick={() => setBillingPeriod("Monthly")}
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm font-medium transition-all",
+                    billingPeriod === "Monthly"
+                      ? "bg-white text-black"
+                      : "text-gray-400"
+                  )}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setBillingPeriod("Yearly")}
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-1.5",
+                    billingPeriod === "Yearly"
+                      ? "bg-white text-black"
+                      : "text-gray-400"
+                  )}
+                >
+                  Yearly
+                  <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded-full">
+                    Save 17%
+                  </span>
+                </button>
               </div>
-            ))}
+            </div>
+
+            {/* Subscription Plans */}
+            <div className="space-y-3">
+              {filteredPlans.map((plan) => {
+                const IconComponent = iconMap[plan.icon] || Zap;
+                const isHighlighted = plan.popular || plan.best_value;
+                
+                return (
+                  <div
+                    key={plan.id}
+                    className={cn(
+                      "relative p-4 rounded-2xl border-2 transition-all",
+                      isHighlighted
+                        ? "bg-gradient-to-br from-purple-900/50 to-purple-800/30 border-purple-500"
+                        : "bg-white/5 border-white/10"
+                    )}
+                  >
+                    {/* Badges */}
+                    {plan.popular && (
+                      <div className="absolute -top-2 right-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        Popular
+                      </div>
+                    )}
+                    {plan.best_value && (
+                      <div className="absolute -top-2 right-4 bg-gradient-to-r from-yellow-500 to-orange-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        Best Value
+                      </div>
+                    )}
+
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className={cn(
+                        "w-12 h-12 rounded-xl flex items-center justify-center",
+                        isHighlighted 
+                          ? "bg-gradient-to-br from-purple-500 to-pink-500" 
+                          : "bg-white/10"
+                      )}>
+                        <IconComponent className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-white font-semibold">{plan.name}</h3>
+                        <p className="text-gray-400 text-xs">{plan.period}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-white text-xl font-bold">
+                          <AnimatedPrice value={plan.price} />
+                        </p>
+                        <p className="text-gray-400 text-xs">
+                          /{plan.period === "Monthly" ? "mo" : "yr"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/5 rounded-xl p-3 mb-3">
+                      <p className="text-purple-400 text-sm font-medium text-center">
+                        {plan.credits.toLocaleString()} credits
+                      </p>
+                    </div>
+
+                    {/* Features */}
+                    <div className="space-y-2 mb-4">
+                      {plan.features.map((feature, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          {feature.included ? (
+                            <div className="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center">
+                              <Check className="w-2.5 h-2.5 text-green-400" />
+                            </div>
+                          ) : (
+                            <div className="w-4 h-4 rounded-full bg-red-500/20 flex items-center justify-center">
+                              <span className="text-red-400 text-xs">✕</span>
+                            </div>
+                          )}
+                          <span className={cn(
+                            "text-xs",
+                            feature.included ? "text-gray-300" : "text-gray-500"
+                          )}>
+                            {feature.text}
+                          </span>
+                          {feature.badge && (
+                            <span className="text-[10px] bg-purple-500/30 text-purple-300 px-1.5 py-0.5 rounded">
+                              {feature.badge}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={() => handleSubscribe(plan)}
+                      disabled={loadingPackage !== null}
+                      className={cn(
+                        "w-full py-3 rounded-xl font-semibold text-sm transition-all active:scale-[0.98]",
+                        isHighlighted
+                          ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+                          : "bg-white/10 text-white border border-white/20"
+                      )}
+                    >
+                      {loadingPackage === plan.id ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Processing...
+                        </span>
+                      ) : (
+                        "Subscribe"
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          /* Credit Packages */
+          <div className="space-y-3">
+            <p className="text-center text-gray-400 text-sm mb-4">
+              One-time credit purchases. No subscription required.
+            </p>
+            
+            {creditPackages.map((pkg) => {
+              const IconComponent = iconMap[pkg.icon] || Coins;
+              
+              return (
+                <div
+                  key={pkg.id}
+                  className={cn(
+                    "relative p-4 rounded-2xl border-2 transition-all",
+                    pkg.popular
+                      ? "bg-gradient-to-br from-purple-900/50 to-purple-800/30 border-purple-500"
+                      : "bg-white/5 border-white/10"
+                  )}
+                >
+                  {pkg.popular && (
+                    <div className="absolute -top-2 right-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      Popular
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "w-12 h-12 rounded-xl flex items-center justify-center",
+                      pkg.popular 
+                        ? "bg-gradient-to-br from-yellow-500 to-orange-500" 
+                        : "bg-white/10"
+                    )}>
+                      <IconComponent className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-white font-semibold">{pkg.name}</h3>
+                      <p className="text-purple-400 text-sm font-medium">
+                        {pkg.credits.toLocaleString()} credits
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleBuyCredits(pkg)}
+                      disabled={loadingPackage !== null}
+                      className={cn(
+                        "px-4 py-2 rounded-xl font-semibold text-sm transition-all active:scale-[0.98]",
+                        pkg.popular
+                          ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+                          : "bg-white/10 text-white border border-white/20"
+                      )}
+                    >
+                      {loadingPackage === pkg.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        `$${pkg.price}`
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Fixed Bottom Sheet */}
-      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f] to-transparent pt-6 pb-6 px-4 z-50">
-        <div className="bg-[#0a0a0f]/95 backdrop-blur-xl rounded-t-3xl border-t border-white/10">
-          {/* Subscribe Button */}
-          <button
-            onClick={handleSubscribe}
-            disabled={isLoading}
-            className={cn(
-              "w-full py-4 rounded-2xl font-semibold text-white transition-all active:scale-[0.98]",
-              hasActiveSubscription
-                ? "bg-gradient-to-r from-green-600 to-emerald-600"
-                : "bg-gradient-to-r from-purple-600 to-pink-600"
-            )}
+      {/* Fixed Bottom - Restore Button */}
+      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/90 to-transparent pt-6 pb-6 px-4 z-50">
+        <div className="flex items-center justify-between">
+          <button 
+            onClick={handleRestore}
+            disabled={isRestoring}
+            className="text-purple-400 text-sm font-medium flex items-center gap-1.5"
           >
-            {isLoading ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Processing...
-              </span>
-            ) : hasActiveSubscription ? (
-              <span className="flex items-center justify-center gap-2">
-                <Check className="w-5 h-5" />
-                Manage Subscription
-              </span>
+            {isRestoring ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Restoring...
+              </>
             ) : (
-              `Subscribe for $${price}/${billingCycle === "monthly" ? "mo" : "year"}`
+              "Restore Purchases"
             )}
           </button>
-          
-          {/* Restore & Info */}
-          <div className="flex items-center justify-between mt-3">
-            <button 
-              onClick={handleRestore}
-              disabled={isRestoring}
-              className="text-purple-400 text-sm font-medium flex items-center gap-1.5"
-            >
-              {isRestoring ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Restoring...
-                </>
-              ) : (
-                "Restore Purchases"
-              )}
-            </button>
-            <p className="text-gray-500 text-xs">
-              Cancel anytime
-            </p>
-          </div>
+          <p className="text-gray-500 text-xs">
+            Powered by Stripe • Cancel anytime
+          </p>
         </div>
       </div>
     </div>
