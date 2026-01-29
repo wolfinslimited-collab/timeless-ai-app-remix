@@ -91,15 +91,10 @@ class _BrainAIScreenState extends State<BrainAIScreen>
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.purple.withOpacity(0.2),
-                    Colors.deepPurple.withOpacity(0.2),
-                  ],
-                ),
+                color: AppTheme.secondary,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.psychology, color: Colors.purple),
+              child: Icon(Icons.psychology, color: AppTheme.muted),
             ),
             const SizedBox(width: 12),
             const Column(
@@ -153,15 +148,10 @@ class _BrainAIScreenState extends State<BrainAIScreen>
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.purple.withOpacity(0.2),
-                      Colors.deepPurple.withOpacity(0.2),
-                    ],
-                  ),
+                  color: AppTheme.secondary,
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: const Icon(Icons.lock, size: 64, color: Colors.purple),
+                child: Icon(Icons.lock, size: 64, color: AppTheme.muted),
               ),
               const SizedBox(height: 24),
               const Text(
@@ -198,18 +188,13 @@ class _BrainAIScreenState extends State<BrainAIScreen>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.purple.withOpacity(0.2),
-                    Colors.deepPurple.withOpacity(0.2),
-                  ],
-                ),
+                color: AppTheme.secondary,
                 borderRadius: BorderRadius.circular(24),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.psychology,
                 size: 80,
-                color: Colors.purple,
+                color: AppTheme.muted,
               ),
             ),
             const SizedBox(height: 24),
@@ -318,14 +303,9 @@ class _BrainAIScreenState extends State<BrainAIScreen>
             width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.purple.withOpacity(0.15),
-                  Colors.deepPurple.withOpacity(0.15),
-                ],
-              ),
+              color: AppTheme.secondary,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.purple.withOpacity(0.3)),
+              border: Border.all(color: AppTheme.border),
             ),
             child: Column(
               children: [
@@ -393,7 +373,6 @@ class _BrainAIScreenState extends State<BrainAIScreen>
                 'Focus',
                 _todayMetrics?.focusScore,
                 Icons.center_focus_strong,
-                Colors.blue,
               ),
               _buildScoreCard(
                 'Stress Load',
@@ -401,19 +380,16 @@ class _BrainAIScreenState extends State<BrainAIScreen>
                     ? 100 - _todayMetrics!.stressLoad!
                     : null,
                 Icons.flash_on,
-                Colors.red,
               ),
               _buildScoreCard(
                 'Mood',
                 _todayMetrics?.moodStability,
                 Icons.favorite,
-                Colors.green,
               ),
               _buildScoreCard(
                 'Reaction',
                 _todayMetrics?.reactionSpeed,
                 Icons.speed,
-                Colors.amber,
               ),
             ],
           ),
@@ -456,21 +432,20 @@ class _BrainAIScreenState extends State<BrainAIScreen>
     String title,
     int? score,
     IconData icon,
-    Color color,
   ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: AppTheme.secondary,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: AppTheme.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: color, size: 20),
+              Icon(icon, color: AppTheme.muted, size: 20),
               const SizedBox(width: 8),
               Text(
                 title,
@@ -489,26 +464,11 @@ class _BrainAIScreenState extends State<BrainAIScreen>
   }
 
   Widget _buildInsightCard(BrainInsight insight) {
-    Color color;
-    IconData icon;
-    switch (insight.type) {
-      case 'positive':
-        color = Colors.green;
-        icon = Icons.check_circle;
-        break;
-      case 'warning':
-        color = Colors.orange;
-        icon = Icons.warning;
-        break;
-      default:
-        color = Colors.blue;
-        icon = Icons.info;
-    }
-
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
+      color: AppTheme.secondary,
       child: ListTile(
-        leading: Icon(icon, color: color),
+        leading: Icon(Icons.lightbulb_outline, color: AppTheme.muted),
         title: Text(insight.title),
         subtitle: Text(
           insight.description,
@@ -520,42 +480,12 @@ class _BrainAIScreenState extends State<BrainAIScreen>
 
   Widget _buildGamesTab() {
     final games = [
-      {
-        'name': 'Memory Match',
-        'description': 'Test your memory',
-        'icon': Icons.grid_view,
-        'color': Colors.purple,
-      },
-      {
-        'name': 'Speed Math',
-        'description': 'Quick calculations',
-        'icon': Icons.calculate,
-        'color': Colors.blue,
-      },
-      {
-        'name': 'Pattern Recognition',
-        'description': 'Find the pattern',
-        'icon': Icons.pattern,
-        'color': Colors.green,
-      },
-      {
-        'name': 'Word Puzzle',
-        'description': 'Vocabulary challenge',
-        'icon': Icons.abc,
-        'color': Colors.orange,
-      },
-      {
-        'name': 'Reaction Test',
-        'description': 'Test your reflexes',
-        'icon': Icons.flash_on,
-        'color': Colors.red,
-      },
-      {
-        'name': 'Focus Timer',
-        'description': 'Deep work session',
-        'icon': Icons.timer,
-        'color': Colors.teal,
-      },
+      {'name': 'Memory Match', 'description': 'Test your memory', 'icon': Icons.grid_view},
+      {'name': 'Speed Math', 'description': 'Quick calculations', 'icon': Icons.calculate},
+      {'name': 'Pattern Recognition', 'description': 'Find the pattern', 'icon': Icons.pattern},
+      {'name': 'Word Puzzle', 'description': 'Vocabulary challenge', 'icon': Icons.abc},
+      {'name': 'Reaction Test', 'description': 'Test your reflexes', 'icon': Icons.flash_on},
+      {'name': 'Focus Timer', 'description': 'Deep work session', 'icon': Icons.timer},
     ];
 
     return ListView.builder(
@@ -565,15 +495,15 @@ class _BrainAIScreenState extends State<BrainAIScreen>
         final game = games[index];
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
+          color: AppTheme.secondary,
           child: ListTile(
             leading: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: (game['color'] as Color).withOpacity(0.1),
+                color: AppTheme.card,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child:
-                  Icon(game['icon'] as IconData, color: game['color'] as Color),
+              child: Icon(game['icon'] as IconData, color: AppTheme.muted),
             ),
             title: Text(game['name'] as String),
             subtitle: Text(game['description'] as String),
