@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { PullToRefresh } from "./PullToRefresh";
+import { MobileUpgradeWizard } from "./MobileUpgradeWizard";
 import type { Screen } from "./MobileNav";
 
 // Import custom app icons
@@ -75,7 +76,22 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
   const [recentGenerations, setRecentGenerations] = useState<Generation[]>([]);
   const [featuredItems, setFeaturedItems] = useState<FeaturedItem[]>([]);
   const [loadingFeatured, setLoadingFeatured] = useState(true);
+  const [showUpgradeWizard, setShowUpgradeWizard] = useState(false);
 
+  const handleProBannerClick = () => {
+    // Show onboarding wizard first, then navigate to subscription
+    setShowUpgradeWizard(true);
+  };
+
+  const handleWizardComplete = () => {
+    setShowUpgradeWizard(false);
+    onNavigate("subscription");
+  };
+
+  const handleWizardSkip = () => {
+    setShowUpgradeWizard(false);
+    onNavigate("subscription");
+  };
   useEffect(() => {
     if (user) {
       fetchRecentGenerations();
@@ -168,6 +184,16 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
     // Other apps - could show toast or navigate
   };
 
+  // Show upgrade wizard if triggered
+  if (showUpgradeWizard) {
+    return (
+      <MobileUpgradeWizard
+        onComplete={handleWizardComplete}
+        onSkip={handleWizardSkip}
+      />
+    );
+  }
+
   return (
     <PullToRefresh onRefresh={handleRefresh} className="h-full">
       <div className="px-4 py-2">
@@ -205,7 +231,7 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
         {/* Pro Banner - only show if not subscribed - matching Flutter */}
         {!hasActiveSubscription && (
           <button 
-            onClick={() => onNavigate("subscription")}
+            onClick={handleProBannerClick}
             className="w-full bg-gradient-to-br from-primary to-pink-500 rounded-2xl p-4 mb-6"
           >
             <div className="flex items-center gap-3">

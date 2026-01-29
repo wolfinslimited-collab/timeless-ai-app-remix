@@ -251,9 +251,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (credits.hasActiveSubscription) {
                     return const SizedBox.shrink();
                   }
-                  return GestureDetector(
-                    onTap: () => context.go('/pricing'),
-                    child: Container(
+                return GestureDetector(
+                  onTap: () => context.push('/upgrade-wizard'),
+                  child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
