@@ -25,13 +25,13 @@ class CreateScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // Shots Tool Card (Featured)
+            // Character Tool Card (Featured)
             _CreateOptionCard(
-              icon: Icons.grid_3x3,
-              title: 'Shots',
-              description: 'Upload 1 image → Get 9 cinematic angles',
+              icon: Icons.person_4,
+              title: 'Character',
+              description: 'Train your own AI character from photos',
               gradient: [const Color(0xFFE879F9), const Color(0xFF8B5CF6)],
-              onTap: () => context.go('/create/shots'),
+              onTap: () => context.go('/character'),
               badge: 'NEW',
             ),
             const SizedBox(height: 16),
