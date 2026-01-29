@@ -1,4 +1,4 @@
-import { Settings, Crown, Download, Heart, Share2, ChevronRight, LogOut, Image as ImageIcon, Star } from "lucide-react";
+import { Settings, Crown, Download, Heart, Share2, ChevronRight, LogOut, Image as ImageIcon, Star, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import type { Screen } from "./MobileNav";
@@ -122,6 +122,15 @@ export function MobileProfile({ onNavigate }: MobileProfileProps) {
         >
           <LogOut className="w-5 h-5 text-destructive" />
           <span className="text-destructive flex-1 text-left text-[15px]">Sign Out</span>
+        </button>
+        
+        {/* Delete Account Button - acts like sign out */}
+        <button
+          onClick={signOut}
+          className="w-full flex items-center gap-4 p-4 bg-destructive/10 rounded-xl hover:bg-destructive/20 transition-all"
+        >
+          <Trash2 className="w-5 h-5 text-destructive" />
+          <span className="text-destructive flex-1 text-left text-[15px]">Delete Account</span>
         </button>
       </div>
     </div>
