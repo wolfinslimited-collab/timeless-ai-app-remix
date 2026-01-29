@@ -20,10 +20,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   int _activeTab = 0; // 0 = subscription, 1 = credits
   bool _isYearly = false;
   
-  final PageController _planPageController = PageController(viewportFraction: 0.85);
-  final PageController _creditPageController = PageController(viewportFraction: 0.85, initialPage: 1);
+  final PageController _planPageController = PageController(viewportFraction: 0.9);
   int _currentPlanIndex = 0;
-  int _currentCreditIndex = 1;
 
   // Subscription plans
   final List<Map<String, dynamic>> _monthlyPlans = [
@@ -98,7 +96,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   @override
   void dispose() {
     _planPageController.dispose();
-    _creditPageController.dispose();
     super.dispose();
   }
 
@@ -165,7 +162,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Subscription'),
+        toolbarHeight: 48,
+        title: const Text('Subscription', style: TextStyle(fontSize: 16)),
       ),
       body: Consumer2<CreditsProvider, AuthProvider>(
         builder: (context, credits, auth, child) {
@@ -173,116 +171,95 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           
           return Column(
             children: [
-              // Balance Header - Prominent
+              // Compact Balance Header
               Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.all(20),
+                margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
                     colors: [
-                      AppTheme.primary.withOpacity(0.2),
+                      AppTheme.primary.withOpacity(0.15),
                       const Color(0xFFEC4899).withOpacity(0.1),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: AppTheme.primary.withOpacity(0.2),
                   ),
                 ),
-                child: Column(
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFF59E0B).withOpacity(0.3),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.toll,
-                            color: Colors.white,
-                            size: 28,
-                          ),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Your Balance',
-                                style: TextStyle(
-                                  color: AppTheme.muted,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              Text(
-                                hasSubscription ? '∞' : '${credits.credits}',
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (hasSubscription)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [AppTheme.primary, Color(0xFFEC4899)],
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.workspace_premium,
-                                  color: Colors.yellow[300],
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 6),
-                                const Text(
-                                  'Pro',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      hasSubscription
-                          ? '✨ Unlimited credits with your Pro subscription'
-                          : 'Get more credits or subscribe for unlimited access',
-                      style: TextStyle(
-                        color: hasSubscription ? AppTheme.primary : AppTheme.muted,
-                        fontSize: 13,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      textAlign: TextAlign.center,
+                      child: const Icon(
+                        Icons.toll,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Balance',
+                            style: TextStyle(
+                              color: AppTheme.muted,
+                              fontSize: 11,
+                            ),
+                          ),
+                          Text(
+                            hasSubscription ? '∞' : '${credits.credits}',
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (hasSubscription)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [AppTheme.primary, Color(0xFFEC4899)],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.workspace_premium,
+                              color: Colors.yellow[300],
+                              size: 14,
+                            ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              'Pro',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -290,10 +267,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               // Tab Toggle
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
                   color: AppTheme.secondary,
-                  borderRadius: BorderRadius.circular(30),
+                  borderRadius: BorderRadius.circular(24),
                 ),
                 child: Row(
                   children: [
@@ -301,24 +278,25 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       child: GestureDetector(
                         onTap: () => setState(() => _activeTab = 0),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
                             color: _activeTab == 0 ? AppTheme.primary : Colors.transparent,
-                            borderRadius: BorderRadius.circular(26),
+                            borderRadius: BorderRadius.circular(21),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
                                 Icons.workspace_premium,
-                                size: 18,
+                                size: 14,
                                 color: _activeTab == 0 ? Colors.white : AppTheme.muted,
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 4),
                               Text(
                                 'Subscribe',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
+                                  fontSize: 13,
                                   color: _activeTab == 0 ? Colors.white : AppTheme.muted,
                                 ),
                               ),
@@ -331,24 +309,25 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       child: GestureDetector(
                         onTap: () => setState(() => _activeTab = 1),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
                             color: _activeTab == 1 ? AppTheme.primary : Colors.transparent,
-                            borderRadius: BorderRadius.circular(26),
+                            borderRadius: BorderRadius.circular(21),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
                                 Icons.add,
-                                size: 18,
+                                size: 14,
                                 color: _activeTab == 1 ? Colors.white : AppTheme.muted,
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 4),
                               Text(
                                 'Credit Packs',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
+                                  fontSize: 13,
                                   color: _activeTab == 1 ? Colors.white : AppTheme.muted,
                                 ),
                               ),
@@ -361,7 +340,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
               // Content
               Expanded(
@@ -372,7 +351,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
               // Bottom Restore
               Container(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 decoration: BoxDecoration(
                   border: Border(
                     top: BorderSide(color: AppTheme.border),
@@ -390,30 +369,30 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   SizedBox(
-                                    width: 14,
-                                    height: 14,
+                                    width: 12,
+                                    height: 12,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
                                       color: AppTheme.primary,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 6),
                                   const Text(
                                     'Restoring...',
-                                    style: TextStyle(color: AppTheme.primary),
+                                    style: TextStyle(color: AppTheme.primary, fontSize: 13),
                                   ),
                                 ],
                               )
                             : const Text(
                                 'Restore Purchases',
-                                style: TextStyle(color: AppTheme.primary),
+                                style: TextStyle(color: AppTheme.primary, fontSize: 13),
                               ),
                       ),
                       const Text(
                         'Cancel anytime',
                         style: TextStyle(
                           color: AppTheme.muted,
-                          fontSize: 12,
+                          fontSize: 11,
                         ),
                       ),
                     ],
@@ -433,10 +412,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         // Billing Period Toggle
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
             color: AppTheme.secondary,
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(24),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -448,15 +427,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   _currentPlanIndex = 0;
                 }),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: !_isYearly ? Colors.white : Colors.transparent,
-                    borderRadius: BorderRadius.circular(26),
+                    borderRadius: BorderRadius.circular(21),
                   ),
                   child: Text(
                     'Monthly',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
+                      fontSize: 13,
                       color: !_isYearly ? Colors.black : AppTheme.muted,
                     ),
                   ),
@@ -468,10 +448,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   _currentPlanIndex = 0;
                 }),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: _isYearly ? Colors.white : Colors.transparent,
-                    borderRadius: BorderRadius.circular(26),
+                    borderRadius: BorderRadius.circular(21),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -480,20 +460,21 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                         'Yearly',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
+                          fontSize: 13,
                           color: _isYearly ? Colors.black : AppTheme.muted,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.green,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Text(
                           '-17%',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 9,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
@@ -507,7 +488,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           ),
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
         // Plans Pager
         Expanded(
@@ -522,7 +503,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               final isHighlighted = isPopular || isBestValue;
               
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                 child: Container(
                   decoration: BoxDecoration(
                     gradient: isHighlighted
@@ -536,7 +517,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                           )
                         : null,
                     color: isHighlighted ? null : AppTheme.secondary,
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isHighlighted ? AppTheme.primary : AppTheme.border,
                       width: isHighlighted ? 2 : 1,
@@ -552,18 +533,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                           right: 0,
                           child: Center(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
                                   colors: [AppTheme.primary, Color(0xFFEC4899)],
                                 ),
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: BorderRadius.circular(16),
                               ),
                               child: const Text(
                                 'Most Popular',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 12,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -577,18 +558,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                           right: 0,
                           child: Center(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
                                   colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
                                 ),
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: BorderRadius.circular(16),
                               ),
                               child: const Text(
                                 'Best Value',
                                 style: TextStyle(
                                   color: Colors.black,
-                                  fontSize: 12,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -598,30 +579,30 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
                       // Content
                       Padding(
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(16),
                         child: Column(
                           children: [
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 12),
                             
                             // Plan Header
                             Row(
                               children: [
                                 Container(
-                                  width: 56,
-                                  height: 56,
+                                  width: 44,
+                                  height: 44,
                                   decoration: BoxDecoration(
                                     gradient: const LinearGradient(
                                       colors: [AppTheme.primary, Color(0xFFEC4899)],
                                     ),
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Icon(
                                     Icons.workspace_premium,
                                     color: Colors.white,
-                                    size: 28,
+                                    size: 22,
                                   ),
                                 ),
-                                const SizedBox(width: 16),
+                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -629,13 +610,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                                       Text(
                                         plan['name'],
                                         style: const TextStyle(
-                                          fontSize: 20,
+                                          fontSize: 18,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                       Text(
                                         plan['period'],
-                                        style: const TextStyle(color: AppTheme.muted),
+                                        style: const TextStyle(color: AppTheme.muted, fontSize: 12),
                                       ),
                                     ],
                                   ),
@@ -646,7 +627,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                                     Text(
                                       '\$${plan['price'].toStringAsFixed(2)}',
                                       style: const TextStyle(
-                                        fontSize: 24,
+                                        fontSize: 20,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -654,7 +635,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                                       '/${plan['period'] == 'Monthly' ? 'mo' : 'yr'}',
                                       style: const TextStyle(
                                         color: AppTheme.muted,
-                                        fontSize: 12,
+                                        fontSize: 10,
                                       ),
                                     ),
                                   ],
@@ -662,26 +643,26 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                               ],
                             ),
 
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 12),
 
                             // Credits
                             Container(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: AppTheme.primary.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
                                 '${plan['credits']} credits/month',
                                 style: const TextStyle(
                                   color: AppTheme.primary,
-                                  fontSize: 16,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
 
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 12),
 
                             // Features
                             Expanded(
@@ -692,43 +673,43 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                                 itemBuilder: (context, idx) {
                                   final feature = plan['features'][idx];
                                   return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 6),
+                                    padding: const EdgeInsets.symmetric(vertical: 4),
                                     child: Row(
                                       children: [
                                         Container(
-                                          width: 20,
-                                          height: 20,
+                                          width: 16,
+                                          height: 16,
                                           decoration: BoxDecoration(
                                             color: Colors.green.withOpacity(0.2),
                                             shape: BoxShape.circle,
                                           ),
                                           child: const Icon(
                                             Icons.check,
-                                            size: 12,
+                                            size: 10,
                                             color: Colors.green,
                                           ),
                                         ),
-                                        const SizedBox(width: 12),
+                                        const SizedBox(width: 8),
                                         Expanded(
                                           child: Text(
                                             feature['text'],
-                                            style: const TextStyle(fontSize: 14),
+                                            style: const TextStyle(fontSize: 12),
                                           ),
                                         ),
                                         if (feature['badge'] != null)
                                           Container(
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
+                                              horizontal: 6,
                                               vertical: 2,
                                             ),
                                             decoration: BoxDecoration(
                                               color: AppTheme.primary.withOpacity(0.2),
-                                              borderRadius: BorderRadius.circular(10),
+                                              borderRadius: BorderRadius.circular(8),
                                             ),
                                             child: Text(
                                               feature['badge'],
                                               style: const TextStyle(
-                                                fontSize: 10,
+                                                fontSize: 9,
                                                 fontWeight: FontWeight.bold,
                                                 color: AppTheme.primary,
                                               ),
@@ -749,22 +730,22 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                                   gradient: const LinearGradient(
                                     colors: [AppTheme.primary, Color(0xFFEC4899)],
                                   ),
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: ElevatedButton(
                                   onPressed: _isLoading ? null : () => _handleSubscribe(plan),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.transparent,
                                     shadowColor: Colors.transparent,
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
                                   child: _isLoading
                                       ? const SizedBox(
-                                          width: 20,
-                                          height: 20,
+                                          width: 18,
+                                          height: 18,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
                                             color: Colors.white,
@@ -773,7 +754,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                                       : const Text(
                                           'Subscribe Now',
                                           style: TextStyle(
-                                            fontSize: 16,
+                                            fontSize: 14,
                                             fontWeight: FontWeight.w600,
                                             color: Colors.white,
                                           ),
@@ -795,20 +776,20 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         // Dots indicator
         if (_currentPlans.length > 1)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: 4),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(_currentPlans.length, (index) {
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: index == _currentPlanIndex ? 24 : 8,
-                  height: 8,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: index == _currentPlanIndex ? 20 : 6,
+                  height: 6,
                   decoration: BoxDecoration(
                     color: index == _currentPlanIndex 
                         ? AppTheme.primary 
                         : AppTheme.muted.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 );
               }),
@@ -825,208 +806,168 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           padding: EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'One-time credit purchases. No subscription required.',
-            style: TextStyle(color: AppTheme.muted, fontSize: 13),
+            style: TextStyle(color: AppTheme.muted, fontSize: 11),
             textAlign: TextAlign.center,
           ),
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
-        // Credits Pager
+        // Credits Vertical List
         Expanded(
-          child: PageView.builder(
-            controller: _creditPageController,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: _creditPackages.length,
-            onPageChanged: (index) => setState(() => _currentCreditIndex = index),
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               final pkg = _creditPackages[index];
               final isPopular = pkg['popular'] == true;
               
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: isPopular
-                        ? LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              const Color(0xFFF59E0B).withOpacity(0.2),
-                              const Color(0xFFF97316).withOpacity(0.1),
-                            ],
-                          )
-                        : null,
-                    color: isPopular ? null : AppTheme.secondary,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: isPopular ? const Color(0xFFF59E0B) : AppTheme.border,
-                      width: isPopular ? 2 : 1,
-                    ),
+              return Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: isPopular
+                      ? LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            const Color(0xFFF59E0B).withOpacity(0.15),
+                            const Color(0xFFF97316).withOpacity(0.08),
+                          ],
+                        )
+                      : null,
+                  color: isPopular ? null : AppTheme.secondary,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isPopular ? const Color(0xFFF59E0B) : AppTheme.border,
+                    width: isPopular ? 2 : 1,
                   ),
-                  child: Stack(
-                    children: [
-                      // Badge
-                      if (isPopular)
-                        Positioned(
-                          top: -1,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Text(
-                                'Best Value',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                ),
+                child: Column(
+                  children: [
+                    if (isPopular)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text(
+                            'Best Value',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
-
-                      // Content
-                      Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const SizedBox(height: 20),
-                            
-                            // Icon
-                            Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                gradient: isPopular
-                                    ? const LinearGradient(
-                                        colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
-                                      )
-                                    : null,
-                                color: isPopular ? null : AppTheme.muted.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                              child: Icon(
-                                pkg['icon'] as IconData,
-                                size: 40,
-                                color: Colors.white,
-                              ),
-                            ),
-
-                            const SizedBox(height: 20),
-
-                            Text(
-                              pkg['name'],
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-
-                            const SizedBox(height: 8),
-
-                            Text(
-                              '${pkg['credits']} credits',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.primary,
-                              ),
-                            ),
-
-                            const SizedBox(height: 8),
-
-                            Text(
-                              '\$${(pkg['price'] / pkg['credits'] * 100).toStringAsFixed(1)}¢ per credit',
-                              style: const TextStyle(
-                                color: AppTheme.muted,
-                                fontSize: 13,
-                              ),
-                            ),
-
-                            const Spacer(),
-
-                            // Buy Button
-                            SizedBox(
-                              width: double.infinity,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: isPopular
-                                      ? const LinearGradient(
-                                          colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
-                                        )
-                                      : const LinearGradient(
-                                          colors: [AppTheme.primary, Color(0xFFEC4899)],
-                                        ),
-                                  borderRadius: BorderRadius.circular(16),
+                      ),
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            gradient: isPopular
+                                ? const LinearGradient(
+                                    colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
+                                  )
+                                : null,
+                            color: isPopular ? null : AppTheme.muted.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            pkg['icon'] as IconData,
+                            size: 22,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                pkg['name'],
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                child: ElevatedButton(
-                                  onPressed: _isLoading ? null : () => _handleBuyCredits(pkg),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    shadowColor: Colors.transparent,
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
+                              ),
+                              Row(
+                                children: [
+                                  Text(
+                                    '${pkg['credits']} credits',
+                                    style: const TextStyle(
+                                      color: AppTheme.primary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
                                     ),
                                   ),
-                                  child: _isLoading
-                                      ? const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : Text(
-                                          'Buy for \$${pkg['price'].toStringAsFixed(2)}',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w600,
-                                            color: isPopular ? Colors.black : Colors.white,
-                                          ),
-                                        ),
-                                ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '· \$${(pkg['price'] / pkg['credits'] * 100).toStringAsFixed(1)}¢/cr',
+                                    style: const TextStyle(
+                                      color: AppTheme.muted,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: isPopular
+                                ? const LinearGradient(
+                                    colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
+                                  )
+                                : const LinearGradient(
+                                    colors: [AppTheme.primary, Color(0xFFEC4899)],
+                                  ),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : () => _handleBuyCredits(pkg),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              minimumSize: Size.zero,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                          ],
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    '\$${pkg['price'].toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: isPopular ? Colors.black : Colors.white,
+                                    ),
+                                  ),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ),
               );
             },
-          ),
-        ),
-
-        // Dots indicator
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(_creditPackages.length, (index) {
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                width: index == _currentCreditIndex ? 24 : 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: index == _currentCreditIndex 
-                      ? AppTheme.primary 
-                      : AppTheme.muted.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              );
-            }),
           ),
         ),
       ],

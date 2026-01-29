@@ -241,7 +241,6 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
   const [isRestoring, setIsRestoring] = useState(false);
   const [plansLoading, setPlansLoading] = useState(true);
   const [currentPlanIndex, setCurrentPlanIndex] = useState(0);
-  const [currentCreditIndex, setCurrentCreditIndex] = useState(1); // Default to popular
   
   const { user } = useAuth();
   const { credits, hasActiveSubscription, refetch } = useCredits();
@@ -263,9 +262,6 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
 
         if (data?.creditPackages && data.creditPackages.length > 0) {
           setCreditPackages(data.creditPackages);
-          // Default to popular package
-          const popularIdx = data.creditPackages.findIndex((p: CreditPackage) => p.popular);
-          if (popularIdx >= 0) setCurrentCreditIndex(popularIdx);
         } else {
           setCreditPackages(fallbackCreditPackages);
         }
@@ -393,94 +389,76 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
     setCurrentPlanIndex(prev => Math.max(0, Math.min(maxIndex, prev + direction)));
   };
 
-  const navigateCredit = (direction: number) => {
-    const maxIndex = creditPackages.length - 1;
-    setCurrentCreditIndex(prev => Math.max(0, Math.min(maxIndex, prev + direction)));
-  };
-
   const currentPlan = filteredPlans[currentPlanIndex];
-  const currentCredit = creditPackages[currentCreditIndex];
 
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="px-4 py-3 flex items-center gap-3 border-b border-border">
+      <div className="px-4 py-2 flex items-center gap-3 border-b border-border">
         <button
           onClick={onBack}
-          className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center"
+          className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center"
         >
-          <ArrowLeft className="w-5 h-5 text-foreground" />
+          <ArrowLeft className="w-4 h-4 text-foreground" />
         </button>
-        <h1 className="text-foreground text-lg font-semibold">Subscription</h1>
+        <h1 className="text-foreground text-base font-semibold">Subscription</h1>
       </div>
 
-      {/* Balance Header - Prominent */}
-      <div className="px-4 pt-4 pb-2">
-        <div className="bg-gradient-to-br from-primary/20 via-primary/10 to-pink-500/20 rounded-3xl p-6 border border-primary/20">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center shadow-lg">
-                <Coins className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <p className="text-muted-foreground text-sm">Your Balance</p>
-                <p className="text-foreground text-3xl font-bold">
-                  {hasActiveSubscription ? "∞" : (credits ?? 0)}
-                </p>
-              </div>
+      {/* Compact Balance Header */}
+      <div className="px-4 py-3">
+        <div className="bg-gradient-to-r from-primary/15 to-pink-500/10 rounded-2xl px-4 py-3 border border-primary/20 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center">
+              <Coins className="w-5 h-5 text-white" />
             </div>
-            {hasActiveSubscription && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full">
-                <Crown className="w-5 h-5 text-yellow-300" />
-                <span className="text-white font-semibold">Pro</span>
-              </div>
-            )}
+            <div>
+              <p className="text-muted-foreground text-xs">Balance</p>
+              <p className="text-foreground text-xl font-bold">
+                {hasActiveSubscription ? "∞" : (credits ?? 0)}
+              </p>
+            </div>
           </div>
-          
-          {hasActiveSubscription ? (
-            <p className="text-primary text-sm text-center">
-              ✨ Unlimited credits with your Pro subscription
-            </p>
-          ) : (
-            <p className="text-muted-foreground text-sm text-center">
-              Get more credits or subscribe for unlimited access
-            </p>
+          {hasActiveSubscription && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full">
+              <Crown className="w-4 h-4 text-yellow-300" />
+              <span className="text-white text-sm font-semibold">Pro</span>
+            </div>
           )}
         </div>
       </div>
 
       {/* Tab Toggle */}
-      <div className="px-4 py-3">
+      <div className="px-4 pb-2">
         <div className="bg-secondary rounded-full p-1 flex">
           <button
             onClick={() => setActiveTab("subscription")}
             className={cn(
-              "flex-1 py-2.5 rounded-full text-sm font-medium transition-all flex items-center justify-center gap-2",
+              "flex-1 py-2 rounded-full text-sm font-medium transition-all flex items-center justify-center gap-1.5",
               activeTab === "subscription"
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground"
             )}
           >
-            <Crown className="w-4 h-4" />
+            <Crown className="w-3.5 h-3.5" />
             Subscribe
           </button>
           <button
             onClick={() => setActiveTab("credits")}
             className={cn(
-              "flex-1 py-2.5 rounded-full text-sm font-medium transition-all flex items-center justify-center gap-2",
+              "flex-1 py-2 rounded-full text-sm font-medium transition-all flex items-center justify-center gap-1.5",
               activeTab === "credits"
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground"
             )}
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             Credit Packs
           </button>
         </div>
       </div>
 
-      {/* Content - Pager Style */}
-      <div className="flex-1 flex flex-col px-4">
+      {/* Content */}
+      <div className="flex-1 flex flex-col px-4 overflow-hidden">
         {plansLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -488,12 +466,12 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
         ) : activeTab === "subscription" ? (
           <>
             {/* Billing Period Toggle */}
-            <div className="flex justify-center mb-4">
+            <div className="flex justify-center mb-3">
               <div className="bg-secondary rounded-full p-1 flex">
                 <button
                   onClick={() => { setBillingPeriod("Monthly"); setCurrentPlanIndex(0); }}
                   className={cn(
-                    "px-4 py-2 rounded-full text-sm font-medium transition-all",
+                    "px-4 py-1.5 rounded-full text-sm font-medium transition-all",
                     billingPeriod === "Monthly"
                       ? "bg-foreground text-background"
                       : "text-muted-foreground"
@@ -504,14 +482,14 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
                 <button
                   onClick={() => { setBillingPeriod("Yearly"); setCurrentPlanIndex(0); }}
                   className={cn(
-                    "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-1.5",
+                    "px-4 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1",
                     billingPeriod === "Yearly"
                       ? "bg-foreground text-background"
                       : "text-muted-foreground"
                   )}
                 >
                   Yearly
-                  <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded-full">
+                  <span className="text-[9px] bg-green-500 text-white px-1.5 py-0.5 rounded-full">
                     -17%
                   </span>
                 </button>
@@ -519,7 +497,7 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
             </div>
 
             {/* Plan Pager */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-h-0">
               {currentPlan && (
                 <div className="flex-1 flex items-center">
                   {/* Left Arrow */}
@@ -527,83 +505,83 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
                     onClick={() => navigatePlan(-1)}
                     disabled={currentPlanIndex === 0}
                     className={cn(
-                      "w-10 h-10 rounded-full flex items-center justify-center transition-opacity",
+                      "w-8 h-8 rounded-full flex items-center justify-center transition-opacity flex-shrink-0",
                       currentPlanIndex === 0 ? "opacity-30" : "opacity-100"
                     )}
                   >
-                    <ChevronLeft className="w-6 h-6 text-muted-foreground" />
+                    <ChevronLeft className="w-5 h-5 text-muted-foreground" />
                   </button>
 
                   {/* Plan Card */}
-                  <div className="flex-1 mx-2">
+                  <div className="flex-1 mx-1 overflow-y-auto max-h-full">
                     <div className={cn(
-                      "relative p-5 rounded-3xl border-2 transition-all",
+                      "relative p-4 rounded-2xl border-2 transition-all",
                       currentPlan.popular || currentPlan.best_value
                         ? "bg-gradient-to-br from-primary/20 to-pink-500/10 border-primary"
                         : "bg-secondary border-border"
                     )}>
                       {/* Badge */}
                       {currentPlan.popular && (
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-primary to-pink-500 text-white text-xs font-bold px-4 py-1 rounded-full">
+                        <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-primary to-pink-500 text-white text-[10px] font-bold px-3 py-0.5 rounded-full">
                           Most Popular
                         </div>
                       )}
                       {currentPlan.best_value && (
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-500 to-orange-500 text-black text-xs font-bold px-4 py-1 rounded-full">
+                        <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-500 to-orange-500 text-black text-[10px] font-bold px-3 py-0.5 rounded-full">
                           Best Value
                         </div>
                       )}
 
                       {/* Plan Header */}
-                      <div className="flex items-center justify-between mb-4 pt-2">
-                        <div className="flex items-center gap-3">
-                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-pink-500 flex items-center justify-center">
-                            <Crown className="w-7 h-7 text-white" />
+                      <div className="flex items-center justify-between mb-3 pt-1">
+                        <div className="flex items-center gap-2">
+                          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary to-pink-500 flex items-center justify-center">
+                            <Crown className="w-5 h-5 text-white" />
                           </div>
                           <div>
-                            <h3 className="text-foreground text-xl font-bold">{currentPlan.name}</h3>
-                            <p className="text-muted-foreground text-sm">{currentPlan.period}</p>
+                            <h3 className="text-foreground text-lg font-bold">{currentPlan.name}</h3>
+                            <p className="text-muted-foreground text-xs">{currentPlan.period}</p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-foreground text-2xl font-bold">
+                          <p className="text-foreground text-xl font-bold">
                             <AnimatedPrice value={currentPlan.price} />
                           </p>
-                          <p className="text-muted-foreground text-xs">
+                          <p className="text-muted-foreground text-[10px]">
                             /{currentPlan.period === "Monthly" ? "mo" : "yr"}
                           </p>
                         </div>
                       </div>
 
                       {/* Credits */}
-                      <div className="bg-primary/10 rounded-2xl p-4 mb-4">
-                        <p className="text-primary text-lg font-bold text-center">
+                      <div className="bg-primary/10 rounded-xl p-3 mb-3">
+                        <p className="text-primary text-sm font-bold text-center">
                           {currentPlan.credits.toLocaleString()} credits/month
                         </p>
                       </div>
 
                       {/* Features */}
-                      <div className="space-y-3 mb-5">
+                      <div className="space-y-2 mb-4">
                         {currentPlan.features.map((feature, index) => (
-                          <div key={index} className="flex items-center gap-3">
+                          <div key={index} className="flex items-center gap-2">
                             <div className={cn(
-                              "w-5 h-5 rounded-full flex items-center justify-center",
+                              "w-4 h-4 rounded-full flex items-center justify-center",
                               feature.included ? "bg-green-500/20" : "bg-destructive/20"
                             )}>
                               {feature.included ? (
-                                <Check className="w-3 h-3 text-green-500" />
+                                <Check className="w-2.5 h-2.5 text-green-500" />
                               ) : (
-                                <span className="text-destructive text-xs">✕</span>
+                                <span className="text-destructive text-[10px]">✕</span>
                               )}
                             </div>
                             <span className={cn(
-                              "text-sm flex-1",
+                              "text-xs flex-1",
                               feature.included ? "text-foreground" : "text-muted-foreground"
                             )}>
                               {feature.text}
                             </span>
                             {feature.badge && (
-                              <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
+                              <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full">
                                 {feature.badge}
                               </span>
                             )}
@@ -615,11 +593,11 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
                       <button
                         onClick={() => handleSubscribe(currentPlan)}
                         disabled={loadingPackage !== null}
-                        className="w-full py-4 rounded-2xl font-semibold text-base bg-gradient-to-r from-primary to-pink-500 text-white transition-all active:scale-[0.98]"
+                        className="w-full py-3 rounded-xl font-semibold text-sm bg-gradient-to-r from-primary to-pink-500 text-white transition-all active:scale-[0.98]"
                       >
                         {loadingPackage === currentPlan.id ? (
                           <span className="flex items-center justify-center gap-2">
-                            <Loader2 className="w-5 h-5 animate-spin" />
+                            <Loader2 className="w-4 h-4 animate-spin" />
                             Processing...
                           </span>
                         ) : (
@@ -634,25 +612,25 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
                     onClick={() => navigatePlan(1)}
                     disabled={currentPlanIndex === filteredPlans.length - 1}
                     className={cn(
-                      "w-10 h-10 rounded-full flex items-center justify-center transition-opacity",
+                      "w-8 h-8 rounded-full flex items-center justify-center transition-opacity flex-shrink-0",
                       currentPlanIndex === filteredPlans.length - 1 ? "opacity-30" : "opacity-100"
                     )}
                   >
-                    <ChevronRight className="w-6 h-6 text-muted-foreground" />
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
                   </button>
                 </div>
               )}
 
               {/* Dots Indicator */}
               {filteredPlans.length > 1 && (
-                <div className="flex justify-center gap-2 py-3">
+                <div className="flex justify-center gap-2 py-2">
                   {filteredPlans.map((_, idx) => (
                     <button
                       key={idx}
                       onClick={() => setCurrentPlanIndex(idx)}
                       className={cn(
                         "w-2 h-2 rounded-full transition-all",
-                        idx === currentPlanIndex ? "w-6 bg-primary" : "bg-muted"
+                        idx === currentPlanIndex ? "w-5 bg-primary" : "bg-muted"
                       )}
                     />
                   ))}
@@ -661,116 +639,81 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
             </div>
           </>
         ) : (
-          /* Credit Packages - Pager Style */
-          <div className="flex-1 flex flex-col">
-            <p className="text-center text-muted-foreground text-sm mb-4">
+          /* Credit Packages - Vertical List */
+          <div className="flex-1 overflow-y-auto">
+            <p className="text-center text-muted-foreground text-xs mb-3">
               One-time credit purchases. No subscription required.
             </p>
 
-            {currentCredit && (
-              <div className="flex-1 flex items-center">
-                {/* Left Arrow */}
-                <button
-                  onClick={() => navigateCredit(-1)}
-                  disabled={currentCreditIndex === 0}
-                  className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center transition-opacity",
-                    currentCreditIndex === 0 ? "opacity-30" : "opacity-100"
-                  )}
-                >
-                  <ChevronLeft className="w-6 h-6 text-muted-foreground" />
-                </button>
-
-                {/* Credit Card */}
-                <div className="flex-1 mx-2">
-                  <div className={cn(
-                    "relative p-6 rounded-3xl border-2 transition-all",
-                    currentCredit.popular
-                      ? "bg-gradient-to-br from-yellow-500/20 to-orange-500/10 border-yellow-500"
-                      : "bg-secondary border-border"
-                  )}>
-                    {currentCredit.popular && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-500 to-orange-500 text-black text-xs font-bold px-4 py-1 rounded-full">
-                        Best Value
+            <div className="space-y-3">
+              {creditPackages.map((pkg) => {
+                const IconComponent = iconMap[pkg.icon] || Coins;
+                
+                return (
+                  <div
+                    key={pkg.id}
+                    className={cn(
+                      "p-4 rounded-2xl border-2 transition-all",
+                      pkg.popular
+                        ? "bg-gradient-to-br from-yellow-500/15 to-orange-500/10 border-yellow-500"
+                        : "bg-secondary border-border"
+                    )}
+                  >
+                    {pkg.popular && (
+                      <div className="flex justify-center mb-2">
+                        <span className="text-[10px] font-bold bg-gradient-to-r from-yellow-500 to-orange-500 text-black px-3 py-0.5 rounded-full">
+                          Best Value
+                        </span>
                       </div>
                     )}
-
-                    <div className="flex flex-col items-center text-center pt-4">
+                    
+                    <div className="flex items-center gap-3">
                       <div className={cn(
-                        "w-20 h-20 rounded-3xl flex items-center justify-center mb-4",
-                        currentCredit.popular 
+                        "w-12 h-12 rounded-xl flex items-center justify-center",
+                        pkg.popular 
                           ? "bg-gradient-to-br from-yellow-500 to-orange-500" 
                           : "bg-muted"
                       )}>
-                        {(() => {
-                          const IconComponent = iconMap[currentCredit.icon] || Coins;
-                          return <IconComponent className="w-10 h-10 text-white" />;
-                        })()}
+                        <IconComponent className="w-6 h-6 text-white" />
                       </div>
                       
-                      <h3 className="text-foreground text-2xl font-bold mb-1">{currentCredit.name}</h3>
-                      <p className="text-primary text-xl font-bold mb-2">
-                        {currentCredit.credits.toLocaleString()} credits
-                      </p>
-                      <p className="text-muted-foreground text-sm mb-6">
-                        ${(currentCredit.price / currentCredit.credits * 100).toFixed(1)}¢ per credit
-                      </p>
-
+                      <div className="flex-1">
+                        <h3 className="text-foreground text-base font-bold">{pkg.name}</h3>
+                        <div className="flex items-center gap-2">
+                          <span className="text-primary font-bold">{pkg.credits.toLocaleString()} credits</span>
+                          <span className="text-muted-foreground text-xs">
+                            · ${(pkg.price / pkg.credits * 100).toFixed(1)}¢/cr
+                          </span>
+                        </div>
+                      </div>
+                      
                       <button
-                        onClick={() => handleBuyCredits(currentCredit)}
+                        onClick={() => handleBuyCredits(pkg)}
                         disabled={loadingPackage !== null}
                         className={cn(
-                          "w-full py-4 rounded-2xl font-semibold text-lg transition-all active:scale-[0.98]",
-                          currentCredit.popular
+                          "px-4 py-2 rounded-xl font-semibold text-sm transition-all active:scale-[0.98]",
+                          pkg.popular
                             ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-black"
                             : "bg-primary text-primary-foreground"
                         )}
                       >
-                        {loadingPackage === currentCredit.id ? (
-                          <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                        {loadingPackage === pkg.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          `Buy for $${currentCredit.price}`
+                          `$${pkg.price}`
                         )}
                       </button>
                     </div>
                   </div>
-                </div>
-
-                {/* Right Arrow */}
-                <button
-                  onClick={() => navigateCredit(1)}
-                  disabled={currentCreditIndex === creditPackages.length - 1}
-                  className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center transition-opacity",
-                    currentCreditIndex === creditPackages.length - 1 ? "opacity-30" : "opacity-100"
-                  )}
-                >
-                  <ChevronRight className="w-6 h-6 text-muted-foreground" />
-                </button>
-              </div>
-            )}
-
-            {/* Dots Indicator */}
-            {creditPackages.length > 1 && (
-              <div className="flex justify-center gap-2 py-3">
-                {creditPackages.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCurrentCreditIndex(idx)}
-                    className={cn(
-                      "w-2 h-2 rounded-full transition-all",
-                      idx === currentCreditIndex ? "w-6 bg-primary" : "bg-muted"
-                    )}
-                  />
-                ))}
-              </div>
-            )}
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
 
       {/* Fixed Bottom - Restore Button */}
-      <div className="px-4 pb-6 pt-3 border-t border-border bg-background">
+      <div className="px-4 pb-4 pt-2 border-t border-border bg-background">
         <div className="flex items-center justify-between">
           <button 
             onClick={handleRestore}
