@@ -80,15 +80,6 @@ const List<AIAppItem> _aiApps = [
     category: 'productivity',
     badge: 'NEW',
   ),
-  AIAppItem(
-    id: 'ads-ai',
-    name: 'Ads AI',
-    description: 'Create high-converting ad campaigns with AI',
-    icon: Icons.campaign_outlined,
-    category: 'marketing',
-    badge: 'SOON',
-    comingSoon: true,
-  ),
 ];
 
 const List<Map<String, String>> _categories = [
