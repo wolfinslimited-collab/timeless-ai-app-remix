@@ -22,10 +22,12 @@ import 'services/push_notification_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // Initialize Firebase (check if already initialized to prevent duplicate app error)
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
 
   // Set up background message handler before any other Firebase Messaging calls
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
