@@ -78,11 +78,6 @@ class _LoginScreenState extends State<LoginScreen>
     await authProvider.signInWithApple();
   }
 
-  Future<void> _handleFacebookSignIn() async {
-    final authProvider = context.read<AuthProvider>();
-    await authProvider.signInWithFacebook();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -166,12 +161,6 @@ class _LoginScreenState extends State<LoginScreen>
                         icon: Icons.apple,
                         label: 'Continue with Apple',
                         onPressed: _handleAppleSignIn,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildOAuthButton(
-                        icon: Icons.facebook,
-                        label: 'Continue with Facebook',
-                        onPressed: _handleFacebookSignIn,
                       ),
                       const SizedBox(height: 24),
 

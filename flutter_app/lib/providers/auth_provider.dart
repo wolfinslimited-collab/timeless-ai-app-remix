@@ -228,34 +228,6 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Sign in with Facebook using Firebase
-  Future<bool> signInWithFacebook() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      // Use Firebase Auth service for Facebook sign-in
-      final response = await _firebaseAuthService.signInWithFacebook();
-      
-      if (response?.user != null) {
-        _user = response!.user;
-        await _fetchProfile();
-        await _trackOAuthSignIn(response.user!, 'facebook');
-        return true;
-      }
-      
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    } catch (e) {
-      _error = _parseAuthError(e);
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
-  }
-
   /// Track OAuth sign-in for attribution
   Future<void> _trackOAuthSignIn(User user, String method) async {
     try {
