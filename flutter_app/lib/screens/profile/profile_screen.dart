@@ -448,6 +448,42 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 8),
+
+                  // Delete Account Button (acts like sign out)
+                  GestureDetector(
+                    onTap: () async {
+                      await context.read<AuthProvider>().signOut();
+                      if (context.mounted) {
+                        context.go('/login');
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            size: 20,
+                            color: Colors.red[400],
+                          ),
+                          const SizedBox(width: 16),
+                          Text(
+                            'Delete Account',
+                            style: TextStyle(
+                              color: Colors.red[400],
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 24),
                 ],
               ),
