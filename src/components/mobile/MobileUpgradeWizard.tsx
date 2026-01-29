@@ -2,31 +2,72 @@ import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Import wizard images (using placeholders - will use gradients as fallback)
+// Wizard steps with onboarding images
+// First 2 slides: content aligned to bottom
+// Remaining slides: content aligned to top
 const wizardSteps = [
   {
     id: 1,
-    title: "UNLIMITED GENERATIONS",
-    description: "Create unlimited images, videos, and music with no daily limits.",
-    gradient: "from-purple-600 via-pink-500 to-orange-400",
+    title: "Welcome to Timeless",
+    description: "Your intelligent AI companion that helps you create, organize, and thrive — all in one powerful app.",
+    image: "/images/onboarding/welcome.jpg",
+    alignBottom: true,
   },
   {
     id: 2,
-    title: "PRIORITY PROCESSING",
-    description: "Skip the queue and get faster results with priority access to our servers.",
-    gradient: "from-blue-600 via-cyan-500 to-teal-400",
+    title: "MAKE\nHOLLYWOOD MOVIES",
+    description: "",
+    image: "/images/onboarding/hollywood.jpg",
+    alignBottom: true,
   },
   {
     id: 3,
-    title: "4K QUALITY EXPORTS",
-    description: "Download your creations in stunning 4K resolution for professional use.",
-    gradient: "from-emerald-600 via-green-500 to-lime-400",
+    title: "SKIN AI",
+    description: "Receive smart, personalized skincare insights powered by AI to improve skin health and daily care routines.",
+    image: "/images/onboarding/skin-ai.jpg",
+    alignBottom: false,
   },
   {
     id: 4,
-    title: "ADVANCED AI MODELS",
-    description: "Access our most powerful AI models for superior quality and creativity.",
-    gradient: "from-violet-600 via-purple-500 to-fuchsia-400",
+    title: "CALORIE AI",
+    description: "Track calories accurately and receive AI-based nutrition guidance tailored to your lifestyle and goals.",
+    image: "/images/onboarding/calorie-ai.jpg",
+    alignBottom: false,
+  },
+  {
+    id: 5,
+    title: "BRAIN AI",
+    description: "Enhance focus, memory, and mental performance through AI-powered cognitive training and analysis.",
+    image: "/images/onboarding/brain-ai.jpg",
+    alignBottom: false,
+  },
+  {
+    id: 6,
+    title: "SLEEP AI",
+    description: "Improve sleep quality with AI insights that analyze patterns and help you build healthier sleep habits.",
+    image: "/images/onboarding/sleep-ai.jpg",
+    alignBottom: false,
+  },
+  {
+    id: 7,
+    title: "TIMEFARM",
+    description: "Turn your device into a source of passive income by leveraging AI-powered computational farming.",
+    image: "/images/onboarding/timefarm.jpg",
+    alignBottom: false,
+  },
+  {
+    id: 8,
+    title: "MUSIC AI",
+    description: "Create, compose, and edit music using AI tools designed for both beginners and professional creators.",
+    image: "/images/onboarding/music-ai.jpg",
+    alignBottom: false,
+  },
+  {
+    id: 9,
+    title: "NOTIFY AI",
+    description: "Receive smart, real-time notifications tailored to your interests and priorities using AI.",
+    image: "/images/onboarding/notify-ai.jpg",
+    alignBottom: false,
   },
 ];
 
@@ -91,19 +132,27 @@ export function MobileUpgradeWizard({ onComplete, onSkip }: MobileUpgradeWizardP
   };
 
   const currentStep = wizardSteps[currentIndex];
+  const alignBottom = currentStep.alignBottom;
 
   return (
     <div className="absolute inset-0 bg-[#05070F] flex flex-col overflow-hidden z-50">
-      {/* Background Gradient */}
-      <div 
-        className={cn(
-          "absolute inset-0 bg-gradient-to-br opacity-30 transition-all duration-500",
-          currentStep.gradient
-        )}
-      />
-      
-      {/* Overlay gradient for text readability */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#05070F] via-[#05070F]/50 to-transparent" />
+      {/* Background Image */}
+      <div className="absolute inset-0">
+        <img 
+          src={currentStep.image}
+          alt={currentStep.title}
+          className="w-full h-full object-cover transition-opacity duration-500"
+        />
+        {/* Overlay gradient based on alignment */}
+        <div 
+          className={cn(
+            "absolute inset-0",
+            alignBottom 
+              ? "bg-gradient-to-t from-[#05070F]/90 via-[#05070F]/40 to-transparent"
+              : "bg-gradient-to-b from-[#05070F]/85 via-[#05070F]/35 to-transparent"
+          )}
+        />
+      </div>
       
       {/* Content */}
       <div className="relative flex-1 flex flex-col">
@@ -111,7 +160,7 @@ export function MobileUpgradeWizard({ onComplete, onSkip }: MobileUpgradeWizardP
         <div className="px-4 py-3 flex items-center justify-between">
           <button
             onClick={handleBack}
-            className="w-10 h-10 rounded-full bg-white/10 border border-white/10 flex items-center justify-center"
+            className="w-10 h-10 rounded-full bg-white/10 border border-white/10 flex items-center justify-center backdrop-blur-sm"
           >
             <ArrowLeft className="w-5 h-5 text-white" />
           </button>
@@ -123,17 +172,26 @@ export function MobileUpgradeWizard({ onComplete, onSkip }: MobileUpgradeWizardP
           </button>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col items-center justify-center px-6">
+        {/* Main Content - positioned based on alignBottom */}
+        <div 
+          className={cn(
+            "flex-1 flex flex-col px-6",
+            alignBottom 
+              ? "justify-end pb-48" 
+              : "justify-start pt-16"
+          )}
+        >
           <h1 
-            className="text-white text-3xl font-bold text-center tracking-wide"
+            className="text-white text-3xl font-bold text-center tracking-wide whitespace-pre-line"
             style={{ fontFamily: "system-ui" }}
           >
             {currentStep.title}
           </h1>
-          <p className="text-white/70 text-center text-sm mt-4 max-w-[60%] leading-relaxed">
-            {currentStep.description}
-          </p>
+          {currentStep.description && (
+            <p className="text-white/75 text-center text-sm mt-4 max-w-[70%] mx-auto leading-relaxed">
+              {currentStep.description}
+            </p>
+          )}
         </div>
 
         {/* Bottom Section */}
@@ -147,7 +205,7 @@ export function MobileUpgradeWizard({ onComplete, onSkip }: MobileUpgradeWizardP
           </button>
 
           {/* Progress Indicators */}
-          <div className="flex justify-center gap-2.5">
+          <div className="flex justify-center gap-2">
             {wizardSteps.map((_, index) => {
               const isActive = index === currentIndex;
               const isPast = index < currentIndex;
@@ -157,7 +215,7 @@ export function MobileUpgradeWizard({ onComplete, onSkip }: MobileUpgradeWizardP
                   key={index}
                   className={cn(
                     "h-1 rounded-full overflow-hidden transition-all duration-300",
-                    isActive ? "w-16" : "w-6",
+                    isActive ? "w-12" : "w-4",
                     "bg-white/20"
                   )}
                 >
