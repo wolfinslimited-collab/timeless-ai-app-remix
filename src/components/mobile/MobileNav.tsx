@@ -42,16 +42,16 @@ export function MobileNav({ currentScreen, onNavigate }: MobileNavProps) {
           onClick={() => onNavigate("create")}
         />
         <NavItem 
-          icon={Grid2X2} 
-          label="Apps" 
-          active={currentScreen === "apps"}
-          onClick={() => onNavigate("apps")}
-        />
-        <NavItem 
           icon={MessageSquare} 
           label="Chat" 
           active={currentScreen === "chat"}
           onClick={() => onNavigate("chat")}
+        />
+        <NavItem 
+          icon={Grid2X2} 
+          label="Apps" 
+          active={currentScreen === "apps"}
+          onClick={() => onNavigate("apps")}
         />
         <NavItem 
           icon={User} 
