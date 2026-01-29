@@ -303,9 +303,7 @@ class _SkinAnalyzingScreenState extends State<SkinAnalyzingScreen>
                     duration: const Duration(milliseconds: 100),
                     width: MediaQuery.of(context).size.width * _progress * 0.85,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppTheme.primary, Color(0xFFEC4899)],
-                      ),
+                      color: AppTheme.muted,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -320,7 +318,7 @@ class _SkinAnalyzingScreenState extends State<SkinAnalyzingScreen>
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.primary,
+                  color: AppTheme.muted,
                 ),
               ),
 
@@ -354,13 +352,13 @@ class _SkinAnalyzingScreenState extends State<SkinAnalyzingScreen>
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.card,
+                  color: AppTheme.secondary,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppTheme.border),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.lightbulb, color: Color(0xFFF59E0B), size: 24),
+                    Icon(Icons.lightbulb, color: AppTheme.muted, size: 24),
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(

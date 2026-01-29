@@ -7,19 +7,6 @@ class SkinResultsScreen extends StatelessWidget {
   
   const SkinResultsScreen({super.key, required this.result});
 
-  Color _getSeverityColor(String severity) {
-    switch (severity.toLowerCase()) {
-      case 'severe':
-        return const Color(0xFFEF4444);
-      case 'moderate':
-        return const Color(0xFFF59E0B);
-      case 'mild':
-        return const Color(0xFF22C55E);
-      default:
-        return AppTheme.muted;
-    }
-  }
-
   String _getSkinTypeLabel(String skinType) {
     switch (skinType.toLowerCase()) {
       case 'oily':
@@ -42,13 +29,6 @@ class SkinResultsScreen extends StatelessWidget {
     return 'Needs Attention';
   }
 
-  Color _getScoreColor(int score) {
-    if (score >= 80) return const Color(0xFF22C55E);
-    if (score >= 60) return const Color(0xFF3B82F6);
-    if (score >= 40) return const Color(0xFFF59E0B);
-    return const Color(0xFFEF4444);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -56,7 +36,7 @@ class SkinResultsScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Skin Analysis'),
+        title: const Text('Skin Analysis Results'),
         actions: [
           IconButton(
             icon: const Icon(Icons.share),
@@ -71,12 +51,11 @@ class SkinResultsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Overall score card
+            // Overall score card - mono color
             _OverallScoreCard(
               score: result.overallScore,
               skinType: _getSkinTypeLabel(result.skinType),
               scoreLabel: _getScoreLabel(result.overallScore),
-              scoreColor: _getScoreColor(result.overallScore),
             ),
 
             const SizedBox(height: 24),
@@ -86,7 +65,7 @@ class SkinResultsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.card,
+                  color: AppTheme.secondary,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppTheme.border),
                 ),
@@ -95,13 +74,14 @@ class SkinResultsScreen extends StatelessWidget {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.summarize, color: AppTheme.primary, size: 20),
+                        Icon(Icons.summarize, color: AppTheme.muted, size: 20),
                         SizedBox(width: 8),
                         Text(
                           'Summary',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
+                            color: AppTheme.foreground,
                           ),
                         ),
                       ],
@@ -127,12 +107,12 @@ class SkinResultsScreen extends StatelessWidget {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: AppTheme.foreground,
               ),
             ),
             const SizedBox(height: 16),
 
-            // Metrics grid
+            // Metrics grid - mono color
             GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -145,14 +125,12 @@ class SkinResultsScreen extends StatelessWidget {
                   title: 'Hydration',
                   value: result.hydrationLevel,
                   status: result.hydrationLevel >= 60 ? 'Good' : 'Low',
-                  color: const Color(0xFF3B82F6),
                   icon: Icons.water_drop,
                 ),
                 _MetricCard(
                   title: 'Oiliness',
                   value: result.oilinessLevel,
                   status: result.oilinessLevel <= 40 ? 'Low' : result.oilinessLevel <= 60 ? 'Normal' : 'High',
-                  color: const Color(0xFFF59E0B),
                   icon: Icons.opacity,
                 ),
                 _MetricCard(
@@ -160,14 +138,12 @@ class SkinResultsScreen extends StatelessWidget {
                   value: 0,
                   displayText: result.skinType.toUpperCase(),
                   status: '',
-                  color: const Color(0xFF8B5CF6),
                   icon: Icons.spa,
                 ),
                 _MetricCard(
                   title: 'Overall Score',
                   value: result.overallScore,
                   status: _getScoreLabel(result.overallScore),
-                  color: _getScoreColor(result.overallScore),
                   icon: Icons.auto_awesome,
                 ),
               ],
@@ -182,7 +158,7 @@ class SkinResultsScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: AppTheme.foreground,
                 ),
               ),
               const SizedBox(height: 16),
@@ -192,7 +168,6 @@ class SkinResultsScreen extends StatelessWidget {
                   title: concern.name,
                   severity: concern.severity,
                   description: concern.description,
-                  color: _getSeverityColor(concern.severity),
                 ),
               )),
               const SizedBox(height: 24),
@@ -205,7 +180,7 @@ class SkinResultsScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: AppTheme.foreground,
                 ),
               ),
               const SizedBox(height: 16),
@@ -278,13 +253,11 @@ class _OverallScoreCard extends StatelessWidget {
   final int score;
   final String skinType;
   final String scoreLabel;
-  final Color scoreColor;
 
   const _OverallScoreCard({
     required this.score,
     required this.skinType,
     required this.scoreLabel,
-    required this.scoreColor,
   });
 
   @override
@@ -292,24 +265,21 @@ class _OverallScoreCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppTheme.secondary,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.border),
       ),
       child: Column(
         children: [
           const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+              Icon(Icons.auto_awesome, color: AppTheme.muted, size: 20),
               SizedBox(width: 8),
               Text(
-                'Overall Skin Score',
+                'Skin Score',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.muted,
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                 ),
@@ -317,67 +287,33 @@ class _OverallScoreCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Stack(
-            alignment: Alignment.center,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
             children: [
-              SizedBox(
-                width: 140,
-                height: 140,
-                child: CircularProgressIndicator(
-                  value: score / 100,
-                  strokeWidth: 12,
-                  backgroundColor: Colors.white.withOpacity(0.2),
-                  valueColor: const AlwaysStoppedAnimation(Colors.white),
+              Text(
+                '$score',
+                style: const TextStyle(
+                  color: AppTheme.foreground,
+                  fontSize: 56,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              Column(
-                children: [
-                  Text(
-                    '$score',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 48,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Text(
-                    'out of 100',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
+              const Text(
+                '/100',
+                style: TextStyle(
+                  color: AppTheme.muted,
+                  fontSize: 20,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  scoreLabel,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
-            skinType,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+            scoreLabel,
+            style: const TextStyle(
+              color: AppTheme.muted,
               fontSize: 14,
             ),
           ),
@@ -392,7 +328,6 @@ class _MetricCard extends StatelessWidget {
   final int value;
   final String? displayText;
   final String status;
-  final Color color;
   final IconData icon;
 
   const _MetricCard({
@@ -400,7 +335,6 @@ class _MetricCard extends StatelessWidget {
     required this.value,
     this.displayText,
     required this.status,
-    required this.color,
     required this.icon,
   });
 
@@ -409,7 +343,7 @@ class _MetricCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: AppTheme.secondary,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.border),
       ),
@@ -421,18 +355,18 @@ class _MetricCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: AppTheme.card,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: color, size: 18),
+                child: Icon(icon, color: AppTheme.muted, size: 18),
               ),
               const Spacer(),
               Text(
                 displayText ?? '$value%',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: color,
+                  color: AppTheme.foreground,
                 ),
               ),
             ],
@@ -443,15 +377,15 @@ class _MetricCard extends StatelessWidget {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: Colors.white,
+              color: AppTheme.foreground,
             ),
           ),
           if (status.isNotEmpty)
             Text(
               status,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
-                color: color,
+                color: AppTheme.muted,
               ),
             ),
         ],
@@ -464,13 +398,11 @@ class _ConcernCard extends StatelessWidget {
   final String title;
   final String severity;
   final String description;
-  final Color color;
 
   const _ConcernCard({
     required this.title,
     required this.severity,
     required this.description,
-    required this.color,
   });
 
   @override
@@ -478,7 +410,7 @@ class _ConcernCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: AppTheme.secondary,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.border),
       ),
@@ -493,20 +425,21 @@ class _ConcernCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: AppTheme.foreground,
                   ),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: AppTheme.card,
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.border),
                 ),
                 child: Text(
-                  severity.toUpperCase(),
-                  style: TextStyle(
-                    color: color,
+                  severity.toLowerCase(),
+                  style: const TextStyle(
+                    color: AppTheme.muted,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -545,7 +478,7 @@ class _RecommendationCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: AppTheme.secondary,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.border),
       ),
@@ -554,10 +487,10 @@ class _RecommendationCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.15),
+              color: AppTheme.card,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: AppTheme.primary, size: 24),
+            child: Icon(icon, color: AppTheme.muted, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
