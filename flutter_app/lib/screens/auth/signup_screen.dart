@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/oauth_icons.dart';
 
 // Popular countries list
 const List<Map<String, String>> countries = [
@@ -655,17 +656,9 @@ class _SignupScreenState extends State<SignupScreen>
                         const SizedBox(height: 24),
 
                         // OAuth Buttons
-                        _buildOAuthButton(
-                          icon: Icons.g_mobiledata_rounded,
-                          label: 'Continue with Google',
-                          onPressed: _handleGoogleSignIn,
-                        ),
+                        _buildGoogleButton(),
                         const SizedBox(height: 12),
-                        _buildOAuthButton(
-                          icon: Icons.apple,
-                          label: 'Continue with Apple',
-                          onPressed: _handleAppleSignIn,
-                        ),
+                        _buildAppleButton(),
                         const SizedBox(height: 24),
 
                         // Divider
@@ -1030,13 +1023,10 @@ class _SignupScreenState extends State<SignupScreen>
     );
   }
 
-  Widget _buildOAuthButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
+  Widget _buildGoogleButton() {
     return Consumer<AuthProvider>(
       builder: (context, auth, child) {
+        final isLoading = auth.isLoading;
         return Container(
           height: 52,
           decoration: BoxDecoration(
@@ -1047,30 +1037,83 @@ class _SignupScreenState extends State<SignupScreen>
             color: AppTheme.card,
             borderRadius: BorderRadius.circular(12),
             child: InkWell(
-              onTap: auth.isLoading ? null : onPressed,
+              onTap: isLoading ? null : _handleGoogleSignIn,
               borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (auth.isLoading)
-                      const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    else
-                      Icon(icon, size: 24),
-                    const SizedBox(width: 12),
-                    Text(
-                      auth.isLoading ? 'Signing in...' : label,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
+              child: Opacity(
+                opacity: isLoading ? 0.5 : 1.0,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (isLoading)
+                        const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      else
+                        const GoogleIcon(size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        isLoading ? 'Signing in...' : 'Continue with Google',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAppleButton() {
+    return Consumer<AuthProvider>(
+      builder: (context, auth, child) {
+        final isLoading = auth.isLoading;
+        return Container(
+          height: 52,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.muted.withOpacity(0.2)),
+          ),
+          child: Material(
+            color: AppTheme.card,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: isLoading ? null : _handleAppleSignIn,
+              borderRadius: BorderRadius.circular(12),
+              child: Opacity(
+                opacity: isLoading ? 0.5 : 1.0,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (isLoading)
+                        const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      else
+                        const AppleIcon(size: 20, color: AppTheme.foreground),
+                      const SizedBox(width: 12),
+                      Text(
+                        isLoading ? 'Signing in...' : 'Continue with Apple',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
