@@ -17,6 +17,15 @@ import { MobileProfile } from "@/components/mobile/MobileProfile";
 import { MobileSubscription } from "@/components/mobile/MobileSubscription";
 import { MobileDownloads } from "@/components/mobile/MobileDownloads";
 import { MobileFavorites } from "@/components/mobile/MobileFavorites";
+import {
+  MobileNotifyAI,
+  MobileSleepAI,
+  MobileBrainAI,
+  MobileSkinAI,
+  MobileFinancialAI,
+  MobileCalorieAI,
+  MobileFingerprintAI,
+} from "@/components/mobile/ai-apps";
 
 export default function MobilePreview() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("home");
@@ -63,6 +72,20 @@ export default function MobilePreview() {
         return <MobileDownloads onBack={() => setCurrentScreen("profile")} />;
       case "favorites":
         return <MobileFavorites onBack={() => setCurrentScreen("profile")} />;
+      case "notify-ai":
+        return <MobileNotifyAI onBack={() => setCurrentScreen("apps")} />;
+      case "sleep-ai":
+        return <MobileSleepAI onBack={() => setCurrentScreen("apps")} />;
+      case "brain-ai":
+        return <MobileBrainAI onBack={() => setCurrentScreen("apps")} />;
+      case "skin-ai":
+        return <MobileSkinAI onBack={() => setCurrentScreen("apps")} />;
+      case "financial-ai":
+        return <MobileFinancialAI onBack={() => setCurrentScreen("apps")} />;
+      case "calorie-ai":
+        return <MobileCalorieAI onBack={() => setCurrentScreen("apps")} />;
+      case "fingerprint-ai":
+        return <MobileFingerprintAI onBack={() => setCurrentScreen("apps")} />;
       default:
         return <MobileHome onNavigate={setCurrentScreen} credits={credits ?? 0} />;
     }
