@@ -514,11 +514,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
       );
 
   void _handleToolSelected(ToolItem tool) {
-    if (tool.route != null && !tool.isGenerate) {
-      context.go(tool.route!);
-    } else {
-      setState(() => _selectedToolId = tool.id);
-    }
+    setState(() => _selectedToolId = tool.id);
   }
 
   @override
