@@ -80,6 +80,10 @@ class SmartMediaImage extends StatelessWidget {
 
     // Handle network URLs
     if (isNetworkUrl(imageUrl)) {
+      // Safely convert width/height to int, avoiding infinity/NaN
+      final int? cacheWidth = (width != null && width!.isFinite) ? width!.toInt() : null;
+      final int? cacheHeight = (height != null && height!.isFinite) ? height!.toInt() : null;
+      
       return CachedNetworkImage(
         imageUrl: imageUrl!,
         fit: fit,
@@ -91,8 +95,8 @@ class SmartMediaImage extends StatelessWidget {
           return errorWidget ?? _buildErrorWidget();
         },
         // Cache settings for better performance
-        memCacheWidth: width?.toInt(),
-        memCacheHeight: height?.toInt(),
+        memCacheWidth: cacheWidth,
+        memCacheHeight: cacheHeight,
         fadeInDuration: const Duration(milliseconds: 200),
         fadeOutDuration: const Duration(milliseconds: 200),
       );
