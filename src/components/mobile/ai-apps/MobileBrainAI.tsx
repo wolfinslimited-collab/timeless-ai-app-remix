@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Brain, Gamepad2, TrendingUp, Lightbulb, Plus, Lock, Focus, Heart, Zap } from "lucide-react";
+import { ArrowLeft, Brain, Gamepad2, TrendingUp, Lightbulb, Plus, Lock, Focus, Heart, Zap, Grid3X3, Calculator, Search, Type, Timer, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MobileBrainAIProps {
@@ -180,20 +180,26 @@ export function MobileBrainAI({ onBack }: MobileBrainAIProps) {
             <h3 className="text-base font-semibold text-foreground mb-3">Brain Games</h3>
             <div className="space-y-3">
               {[
-                { name: "Memory Match", desc: "Test your memory", emoji: "🧠" },
-                { name: "Speed Math", desc: "Quick calculations", emoji: "🔢" },
-                { name: "Pattern Recognition", desc: "Find the pattern", emoji: "🔍" },
-                { name: "Word Association", desc: "Connect words", emoji: "📝" },
+                { name: "Memory Match", desc: "Test your memory", icon: Grid3X3 },
+                { name: "Speed Math", desc: "Quick calculations", icon: Calculator },
+                { name: "Pattern Recognition", desc: "Find the pattern", icon: Search },
+                { name: "Word Puzzle", desc: "Vocabulary challenge", icon: Type },
+                { name: "Reaction Test", desc: "Test your reflexes", icon: Zap },
+                { name: "Focus Timer", desc: "Deep work session", icon: Timer },
               ].map((game) => (
                 <button
                   key={game.name}
-                  className="w-full flex items-center gap-3 p-4 bg-secondary rounded-xl text-left"
+                  onClick={() => alert(`Launching ${game.name}...`)}
+                  className="w-full flex items-center gap-3 p-4 bg-secondary rounded-xl text-left border border-border"
                 >
-                  <span className="text-3xl">{game.emoji}</span>
-                  <div>
+                  <div className="w-10 h-10 rounded-xl bg-card flex items-center justify-center">
+                    <game.icon className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1">
                     <p className="text-sm font-medium text-foreground">{game.name}</p>
                     <p className="text-xs text-muted-foreground">{game.desc}</p>
                   </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </button>
               ))}
             </div>
