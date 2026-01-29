@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { TIMELESS_SUPABASE_URL, TIMELESS_ANON_KEY } from "@/lib/supabase";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import ModelLogo from "@/components/ModelLogo";
 
 interface Message {
   role: "user" | "assistant";
@@ -43,31 +44,6 @@ const chatModels: ChatModel[] = [
 ];
 
 const CHAT_URL = `${TIMELESS_SUPABASE_URL}/functions/v1/chat`;
-
-// Model logo component
-function ModelLogo({ modelId, size = 28 }: { modelId: string; size?: number }) {
-  const model = chatModels.find(m => m.id === modelId);
-  const icon = model?.icon || "openai";
-  
-  const logoColors: Record<string, string> = {
-    grok: "bg-black",
-    openai: "bg-emerald-600",
-    gemini: "bg-blue-500",
-    deepseek: "bg-indigo-600",
-    meta: "bg-blue-600",
-  };
-
-  return (
-    <div 
-      className={cn("rounded-full flex items-center justify-center", logoColors[icon] || "bg-primary")}
-      style={{ width: size, height: size }}
-    >
-      <span className="text-white font-bold" style={{ fontSize: size * 0.4 }}>
-        {icon.charAt(0).toUpperCase()}
-      </span>
-    </div>
-  );
-}
 
 export function MobileChat() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -222,7 +198,7 @@ export function MobileChat() {
           onClick={() => setShowModelSelector(true)}
           className="flex items-center gap-2.5 flex-1 mx-2"
         >
-          <ModelLogo modelId={selectedModel} size={28} />
+          <ModelLogo modelId={selectedModel} size="md" />
           <div className="flex-1 text-left">
             <div className="flex items-center gap-1.5">
               <span className="text-foreground text-sm font-semibold truncate max-w-[120px]">
@@ -266,7 +242,7 @@ export function MobileChat() {
         {messages.length === 0 ? (
           /* Empty State - Matching Flutter */
           <div className="h-full flex flex-col items-center justify-center text-center px-6">
-            <ModelLogo modelId={selectedModel} size={64} />
+            <ModelLogo modelId={selectedModel} size="lg" />
             <h3 className="text-foreground text-xl font-semibold mt-4 mb-2">
               Chat with {currentModel.name}
             </h3>
@@ -306,7 +282,7 @@ export function MobileChat() {
               >
                 {message.role === "assistant" && (
                   <div className="mr-2 flex-shrink-0">
-                    <ModelLogo modelId={selectedModel} size={24} />
+                    <ModelLogo modelId={selectedModel} size="sm" />
                   </div>
                 )}
                 <div
@@ -461,7 +437,7 @@ export function MobileChat() {
                         : "bg-secondary border-border"
                     )}
                   >
-                    <ModelLogo modelId={model.id} size={40} />
+                    <ModelLogo modelId={model.id} size="lg" />
                     <div className="flex-1 text-left">
                       <div className="flex items-center gap-2">
                         <span className={cn(
