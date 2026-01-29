@@ -13,6 +13,7 @@ import '../../widgets/chat/chat_message_skeleton.dart';
 import '../../widgets/chat/chat_message_bubble.dart';
 import '../../widgets/chat/conversation_drawer.dart';
 import '../../widgets/common/smart_media_image.dart';
+import '../../widgets/add_credits_dialog.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -261,36 +262,11 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showAddCreditsDialog() {
-    showModalBottomSheet(
+    final creditsProvider = context.read<CreditsProvider>();
+    showAddCreditsDialog(
       context: context,
-      backgroundColor: AppTheme.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.toll, size: 48, color: AppTheme.accent),
-            const SizedBox(height: 16),
-            const Text(
-              'Insufficient Credits',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'This model requires ${AppConfig.modelCredits[_selectedModel] ?? 1} credits.',
-              style: const TextStyle(color: AppTheme.muted),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Get Credits'),
-            ),
-          ],
-        ),
-      ),
+      currentCredits: creditsProvider.credits,
+      requiredCredits: AppConfig.modelCredits[_selectedModel] ?? 1,
     );
   }
 

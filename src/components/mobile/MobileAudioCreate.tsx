@@ -8,6 +8,7 @@ import { useCredits } from "@/hooks/useCredits";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import AddCreditsDialog from "@/components/AddCreditsDialog";
 
 interface MobileAudioCreateProps {
   onBack: () => void;
@@ -61,6 +62,7 @@ export function MobileAudioCreate({ onBack }: MobileAudioCreateProps) {
   const [weirdness, setWeirdness] = useState(50);
   const [styleInfluence, setStyleInfluence] = useState(50);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showAddCreditsDialog, setShowAddCreditsDialog] = useState(false);
   
   // Library tracks
   const [libraryTracks, setLibraryTracks] = useState<Track[]>([]);
@@ -173,6 +175,13 @@ export function MobileAudioCreate({ onBack }: MobileAudioCreateProps) {
   const handleGenerate = async () => {
     if (!user) {
       toast({ title: "Please sign in to generate music", variant: "destructive" });
+      return;
+    }
+
+    // Check credits
+    const modelCredits = selectedModelData?.credits ?? 5;
+    if ((credits ?? 0) < modelCredits) {
+      setShowAddCreditsDialog(true);
       return;
     }
 
@@ -642,6 +651,14 @@ export function MobileAudioCreate({ onBack }: MobileAudioCreateProps) {
           </div>
         )}
       </div>
+
+      {/* Add Credits Dialog */}
+      <AddCreditsDialog
+        open={showAddCreditsDialog}
+        onOpenChange={setShowAddCreditsDialog}
+        currentCredits={credits ?? 0}
+        requiredCredits={selectedModelData?.credits ?? 5}
+      />
     </div>
   );
 }

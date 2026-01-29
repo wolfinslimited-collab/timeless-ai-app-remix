@@ -13,7 +13,9 @@ import '../../core/theme.dart';
 import '../../services/tools_service.dart';
 import '../../models/download_model.dart';
 import '../../providers/download_provider.dart';
+import '../../providers/credits_provider.dart';
 import '../../widgets/common/smart_media_image.dart';
+import '../../widgets/add_credits_dialog.dart';
 
 /// Reusable layout for image processing tools
 class ImageToolLayout extends StatefulWidget {
@@ -204,8 +206,18 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
   Future<void> _processImage() async {
     if (_inputImageUrl == null) return;
 
-    // Check credits - open dialog if not enough
-    // For now, proceed with processing
+    // Check credits
+    final creditsProvider = context.read<CreditsProvider>();
+    if (!creditsProvider.hasActiveSubscription &&
+        creditsProvider.credits < widget.creditCost) {
+      showAddCreditsDialog(
+        context: context,
+        currentCredits: creditsProvider.credits,
+        requiredCredits: widget.creditCost,
+      );
+      return;
+    }
+
     setState(() {
       _isProcessing = true;
       _outputImageUrl = null;

@@ -7,6 +7,7 @@ import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../core/http_client.dart';
 import '../../providers/credits_provider.dart';
+import '../../widgets/add_credits_dialog.dart';
 
 class CinemaStudioScreen extends StatefulWidget {
   const CinemaStudioScreen({super.key});
@@ -203,36 +204,11 @@ class _CinemaStudioScreenState extends State<CinemaStudioScreen> {
   }
 
   void _showAddCreditsDialog() {
-    showModalBottomSheet(
+    final creditsProvider = context.read<CreditsProvider>();
+    showAddCreditsDialog(
       context: context,
-      backgroundColor: AppTheme.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.toll, size: 48, color: AppTheme.accent),
-            const SizedBox(height: 16),
-            const Text(
-              'Insufficient Credits',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'You need $_currentCost credits for this generation',
-              style: const TextStyle(color: AppTheme.muted),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Get Credits'),
-            ),
-          ],
-        ),
-      ),
+      currentCredits: creditsProvider.credits,
+      requiredCredits: _currentCost,
     );
   }
 
