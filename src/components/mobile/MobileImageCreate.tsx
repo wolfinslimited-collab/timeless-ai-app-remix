@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ArrowLeft, Image, Sparkles, Loader2 } from "lucide-react";
+import { useState, useRef } from "react";
+import { ArrowLeft, Image, Sparkles, Loader2, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase, TIMELESS_SUPABASE_URL } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,10 +24,82 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [referenceImages, setReferenceImages] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
+  const [showRefDialog, setShowRefDialog] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const currentUploadIndex = useRef<number>(0);
   
   const { user } = useAuth();
   const { credits, refetch, hasEnoughCreditsForModel } = useCredits();
   const { toast } = useToast();
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "File too large",
+        description: "Maximum file size is 10MB",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadingIndex(index);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/ref-${Date.now()}-${index}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("generation-inputs")
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("generation-inputs")
+        .getPublicUrl(fileName);
+
+      setReferenceImages(prev => {
+        const newImages = [...prev];
+        newImages[index] = publicUrl;
+        return newImages.filter(Boolean);
+      });
+
+      toast({
+        title: "Image uploaded",
+        description: "Reference image added successfully",
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to upload image",
+      });
+    } finally {
+      setIsUploading(false);
+      setUploadingIndex(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const removeReferenceImage = (index: number) => {
+    setReferenceImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const triggerFileUpload = (index: number) => {
+    currentUploadIndex.current = index;
+    fileInputRef.current?.click();
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -69,6 +141,7 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
           aspectRatio,
           stream: false,
           background: false,
+          ...(referenceImages.length > 0 && { imageUrl: referenceImages[0] }),
         },
       });
 
@@ -178,8 +251,25 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
           ))}
         </div>
 
-        {/* Prompt Input */}
-        <div className="flex items-center gap-2 bg-white/10 rounded-full px-4 py-3">
+        {/* Prompt Input with Reference Button */}
+        <div className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-2">
+          {/* Reference Image Button */}
+          <button
+            onClick={() => setShowRefDialog(true)}
+            className={cn(
+              "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors",
+              referenceImages.length > 0 
+                ? "bg-purple-500/30 border border-purple-500" 
+                : "bg-white/10"
+            )}
+          >
+            {referenceImages.length > 0 ? (
+              <span className="text-xs font-bold text-purple-300">+{referenceImages.length}</span>
+            ) : (
+              <Plus className="w-4 h-4 text-gray-400" />
+            )}
+          </button>
+          
           <input
             type="text"
             value={prompt}
@@ -201,6 +291,79 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
           </button>
         </div>
       </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => handleImageUpload(e, currentUploadIndex.current)}
+      />
+
+      {/* Reference Images Dialog */}
+      {showRefDialog && (
+        <div className="absolute inset-0 bg-black/80 flex items-end z-50">
+          <div className="bg-[#1a1a2e] rounded-t-3xl w-full p-6 animate-slide-up">
+            <h3 className="text-white text-lg font-semibold mb-2">Reference Images</h3>
+            <p className="text-gray-400 text-sm mb-5">
+              Add up to 3 reference images for style transfer and consistency.
+            </p>
+            
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              {[0, 1, 2].map((index) => {
+                const imageUrl = referenceImages[index];
+                const isUploadingThis = isUploading && uploadingIndex === index;
+                
+                return (
+                  <div key={index} className="aspect-square relative">
+                    {imageUrl ? (
+                      <div className="w-full h-full rounded-xl overflow-hidden border border-white/20 relative group">
+                        <img src={imageUrl} alt={`Ref ${index + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => removeReferenceImage(index)}
+                          className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center"
+                        >
+                          <X className="w-3 h-3 text-white" />
+                        </button>
+                        {index === 0 && (
+                          <div className="absolute top-1 left-1 px-2 py-0.5 bg-purple-500 rounded text-[8px] font-bold text-white">
+                            PRIMARY
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => triggerFileUpload(index)}
+                        disabled={isUploading}
+                        className="w-full h-full rounded-xl border border-dashed border-white/20 bg-white/5 flex flex-col items-center justify-center"
+                      >
+                        {isUploadingThis ? (
+                          <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                        ) : (
+                          <>
+                            <Plus className="w-6 h-6 text-gray-500 mb-1" />
+                            <span className="text-gray-500 text-[10px]">
+                              {index === 0 ? 'Primary' : 'Optional'}
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
+            <button
+              onClick={() => setShowRefDialog(false)}
+              className="w-full py-3 bg-purple-500 rounded-full text-white font-medium"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
