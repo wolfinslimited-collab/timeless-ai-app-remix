@@ -233,7 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     icon: Icons.music_note,
                     label: 'Music',
                     color: const Color(0xFFEC4899),
-                    onTap: () => context.go('/apps'),
+                    onTap: () => context.go('/create/audio'),
                   ),
                   _QuickAction(
                     icon: Icons.movie_creation,
