@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import 'core/config.dart';
 import 'core/theme.dart';
 import 'core/routes.dart';
+import 'core/firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/credits_provider.dart';
 import 'providers/generation_provider.dart';
@@ -17,6 +19,11 @@ import 'services/audio_player_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   await Supabase.initialize(
     url: AppConfig.supabaseUrl,

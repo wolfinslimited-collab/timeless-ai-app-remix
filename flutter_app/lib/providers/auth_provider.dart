@@ -5,12 +5,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/native_auth_service.dart';
+import '../services/firebase_auth_service.dart';
 import '../services/tiktok_service.dart';
 import '../services/facebook_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
   final NativeAuthService _nativeAuthService = NativeAuthService();
+  final FirebaseAuthService _firebaseAuthService = FirebaseAuthService();
 
   User? _user;
   UserProfile? _profile;
@@ -147,6 +149,8 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> signOut() async {
     await _authService.signOut();
+    // Sign out from Firebase as well
+    await _firebaseAuthService.signOut();
     // Clear user identification on logout
     await tiktokService.logout();
     await facebookService.logout();
@@ -156,30 +160,26 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Sign in with Google
-  /// Uses native Google Sign-In on Android, web-based OAuth on iOS
+  /// Uses Firebase-based authentication for both Android and iOS
   Future<bool> signInWithGoogle() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      if (Platform.isAndroid && _nativeAuthService.isNativeGoogleAvailable) {
-        // Android: Use native Google Sign-In
-        final response = await _nativeAuthService.signInWithGoogleNative();
-        if (response?.user != null) {
-          _user = response!.user;
-          await _fetchProfile();
-          await _trackOAuthSignIn(response.user!, 'google');
-          return true;
-        }
-        return false;
-      } else {
-        // iOS/Other: Use web-based OAuth
-        final success = await _nativeAuthService.signInWithOAuthWeb(OAuthProvider.google);
-        _isLoading = false;
-        notifyListeners();
-        return success;
+      // Use Firebase Auth service for Google sign-in
+      final response = await _firebaseAuthService.signInWithGoogle();
+      
+      if (response?.user != null) {
+        _user = response!.user;
+        await _fetchProfile();
+        await _trackOAuthSignIn(response.user!, 'google');
+        return true;
       }
+      
+      _isLoading = false;
+      notifyListeners();
+      return false;
     } catch (e) {
       _error = _parseAuthError(e);
       _isLoading = false;
@@ -221,17 +221,26 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Sign in with Facebook (web-based OAuth on all platforms)
+  /// Sign in with Facebook using Firebase
   Future<bool> signInWithFacebook() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final success = await _nativeAuthService.signInWithOAuthWeb(OAuthProvider.facebook);
+      // Use Firebase Auth service for Facebook sign-in
+      final response = await _firebaseAuthService.signInWithFacebook();
+      
+      if (response?.user != null) {
+        _user = response!.user;
+        await _fetchProfile();
+        await _trackOAuthSignIn(response.user!, 'facebook');
+        return true;
+      }
+      
       _isLoading = false;
       notifyListeners();
-      return success;
+      return false;
     } catch (e) {
       _error = _parseAuthError(e);
       _isLoading = false;
