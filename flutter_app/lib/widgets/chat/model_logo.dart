@@ -1,43 +1,40 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/theme.dart';
 
-/// Model configuration for logos - matching web implementation
+/// Model configuration for mono-color letter icons
 class ModelConfig {
-  final String logoPath;
-  final bool isSvg;
-  final bool invert;
+  final String letter;
+  final Color bgColor;
 
   const ModelConfig({
-    required this.logoPath,
-    this.isSvg = true,
-    this.invert = false,
+    required this.letter,
+    required this.bgColor,
   });
 }
 
-// Model configurations matching web exactly
-const Map<String, ModelConfig> _modelConfigs = {
-  // Grok/xAI models - X logo
-  'grok-3': ModelConfig(logoPath: 'assets/logos/x-logo.svg', invert: true),
-  'grok-3-mini': ModelConfig(logoPath: 'assets/logos/x-logo.svg', invert: true),
+// Model configurations with letter and color
+final Map<String, ModelConfig> _modelConfigs = {
+  // Grok/xAI models
+  'grok-3': ModelConfig(letter: 'G', bgColor: AppTheme.secondary),
+  'grok-3-mini': ModelConfig(letter: 'G', bgColor: AppTheme.secondary),
 
-  // ChatGPT/OpenAI models
-  'chatgpt-5.2': ModelConfig(logoPath: 'assets/logos/openai.svg', invert: true),
-  'chatgpt-5': ModelConfig(logoPath: 'assets/logos/openai.svg', invert: true),
-  'chatgpt-5-mini': ModelConfig(logoPath: 'assets/logos/openai.svg', invert: true),
+  // ChatGPT/OpenAI models - green like OpenAI branding
+  'chatgpt-5.2': ModelConfig(letter: 'O', bgColor: const Color(0xFF16A34A)),
+  'chatgpt-5': ModelConfig(letter: 'O', bgColor: const Color(0xFF16A34A)),
+  'chatgpt-5-mini': ModelConfig(letter: 'O', bgColor: const Color(0xFF16A34A)),
 
-  // Gemini models
-  'gemini-3-pro': ModelConfig(logoPath: 'assets/logos/gemini.svg', invert: false),
-  'gemini-3-flash': ModelConfig(logoPath: 'assets/logos/gemini.svg', invert: false),
-  'gemini-2.5-pro': ModelConfig(logoPath: 'assets/logos/gemini.svg', invert: false),
+  // Gemini models - blue like Google branding
+  'gemini-3-pro': ModelConfig(letter: 'G', bgColor: const Color(0xFF3B82F6)),
+  'gemini-3-flash': ModelConfig(letter: 'G', bgColor: const Color(0xFF3B82F6)),
+  'gemini-2.5-pro': ModelConfig(letter: 'G', bgColor: const Color(0xFF3B82F6)),
 
   // DeepSeek models
-  'deepseek-r1': ModelConfig(logoPath: 'assets/logos/deepseek.png', isSvg: false, invert: false),
-  'deepseek-v3': ModelConfig(logoPath: 'assets/logos/deepseek.png', isSvg: false, invert: false),
+  'deepseek-r1': ModelConfig(letter: 'D', bgColor: AppTheme.secondary),
+  'deepseek-v3': ModelConfig(letter: 'D', bgColor: AppTheme.secondary),
 
   // Llama/Meta models
-  'llama-3.3': ModelConfig(logoPath: 'assets/logos/meta-llama.svg', invert: false),
-  'llama-3.3-large': ModelConfig(logoPath: 'assets/logos/meta-llama.svg', invert: false),
+  'llama-3.3': ModelConfig(letter: 'L', bgColor: AppTheme.secondary),
+  'llama-3.3-large': ModelConfig(letter: 'L', bgColor: AppTheme.secondary),
 };
 
 class ModelLogo extends StatelessWidget {
@@ -61,12 +58,17 @@ class ModelLogo extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           color: AppTheme.secondary,
-          borderRadius: BorderRadius.circular(size / 4),
+          borderRadius: BorderRadius.circular(size / 2),
         ),
-        child: Icon(
-          Icons.smart_toy,
-          size: size * 0.5,
-          color: AppTheme.muted,
+        child: Center(
+          child: Text(
+            'A',
+            style: TextStyle(
+              fontSize: size * 0.45,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.foreground,
+            ),
+          ),
         ),
       );
     }
@@ -74,44 +76,39 @@ class ModelLogo extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      padding: EdgeInsets.all(size * 0.15),
       decoration: BoxDecoration(
-        color: AppTheme.secondary,
-        borderRadius: BorderRadius.circular(size / 4),
+        color: config.bgColor,
+        borderRadius: BorderRadius.circular(size / 2),
       ),
-      child: config.isSvg
-          ? SvgPicture.asset(
-              config.logoPath,
-              width: size * 0.6,
-              height: size * 0.6,
-              colorFilter: config.invert
-                  ? const ColorFilter.mode(Colors.white70, BlendMode.srcIn)
-                  : null,
-            )
-          : Image.asset(
-              config.logoPath,
-              width: size * 0.6,
-              height: size * 0.6,
-            ),
+      child: Center(
+        child: Text(
+          config.letter,
+          style: TextStyle(
+            fontSize: size * 0.45,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.foreground,
+          ),
+        ),
+      ),
     );
   }
 }
 
-/// Get model emoji for backwards compatibility
+/// Get model letter for backwards compatibility
 String getModelEmoji(String modelId) {
-  const emojiMap = {
-    'grok-3': '𝕏',
-    'grok-3-mini': '𝕏',
-    'chatgpt-5.2': '◯',
-    'chatgpt-5': '◯',
-    'chatgpt-5-mini': '◯',
-    'gemini-3-pro': '✦',
-    'gemini-3-flash': '✦',
-    'gemini-2.5-pro': '✦',
-    'deepseek-r1': '🔍',
-    'deepseek-v3': '🔍',
-    'llama-3.3': '🦙',
-    'llama-3.3-large': '🦙',
+  const letterMap = {
+    'grok-3': 'G',
+    'grok-3-mini': 'G',
+    'chatgpt-5.2': 'O',
+    'chatgpt-5': 'O',
+    'chatgpt-5-mini': 'O',
+    'gemini-3-pro': 'G',
+    'gemini-3-flash': 'G',
+    'gemini-2.5-pro': 'G',
+    'deepseek-r1': 'D',
+    'deepseek-v3': 'D',
+    'llama-3.3': 'L',
+    'llama-3.3-large': 'L',
   };
-  return emojiMap[modelId] ?? '◯';
+  return letterMap[modelId] ?? 'A';
 }
