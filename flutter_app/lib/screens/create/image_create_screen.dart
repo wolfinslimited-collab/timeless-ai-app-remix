@@ -1,6 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:path/path.dart' as path;
 import '../../core/theme.dart';
 import '../../core/image_models.dart';
 import '../../providers/generation_provider.dart';
@@ -21,6 +25,9 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _promptController = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
+  final SupabaseClient _supabase = Supabase.instance.client;
+  
   String _selectedModel = 'nano-banana';
   String _selectedAspectRatio = '1:1';
   String _selectedQuality = '1024';
@@ -28,6 +35,11 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
   String? _generatedImageUrl;
   String? _generatedGenerationId;
   bool _isLoadingImage = false;
+  
+  // Reference images (up to 3)
+  List<String> _referenceImageUrls = [];
+  List<File?> _referenceImageFiles = [null, null, null];
+  List<bool> _isUploadingRef = [false, false, false];
 
   static const List<Map<String, dynamic>> _imageTools = [
     {
@@ -153,6 +165,238 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
     return '${_promptController.text.trim()}, $stylePrompt';
   }
 
+  Future<void> _pickReferenceImage(int index) async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 2048,
+        maxHeight: 2048,
+        imageQuality: 90,
+      );
+      
+      if (image == null) return;
+      
+      final file = File(image.path);
+      final fileSize = await file.length();
+      
+      if (fileSize > 10 * 1024 * 1024) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Image too large. Maximum size is 10MB.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      
+      setState(() {
+        _referenceImageFiles[index] = file;
+      });
+      
+      await _uploadReferenceImage(file, index);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to pick image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadReferenceImage(File file, int index) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+    
+    setState(() => _isUploadingRef[index] = true);
+    
+    try {
+      final fileExt = path.extension(file.path).replaceFirst('.', '');
+      final fileName = '${user.id}/ref-${DateTime.now().millisecondsSinceEpoch}-$index.$fileExt';
+      
+      await _supabase.storage.from('generation-inputs').upload(fileName, file);
+      final publicUrl = _supabase.storage.from('generation-inputs').getPublicUrl(fileName);
+      
+      setState(() {
+        if (index < _referenceImageUrls.length) {
+          _referenceImageUrls[index] = publicUrl;
+        } else {
+          _referenceImageUrls.add(publicUrl);
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Upload failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingRef[index] = false);
+      }
+    }
+  }
+
+  void _removeReferenceImage(int index) {
+    setState(() {
+      _referenceImageFiles[index] = null;
+      if (index < _referenceImageUrls.length) {
+        _referenceImageUrls.removeAt(index);
+      }
+    });
+  }
+
+  void _showReferenceDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Reference Images',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Add up to 3 reference images for style transfer and consistency.',
+                style: TextStyle(color: AppTheme.muted, fontSize: 14),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: List.generate(3, (index) {
+                  final hasImage = index < _referenceImageUrls.length && _referenceImageUrls[index].isNotEmpty;
+                  final isUploading = _isUploadingRef[index];
+                  
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: index < 2 ? 8 : 0),
+                      child: GestureDetector(
+                        onTap: isUploading ? null : () async {
+                          await _pickReferenceImage(index);
+                          setDialogState(() {});
+                          setState(() {});
+                        },
+                        child: Container(
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: AppTheme.secondary,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: index == 0 && hasImage 
+                                  ? AppTheme.primary 
+                                  : AppTheme.border,
+                            ),
+                          ),
+                          child: isUploading
+                              ? const Center(
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                )
+                              : hasImage
+                                  ? Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(11),
+                                          child: SmartMediaImage(
+                                            imageUrl: _referenceImageUrls[index],
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                        Positioned(
+                                          top: 4,
+                                          right: 4,
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              _removeReferenceImage(index);
+                                              setDialogState(() {});
+                                              setState(() {});
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black54,
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                            ),
+                                          ),
+                                        ),
+                                        if (index == 0)
+                                          Positioned(
+                                            top: 4,
+                                            left: 4,
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.primary,
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: const Text(
+                                                'PRIMARY',
+                                                style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    )
+                                  : Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.add_photo_alternate_outlined,
+                                          color: AppTheme.muted,
+                                          size: 28,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          index == 0 ? 'Primary' : 'Optional',
+                                          style: const TextStyle(
+                                            color: AppTheme.muted,
+                                            fontSize: 10,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Done'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleGenerate() async {
     if (_promptController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -180,6 +424,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
       type: 'image',
       aspectRatio: _selectedAspectRatio,
       quality: _selectedQuality,
+      imageUrl: _referenceImageUrls.isNotEmpty ? _referenceImageUrls.first : null,
     );
 
     if (result != null && result.outputUrl != null) {
@@ -609,9 +854,42 @@ class _ImageCreateScreenState extends State<ImageCreateScreen>
               ),
               const SizedBox(height: 16),
 
-              // Prompt Input
+              // Prompt Input with Reference Image Button
               Row(
                 children: [
+                  // Reference Image Button
+                  GestureDetector(
+                    onTap: _showReferenceDialog,
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: _referenceImageUrls.isNotEmpty 
+                            ? AppTheme.primary.withOpacity(0.2) 
+                            : AppTheme.secondary,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: _referenceImageUrls.isNotEmpty 
+                              ? AppTheme.primary 
+                              : AppTheme.border,
+                        ),
+                      ),
+                      child: _referenceImageUrls.isNotEmpty
+                          ? Center(
+                              child: Text(
+                                '+${_referenceImageUrls.length}',
+                                style: const TextStyle(
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            )
+                          : const Icon(Icons.add_photo_alternate_outlined, 
+                              color: AppTheme.muted, size: 20),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
