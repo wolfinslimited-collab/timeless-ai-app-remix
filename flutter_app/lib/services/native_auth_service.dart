@@ -9,7 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 
 /// Native authentication service for platform-specific OAuth flows
-/// 
+///
 /// This service handles:
 /// - Native Google Sign-In on Android (using google_sign_in package)
 /// - Native Apple Sign-In on iOS (using sign_in_with_apple package)
@@ -19,20 +19,24 @@ class NativeAuthService {
 
   // OAuth configuration
   static const String _redirectUrl = 'io.supabase.genaiapp://login-callback/';
-  
+
   // Mobile auth edge function URL (external Supabase project)
-  static const String _mobileAuthUrl = 'https://ifesxveahsbjhmrhkhhy.supabase.co/functions/v1/mobile-auth';
-  
+  static const String _mobileAuthUrl =
+      'https://ifesxveahsbjhmrhkhhy.supabase.co/functions/v1/mobile-auth';
+
   // Google Web Client ID (required for Android native sign-in)
   // This should match the Web Client ID from Google Cloud Console
   // The Android Client ID is automatically used based on SHA-1 fingerprint
-  static const String _googleWebClientId = 'YOUR_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com';
+  static const String _googleWebClientId =
+      'YOUR_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com';
 
   /// Generate a secure random nonce for OAuth
   String _generateNonce([int length = 32]) {
-    const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
     final random = Random.secure();
-    return List.generate(length, (_) => charset[random.nextInt(charset.length)]).join();
+    return List.generate(length, (_) => charset[random.nextInt(charset.length)])
+        .join();
   }
 
   /// Generate SHA256 hash of the nonce
@@ -79,7 +83,8 @@ class NativeAuthService {
       final userData = responseData['user'] as Map<String, dynamic>;
 
       // Set the session in Supabase client
-      final session = await _supabase.auth.setSession(sessionData['access_token']);
+      final session =
+          await _supabase.auth.setSession(sessionData['access_token']);
 
       if (session.session == null) {
         // If setSession didn't work, try to recover the session
@@ -111,7 +116,7 @@ class NativeAuthService {
   }
 
   /// Native Google Sign-In for Android
-  /// 
+  ///
   /// Requirements:
   /// 1. Add google_sign_in: ^6.2.1 to pubspec.yaml
   /// 2. Configure SHA-1 fingerprint in Google Cloud Console
@@ -119,7 +124,8 @@ class NativeAuthService {
   /// 4. Enable Google provider in Supabase Auth settings
   Future<AuthResponse?> signInWithGoogleNative() async {
     if (!Platform.isAndroid) {
-      throw UnsupportedError('Native Google Sign-In is only supported on Android');
+      throw UnsupportedError(
+          'Native Google Sign-In is only supported on Android');
     }
 
     try {
@@ -156,7 +162,7 @@ class NativeAuthService {
   }
 
   /// Native Apple Sign-In for iOS
-  /// 
+  ///
   /// Requirements:
   /// 1. Add sign_in_with_apple: ^6.1.1 to pubspec.yaml
   /// 2. Enable Sign In with Apple capability in Xcode

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/credits_provider.dart';
@@ -15,12 +16,15 @@ class ProfileScreen extends StatelessWidget {
   static const String _playStoreId = 'com.wolfine.app';
 
   Future<void> _shareApp(BuildContext context) async {
-    const String appStoreUrl = 'https://apps.apple.com/us/app/timeless-all-in-one-ai/id$_appStoreId';
-    const String playStoreUrl = 'https://play.google.com/store/apps/details?id=$_playStoreId';
-    
+    const String appStoreUrl =
+        'https://apps.apple.com/us/app/timeless-all-in-one-ai/id$_appStoreId';
+    const String playStoreUrl =
+        'https://play.google.com/store/apps/details?id=$_playStoreId';
+
     final String shareUrl = Platform.isIOS ? appStoreUrl : playStoreUrl;
-    const String shareText = '🎨 Check out Timeless AI - Create amazing images, videos, and music with AI!\n\n';
-    
+    const String shareText =
+        '🎨 Check out Timeless AI - Create amazing images, videos, and music with AI!\n\n';
+
     try {
       await SharePlus.instance.share(
         ShareParams(
@@ -28,7 +32,7 @@ class ProfileScreen extends StatelessWidget {
           subject: 'Timeless AI - All-in-One AI Creative Studio',
         ),
       );
-      
+
       // Show rate app bottom sheet after sharing
       if (context.mounted) {
         _showRateAppBottomSheet(context);
@@ -66,8 +70,9 @@ class ProfileScreen extends StatelessWidget {
             // Star icons
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(5, (index) => 
-                Padding(
+              children: List.generate(
+                5,
+                (index) => Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Icon(
                     Icons.star_rounded,
@@ -162,7 +167,7 @@ class ProfileScreen extends StatelessWidget {
 
   Future<void> _requestInAppReview() async {
     final InAppReview inAppReview = InAppReview.instance;
-    
+
     try {
       if (await inAppReview.isAvailable()) {
         await inAppReview.requestReview();

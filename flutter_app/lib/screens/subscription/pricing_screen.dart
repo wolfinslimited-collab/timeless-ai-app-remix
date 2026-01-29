@@ -13,11 +13,12 @@ class PricingScreen extends StatefulWidget {
   State<PricingScreen> createState() => _PricingScreenState();
 }
 
-class _PricingScreenState extends State<PricingScreen> with SingleTickerProviderStateMixin {
+class _PricingScreenState extends State<PricingScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isYearly = false;
   bool _isLoading = true;
-  
+
   List<SubscriptionPlan> _subscriptionPlans = [];
   List<CreditPackage> _creditPackages = [];
   final PricingService _pricingService = PricingService();
@@ -38,7 +39,7 @@ class _PricingScreenState extends State<PricingScreen> with SingleTickerProvider
 
   Future<void> _fetchPricing() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final pricing = await _pricingService.fetchPricing();
       setState(() {
@@ -54,7 +55,7 @@ class _PricingScreenState extends State<PricingScreen> with SingleTickerProvider
 
   void _setupIAPCallbacks() {
     final iapProvider = context.read<IAPProvider>();
-    
+
     iapProvider.onPurchaseComplete = () {
       context.read<CreditsProvider>().refresh();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -78,7 +79,7 @@ class _PricingScreenState extends State<PricingScreen> with SingleTickerProvider
 
   Future<void> _handleSubscriptionPurchase(SubscriptionPlan plan) async {
     final iapProvider = context.read<IAPProvider>();
-    
+
     final productId = plan.platformProductId;
     if (productId == null || productId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -101,7 +102,7 @@ class _PricingScreenState extends State<PricingScreen> with SingleTickerProvider
     }
 
     final success = await iapProvider.purchase(productId);
-    
+
     if (!success && iapProvider.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -115,7 +116,7 @@ class _PricingScreenState extends State<PricingScreen> with SingleTickerProvider
 
   Future<void> _handleCreditPurchase(CreditPackage package) async {
     final iapProvider = context.read<IAPProvider>();
-    
+
     final productId = package.platformProductId;
     if (productId == null || productId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -138,7 +139,7 @@ class _PricingScreenState extends State<PricingScreen> with SingleTickerProvider
     }
 
     final success = await iapProvider.purchase(productId);
-    
+
     if (!success && iapProvider.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -217,7 +218,8 @@ class _PricingScreenState extends State<PricingScreen> with SingleTickerProvider
                               ),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.toll, color: Colors.white, size: 24),
+                            child: const Icon(Icons.toll,
+                                color: Colors.white, size: 24),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -226,7 +228,8 @@ class _PricingScreenState extends State<PricingScreen> with SingleTickerProvider
                               children: [
                                 const Text(
                                   'Your Balance',
-                                  style: TextStyle(color: AppTheme.muted, fontSize: 12),
+                                  style: TextStyle(
+                                      color: AppTheme.muted, fontSize: 12),
                                 ),
                                 Text(
                                   '${credits.credits} credits',
@@ -240,7 +243,8 @@ class _PricingScreenState extends State<PricingScreen> with SingleTickerProvider
                           ),
                           if (credits.hasActiveSubscription)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
@@ -256,11 +260,14 @@ class _PricingScreenState extends State<PricingScreen> with SingleTickerProvider
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: const [
-                                  Icon(Icons.workspace_premium, size: 16, color: Color(0xFFFBBF24)),
+                                  Icon(Icons.workspace_premium,
+                                      size: 16, color: Color(0xFFFBBF24)),
                                   SizedBox(width: 4),
                                   Text(
                                     'Subscriber',
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600),
                                   ),
                                 ],
                               ),
@@ -352,7 +359,8 @@ class _PricingScreenState extends State<PricingScreen> with SingleTickerProvider
                 GestureDetector(
                   onTap: () => setState(() => _isYearly = false),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
                     decoration: BoxDecoration(
                       color: !_isYearly ? Colors.white : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
@@ -369,7 +377,8 @@ class _PricingScreenState extends State<PricingScreen> with SingleTickerProvider
                 GestureDetector(
                   onTap: () => setState(() => _isYearly = true),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
                     decoration: BoxDecoration(
                       color: _isYearly ? Colors.white : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
@@ -385,14 +394,18 @@ class _PricingScreenState extends State<PricingScreen> with SingleTickerProvider
                         ),
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: Colors.green,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
                             'Save 17%',
-                            style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                                fontSize: 9,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
@@ -406,14 +419,14 @@ class _PricingScreenState extends State<PricingScreen> with SingleTickerProvider
 
           // Subscription plans
           ..._filteredPlans.map((plan) => _SubscriptionPlanCard(
-            plan: plan,
-            iconData: _getIconData(plan.icon),
-            isPurchasing: iapProvider.isPurchasing,
-            onPurchase: () => _handleSubscriptionPurchase(plan),
-          )),
-          
+                plan: plan,
+                iconData: _getIconData(plan.icon),
+                isPurchasing: iapProvider.isPurchasing,
+                onPurchase: () => _handleSubscriptionPurchase(plan),
+              )),
+
           const SizedBox(height: 24),
-          
+
           // Footer text
           Text(
             Platform.isIOS
@@ -442,14 +455,14 @@ class _PricingScreenState extends State<PricingScreen> with SingleTickerProvider
 
           // Credit packages
           ..._creditPackages.map((pkg) => _CreditPackageCard(
-            package: pkg,
-            iconData: _getIconData(pkg.icon),
-            isPurchasing: iapProvider.isPurchasing,
-            onPurchase: () => _handleCreditPurchase(pkg),
-          )),
-          
+                package: pkg,
+                iconData: _getIconData(pkg.icon),
+                isPurchasing: iapProvider.isPurchasing,
+                onPurchase: () => _handleCreditPurchase(pkg),
+              )),
+
           const SizedBox(height: 24),
-          
+
           // Footer
           const Text(
             'Credits never expire and can be used for any generation.',
@@ -509,7 +522,8 @@ class _SubscriptionPlanCard extends StatelessWidget {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   gradient: isHighlighted
-                      ? const LinearGradient(colors: [AppTheme.primary, Color(0xFFEC4899)])
+                      ? const LinearGradient(
+                          colors: [AppTheme.primary, Color(0xFFEC4899)])
                       : null,
                   color: isHighlighted ? null : AppTheme.secondary,
                   borderRadius: BorderRadius.circular(12),
@@ -526,6 +540,24 @@ class _SubscriptionPlanCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '\$${plan.price.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          '/${plan.period == 'Monthly' ? 'mo' : 'yr'}',
+                          style: const TextStyle(
+                              color: AppTheme.muted, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    Row(
                       children: [
                         Text(
                           plan.name,
@@ -537,7 +569,8 @@ class _SubscriptionPlanCard extends StatelessWidget {
                         if (plan.popular) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 colors: [AppTheme.primary, Color(0xFFEC4899)],
@@ -546,14 +579,18 @@ class _SubscriptionPlanCard extends StatelessWidget {
                             ),
                             child: const Text(
                               'Popular',
-                              style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],
                         if (plan.bestValue && !plan.popular) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
@@ -562,34 +599,22 @@ class _SubscriptionPlanCard extends StatelessWidget {
                             ),
                             child: const Text(
                               'Best Value',
-                              style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],
                       ],
                     ),
-                    Text(
-                      plan.period,
-                      style: const TextStyle(color: AppTheme.muted, fontSize: 13),
-                    ),
+                    // Text(
+                    //   plan.period,
+                    //   style:
+                    //       const TextStyle(color: AppTheme.muted, fontSize: 13),
+                    // ),
                   ],
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '\$${plan.price.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    '/${plan.period == 'Monthly' ? 'mo' : 'yr'}',
-                    style: const TextStyle(color: AppTheme.muted, fontSize: 12),
-                  ),
-                ],
               ),
             ],
           ),
@@ -616,53 +641,54 @@ class _SubscriptionPlanCard extends StatelessWidget {
 
           // Features
           ...plan.features.map((feature) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              children: [
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: feature.included
-                        ? Colors.green.withOpacity(0.2)
-                        : Colors.red.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    feature.included ? Icons.check : Icons.close,
-                    size: 12,
-                    color: feature.included ? Colors.green : Colors.red,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    feature.text,
-                    style: TextStyle(
-                      color: feature.included ? null : AppTheme.muted,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                if (feature.badge != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      feature.badge!,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.primary,
-                        fontWeight: FontWeight.w600,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: feature.included
+                            ? Colors.green.withOpacity(0.2)
+                            : Colors.red.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        feature.included ? Icons.check : Icons.close,
+                        size: 12,
+                        color: feature.included ? Colors.green : Colors.red,
                       ),
                     ),
-                  ),
-              ],
-            ),
-          )),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        feature.text,
+                        style: TextStyle(
+                          color: feature.included ? null : AppTheme.muted,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    if (feature.badge != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          feature.badge!,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: AppTheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              )),
           const SizedBox(height: 20),
 
           // Subscribe button
@@ -671,31 +697,37 @@ class _SubscriptionPlanCard extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 gradient: isHighlighted
-                    ? const LinearGradient(colors: [AppTheme.primary, Color(0xFFEC4899)])
+                    ? const LinearGradient(
+                        colors: [AppTheme.primary, Color(0xFFEC4899)])
                     : null,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: ElevatedButton(
                 onPressed: isPurchasing ? null : onPurchase,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isHighlighted ? Colors.transparent : AppTheme.secondary,
+                  backgroundColor:
+                      isHighlighted ? Colors.transparent : AppTheme.secondary,
                   foregroundColor: isHighlighted ? Colors.white : null,
                   shadowColor: Colors.transparent,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: isHighlighted ? BorderSide.none : BorderSide(color: AppTheme.border),
+                    side: isHighlighted
+                        ? BorderSide.none
+                        : BorderSide(color: AppTheme.border),
                   ),
                 ),
                 child: isPurchasing
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
                       )
                     : const Text(
                         'Subscribe',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 15),
                       ),
               ),
             ),
@@ -748,7 +780,8 @@ class _CreditPackageCard extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               gradient: isPopular
-                  ? const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFF97316)])
+                  ? const LinearGradient(
+                      colors: [Color(0xFFF59E0B), Color(0xFFF97316)])
                   : null,
               color: isPopular ? null : AppTheme.secondary,
               borderRadius: BorderRadius.circular(12),
@@ -776,7 +809,8 @@ class _CreditPackageCard extends StatelessWidget {
                     if (isPopular) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [AppTheme.primary, Color(0xFFEC4899)],
@@ -785,7 +819,10 @@ class _CreditPackageCard extends StatelessWidget {
                         ),
                         child: const Text(
                           'Popular',
-                          style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 9,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -806,20 +843,25 @@ class _CreditPackageCard extends StatelessWidget {
           Container(
             decoration: BoxDecoration(
               gradient: isPopular
-                  ? const LinearGradient(colors: [AppTheme.primary, Color(0xFFEC4899)])
+                  ? const LinearGradient(
+                      colors: [AppTheme.primary, Color(0xFFEC4899)])
                   : null,
               borderRadius: BorderRadius.circular(10),
             ),
             child: ElevatedButton(
               onPressed: isPurchasing ? null : onPurchase,
               style: ElevatedButton.styleFrom(
-                backgroundColor: isPopular ? Colors.transparent : AppTheme.secondary,
+                backgroundColor:
+                    isPopular ? Colors.transparent : AppTheme.secondary,
                 foregroundColor: isPopular ? Colors.white : null,
                 shadowColor: Colors.transparent,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
-                  side: isPopular ? BorderSide.none : BorderSide(color: AppTheme.border),
+                  side: isPopular
+                      ? BorderSide.none
+                      : BorderSide(color: AppTheme.border),
                 ),
               ),
               child: isPurchasing
