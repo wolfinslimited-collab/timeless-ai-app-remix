@@ -597,10 +597,59 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
             ),
             const Divider(height: 1, color: AppTheme.border),
             // Content based on selected tool
-            Expanded(child: _buildGenerateContent()),
+            Expanded(child: _buildToolContent()),
           ],
         ),
       ),
+    );
+  }
+
+  /// Build content based on selected tool
+  Widget _buildToolContent() {
+    switch (_selectedToolId) {
+      case 'generate':
+        return _buildGenerateContent();
+      case 'relight':
+        return _buildInlineToolContent('relight', 'Relight', 'AI-powered relighting for your images', 2);
+      case 'upscale':
+        return _buildInlineToolContent('upscale', 'Upscale', 'Enhance resolution up to 4x', 3, showScale: true);
+      case 'shots':
+        return _buildInlineToolContent('shots', 'Shots', 'Generate 9 cinematic angles', 10);
+      case 'inpainting':
+        return _buildInlineToolContent('inpainting', 'Inpainting', 'Paint to replace areas in your image', 5, showPrompt: true);
+      case 'object-erase':
+        return _buildInlineToolContent('object-erase', 'Object Erase', 'Remove unwanted objects from images', 4);
+      case 'background-remove':
+        return _buildInlineToolContent('background-remove', 'Remove Background', 'Remove image backgrounds instantly', 2);
+      case 'style-transfer':
+        return _buildInlineToolContent('style-transfer', 'Style Transfer', 'Apply artistic styles to your images', 4, showPrompt: true);
+      case 'skin-enhancer':
+        return _buildInlineToolContent('skin-enhancer', 'Skin Enhancer', 'Portrait retouching and skin enhancement', 3, showIntensity: true);
+      case 'angle':
+        return _buildInlineToolContent('angle', 'Change Angle', 'View from new perspectives', 4, showPrompt: true);
+      default:
+        return _buildGenerateContent();
+    }
+  }
+
+  Widget _buildInlineToolContent(
+    String toolId,
+    String toolName,
+    String description,
+    int credits, {
+    bool showPrompt = false,
+    bool showScale = false,
+    bool showIntensity = false,
+  }) {
+    return _InlineImageToolContent(
+      key: ValueKey(toolId),
+      toolId: toolId,
+      toolName: toolName,
+      toolDescription: description,
+      creditCost: credits,
+      showPrompt: showPrompt,
+      showScale: showScale,
+      showIntensity: showIntensity,
     );
   }
 
@@ -1035,6 +1084,340 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
         return Icons.palette;
       default:
         return Icons.style;
+    }
+  }
+}
+
+/// Inline Image Tool Content Widget
+class _InlineImageToolContent extends StatefulWidget {
+  final String toolId;
+  final String toolName;
+  final String toolDescription;
+  final int creditCost;
+  final bool showPrompt;
+  final bool showScale;
+  final bool showIntensity;
+
+  const _InlineImageToolContent({
+    super.key,
+    required this.toolId,
+    required this.toolName,
+    required this.toolDescription,
+    required this.creditCost,
+    this.showPrompt = false,
+    this.showScale = false,
+    this.showIntensity = false,
+  });
+
+  @override
+  State<_InlineImageToolContent> createState() => _InlineImageToolContentState();
+}
+
+class _InlineImageToolContentState extends State<_InlineImageToolContent> {
+  final SupabaseClient _supabase = Supabase.instance.client;
+  final ImagePicker _picker = ImagePicker();
+  final TextEditingController _promptController = TextEditingController();
+
+  String? _inputUrl;
+  String? _outputUrl;
+  bool _isUploading = false;
+  bool _isProcessing = false;
+  double _intensity = 50;
+  int _scale = 2;
+
+  @override
+  void dispose() {
+    _promptController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 4096,
+        maxHeight: 4096,
+      );
+      if (image == null) return;
+
+      final file = File(image.path);
+      final fileSize = await file.length();
+      if (fileSize > 10 * 1024 * 1024) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('File too large. Max 10MB.'), backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+
+      setState(() {
+        _isUploading = true;
+        _outputUrl = null;
+      });
+
+      final user = _supabase.auth.currentUser;
+      if (user == null) throw Exception('Not authenticated');
+
+      final fileExt = path.extension(file.path).replaceFirst('.', '');
+      final fileName = '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      await _supabase.storage.from('generation-inputs').upload(fileName, file);
+      final publicUrl = _supabase.storage.from('generation-inputs').getPublicUrl(fileName);
+
+      setState(() => _inputUrl = publicUrl);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  Future<void> _process() async {
+    if (_inputUrl == null) return;
+
+    final creditsProvider = context.read<CreditsProvider>();
+    if (!creditsProvider.hasActiveSubscription && creditsProvider.credits < widget.creditCost) {
+      showAddCreditsDialog(context: context, currentCredits: creditsProvider.credits, requiredCredits: widget.creditCost);
+      return;
+    }
+
+    setState(() {
+      _isProcessing = true;
+      _outputUrl = null;
+    });
+
+    try {
+      final options = <String, dynamic>{};
+      if (widget.showPrompt && _promptController.text.isNotEmpty) options['prompt'] = _promptController.text;
+      if (widget.showIntensity) options['intensity'] = _intensity.round();
+      if (widget.showScale) options['scale'] = _scale;
+
+      final response = await _supabase.functions.invoke('image-tools', body: {
+        'tool': widget.toolId,
+        'imageUrl': _inputUrl,
+        ...options,
+      });
+
+      final result = response.data as Map<String, dynamic>;
+      if (result['outputUrl'] != null) {
+        setState(() => _outputUrl = result['outputUrl'] as String);
+        creditsProvider.refresh();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${widget.toolName} completed!'), backgroundColor: AppTheme.primary),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Processing failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Tool Info
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.border),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48, height: 48,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(_getToolIcon(), color: AppTheme.primary, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.toolName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text(widget.toolDescription, style: const TextStyle(color: AppTheme.muted, fontSize: 13)),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.bolt, color: AppTheme.primary, size: 14),
+                      const SizedBox(width: 4),
+                      Text('${widget.creditCost}', style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Upload Section
+          GestureDetector(
+            onTap: _pickImage,
+            child: Container(
+              height: 200,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: AppTheme.secondary,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _inputUrl != null ? AppTheme.primary : AppTheme.border),
+              ),
+              child: _isUploading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _inputUrl != null
+                      ? Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            ClipRRect(borderRadius: BorderRadius.circular(15), child: SmartMediaImage(imageUrl: _inputUrl!, fit: BoxFit.cover)),
+                            Positioned(
+                              top: 8, right: 8,
+                              child: GestureDetector(
+                                onTap: () => setState(() { _inputUrl = null; _outputUrl = null; }),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
+                                  child: const Icon(Icons.close, size: 16, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.add_photo_alternate_outlined, size: 48, color: AppTheme.muted),
+                            SizedBox(height: 12),
+                            Text('Tap to upload image', style: TextStyle(color: AppTheme.muted)),
+                          ],
+                        ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Controls
+          if (_inputUrl != null && _outputUrl == null) ...[
+            if (widget.showPrompt) ...[
+              const Text('Prompt', style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(color: AppTheme.secondary, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.border)),
+                child: TextField(
+                  controller: _promptController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(hintText: 'Describe what you want...', hintStyle: TextStyle(color: AppTheme.muted), contentPadding: EdgeInsets.all(12), border: InputBorder.none),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (widget.showIntensity) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [const Text('Intensity', style: TextStyle(fontWeight: FontWeight.w600)), Text('${_intensity.round()}%', style: const TextStyle(color: AppTheme.primary))],
+              ),
+              Slider(value: _intensity, min: 0, max: 100, activeColor: AppTheme.primary, onChanged: (v) => setState(() => _intensity = v)),
+              const SizedBox(height: 12),
+            ],
+            if (widget.showScale) ...[
+              const Text('Scale', style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Row(
+                children: [2, 3, 4].map((s) {
+                  final isSelected = _scale == s;
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _scale = s),
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppTheme.primary : AppTheme.secondary,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: isSelected ? AppTheme.primary : AppTheme.border),
+                        ),
+                        child: Center(child: Text('${s}x', style: TextStyle(fontWeight: FontWeight.w600, color: isSelected ? Colors.white : AppTheme.mutedForeground))),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ],
+
+          // Output
+          if (_outputUrl != null) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Result', style: TextStyle(fontWeight: FontWeight.w600)),
+                GestureDetector(
+                  onTap: () => setState(() { _inputUrl = null; _outputUrl = null; }),
+                  child: const Text('Reset', style: TextStyle(color: AppTheme.primary, fontSize: 13)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              height: 250, width: double.infinity,
+              decoration: BoxDecoration(color: AppTheme.secondary, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppTheme.primary)),
+              child: ClipRRect(borderRadius: BorderRadius.circular(15), child: SmartMediaImage(imageUrl: _outputUrl!, fit: BoxFit.contain)),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Action Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isProcessing || _inputUrl == null ? null : _process,
+              child: _isProcessing
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.auto_awesome, size: 18), const SizedBox(width: 8), Text('Process (${widget.creditCost} credits)')]),
+            ),
+          ),
+          const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+
+  IconData _getToolIcon() {
+    switch (widget.toolId) {
+      case 'relight': return Icons.wb_sunny;
+      case 'upscale': return Icons.hd;
+      case 'shots': return Icons.grid_view;
+      case 'inpainting': return Icons.brush;
+      case 'object-erase': return Icons.auto_fix_high;
+      case 'background-remove': return Icons.content_cut;
+      case 'style-transfer': return Icons.palette;
+      case 'skin-enhancer': return Icons.face;
+      case 'angle': return Icons.rotate_90_degrees_ccw;
+      default: return Icons.auto_awesome;
     }
   }
 }

@@ -743,10 +743,61 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
             ),
             const Divider(height: 1, color: AppTheme.border),
             // Content based on selected tool
-            Expanded(child: _buildCreateContent()),
+            Expanded(child: _buildToolContent()),
           ],
         ),
       ),
+    );
+  }
+
+  /// Build content based on selected tool
+  Widget _buildToolContent() {
+    switch (_selectedToolId) {
+      case 'generate':
+        return _buildCreateContent();
+      case 'mixed-media':
+        return _buildInlineToolContent('mixed-media', 'Mixed Media', 'Create mixed media projects', 15);
+      case 'click-to-ad':
+        return _buildInlineToolContent('click-to-ad', 'Click to Ad', 'Product URLs to video ads', 20, showPrompt: true);
+      case 'sora-trends':
+        return _buildInlineToolContent('sora-trends', 'Sora Trends', 'Turn ideas into viral videos', 25, showPrompt: true);
+      case 'lip-sync':
+        return _buildInlineToolContent('lip-sync', 'Lipsync', 'Sync audio to video with realistic lip movements', 15, showSecondaryUpload: true, secondaryUploadLabel: 'Audio');
+      case 'draw-to-video':
+        return _buildInlineToolContent('draw-to-video', 'Draw to Video', 'Sketch to cinematic video', 18, showPrompt: true);
+      case 'video-upscale':
+        return _buildInlineToolContent('video-upscale', 'Video Upscale', 'Enhance video quality', 8, showScale: true);
+      case 'extend':
+        return _buildInlineToolContent('extend', 'Extend Video', 'Extend video length', 12, showDuration: true);
+      case 'interpolate':
+        return _buildInlineToolContent('interpolate', 'Frame Interpolation', 'Smooth frame rate', 6);
+      default:
+        return _buildCreateContent();
+    }
+  }
+
+  Widget _buildInlineToolContent(
+    String toolId,
+    String toolName,
+    String description,
+    int credits, {
+    bool showPrompt = false,
+    bool showScale = false,
+    bool showDuration = false,
+    bool showSecondaryUpload = false,
+    String? secondaryUploadLabel,
+  }) {
+    return _InlineVideoToolContent(
+      key: ValueKey(toolId),
+      toolId: toolId,
+      toolName: toolName,
+      toolDescription: description,
+      creditCost: credits,
+      showPrompt: showPrompt,
+      showScale: showScale,
+      showDuration: showDuration,
+      showSecondaryUpload: showSecondaryUpload,
+      secondaryUploadLabel: secondaryUploadLabel,
     );
   }
 
@@ -1203,4 +1254,324 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
     );
   }
 
+}
+
+/// Inline Video Tool Content Widget
+class _InlineVideoToolContent extends StatefulWidget {
+  final String toolId;
+  final String toolName;
+  final String toolDescription;
+  final int creditCost;
+  final bool showPrompt;
+  final bool showScale;
+  final bool showDuration;
+  final bool showSecondaryUpload;
+  final String? secondaryUploadLabel;
+
+  const _InlineVideoToolContent({
+    super.key,
+    required this.toolId,
+    required this.toolName,
+    required this.toolDescription,
+    required this.creditCost,
+    this.showPrompt = false,
+    this.showScale = false,
+    this.showDuration = false,
+    this.showSecondaryUpload = false,
+    this.secondaryUploadLabel,
+  });
+
+  @override
+  State<_InlineVideoToolContent> createState() => _InlineVideoToolContentState();
+}
+
+class _InlineVideoToolContentState extends State<_InlineVideoToolContent> {
+  final SupabaseClient _supabase = Supabase.instance.client;
+  final ImagePicker _picker = ImagePicker();
+  final TextEditingController _promptController = TextEditingController();
+
+  String? _inputUrl;
+  String? _secondaryInputUrl;
+  String? _outputUrl;
+  bool _isUploading = false;
+  bool _isUploadingSecondary = false;
+  bool _isProcessing = false;
+  int _scale = 2;
+  int _duration = 5;
+
+  @override
+  void dispose() {
+    _promptController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickFile({bool secondary = false}) async {
+    try {
+      final XFile? file = await _picker.pickVideo(source: ImageSource.gallery);
+      if (file == null) return;
+
+      setState(() {
+        if (secondary) {
+          _isUploadingSecondary = true;
+        } else {
+          _isUploading = true;
+          _outputUrl = null;
+        }
+      });
+
+      final user = _supabase.auth.currentUser;
+      if (user == null) throw Exception('Not authenticated');
+
+      final localFile = File(file.path);
+      final fileExt = file.path.split('.').last;
+      final fileName = '${user.id}/${DateTime.now().millisecondsSinceEpoch}${secondary ? '-audio' : ''}.$fileExt';
+      await _supabase.storage.from('generation-inputs').upload(fileName, localFile);
+      final publicUrl = _supabase.storage.from('generation-inputs').getPublicUrl(fileName);
+
+      setState(() {
+        if (secondary) {
+          _secondaryInputUrl = publicUrl;
+        } else {
+          _inputUrl = publicUrl;
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          if (secondary) _isUploadingSecondary = false;
+          else _isUploading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _process() async {
+    if (_inputUrl == null) return;
+
+    final creditsProvider = context.read<CreditsProvider>();
+    if (!creditsProvider.hasActiveSubscription && creditsProvider.credits < widget.creditCost) {
+      showAddCreditsDialog(context: context, currentCredits: creditsProvider.credits, requiredCredits: widget.creditCost);
+      return;
+    }
+
+    setState(() {
+      _isProcessing = true;
+      _outputUrl = null;
+    });
+
+    try {
+      final options = <String, dynamic>{};
+      if (widget.showPrompt && _promptController.text.isNotEmpty) options['prompt'] = _promptController.text;
+      if (widget.showScale) options['scale'] = _scale;
+      if (widget.showDuration) options['duration'] = _duration;
+      if (widget.showSecondaryUpload && _secondaryInputUrl != null) options['audioUrl'] = _secondaryInputUrl;
+
+      final response = await _supabase.functions.invoke('video-tools', body: {
+        'tool': widget.toolId,
+        'videoUrl': _inputUrl,
+        ...options,
+      });
+
+      final result = response.data as Map<String, dynamic>;
+      if (result['outputUrl'] != null) {
+        setState(() => _outputUrl = result['outputUrl'] as String);
+        creditsProvider.refresh();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${widget.toolName} completed!'), backgroundColor: AppTheme.primary),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Processing failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Tool Info
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.border),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48, height: 48,
+                  decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                  child: Icon(_getToolIcon(), color: AppTheme.primary, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.toolName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text(widget.toolDescription, style: const TextStyle(color: AppTheme.muted, fontSize: 13)),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [const Icon(Icons.bolt, color: AppTheme.primary, size: 14), const SizedBox(width: 4), Text('${widget.creditCost}', style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 13))],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Upload Section
+          Row(
+            children: [
+              Expanded(child: _buildUploadBox(isPrimary: true)),
+              if (widget.showSecondaryUpload) ...[const SizedBox(width: 12), Expanded(child: _buildUploadBox(isPrimary: false))],
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Controls
+          if (_inputUrl != null && _outputUrl == null) ...[
+            if (widget.showPrompt) ...[
+              const Text('Prompt', style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(color: AppTheme.secondary, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.border)),
+                child: TextField(controller: _promptController, maxLines: 2, decoration: const InputDecoration(hintText: 'Describe what you want...', hintStyle: TextStyle(color: AppTheme.muted), contentPadding: EdgeInsets.all(12), border: InputBorder.none)),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (widget.showScale) ...[
+              const Text('Scale', style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Row(
+                children: [2, 3, 4].map((s) {
+                  final isSelected = _scale == s;
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _scale = s),
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(color: isSelected ? AppTheme.primary : AppTheme.secondary, borderRadius: BorderRadius.circular(12), border: Border.all(color: isSelected ? AppTheme.primary : AppTheme.border)),
+                        child: Center(child: Text('${s}x', style: TextStyle(fontWeight: FontWeight.w600, color: isSelected ? Colors.white : AppTheme.mutedForeground))),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (widget.showDuration) ...[
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Duration', style: TextStyle(fontWeight: FontWeight.w600)), Text('${_duration}s', style: const TextStyle(color: AppTheme.primary))]),
+              Slider(value: _duration.toDouble(), min: 3, max: 10, divisions: 7, activeColor: AppTheme.primary, onChanged: (v) => setState(() => _duration = v.round())),
+              const SizedBox(height: 12),
+            ],
+          ],
+
+          // Output
+          if (_outputUrl != null) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Result', style: TextStyle(fontWeight: FontWeight.w600)),
+                GestureDetector(onTap: () => setState(() { _inputUrl = null; _outputUrl = null; }), child: const Text('Reset', style: TextStyle(color: AppTheme.primary, fontSize: 13))),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              height: 200, width: double.infinity,
+              decoration: BoxDecoration(color: AppTheme.secondary, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppTheme.primary)),
+              child: const Center(child: Icon(Icons.play_circle_filled, size: 64, color: AppTheme.primary)),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Action Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isProcessing || _inputUrl == null ? null : _process,
+              child: _isProcessing
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.auto_awesome, size: 18), const SizedBox(width: 8), Text('Process (${widget.creditCost} credits)')]),
+            ),
+          ),
+          const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUploadBox({required bool isPrimary}) {
+    final url = isPrimary ? _inputUrl : _secondaryInputUrl;
+    final isUploading = isPrimary ? _isUploading : _isUploadingSecondary;
+    final label = isPrimary ? 'Video' : (widget.secondaryUploadLabel ?? 'Audio');
+
+    return GestureDetector(
+      onTap: () => _pickFile(secondary: !isPrimary),
+      child: Container(
+        height: 150,
+        decoration: BoxDecoration(color: AppTheme.secondary, borderRadius: BorderRadius.circular(16), border: Border.all(color: url != null ? AppTheme.primary : AppTheme.border)),
+        child: isUploading
+            ? const Center(child: CircularProgressIndicator())
+            : url != null
+                ? Stack(
+                    children: [
+                      Center(child: Icon(isPrimary ? Icons.videocam : Icons.audiotrack, size: 40, color: AppTheme.primary)),
+                      Positioned(
+                        top: 8, right: 8,
+                        child: GestureDetector(
+                          onTap: () => setState(() { if (isPrimary) { _inputUrl = null; _outputUrl = null; } else { _secondaryInputUrl = null; } }),
+                          child: Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.close, size: 16, color: Colors.white)),
+                        ),
+                      ),
+                      Positioned(bottom: 8, left: 8, right: 8, child: Text('Uploaded', textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.muted, fontSize: 12))),
+                    ],
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [Icon(isPrimary ? Icons.videocam : Icons.audiotrack, size: 32, color: AppTheme.muted), const SizedBox(height: 8), Text(label, style: const TextStyle(color: AppTheme.muted, fontSize: 13)), const SizedBox(height: 4), const Text('Tap to upload', style: TextStyle(color: AppTheme.muted, fontSize: 11))],
+                  ),
+      ),
+    );
+  }
+
+  IconData _getToolIcon() {
+    switch (widget.toolId) {
+      case 'lip-sync': return Icons.record_voice_over;
+      case 'draw-to-video': return Icons.brush;
+      case 'mixed-media': return Icons.auto_awesome_mosaic;
+      case 'click-to-ad': return Icons.ads_click;
+      case 'sora-trends': return Icons.trending_up;
+      case 'video-upscale': return Icons.hd;
+      case 'extend': return Icons.add_circle_outline;
+      case 'interpolate': return Icons.animation;
+      default: return Icons.videocam;
+    }
+  }
 }

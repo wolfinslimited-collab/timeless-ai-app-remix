@@ -389,7 +389,7 @@ class _AudioCreateScreenState extends State<AudioCreateScreen> {
                 ),
                 const Divider(height: 1, color: AppTheme.border),
                 // Content based on selected tool
-                Expanded(child: _buildCreateContent()),
+                Expanded(child: _buildToolContent()),
               ],
             ),
             // Bottom music player bar
@@ -402,6 +402,51 @@ class _AudioCreateScreenState extends State<AudioCreateScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Build content based on selected tool
+  Widget _buildToolContent() {
+    switch (_selectedToolId) {
+      case 'generate':
+        return _buildCreateContent();
+      case 'stems':
+        return _buildInlineToolContent('stems', 'Stem Separation', 'Separate audio into individual stems', 8);
+      case 'remix':
+        return _buildInlineToolContent('remix', 'AI Remix', 'AI-powered remixes', 12, showPrompt: true);
+      case 'audio-enhance':
+        return _buildInlineToolContent('audio-enhance', 'Audio Enhance', 'Clean up and enhance audio quality', 4, showIntensity: true);
+      case 'sound-effects':
+        return _buildInlineToolContent('sound-effects', 'Sound Effects', 'Generate sound effects from text', 5, showPrompt: true);
+      case 'vocals':
+        return _buildInlineToolContent('vocals', 'AI Vocals', 'Generate AI vocals', 15, showPrompt: true);
+      case 'mastering':
+        return _buildInlineToolContent('mastering', 'AI Mastering', 'Professional AI mastering', 6, showIntensity: true);
+      case 'tempo-pitch':
+        return _buildInlineToolContent('tempo-pitch', 'Tempo & Pitch', 'Adjust speed and pitch', 3, showDuration: true);
+      default:
+        return _buildCreateContent();
+    }
+  }
+
+  Widget _buildInlineToolContent(
+    String toolId,
+    String toolName,
+    String description,
+    int credits, {
+    bool showPrompt = false,
+    bool showIntensity = false,
+    bool showDuration = false,
+  }) {
+    return _InlineAudioToolContent(
+      key: ValueKey(toolId),
+      toolId: toolId,
+      toolName: toolName,
+      toolDescription: description,
+      creditCost: credits,
+      showPrompt: showPrompt,
+      showIntensity: showIntensity,
+      showDuration: showDuration,
     );
   }
 
@@ -1390,5 +1435,245 @@ class _AudioCreateScreenState extends State<AudioCreateScreen> {
         ],
       ),
     );
+  }
+}
+
+/// Inline Audio Tool Content Widget
+class _InlineAudioToolContent extends StatefulWidget {
+  final String toolId;
+  final String toolName;
+  final String toolDescription;
+  final int creditCost;
+  final bool showPrompt;
+  final bool showIntensity;
+  final bool showDuration;
+
+  const _InlineAudioToolContent({
+    super.key,
+    required this.toolId,
+    required this.toolName,
+    required this.toolDescription,
+    required this.creditCost,
+    this.showPrompt = false,
+    this.showIntensity = false,
+    this.showDuration = false,
+  });
+
+  @override
+  State<_InlineAudioToolContent> createState() => _InlineAudioToolContentState();
+}
+
+class _InlineAudioToolContentState extends State<_InlineAudioToolContent> {
+  final SupabaseClient _supabase = Supabase.instance.client;
+  final TextEditingController _promptController = TextEditingController();
+
+  String? _inputUrl;
+  String? _outputUrl;
+  bool _isUploading = false;
+  bool _isProcessing = false;
+  double _intensity = 50;
+  int _duration = 30;
+
+  @override
+  void dispose() {
+    _promptController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickAudio() async {
+    // For now, show a placeholder - audio picker would need file_picker package
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Select an audio file from your library')),
+    );
+    // Simulated upload for demo
+    setState(() => _isUploading = true);
+    await Future.delayed(const Duration(seconds: 1));
+    setState(() {
+      _isUploading = false;
+      _inputUrl = 'https://example.com/audio.mp3'; // Placeholder
+    });
+  }
+
+  Future<void> _process() async {
+    if (_inputUrl == null) return;
+
+    final creditsProvider = context.read<CreditsProvider>();
+    if (!creditsProvider.hasActiveSubscription && creditsProvider.credits < widget.creditCost) {
+      showAddCreditsDialog(context: context, currentCredits: creditsProvider.credits, requiredCredits: widget.creditCost);
+      return;
+    }
+
+    setState(() {
+      _isProcessing = true;
+      _outputUrl = null;
+    });
+
+    try {
+      final options = <String, dynamic>{};
+      if (widget.showPrompt && _promptController.text.isNotEmpty) options['prompt'] = _promptController.text;
+      if (widget.showIntensity) options['intensity'] = _intensity.round();
+      if (widget.showDuration) options['duration'] = _duration;
+
+      final response = await _supabase.functions.invoke('music-tools', body: {
+        'tool': widget.toolId,
+        'audioUrl': _inputUrl,
+        ...options,
+      });
+
+      final result = response.data as Map<String, dynamic>;
+      if (result['outputUrl'] != null) {
+        setState(() => _outputUrl = result['outputUrl'] as String);
+        creditsProvider.refresh();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${widget.toolName} completed!'), backgroundColor: AppTheme.primary),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Processing failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Tool Info
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: AppTheme.card, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppTheme.border)),
+            child: Row(
+              children: [
+                Container(
+                  width: 48, height: 48,
+                  decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                  child: Icon(_getToolIcon(), color: AppTheme.primary, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.toolName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text(widget.toolDescription, style: const TextStyle(color: AppTheme.muted, fontSize: 13)),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.bolt, color: AppTheme.primary, size: 14), const SizedBox(width: 4), Text('${widget.creditCost}', style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 13))]),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Upload Section
+          GestureDetector(
+            onTap: _pickAudio,
+            child: Container(
+              height: 150, width: double.infinity,
+              decoration: BoxDecoration(color: AppTheme.secondary, borderRadius: BorderRadius.circular(16), border: Border.all(color: _inputUrl != null ? AppTheme.primary : AppTheme.border)),
+              child: _isUploading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _inputUrl != null
+                      ? Stack(
+                          children: [
+                            const Center(child: Icon(Icons.audiotrack, size: 48, color: AppTheme.primary)),
+                            Positioned(
+                              top: 8, right: 8,
+                              child: GestureDetector(
+                                onTap: () => setState(() { _inputUrl = null; _outputUrl = null; }),
+                                child: Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.close, size: 16, color: Colors.white)),
+                              ),
+                            ),
+                            const Positioned(bottom: 12, left: 0, right: 0, child: Text('Audio uploaded', textAlign: TextAlign.center, style: TextStyle(color: AppTheme.muted))),
+                          ],
+                        )
+                      : Column(mainAxisAlignment: MainAxisAlignment.center, children: const [Icon(Icons.audiotrack, size: 48, color: AppTheme.muted), SizedBox(height: 12), Text('Tap to upload audio', style: TextStyle(color: AppTheme.muted))]),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Controls
+          if (_inputUrl != null && _outputUrl == null) ...[
+            if (widget.showPrompt) ...[
+              const Text('Prompt', style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(color: AppTheme.secondary, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.border)),
+                child: TextField(controller: _promptController, maxLines: 2, decoration: const InputDecoration(hintText: 'Describe what you want...', hintStyle: TextStyle(color: AppTheme.muted), contentPadding: EdgeInsets.all(12), border: InputBorder.none)),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (widget.showIntensity) ...[
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Intensity', style: TextStyle(fontWeight: FontWeight.w600)), Text('${_intensity.round()}%', style: const TextStyle(color: AppTheme.primary))]),
+              Slider(value: _intensity, min: 0, max: 100, activeColor: AppTheme.primary, onChanged: (v) => setState(() => _intensity = v)),
+              const SizedBox(height: 12),
+            ],
+            if (widget.showDuration) ...[
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Duration', style: TextStyle(fontWeight: FontWeight.w600)), Text('${_duration}s', style: const TextStyle(color: AppTheme.primary))]),
+              Slider(value: _duration.toDouble(), min: 5, max: 120, divisions: 23, activeColor: AppTheme.primary, onChanged: (v) => setState(() => _duration = v.round())),
+              const SizedBox(height: 12),
+            ],
+          ],
+
+          // Output
+          if (_outputUrl != null) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Result', style: TextStyle(fontWeight: FontWeight.w600)),
+                GestureDetector(onTap: () => setState(() { _inputUrl = null; _outputUrl = null; }), child: const Text('Reset', style: TextStyle(color: AppTheme.primary, fontSize: 13))),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              height: 100, width: double.infinity,
+              decoration: BoxDecoration(color: AppTheme.secondary, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppTheme.primary)),
+              child: const Center(child: Icon(Icons.play_circle_filled, size: 48, color: AppTheme.primary)),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Action Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isProcessing || _inputUrl == null ? null : _process,
+              child: _isProcessing
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.auto_awesome, size: 18), const SizedBox(width: 8), Text('Process (${widget.creditCost} credits)')]),
+            ),
+          ),
+          const SizedBox(height: 100), // Extra padding for music player bar
+        ],
+      ),
+    );
+  }
+
+  IconData _getToolIcon() {
+    switch (widget.toolId) {
+      case 'stems': return Icons.album;
+      case 'remix': return Icons.auto_fix_high;
+      case 'audio-enhance': return Icons.graphic_eq;
+      case 'sound-effects': return Icons.radio;
+      case 'vocals': return Icons.mic;
+      case 'mastering': return Icons.tune;
+      case 'tempo-pitch': return Icons.speed;
+      default: return Icons.music_note;
+    }
   }
 }
