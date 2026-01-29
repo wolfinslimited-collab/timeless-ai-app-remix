@@ -1,12 +1,5 @@
 import { cn } from "@/lib/utils";
 
-// Import actual logo files
-import openaiLogo from "@/assets/logos/openai.svg";
-import geminiLogo from "@/assets/logos/gemini.svg";
-import xLogo from "@/assets/logos/x-logo.svg";
-import metaLlamaLogo from "@/assets/logos/meta-llama.svg";
-import deepseekLogo from "@/assets/logos/deepseek.png";
-
 interface ModelLogoProps {
   modelId: string;
   size?: "sm" | "md" | "lg";
@@ -14,69 +7,53 @@ interface ModelLogoProps {
 }
 
 const sizeClasses = {
-  sm: "h-6 w-6",
-  md: "h-8 w-8",
-  lg: "h-10 w-10",
+  sm: "h-6 w-6 text-xs",
+  md: "h-8 w-8 text-sm",
+  lg: "h-10 w-10 text-base",
 };
 
-const iconSizeClasses = {
-  sm: "h-3.5 w-3.5",
-  md: "h-5 w-5",
-  lg: "h-6 w-6",
-};
-
-// Model configurations with actual logos
+// Model configurations with letter and color
 const MODEL_CONFIG: Record<string, { 
-  logo: string; 
+  letter: string; 
   bgColor: string;
-  invert?: boolean;
 }> = {
-  // Grok/xAI models - X logo
-  "grok-3": { logo: xLogo, bgColor: "bg-white dark:bg-white", invert: false },
-  "grok-3-mini": { logo: xLogo, bgColor: "bg-white dark:bg-white", invert: false },
+  // Grok/xAI models
+  "grok-3": { letter: "G", bgColor: "bg-secondary" },
+  "grok-3-mini": { letter: "G", bgColor: "bg-secondary" },
   
-  // ChatGPT/OpenAI models - OpenAI logo
-  // NOTE: The OpenAI SVG is black by default; invert it so it stays visible on dark backgrounds.
-  "chatgpt-5.2": { logo: openaiLogo, bgColor: "bg-black dark:bg-white", invert: true },
-  "chatgpt-5": { logo: openaiLogo, bgColor: "bg-black dark:bg-white", invert: true },
-  "chatgpt-5-mini": { logo: openaiLogo, bgColor: "bg-black dark:bg-white", invert: true },
+  // ChatGPT/OpenAI models
+  "chatgpt-5.2": { letter: "O", bgColor: "bg-green-600" },
+  "chatgpt-5": { letter: "O", bgColor: "bg-green-600" },
+  "chatgpt-5-mini": { letter: "O", bgColor: "bg-green-600" },
   
-  // Gemini models - Google Gemini logo
-  "gemini-3-pro": { logo: geminiLogo, bgColor: "bg-white dark:bg-slate-800" },
-  "gemini-3-flash": { logo: geminiLogo, bgColor: "bg-white dark:bg-slate-800" },
-  "gemini-2.5-pro": { logo: geminiLogo, bgColor: "bg-white dark:bg-slate-800" },
+  // Gemini models
+  "gemini-3-pro": { letter: "G", bgColor: "bg-blue-500" },
+  "gemini-3-flash": { letter: "G", bgColor: "bg-blue-500" },
+  "gemini-2.5-pro": { letter: "G", bgColor: "bg-blue-500" },
   
   // DeepSeek models
-  "deepseek-r1": { logo: deepseekLogo, bgColor: "bg-white dark:bg-slate-800" },
-  "deepseek-v3": { logo: deepseekLogo, bgColor: "bg-white dark:bg-slate-800" },
+  "deepseek-r1": { letter: "D", bgColor: "bg-secondary" },
+  "deepseek-v3": { letter: "D", bgColor: "bg-secondary" },
   
   // Llama/Meta models
-  "llama-3.3": { logo: metaLlamaLogo, bgColor: "bg-gradient-to-r from-blue-500 to-purple-600" },
-  "llama-3.3-large": { logo: metaLlamaLogo, bgColor: "bg-gradient-to-r from-blue-500 to-purple-600" },
+  "llama-3.3": { letter: "L", bgColor: "bg-secondary" },
+  "llama-3.3-large": { letter: "L", bgColor: "bg-secondary" },
 };
 
 const ModelLogo = ({ modelId, size = "md", className }: ModelLogoProps) => {
-  const config = MODEL_CONFIG[modelId] || { logo: openaiLogo, bgColor: "bg-primary/10" };
-  const { logo, bgColor, invert } = config;
+  const config = MODEL_CONFIG[modelId] || { letter: "A", bgColor: "bg-secondary" };
+  const { letter, bgColor } = config;
   
   return (
     <div
       className={cn(
-        "flex items-center justify-center rounded-xl shrink-0 p-1.5",
+        "flex items-center justify-center rounded-full shrink-0 font-semibold text-foreground",
         bgColor,
         sizeClasses[size],
         className
       )}
     >
-      <img 
-        src={logo} 
-        alt={`${modelId} logo`}
-        className={cn(
-          "object-contain",
-          iconSizeClasses[size],
-          invert && "invert"
-        )}
-      />
+      {letter}
     </div>
   );
 };
@@ -84,20 +61,20 @@ const ModelLogo = ({ modelId, size = "md", className }: ModelLogoProps) => {
 export const getModelEmoji = (modelId: string): string => {
   // Keeping for backwards compatibility
   const emojiMap: Record<string, string> = {
-    "grok-3": "𝕏",
-    "grok-3-mini": "𝕏",
-    "chatgpt-5.2": "◯",
-    "chatgpt-5": "◯",
-    "chatgpt-5-mini": "◯",
-    "gemini-3-pro": "✦",
-    "gemini-3-flash": "✦",
-    "gemini-2.5-pro": "✦",
-    "deepseek-r1": "🔍",
-    "deepseek-v3": "🔍",
-    "llama-3.3": "🦙",
-    "llama-3.3-large": "🦙",
+    "grok-3": "G",
+    "grok-3-mini": "G",
+    "chatgpt-5.2": "O",
+    "chatgpt-5": "O",
+    "chatgpt-5-mini": "O",
+    "gemini-3-pro": "G",
+    "gemini-3-flash": "G",
+    "gemini-2.5-pro": "G",
+    "deepseek-r1": "D",
+    "deepseek-v3": "D",
+    "llama-3.3": "L",
+    "llama-3.3-large": "L",
   };
-  return emojiMap[modelId] || "◯";
+  return emojiMap[modelId] || "A";
 };
 
 export default ModelLogo;
