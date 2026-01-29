@@ -680,6 +680,11 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
       );
 
   void _handleToolSelected(ToolItem tool) {
+    // Navigate to dedicated tool screen if route is defined
+    if (tool.route != null) {
+      context.push(tool.route!);
+      return;
+    }
     setState(() => _selectedToolId = tool.id);
   }
 

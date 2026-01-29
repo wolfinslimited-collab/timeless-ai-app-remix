@@ -534,9 +534,9 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
       );
 
   void _handleToolSelected(ToolItem tool) {
-    // Navigate to dedicated page for Shots tool
-    if (tool.id == 'shots') {
-      context.push('/create/image/shots');
+    // Navigate to dedicated tool screen if route is defined
+    if (tool.route != null) {
+      context.push(tool.route!);
       return;
     }
     setState(() => _selectedToolId = tool.id);
