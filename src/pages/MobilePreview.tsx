@@ -9,10 +9,14 @@ import { MobileCreate } from "@/components/mobile/MobileCreate";
 import { MobileImageCreate } from "@/components/mobile/MobileImageCreate";
 import { MobileVideoCreate } from "@/components/mobile/MobileVideoCreate";
 import { MobileCinemaStudio } from "@/components/mobile/MobileCinemaStudio";
+import { MobileAudioCreate } from "@/components/mobile/MobileAudioCreate";
+import { MobileApps } from "@/components/mobile/MobileApps";
 import { MobileChat } from "@/components/mobile/MobileChat";
 import { MobileLibrary } from "@/components/mobile/MobileLibrary";
 import { MobileProfile } from "@/components/mobile/MobileProfile";
 import { MobileSubscription } from "@/components/mobile/MobileSubscription";
+import { MobileDownloads } from "@/components/mobile/MobileDownloads";
+import { MobileFavorites } from "@/components/mobile/MobileFavorites";
 
 export default function MobilePreview() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("home");
@@ -43,6 +47,10 @@ export default function MobilePreview() {
         return <MobileVideoCreate onBack={() => setCurrentScreen("create")} />;
       case "cinema":
         return <MobileCinemaStudio onBack={() => setCurrentScreen("create")} />;
+      case "audio":
+        return <MobileAudioCreate onBack={() => setCurrentScreen("create")} />;
+      case "apps":
+        return <MobileApps onBack={() => setCurrentScreen("create")} onNavigate={setCurrentScreen} />;
       case "chat":
         return <MobileChat />;
       case "library":
@@ -51,6 +59,10 @@ export default function MobilePreview() {
         return <MobileProfile onNavigate={setCurrentScreen} />;
       case "subscription":
         return <MobileSubscription onBack={() => setCurrentScreen("profile")} />;
+      case "downloads":
+        return <MobileDownloads onBack={() => setCurrentScreen("profile")} />;
+      case "favorites":
+        return <MobileFavorites onBack={() => setCurrentScreen("profile")} />;
       default:
         return <MobileHome onNavigate={setCurrentScreen} credits={credits ?? 0} />;
     }
