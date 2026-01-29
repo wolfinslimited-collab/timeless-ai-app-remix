@@ -35,8 +35,8 @@ export function MobileSleepAI({ onBack }: MobileSleepAIProps) {
           </button>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center mb-6">
-            <Moon className="w-10 h-10 text-indigo-400" />
+          <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mb-6">
+            <Moon className="w-10 h-10 text-muted-foreground" />
           </div>
           <h1 className="text-2xl font-bold text-foreground mb-3">Welcome to Sleep AI</h1>
           <p className="text-sm text-muted-foreground mb-8">
@@ -78,8 +78,8 @@ export function MobileSleepAI({ onBack }: MobileSleepAIProps) {
           <button onClick={onBack} className="p-1">
             <ArrowLeft className="w-5 h-5 text-muted-foreground" />
           </button>
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center">
-            <Moon className="w-5 h-5 text-indigo-400" />
+          <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+            <Moon className="w-5 h-5 text-muted-foreground" />
           </div>
           <div className="flex-1">
             <h1 className="text-base font-semibold text-foreground">Sleep AI</h1>
@@ -111,7 +111,7 @@ export function MobileSleepAI({ onBack }: MobileSleepAIProps) {
         {activeTab === "dashboard" && (
           <div className="p-4 space-y-4">
             {/* Sleep Score */}
-            <div className="p-6 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-2xl border border-indigo-500/30 text-center">
+            <div className="p-6 bg-secondary rounded-2xl border border-border text-center">
               <p className="text-sm text-muted-foreground mb-2">Sleep Score</p>
               <div className="flex items-baseline justify-center gap-1">
                 <span className="text-5xl font-bold text-foreground">78</span>
@@ -134,10 +134,10 @@ export function MobileSleepAI({ onBack }: MobileSleepAIProps) {
             </div>
 
             {/* Streak */}
-            <div className="p-4 bg-gradient-to-br from-orange-500/10 to-amber-500/10 rounded-xl border border-orange-500/20">
+            <div className="p-4 bg-secondary rounded-xl border border-border">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-orange-500/20 flex items-center justify-center">
-                  <Flame className="w-7 h-7 text-orange-500" />
+                <div className="w-14 h-14 rounded-2xl bg-card flex items-center justify-center">
+                  <Flame className="w-7 h-7 text-muted-foreground" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Sleep Streak</p>
@@ -156,9 +156,9 @@ export function MobileSleepAI({ onBack }: MobileSleepAIProps) {
                   { date: "2 days ago", hours: "6h 45m", quality: 7 },
                   { date: "3 days ago", hours: "8h 00m", quality: 9 },
                 ].map((log) => (
-                  <div key={log.date} className="flex items-center gap-3 p-3 bg-secondary rounded-xl">
-                    <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-                      <Moon className="w-5 h-5 text-indigo-400" />
+                  <div key={log.date} className="flex items-center gap-3 p-3 bg-secondary rounded-xl border border-border">
+                    <div className="w-10 h-10 rounded-lg bg-card flex items-center justify-center">
+                      <Moon className="w-5 h-5 text-muted-foreground" />
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-foreground">{log.date}</p>
