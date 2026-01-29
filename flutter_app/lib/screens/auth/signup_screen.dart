@@ -6,62 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/oauth_icons.dart';
-
-// Popular countries list
-const List<Map<String, String>> countries = [
-  {'code': 'US', 'name': 'United States'},
-  {'code': 'GB', 'name': 'United Kingdom'},
-  {'code': 'CA', 'name': 'Canada'},
-  {'code': 'AU', 'name': 'Australia'},
-  {'code': 'DE', 'name': 'Germany'},
-  {'code': 'FR', 'name': 'France'},
-  {'code': 'ES', 'name': 'Spain'},
-  {'code': 'IT', 'name': 'Italy'},
-  {'code': 'BR', 'name': 'Brazil'},
-  {'code': 'MX', 'name': 'Mexico'},
-  {'code': 'IN', 'name': 'India'},
-  {'code': 'JP', 'name': 'Japan'},
-  {'code': 'KR', 'name': 'South Korea'},
-  {'code': 'CN', 'name': 'China'},
-  {'code': 'AE', 'name': 'United Arab Emirates'},
-  {'code': 'SA', 'name': 'Saudi Arabia'},
-  {'code': 'NL', 'name': 'Netherlands'},
-  {'code': 'SE', 'name': 'Sweden'},
-  {'code': 'CH', 'name': 'Switzerland'},
-  {'code': 'PL', 'name': 'Poland'},
-  {'code': 'RU', 'name': 'Russia'},
-  {'code': 'TR', 'name': 'Turkey'},
-  {'code': 'ZA', 'name': 'South Africa'},
-  {'code': 'NG', 'name': 'Nigeria'},
-  {'code': 'EG', 'name': 'Egypt'},
-  {'code': 'AR', 'name': 'Argentina'},
-  {'code': 'CL', 'name': 'Chile'},
-  {'code': 'CO', 'name': 'Colombia'},
-  {'code': 'PH', 'name': 'Philippines'},
-  {'code': 'ID', 'name': 'Indonesia'},
-  {'code': 'MY', 'name': 'Malaysia'},
-  {'code': 'SG', 'name': 'Singapore'},
-  {'code': 'TH', 'name': 'Thailand'},
-  {'code': 'VN', 'name': 'Vietnam'},
-  {'code': 'PK', 'name': 'Pakistan'},
-  {'code': 'BD', 'name': 'Bangladesh'},
-  {'code': 'IR', 'name': 'Iran'},
-  {'code': 'IL', 'name': 'Israel'},
-  {'code': 'NO', 'name': 'Norway'},
-  {'code': 'DK', 'name': 'Denmark'},
-  {'code': 'FI', 'name': 'Finland'},
-  {'code': 'IE', 'name': 'Ireland'},
-  {'code': 'PT', 'name': 'Portugal'},
-  {'code': 'GR', 'name': 'Greece'},
-  {'code': 'CZ', 'name': 'Czech Republic'},
-  {'code': 'AT', 'name': 'Austria'},
-  {'code': 'BE', 'name': 'Belgium'},
-  {'code': 'HU', 'name': 'Hungary'},
-  {'code': 'RO', 'name': 'Romania'},
-  {'code': 'UA', 'name': 'Ukraine'},
-  {'code': 'NZ', 'name': 'New Zealand'},
-  {'code': 'OTHER', 'name': 'Other'},
-];
+import '../../widgets/country_picker.dart';
 
 class SignupScreen extends StatefulWidget {
   final String? referralCode;
@@ -843,39 +788,13 @@ class _SignupScreenState extends State<SignupScreen>
                         ),
                         const SizedBox(height: 16),
 
-                        // Country dropdown
-                        DropdownButtonFormField<String>(
-                          value: _selectedCountry,
-                          decoration: InputDecoration(
-                            labelText: 'Country',
-                            prefixIcon: const Icon(Icons.public),
-                            filled: true,
-                            fillColor: AppTheme.card,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                  color: AppTheme.muted.withOpacity(0.2)),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide:
-                                  const BorderSide(color: AppTheme.primary),
-                            ),
-                          ),
-                          dropdownColor: AppTheme.card,
-                          items: countries.map((country) {
-                            return DropdownMenuItem<String>(
-                              value: country['code'],
-                              child: Text(country['name']!),
-                            );
-                          }).toList(),
+                        // Country picker
+                        CountryPickerField(
+                          selectedCode: _selectedCountry,
                           onChanged: (value) {
                             setState(() => _selectedCountry = value);
                           },
+                          enabled: !_isLoading,
                         ),
                         const SizedBox(height: 16),
 
