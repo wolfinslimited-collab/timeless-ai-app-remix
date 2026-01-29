@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { 
   Bell, Moon, Brain, Sparkles, DollarSign, Apple, Fingerprint, 
-  Megaphone, ArrowLeft, ArrowRight, ChevronRight 
+  Megaphone, ArrowLeft, ArrowRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Screen } from "./MobileNav";
@@ -136,8 +136,22 @@ export function MobileApps({ onBack, onNavigate }: MobileAppsProps) {
     if (app.comingSoon) {
       return;
     }
-    // For now, show as coming soon - actual navigation would be implemented when screens exist
-    console.log(`Opening ${app.name}...`);
+    
+    // Navigate to specific app screens
+    const appRoutes: Record<string, Screen> = {
+      "notify-ai": "notify-ai",
+      "sleep-ai": "sleep-ai",
+      "brain-ai": "brain-ai",
+      "skin-ai": "skin-ai",
+      "financial-ai": "financial-ai",
+      "calorie-ai": "calorie-ai",
+      "fingerprint-ai": "fingerprint-ai",
+    };
+    
+    const route = appRoutes[app.id];
+    if (route && onNavigate) {
+      onNavigate(route);
+    }
   };
 
   const getBadgeColor = (badge?: string) => {

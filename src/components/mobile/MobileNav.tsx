@@ -15,7 +15,14 @@ export type Screen =
   | "auth" 
   | "subscription"
   | "downloads"
-  | "favorites";
+  | "favorites"
+  | "notify-ai"
+  | "sleep-ai"
+  | "brain-ai"
+  | "skin-ai"
+  | "financial-ai"
+  | "calorie-ai"
+  | "fingerprint-ai";
 
 interface MobileNavProps {
   currentScreen: Screen;
