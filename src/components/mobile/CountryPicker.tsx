@@ -1,72 +1,9 @@
 import { useState, useMemo } from "react";
 import { Search, X, Check, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { countries, getCountryByCode, type Country } from "@/data/countries";
 
-interface Country {
-  code: string;
-  name: string;
-  flag: string;
-}
-
-const countries: Country[] = [
-  { code: "US", name: "United States", flag: "🇺🇸" },
-  { code: "GB", name: "United Kingdom", flag: "🇬🇧" },
-  { code: "CA", name: "Canada", flag: "🇨🇦" },
-  { code: "AU", name: "Australia", flag: "🇦🇺" },
-  { code: "DE", name: "Germany", flag: "🇩🇪" },
-  { code: "FR", name: "France", flag: "🇫🇷" },
-  { code: "ES", name: "Spain", flag: "🇪🇸" },
-  { code: "IT", name: "Italy", flag: "🇮🇹" },
-  { code: "BR", name: "Brazil", flag: "🇧🇷" },
-  { code: "MX", name: "Mexico", flag: "🇲🇽" },
-  { code: "IN", name: "India", flag: "🇮🇳" },
-  { code: "JP", name: "Japan", flag: "🇯🇵" },
-  { code: "KR", name: "South Korea", flag: "🇰🇷" },
-  { code: "CN", name: "China", flag: "🇨🇳" },
-  { code: "AE", name: "United Arab Emirates", flag: "🇦🇪" },
-  { code: "SA", name: "Saudi Arabia", flag: "🇸🇦" },
-  { code: "NL", name: "Netherlands", flag: "🇳🇱" },
-  { code: "SE", name: "Sweden", flag: "🇸🇪" },
-  { code: "CH", name: "Switzerland", flag: "🇨🇭" },
-  { code: "PL", name: "Poland", flag: "🇵🇱" },
-  { code: "RU", name: "Russia", flag: "🇷🇺" },
-  { code: "TR", name: "Turkey", flag: "🇹🇷" },
-  { code: "ZA", name: "South Africa", flag: "🇿🇦" },
-  { code: "NG", name: "Nigeria", flag: "🇳🇬" },
-  { code: "EG", name: "Egypt", flag: "🇪🇬" },
-  { code: "AR", name: "Argentina", flag: "🇦🇷" },
-  { code: "CL", name: "Chile", flag: "🇨🇱" },
-  { code: "CO", name: "Colombia", flag: "🇨🇴" },
-  { code: "PH", name: "Philippines", flag: "🇵🇭" },
-  { code: "ID", name: "Indonesia", flag: "🇮🇩" },
-  { code: "MY", name: "Malaysia", flag: "🇲🇾" },
-  { code: "SG", name: "Singapore", flag: "🇸🇬" },
-  { code: "TH", name: "Thailand", flag: "🇹🇭" },
-  { code: "VN", name: "Vietnam", flag: "🇻🇳" },
-  { code: "PK", name: "Pakistan", flag: "🇵🇰" },
-  { code: "BD", name: "Bangladesh", flag: "🇧🇩" },
-  { code: "IR", name: "Iran", flag: "🇮🇷" },
-  { code: "IL", name: "Israel", flag: "🇮🇱" },
-  { code: "NO", name: "Norway", flag: "🇳🇴" },
-  { code: "DK", name: "Denmark", flag: "🇩🇰" },
-  { code: "FI", name: "Finland", flag: "🇫🇮" },
-  { code: "IE", name: "Ireland", flag: "🇮🇪" },
-  { code: "PT", name: "Portugal", flag: "🇵🇹" },
-  { code: "GR", name: "Greece", flag: "🇬🇷" },
-  { code: "CZ", name: "Czech Republic", flag: "🇨🇿" },
-  { code: "AT", name: "Austria", flag: "🇦🇹" },
-  { code: "BE", name: "Belgium", flag: "🇧🇪" },
-  { code: "HU", name: "Hungary", flag: "🇭🇺" },
-  { code: "RO", name: "Romania", flag: "🇷🇴" },
-  { code: "UA", name: "Ukraine", flag: "🇺🇦" },
-  { code: "NZ", name: "New Zealand", flag: "🇳🇿" },
-  { code: "OTHER", name: "Other", flag: "🌍" },
-];
-
-export function getCountryByCode(code: string | null): Country | null {
-  if (!code) return null;
-  return countries.find((c) => c.code === code) || null;
-}
+export { getCountryByCode, type Country };
 
 interface CountryPickerFieldProps {
   value: string;
@@ -142,7 +79,7 @@ function CountryPickerSheet({ selectedCode, onSelect, onClose }: CountryPickerSh
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Sheet */}
-      <div className="relative w-full max-w-md bg-card rounded-t-2xl max-h-[70vh] flex flex-col animate-in slide-in-from-bottom duration-300">
+      <div className="relative w-full max-w-md bg-card rounded-t-2xl max-h-[80vh] flex flex-col animate-in slide-in-from-bottom duration-300">
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-2">
           <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
@@ -165,9 +102,25 @@ function CountryPickerSheet({ selectedCode, onSelect, onClose }: CountryPickerSh
               placeholder="Search countries..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              autoFocus
               className="w-full bg-background border border-border/30 rounded-xl pl-10 pr-4 py-2.5 text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/20"
             />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
+        </div>
+
+        {/* Country count */}
+        <div className="px-4 pb-2">
+          <span className="text-xs text-muted-foreground">
+            {filteredCountries.length} {filteredCountries.length === 1 ? 'country' : 'countries'}
+          </span>
         </div>
 
         {/* Country list */}
