@@ -136,7 +136,7 @@ export function MobileApps({ onBack, onNavigate }: MobileAppsProps) {
       case "BETA":
         return "bg-blue-500/15 text-blue-500";
       case "SOON":
-        return "bg-muted/50 text-muted-foreground";
+        return "bg-secondary text-muted-foreground";
       default:
         return "bg-muted text-foreground";
     }
@@ -269,7 +269,7 @@ function getBadgeColor(badge?: string) {
     case "BETA":
       return "bg-blue-500/15 text-blue-500";
     case "SOON":
-      return "bg-muted/50 text-muted-foreground";
+      return "bg-secondary text-muted-foreground";
     default:
       return "bg-muted text-foreground";
   }

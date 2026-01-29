@@ -326,7 +326,7 @@ class _AppCard extends StatelessWidget {
       case 'BETA':
         return const Color(0xFF3B82F6);
       case 'SOON':
-        return const Color(0xFF6B7280);
+        return AppTheme.secondary;
       default:
         return AppTheme.muted;
     }
@@ -341,7 +341,7 @@ class _AppCard extends StatelessWidget {
       case 'BETA':
         return const Color(0xFF3B82F6);
       case 'SOON':
-        return const Color(0xFF6B7280);
+        return AppTheme.muted;
       default:
         return AppTheme.foreground;
     }
@@ -451,7 +451,7 @@ class _AppCard extends StatelessWidget {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: app.badge == 'NEW'
+                    color: app.badge == 'NEW' || app.badge == 'SOON'
                         ? _getBadgeColor()
                         : _getBadgeColor().withOpacity(0.15),
                     borderRadius: BorderRadius.circular(6),
