@@ -149,9 +149,8 @@ class _ConversationDrawerState extends State<ConversationDrawer> {
 
       if (mounted) {
         setState(() {
-          _conversations = (convsResult as List<Conversation>)
-              .where((c) => c.model == widget.currentModel)
-              .toList();
+          // Show ALL conversations, not just for current model
+          _conversations = (convsResult as List<Conversation>);
           _folders = (foldersResult as List<dynamic>)
               .map((f) => ChatFolder.fromJson(f))
               .toList();
