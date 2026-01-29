@@ -1,15 +1,30 @@
 import { useState, useRef } from "react";
-import { ArrowLeft, Image, Sparkles, Loader2, Plus, X } from "lucide-react";
+import { ArrowLeft, Image, Sparkles, Loader2, Plus, X, Sun, Maximize, Grid3X3, Brush, Eraser, Scissors, Palette, User, RotateCcw, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase, TIMELESS_SUPABASE_URL } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { useToast } from "@/hooks/use-toast";
 import AddCreditsDialog from "@/components/AddCreditsDialog";
+import { ToolSelector, type ToolItem } from "./ToolSelector";
 
 interface MobileImageCreateProps {
   onBack: () => void;
+  initialTool?: string;
 }
+
+const TOOLS: ToolItem[] = [
+  { id: "generate", name: "Generate", description: "Create images from text prompts", icon: Sparkles, credits: 4, isGenerate: true },
+  { id: "relight", name: "Relight", description: "AI-powered relighting", icon: Sun, credits: 2 },
+  { id: "upscale", name: "Upscale", description: "Enhance resolution up to 4x", icon: Maximize, credits: 3 },
+  { id: "shots", name: "Shots", description: "9 cinematic angles", icon: Grid3X3, credits: 10 },
+  { id: "inpainting", name: "Inpainting", description: "Paint to replace areas", icon: Brush, credits: 5 },
+  { id: "object-erase", name: "Erase", description: "Remove unwanted objects", icon: Eraser, credits: 4 },
+  { id: "background-remove", name: "Remove BG", description: "Remove backgrounds", icon: Scissors, credits: 2 },
+  { id: "style-transfer", name: "Style", description: "Apply artistic styles", icon: Palette, credits: 4 },
+  { id: "skin-enhancer", name: "Skin", description: "Portrait retouching", icon: User, credits: 3 },
+  { id: "angle", name: "Angle", description: "View from new perspectives", icon: RotateCcw, credits: 4 },
+];
 
 const MODELS = [
   { id: "nano-banana", name: "Nano Banana", credits: 4 },
@@ -19,7 +34,8 @@ const MODELS = [
 
 const ASPECT_RATIOS = ["1:1", "16:9", "9:16"];
 
-export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
+export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileImageCreateProps) {
+  const [selectedToolId, setSelectedToolId] = useState(initialTool);
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("nano-banana");
   const [aspectRatio, setAspectRatio] = useState("1:1");
@@ -37,11 +53,23 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
   const { credits, refetch, hasEnoughCreditsForModel } = useCredits();
   const { toast } = useToast();
 
+  const selectedTool = TOOLS.find(t => t.id === selectedToolId) || TOOLS[0];
+  const selectedModel = MODELS.find(m => m.id === model);
+
+  const handleToolSelected = (tool: ToolItem) => {
+    if (tool.isGenerate) {
+      setSelectedToolId(tool.id);
+    } else {
+      // For other tools, you could navigate to dedicated screens
+      // For now, just select them
+      setSelectedToolId(tool.id);
+    }
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    // Check file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       toast({
         variant: "destructive",
@@ -167,33 +195,43 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
     }
   };
 
-  const selectedModel = MODELS.find(m => m.id === model);
-
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="px-4 py-2 flex items-center gap-3">
-        <button onClick={onBack} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-          <ArrowLeft className="w-4 h-4 text-white" />
+    <div className="h-full flex flex-col bg-background">
+      {/* Compact Header */}
+      <div className="px-4 py-2 flex items-center gap-3 border-b border-border">
+        <button onClick={onBack} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+          <ArrowLeft className="w-4 h-4 text-foreground" />
         </button>
-        <h1 className="text-white text-lg font-semibold">Create Image</h1>
-        <div className="ml-auto text-xs text-gray-400">
-          {selectedModel?.credits} credits
+        <div className="flex-1 min-w-0">
+          <h1 className="text-foreground text-sm font-semibold truncate">{selectedTool.name}</h1>
+          <p className="text-muted-foreground text-[10px] truncate">{selectedTool.description}</p>
+        </div>
+        <div className="flex items-center gap-1 bg-primary/15 px-2 py-1 rounded-lg">
+          <Zap className="w-3 h-3 text-primary" />
+          <span className="text-primary text-xs font-semibold">{selectedTool.credits}</span>
         </div>
       </div>
+
+      {/* Tool Selector */}
+      <ToolSelector
+        tools={TOOLS}
+        selectedToolId={selectedToolId}
+        onToolSelected={handleToolSelected}
+      />
+      <div className="h-px bg-border" />
 
       {/* Preview Area */}
       <div className="flex-1 px-4 py-4">
         <div className={cn(
-          "bg-white/5 rounded-2xl border border-dashed border-white/20 flex flex-col items-center justify-center overflow-hidden",
+          "bg-secondary rounded-2xl border border-border flex flex-col items-center justify-center overflow-hidden",
           aspectRatio === "1:1" && "aspect-square",
           aspectRatio === "16:9" && "aspect-video",
           aspectRatio === "9:16" && "aspect-[9/16] max-h-[300px]"
         )}>
           {isGenerating ? (
             <div className="flex flex-col items-center gap-3">
-              <Loader2 className="w-12 h-12 text-purple-400 animate-spin" />
-              <p className="text-gray-400 text-sm">Generating...</p>
+              <Loader2 className="w-12 h-12 text-primary animate-spin" />
+              <p className="text-muted-foreground text-sm">Generating...</p>
             </div>
           ) : generatedImage ? (
             <img 
@@ -203,15 +241,15 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
             />
           ) : (
             <>
-              <Image className="w-12 h-12 text-gray-500 mb-3" />
-              <p className="text-gray-400 text-sm">Your image will appear here</p>
+              <Image className="w-12 h-12 text-muted-foreground mb-3" />
+              <p className="text-muted-foreground text-sm">Your image will appear here</p>
             </>
           )}
         </div>
       </div>
 
       {/* Controls */}
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-4 border-t border-border">
         {/* Model Selector */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2">
           {MODELS.map((m) => (
@@ -221,8 +259,8 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
               className={cn(
                 "px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors",
                 model === m.id 
-                  ? "bg-purple-500 text-white" 
-                  : "bg-white/10 text-gray-300"
+                  ? "bg-primary text-primary-foreground" 
+                  : "bg-secondary text-muted-foreground"
               )}
             >
               {m.name}
@@ -232,7 +270,7 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
 
         {/* Aspect Ratio */}
         <div className="flex items-center gap-2">
-          <span className="text-gray-400 text-xs">Ratio:</span>
+          <span className="text-muted-foreground text-xs">Ratio:</span>
           {ASPECT_RATIOS.map((ratio) => (
             <button
               key={ratio}
@@ -240,8 +278,8 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
               className={cn(
                 "px-2 py-1 rounded text-xs transition-colors",
                 aspectRatio === ratio 
-                  ? "bg-purple-500/20 text-purple-300" 
-                  : "bg-white/10 text-gray-400"
+                  ? "bg-primary/20 text-primary" 
+                  : "bg-secondary text-muted-foreground"
               )}
             >
               {ratio}
@@ -250,21 +288,21 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
         </div>
 
         {/* Prompt Input with Reference Button */}
-        <div className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-2">
+        <div className="flex items-center gap-2 bg-secondary rounded-full px-3 py-2 border border-border">
           {/* Reference Image Button */}
           <button
             onClick={() => setShowRefDialog(true)}
             className={cn(
               "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors",
               referenceImages.length > 0 
-                ? "bg-purple-500/30 border border-purple-500" 
-                : "bg-white/10"
+                ? "bg-primary/30 border border-primary" 
+                : "bg-background border border-border"
             )}
           >
             {referenceImages.length > 0 ? (
-              <span className="text-xs font-bold text-purple-300">+{referenceImages.length}</span>
+              <span className="text-xs font-bold text-primary">+{referenceImages.length}</span>
             ) : (
-              <Plus className="w-4 h-4 text-gray-400" />
+              <Plus className="w-4 h-4 text-muted-foreground" />
             )}
           </button>
           
@@ -273,18 +311,18 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Describe your image..."
-            className="flex-1 bg-transparent text-white text-sm placeholder:text-gray-500 outline-none"
+            className="flex-1 bg-transparent text-foreground text-sm placeholder:text-muted-foreground outline-none"
             disabled={isGenerating}
           />
           <button 
             onClick={handleGenerate}
             disabled={isGenerating || !prompt.trim()}
-            className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center disabled:opacity-50"
+            className="w-10 h-10 rounded-full bg-primary flex items-center justify-center disabled:opacity-50"
           >
             {isGenerating ? (
-              <Loader2 className="w-5 h-5 text-white animate-spin" />
+              <Loader2 className="w-5 h-5 text-primary-foreground animate-spin" />
             ) : (
-              <Sparkles className="w-5 h-5 text-white" />
+              <Sparkles className="w-5 h-5 text-primary-foreground" />
             )}
           </button>
         </div>
@@ -302,9 +340,9 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
       {/* Reference Images Dialog */}
       {showRefDialog && (
         <div className="absolute inset-0 bg-black/80 flex items-end z-50">
-          <div className="bg-[#1a1a2e] rounded-t-3xl w-full p-6 animate-slide-up">
-            <h3 className="text-white text-lg font-semibold mb-2">Reference Images</h3>
-            <p className="text-gray-400 text-sm mb-5">
+          <div className="bg-card rounded-t-3xl w-full p-6 animate-slide-up">
+            <h3 className="text-foreground text-lg font-semibold mb-2">Reference Images</h3>
+            <p className="text-muted-foreground text-sm mb-5">
               Add up to 3 reference images for style transfer and consistency.
             </p>
             
@@ -316,7 +354,7 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
                 return (
                   <div key={index} className="aspect-square relative">
                     {imageUrl ? (
-                      <div className="w-full h-full rounded-xl overflow-hidden border border-white/20 relative group">
+                      <div className="w-full h-full rounded-xl overflow-hidden border border-border relative group">
                         <img src={imageUrl} alt={`Ref ${index + 1}`} className="w-full h-full object-cover" />
                         <button
                           onClick={() => removeReferenceImage(index)}
@@ -325,7 +363,7 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
                           <X className="w-3 h-3 text-white" />
                         </button>
                         {index === 0 && (
-                          <div className="absolute top-1 left-1 px-2 py-0.5 bg-purple-500 rounded text-[8px] font-bold text-white">
+                          <div className="absolute top-1 left-1 px-2 py-0.5 bg-primary rounded text-[8px] font-bold text-primary-foreground">
                             PRIMARY
                           </div>
                         )}
@@ -334,14 +372,14 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
                       <button
                         onClick={() => triggerFileUpload(index)}
                         disabled={isUploading}
-                        className="w-full h-full rounded-xl border border-dashed border-white/20 bg-white/5 flex flex-col items-center justify-center"
+                        className="w-full h-full rounded-xl border border-dashed border-border bg-secondary flex flex-col items-center justify-center"
                       >
                         {isUploadingThis ? (
-                          <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                          <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
                         ) : (
                           <>
-                            <Plus className="w-6 h-6 text-gray-500 mb-1" />
-                            <span className="text-gray-500 text-[10px]">
+                            <Plus className="w-6 h-6 text-muted-foreground mb-1" />
+                            <span className="text-muted-foreground text-[10px]">
                               {index === 0 ? 'Primary' : 'Optional'}
                             </span>
                           </>
@@ -355,7 +393,7 @@ export function MobileImageCreate({ onBack }: MobileImageCreateProps) {
             
             <button
               onClick={() => setShowRefDialog(false)}
-              className="w-full py-3 bg-purple-500 rounded-full text-white font-medium"
+              className="w-full py-3 bg-primary rounded-full text-primary-foreground font-medium"
             >
               Done
             </button>
