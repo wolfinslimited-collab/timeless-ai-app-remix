@@ -42,26 +42,22 @@ class DefaultFirebaseOptions {
 
   /// Android Firebase configuration
   /// 
-  /// Replace these values with your Firebase project configuration from:
-  /// - Firebase Console > Project Settings > Your Apps > Android
-  /// - Or from google-services.json
+  /// Values from google-services.json
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'YOUR_ANDROID_API_KEY',
-    appId: '1:YOUR_PROJECT_NUMBER:android:YOUR_APP_ID',
-    messagingSenderId: 'YOUR_PROJECT_NUMBER',
+    apiKey: 'AIzaSyB9RBNguGjYVPupuD40Z_ZoBY_wBlY4H_k',
+    appId: '1:1012149210327:android:YOUR_ANDROID_APP_ID',
+    messagingSenderId: '1012149210327',
     projectId: 'timeless-983d7',
     storageBucket: 'timeless-983d7.firebasestorage.app',
   );
 
   /// iOS Firebase configuration
   /// 
-  /// Replace these values with your Firebase project configuration from:
-  /// - Firebase Console > Project Settings > Your Apps > iOS
-  /// - Or from GoogleService-Info.plist
+  /// Values from GoogleService-Info.plist
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'YOUR_IOS_API_KEY',
-    appId: '1:YOUR_PROJECT_NUMBER:ios:YOUR_APP_ID',
-    messagingSenderId: 'YOUR_PROJECT_NUMBER',
+    apiKey: 'AIzaSyB9RBNguGjYVPupuD40Z_ZoBY_wBlY4H_k',
+    appId: '1:1012149210327:ios:77ca5f404f0ad61af8b492',
+    messagingSenderId: '1012149210327',
     projectId: 'timeless-983d7',
     storageBucket: 'timeless-983d7.firebasestorage.app',
     iosBundleId: 'com.health.timelessApp',
