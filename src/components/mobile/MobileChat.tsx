@@ -6,11 +6,13 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
+import { useConversations, type ChatMessage } from "@/hooks/useConversations";
 import { useToast } from "@/hooks/use-toast";
 import { TIMELESS_SUPABASE_URL, TIMELESS_ANON_KEY } from "@/lib/supabase";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import ModelLogo from "@/components/ModelLogo";
+import { ChatDrawer } from "@/components/chat/ChatDrawer";
 
 interface Message {
   role: "user" | "assistant";
@@ -53,11 +55,33 @@ export function MobileChat() {
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { user } = useAuth();
   const { credits, hasActiveSubscription } = useCredits();
   const { toast } = useToast();
+  
+  const {
+    conversations,
+    folders,
+    isLoading: conversationsLoading,
+    searchQuery,
+    setSearchQuery,
+    pinnedConversations,
+    groupedConversations,
+    getConversationsInFolder,
+    createConversation,
+    getMessages,
+    saveMessage,
+    togglePin,
+    moveToFolder,
+    deleteConversation,
+    createFolder,
+    deleteFolder,
+    TIME_GROUP_LABELS,
+    TIME_GROUPS,
+  } = useConversations(selectedModel);
 
   const currentModel = chatModels.find(m => m.id === selectedModel) || chatModels[0];
   const supportsVision = currentModel.supportsImages;
@@ -65,6 +89,25 @@ export function MobileChat() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const handleLoadConversation = async (id: string) => {
+    try {
+      const loadedMessages = await getMessages(id);
+      setCurrentConversationId(id);
+      setMessages(loadedMessages.map((m: ChatMessage) => ({
+        role: m.role,
+        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+        images: m.images || undefined,
+      })));
+    } catch (error) {
+      console.error("Error loading conversation:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load conversation",
+      });
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -79,13 +122,28 @@ export function MobileChat() {
     }
 
     const userMessage: Message = { role: "user", content: input };
+    const userInput = input;
     setMessages(prev => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
 
     let assistantContent = "";
+    let convId = currentConversationId;
 
     try {
+      // Create conversation if needed
+      if (!convId) {
+        const newConv = await createConversation(
+          selectedModel,
+          userInput.length > 50 ? `${userInput.substring(0, 50)}...` : userInput
+        );
+        convId = newConv.id;
+        setCurrentConversationId(convId);
+      }
+
+      // Save user message to database
+      await saveMessage(convId, "user", userInput);
+
       const response = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
@@ -154,6 +212,11 @@ export function MobileChat() {
           }
         }
       }
+
+      // Save assistant message to database
+      if (assistantContent && convId) {
+        await saveMessage(convId, "assistant", assistantContent);
+      }
     } catch (error) {
       console.error("Chat error:", error);
       toast({
@@ -171,6 +234,14 @@ export function MobileChat() {
 
   const handleNewChat = () => {
     setMessages([]);
+    setCurrentConversationId(null);
+  };
+
+  const handleDeleteConversation = async (id: string) => {
+    await deleteConversation(id);
+    if (id === currentConversationId) {
+      handleNewChat();
+    }
   };
 
   const getBadgeColor = (badge?: string) => {
@@ -427,7 +498,7 @@ export function MobileChat() {
                     key={model.id}
                     onClick={() => {
                       setSelectedModel(model.id);
-                      setMessages([]);
+                      handleNewChat(); // Clear messages when changing model
                       setShowModelSelector(false);
                     }}
                     className={cn(
@@ -482,34 +553,30 @@ export function MobileChat() {
         </div>
       )}
 
-      {/* Conversation Drawer (placeholder) */}
-      {showDrawer && (
-        <div className="absolute inset-0 z-50 bg-black/50" onClick={() => setShowDrawer(false)}>
-          <div 
-            className="absolute left-0 top-0 bottom-0 w-[280px] bg-card"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="p-4 border-b border-border">
-              <h2 className="text-lg font-bold text-foreground">Conversations</h2>
-            </div>
-            <div className="p-4 flex flex-col items-center justify-center h-[calc(100%-60px)] text-center">
-              <Menu className="w-12 h-12 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground text-sm">
-                Your conversation history will appear here
-              </p>
-              <button 
-                onClick={() => {
-                  handleNewChat();
-                  setShowDrawer(false);
-                }}
-                className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium"
-              >
-                New Chat
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Conversation Drawer */}
+      <ChatDrawer
+        isOpen={showDrawer}
+        onClose={() => setShowDrawer(false)}
+        currentModel={selectedModel}
+        currentConversationId={currentConversationId || undefined}
+        conversations={conversations}
+        folders={folders}
+        pinnedConversations={pinnedConversations}
+        groupedConversations={groupedConversations}
+        isLoading={conversationsLoading}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onSelectConversation={handleLoadConversation}
+        onNewConversation={handleNewChat}
+        onTogglePin={(id, pinned) => togglePin(id, pinned)}
+        onMoveToFolder={(id, folderId) => moveToFolder(id, folderId)}
+        onDeleteConversation={handleDeleteConversation}
+        onCreateFolder={createFolder}
+        onDeleteFolder={deleteFolder}
+        getConversationsInFolder={getConversationsInFolder}
+        timeGroupLabels={TIME_GROUP_LABELS}
+        timeGroups={TIME_GROUPS}
+      />
     </div>
   );
 }
