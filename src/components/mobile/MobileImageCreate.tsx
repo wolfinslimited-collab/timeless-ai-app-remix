@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { ArrowLeft, Image, Sparkles, Loader2, Plus, X, Sun, Maximize, Grid3X3, Brush, Eraser, Scissors, Palette, User, RotateCcw, Zap } from "lucide-react";
+import { ArrowLeft, Image, Sparkles, Loader2, Plus, X, Sun, Maximize, Grid3X3, Brush, Eraser, Scissors, Palette, User, RotateCcw, Zap, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase, TIMELESS_SUPABASE_URL } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,6 +7,8 @@ import { useCredits } from "@/hooks/useCredits";
 import { useToast } from "@/hooks/use-toast";
 import AddCreditsDialog from "@/components/AddCreditsDialog";
 import { ToolSelector, type ToolItem } from "./ToolSelector";
+import { ModelSelectorModal, type ModelOption } from "./ModelSelectorModal";
+import { ModelBrandLogo } from "./ModelBrandLogo";
 
 interface MobileImageCreateProps {
   onBack: () => void;
@@ -26,10 +28,17 @@ const TOOLS: ToolItem[] = [
   { id: "angle", name: "Angle", description: "View from new perspectives", icon: RotateCcw, credits: 4 },
 ];
 
-const MODELS = [
-  { id: "nano-banana", name: "Nano Banana", credits: 4 },
-  { id: "flux-1.1-pro", name: "FLUX Pro", credits: 5 },
-  { id: "ideogram-v2", name: "Ideogram", credits: 6 },
+const MODELS: ModelOption[] = [
+  { id: "nano-banana", name: "Nano Banana", description: "Fast & efficient Lovable AI", credits: 4, badge: "NEW", tier: "economy" },
+  { id: "nano-banana-pro", name: "Nano Banana Pro", description: "Higher quality Lovable AI", credits: 6, badge: "PRO", tier: "hq" },
+  { id: "flux-1.1-pro", name: "FLUX 1.1 Pro", description: "Black Forest Labs flagship", credits: 5, badge: "TOP", tier: "hq" },
+  { id: "flux-schnell", name: "FLUX Schnell", description: "Ultra-fast generation", credits: 3, tier: "economy" },
+  { id: "ideogram-v3", name: "Ideogram V3", description: "Best for text in images", credits: 6, badge: "NEW", tier: "hq" },
+  { id: "ideogram-v2", name: "Ideogram V2", description: "Great typography", credits: 5, tier: "hq" },
+  { id: "midjourney-v6", name: "Midjourney V6", description: "Artistic & creative", credits: 8, badge: "TOP", tier: "hq" },
+  { id: "recraft-v3", name: "Recraft V3", description: "Design-focused model", credits: 5, tier: "hq" },
+  { id: "sd-ultra", name: "SD Ultra", description: "Stable Diffusion best", credits: 4, tier: "economy" },
+  { id: "imagen-4", name: "Imagen 4", description: "Google's latest image AI", credits: 6, badge: "NEW", tier: "hq" },
 ];
 
 const ASPECT_RATIOS = ["1:1", "16:9", "9:16"];
@@ -46,6 +55,7 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
   const [showRefDialog, setShowRefDialog] = useState(false);
   const [showAddCreditsDialog, setShowAddCreditsDialog] = useState(false);
+  const [showModelSelector, setShowModelSelector] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentUploadIndex = useRef<number>(0);
   
@@ -54,7 +64,7 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
   const { toast } = useToast();
 
   const selectedTool = TOOLS.find(t => t.id === selectedToolId) || TOOLS[0];
-  const selectedModel = MODELS.find(m => m.id === model);
+  const selectedModelData = MODELS.find(m => m.id === model);
 
   const handleToolSelected = (tool: ToolItem) => {
     if (tool.isGenerate) {
@@ -250,23 +260,35 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
 
       {/* Controls */}
       <div className="p-4 space-y-4 border-t border-border">
-        {/* Model Selector */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2">
-          {MODELS.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => setModel(m.id)}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors",
-                model === m.id 
-                  ? "bg-primary text-primary-foreground" 
-                  : "bg-secondary text-muted-foreground"
+        {/* Model Selector Button */}
+        <button
+          onClick={() => setShowModelSelector(true)}
+          className="w-full flex items-center gap-3 p-3 rounded-2xl bg-secondary border border-border hover:bg-secondary/80 transition-colors"
+        >
+          <ModelBrandLogo modelId={model} size="md" />
+          <div className="flex-1 text-left">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-foreground text-sm">
+                {selectedModelData?.name || "Select Model"}
+              </span>
+              {selectedModelData?.badge && (
+                <span className="px-1.5 py-0.5 text-[9px] font-bold text-white rounded bg-primary">
+                  {selectedModelData.badge}
+                </span>
               )}
-            >
-              {m.name}
-            </button>
-          ))}
-        </div>
+            </div>
+            {selectedModelData?.description && (
+              <span className="text-xs text-muted-foreground">{selectedModelData.description}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="px-2 py-1 bg-background rounded-lg flex items-center gap-1">
+              <Zap className="w-3 h-3 text-primary" />
+              <span className="text-xs font-bold text-primary">{selectedModelData?.credits || 4}</span>
+            </div>
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          </div>
+        </button>
 
         {/* Aspect Ratio */}
         <div className="flex items-center gap-2">
@@ -406,7 +428,18 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
         open={showAddCreditsDialog}
         onOpenChange={setShowAddCreditsDialog}
         currentCredits={credits ?? 0}
-        requiredCredits={selectedModel?.credits ?? 4}
+        requiredCredits={selectedModelData?.credits ?? 4}
+      />
+
+      {/* Model Selector Modal */}
+      <ModelSelectorModal
+        isOpen={showModelSelector}
+        onClose={() => setShowModelSelector(false)}
+        models={MODELS}
+        selectedModel={model}
+        onSelectModel={setModel}
+        title="Select Image Model"
+        type="image"
       />
     </div>
   );

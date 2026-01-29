@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Video, Sparkles, Loader2, Camera, Play, Layers, TrendingUp, Mic, Brush, Maximize, PlusCircle, Timer, Zap } from "lucide-react";
+import { ArrowLeft, Video, Sparkles, Loader2, Camera, Play, Layers, TrendingUp, Mic, Brush, Maximize, PlusCircle, Timer, Zap, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase, TIMELESS_SUPABASE_URL } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,6 +7,8 @@ import { useCredits } from "@/hooks/useCredits";
 import { useToast } from "@/hooks/use-toast";
 import AddCreditsDialog from "@/components/AddCreditsDialog";
 import { ToolSelector, type ToolItem } from "./ToolSelector";
+import { ModelSelectorModal, type ModelOption } from "./ModelSelectorModal";
+import { ModelBrandLogo } from "./ModelBrandLogo";
 
 interface MobileVideoCreateProps {
   onBack: () => void;
@@ -24,10 +26,17 @@ const TOOLS: ToolItem[] = [
   { id: "interpolate", name: "Smooth", description: "Smooth frame rate", icon: Timer, credits: 6 },
 ];
 
-const MODELS = [
-  { id: "kling-2.6", name: "Kling 2.1", credits: 25 },
-  { id: "wan-2.6", name: "Wan 2.1", credits: 15 },
-  { id: "veo-3-fast", name: "Veo 3", credits: 20 },
+const MODELS: ModelOption[] = [
+  { id: "kling-2.6", name: "Kling 2.6 Pro", description: "Cinematic with audio", credits: 25, badge: "TOP", tier: "hq" },
+  { id: "wan-2.6", name: "Wan 2.6", description: "Latest Alibaba model", credits: 15, badge: "NEW", tier: "hq" },
+  { id: "veo-3", name: "Veo 3", description: "Google's best with audio", credits: 30, badge: "TOP", tier: "hq" },
+  { id: "veo-3-fast", name: "Veo 3 Fast", description: "Faster Veo 3", credits: 20, badge: "PRO", tier: "hq" },
+  { id: "luma", name: "Luma Dream Machine", description: "Creative video", credits: 22, badge: "PRO", tier: "hq" },
+  { id: "hailuo-02", name: "Hailuo-02", description: "MiniMax video model", credits: 18, badge: "NEW", tier: "hq" },
+  { id: "seedance-1.5", name: "Seedance 1.5", description: "With audio support", credits: 20, badge: "NEW", tier: "hq" },
+  { id: "hunyuan-1.5", name: "Hunyuan 1.5", description: "Tencent video model", credits: 18, badge: "NEW", tier: "hq" },
+  { id: "runway", name: "Runway Gen", description: "Industry standard", credits: 8, tier: "economy" },
+  { id: "sora-2", name: "Sora 2", description: "OpenAI video gen", credits: 12, tier: "economy" },
 ];
 
 const ASPECT_RATIOS = ["16:9", "9:16", "1:1"];
@@ -43,13 +52,14 @@ export function MobileVideoCreate({ onBack, initialTool = "generate" }: MobileVi
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
   const [showAddCreditsDialog, setShowAddCreditsDialog] = useState(false);
+  const [showModelSelector, setShowModelSelector] = useState(false);
   
   const { user } = useAuth();
   const { credits, refetch, hasEnoughCreditsForModel } = useCredits();
   const { toast } = useToast();
 
   const selectedTool = TOOLS.find(t => t.id === selectedToolId) || TOOLS[0];
-  const selectedModel = MODELS.find(m => m.id === model);
+  const selectedModelData = MODELS.find(m => m.id === model);
 
   const handleToolSelected = (tool: ToolItem) => {
     setSelectedToolId(tool.id);
@@ -178,7 +188,7 @@ export function MobileVideoCreate({ onBack, initialTool = "generate" }: MobileVi
         </div>
         <div className="flex items-center gap-1 bg-primary/15 px-2 py-1 rounded-lg">
           <Zap className="w-3 h-3 text-primary" />
-          <span className="text-primary text-xs font-semibold">{selectedModel?.credits ?? 15}</span>
+          <span className="text-primary text-xs font-semibold">{selectedModelData?.credits ?? 15}</span>
         </div>
       </div>
 
@@ -220,23 +230,35 @@ export function MobileVideoCreate({ onBack, initialTool = "generate" }: MobileVi
 
       {/* Controls */}
       <div className="p-4 space-y-4 border-t border-border">
-        {/* Model Selector */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2">
-          {MODELS.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => setModel(m.id)}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors",
-                model === m.id 
-                  ? "bg-primary text-primary-foreground" 
-                  : "bg-secondary text-muted-foreground"
+        {/* Model Selector Button */}
+        <button
+          onClick={() => setShowModelSelector(true)}
+          className="w-full flex items-center gap-3 p-3 rounded-2xl bg-secondary border border-border hover:bg-secondary/80 transition-colors"
+        >
+          <ModelBrandLogo modelId={model} size="md" />
+          <div className="flex-1 text-left">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-foreground text-sm">
+                {selectedModelData?.name || "Select Model"}
+              </span>
+              {selectedModelData?.badge && (
+                <span className="px-1.5 py-0.5 text-[9px] font-bold text-white rounded bg-primary">
+                  {selectedModelData.badge}
+                </span>
               )}
-            >
-              {m.name}
-            </button>
-          ))}
-        </div>
+            </div>
+            {selectedModelData?.description && (
+              <span className="text-xs text-muted-foreground">{selectedModelData.description}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="px-2 py-1 bg-background rounded-lg flex items-center gap-1">
+              <Zap className="w-3 h-3 text-primary" />
+              <span className="text-xs font-bold text-primary">{selectedModelData?.credits || 15}</span>
+            </div>
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          </div>
+        </button>
 
         {/* Settings Row */}
         <div className="flex items-center gap-4">
@@ -305,7 +327,18 @@ export function MobileVideoCreate({ onBack, initialTool = "generate" }: MobileVi
         open={showAddCreditsDialog}
         onOpenChange={setShowAddCreditsDialog}
         currentCredits={credits ?? 0}
-        requiredCredits={selectedModel?.credits ?? 15}
+        requiredCredits={selectedModelData?.credits ?? 15}
+      />
+
+      {/* Model Selector Modal */}
+      <ModelSelectorModal
+        isOpen={showModelSelector}
+        onClose={() => setShowModelSelector(false)}
+        models={MODELS}
+        selectedModel={model}
+        onSelectModel={setModel}
+        title="Select Video Model"
+        type="video"
       />
     </div>
   );
