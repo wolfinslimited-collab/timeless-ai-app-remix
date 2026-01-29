@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
 import '../../services/brain_service.dart';
+import 'games/memory_match_game.dart';
+import 'games/speed_math_game.dart';
 
 class BrainAIScreen extends StatefulWidget {
   const BrainAIScreen({super.key});
@@ -655,8 +657,25 @@ class _BrainAIScreenState extends State<BrainAIScreen>
   }
 
   void _launchGame(String gameName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Launching $gameName...')),
+    Widget? gameScreen;
+    
+    switch (gameName) {
+      case 'Memory Match':
+        gameScreen = const MemoryMatchGameScreen();
+        break;
+      case 'Speed Math':
+        gameScreen = const SpeedMathGameScreen();
+        break;
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$gameName coming soon!')),
+        );
+        return;
+    }
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => gameScreen!),
     );
   }
 }
