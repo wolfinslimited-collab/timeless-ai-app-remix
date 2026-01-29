@@ -154,8 +154,9 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_currentConversation == null) {
       _currentConversation = await _chatService.createConversation(
         model: _selectedModel,
-        title:
-            text.isNotEmpty ? (text.length > 50 ? '${text.substring(0, 50)}...' : text) : 'Image conversation',
+        title: text.isNotEmpty
+            ? (text.length > 50 ? '${text.substring(0, 50)}...' : text)
+            : 'Image conversation',
       );
     }
 
@@ -309,11 +310,8 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final messages = await _chatService.getMessages(id);
       // Get the conversation details
-      final convData = await _supabase
-          .from('conversations')
-          .select()
-          .eq('id', id)
-          .single();
+      final convData =
+          await _supabase.from('conversations').select().eq('id', id).single();
 
       setState(() {
         _selectedModel = convData['model'] as String;
@@ -402,7 +400,8 @@ class _ChatScreenState extends State<ChatScreen> {
                               size: 11, color: AppTheme.muted),
                           const SizedBox(width: 4),
                         ],
-                        const Icon(Icons.toll, size: 11, color: AppTheme.accent),
+                        const Icon(Icons.toll,
+                            size: 11, color: AppTheme.accent),
                         const SizedBox(width: 3),
                         Text(
                           creditsProvider.isUnlimited
@@ -440,244 +439,226 @@ class _ChatScreenState extends State<ChatScreen> {
         behavior: HitTestBehavior.opaque,
         child: Column(
           children: [
-          // Messages
-          Expanded(
-            child: _messages.isEmpty && _streamingContent.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length +
-                        (_streamingContent.isNotEmpty ? 1 : 0) +
-                        (_isLoading && _streamingContent.isEmpty ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      // Show skeleton loader
-                      if (_isLoading &&
-                          _streamingContent.isEmpty &&
-                          index == _messages.length) {
-                        return ChatMessageSkeleton(modelId: _selectedModel);
-                      }
-                      // Show streaming content
-                      if (_streamingContent.isNotEmpty &&
-                          index == _messages.length) {
+            // Messages
+            Expanded(
+              child: _messages.isEmpty && _streamingContent.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _messages.length +
+                          (_streamingContent.isNotEmpty ? 1 : 0) +
+                          (_isLoading && _streamingContent.isEmpty ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        // Show skeleton loader
+                        if (_isLoading &&
+                            _streamingContent.isEmpty &&
+                            index == _messages.length) {
+                          return ChatMessageSkeleton(modelId: _selectedModel);
+                        }
+                        // Show streaming content
+                        if (_streamingContent.isNotEmpty &&
+                            index == _messages.length) {
+                          return ChatMessageBubble(
+                            content: _streamingContent,
+                            isUser: false,
+                            modelId: _selectedModel,
+                          );
+                        }
+                        final message = _messages[index];
                         return ChatMessageBubble(
-                          content: _streamingContent,
-                          isUser: false,
-                          modelId: _selectedModel,
+                          content: message.textContent,
+                          isUser: message.isUser,
+                          modelId: message.isUser ? null : _selectedModel,
+                          images: message.images,
                         );
-                      }
-                      final message = _messages[index];
-                      return ChatMessageBubble(
-                        content: message.textContent,
-                        isUser: message.isUser,
-                        modelId: message.isUser ? null : _selectedModel,
-                        images: message.images,
-                      );
-                    },
-                  ),
-          ),
-
-          // Pending images preview
-          if (_pendingImages.isNotEmpty)
-            Container(
-              height: 80,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _pendingImages.length,
-                itemBuilder: (context, index) {
-                  return Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    child: Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: SmartNetworkImage(
-                            _pendingImages[index],
-                            width: 70,
-                            height: 70,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        Positioned(
-                          top: 2,
-                          right: 2,
-                          child: GestureDetector(
-                            onTap: () => _removePendingImage(index),
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(
-                                color: Colors.black54,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.close,
-                                  size: 14, color: Colors.white),
-                            ),
-                          ),
-                        ),
-                      ],
+                      },
                     ),
-                  );
-                },
-              ),
             ),
 
-          // Input Area
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.card,
-              border: Border(
-                  top: BorderSide(color: AppTheme.border.withOpacity(0.5))),
-            ),
-            child: SafeArea(
-              top: false,
-              child: Column(
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      // Image button (for vision models)
-                      if (_supportsVision)
-                        GestureDetector(
-                          onTap: _isUploadingImage ? null : _showImageOptions,
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            margin: const EdgeInsets.only(right: 8),
-                            decoration: BoxDecoration(
-                              color: AppTheme.secondary,
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: _isUploadingImage
-                                ? const Padding(
-                                    padding: EdgeInsets.all(8),
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.image,
-                                    size: 18, color: AppTheme.muted),
-                          ),
-                        ),
-
-                      // Web search toggle
-                      GestureDetector(
-                        onTap: () =>
-                            setState(() => _webSearchEnabled = !_webSearchEnabled),
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          margin: const EdgeInsets.only(right: 8),
-                          decoration: BoxDecoration(
-                            color: _webSearchEnabled
-                                ? AppTheme.primary.withOpacity(0.2)
-                                : AppTheme.secondary,
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: _webSearchEnabled
-                                  ? AppTheme.primary
-                                  : Colors.transparent,
-                              width: 1,
+            // Pending images preview
+            if (_pendingImages.isNotEmpty)
+              Container(
+                height: 80,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _pendingImages.length,
+                  itemBuilder: (context, index) {
+                    return Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      child: Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: SmartNetworkImage(
+                              _pendingImages[index],
+                              width: 70,
+                              height: 70,
+                              fit: BoxFit.cover,
                             ),
                           ),
-                          child: Icon(
-                            Icons.language,
-                            size: 18,
-                            color: _webSearchEnabled
-                                ? AppTheme.primary
-                                : AppTheme.muted,
-                          ),
-                        ),
-                      ),
-
-                      // Text input
-                      Expanded(
-                        child: Container(
-                          constraints: const BoxConstraints(maxHeight: 120),
-                          decoration: BoxDecoration(
-                            color: AppTheme.secondary,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: TextField(
-                            controller: _messageController,
-                            maxLines: null,
-                            textInputAction: TextInputAction.send,
-                            onSubmitted: (_) => _sendMessage(),
-                            decoration: InputDecoration(
-                              hintText: _webSearchEnabled
-                                  ? 'Search the web...'
-                                  : 'Write something creative...',
-                              hintStyle: const TextStyle(
-                                  color: AppTheme.muted, fontSize: 14),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 10,
+                          Positioned(
+                            top: 2,
+                            right: 2,
+                            child: GestureDetector(
+                              onTap: () => _removePendingImage(index),
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(
+                                  color: Colors.black54,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close,
+                                    size: 14, color: Colors.white),
                               ),
-                              border: InputBorder.none,
                             ),
-                            style: const TextStyle(fontSize: 14),
                           ),
-                        ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
+                    );
+                  },
+                ),
+              ),
 
-                      // Send button
-                      GestureDetector(
-                        onTap: _isLoading ? null : _sendMessage,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color:
-                                _isLoading ? AppTheme.muted : AppTheme.primary,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: _isLoading
-                              ? const Padding(
-                                  padding: EdgeInsets.all(10),
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.arrow_upward,
-                                  size: 18, color: Colors.white),
+            // Input Area — single compact bar
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              decoration: BoxDecoration(
+                color: AppTheme.card,
+                border: Border(
+                    top: BorderSide(color: AppTheme.border.withOpacity(0.5))),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // One-row input bar: [image?] [web] [text field] [send]
+                    Container(
+                      constraints: const BoxConstraints(minHeight: 48),
+                      decoration: BoxDecoration(
+                        color: AppTheme.secondary,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: AppTheme.border.withOpacity(0.4),
+                          width: 1,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  // Footer info
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (_webSearchEnabled) ...[
-                        const Icon(Icons.language, size: 10, color: AppTheme.primary),
-                        const SizedBox(width: 4),
-                        const Text(
-                          'Web search enabled',
-                          style: TextStyle(fontSize: 10, color: AppTheme.primary),
-                        ),
-                        const Text(
-                          ' • ',
-                          style: TextStyle(fontSize: 10, color: AppTheme.muted),
-                        ),
-                      ],
-                      Text(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Left actions — mono color icons
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_supportsVision)
+                                  _InputActionButton(
+                                    onTap: _isUploadingImage
+                                        ? null
+                                        : _showImageOptions,
+                                    icon: _isUploadingImage
+                                        ? null
+                                        : Icons.add_photo_alternate_outlined,
+                                    loading: _isUploadingImage,
+                                    size: 24,
+                                  ),
+                                SizedBox(width: _supportsVision ? 4 : 0),
+                                GestureDetector(
+                                  onTap: () => setState(() =>
+                                      _webSearchEnabled = !_webSearchEnabled),
+                                  child: Container(
+                                    width: 24,
+                                    height: 24,
+                                    alignment: Alignment.center,
+                                    child: Icon(
+                                      Icons.language,
+                                      size: 18,
+                                      color: AppTheme.mutedForeground,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Text field
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: TextField(
+                                controller: _messageController,
+                                minLines: 1,
+                                maxLines: 4,
+                                textInputAction: TextInputAction.send,
+                                onSubmitted: (_) => _sendMessage(),
+                                decoration: InputDecoration(
+                                  hintText: _webSearchEnabled
+                                      ? 'Search the web...'
+                                      : 'Message',
+                                  hintStyle: const TextStyle(
+                                      color: AppTheme.muted, fontSize: 15),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                ),
+                                style: const TextStyle(fontSize: 15),
+                              ),
+                            ),
+                          ),
+                          // Send — primary color only for send
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4, right: 6),
+                            child: GestureDetector(
+                              onTap: _isLoading ? null : _sendMessage,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                width: 36,
+                                height: 36,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: _isLoading
+                                      ? AppTheme.muted
+                                      : AppTheme.primary,
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(Icons.arrow_upward,
+                                        size: 18, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Minimal footer
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
                         'AI can make mistakes',
                         style: TextStyle(
                           fontSize: 10,
-                          color: AppTheme.muted.withOpacity(0.7),
+                          color: AppTheme.muted.withOpacity(0.5),
                         ),
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );
@@ -752,6 +733,44 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Compact icon button for the chat input bar (image, etc.).
+class _InputActionButton extends StatelessWidget {
+  const _InputActionButton({
+    required this.onTap,
+    required this.icon,
+    required this.loading,
+    this.size = 28,
+  });
+
+  final VoidCallback? onTap;
+  final IconData? icon;
+  final bool loading;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: loading
+            ? Center(
+                child: SizedBox(
+                  width: size * 0.5,
+                  height: size * 0.5,
+                  child: const CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppTheme.mutedForeground,
+                  ),
+                ),
+              )
+            : Icon(icon, size: size * 0.6, color: AppTheme.mutedForeground),
       ),
     );
   }

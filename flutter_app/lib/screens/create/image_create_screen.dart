@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -15,6 +14,15 @@ import '../../widgets/common/full_screen_image_viewer.dart';
 import '../../widgets/add_credits_dialog.dart';
 import '../../widgets/tool_selector.dart';
 import 'image_model_selector.dart';
+import 'tools/relight_tool_screen.dart';
+import 'tools/upscale_tool_screen.dart';
+import 'tools/shots_tool_screen.dart' as tools_shots;
+import 'tools/inpainting_tool_screen.dart';
+import 'tools/object_erase_tool_screen.dart';
+import 'tools/angle_tool_screen.dart';
+import 'tools/skin_enhancer_tool_screen.dart';
+import 'tools/style_transfer_tool_screen.dart';
+import 'tools/background_remove_tool_screen.dart';
 
 class ImageCreateScreen extends StatefulWidget {
   final String? initialTool;
@@ -605,53 +613,33 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
     );
   }
 
-  /// Build content based on selected tool
+  /// Build content based on selected tool.
+  /// Tools with routes show the same widget as defined in routes.dart.
   Widget _buildToolContent() {
     switch (_selectedToolId) {
       case 'generate':
         return _buildGenerateContent();
       case 'relight':
-        return _buildInlineToolContent('relight', 'Relight', 'AI-powered relighting for your images', 2);
+        return const RelightToolScreen();
       case 'upscale':
-        return _buildInlineToolContent('upscale', 'Upscale', 'Enhance resolution up to 4x', 3, showScale: true);
+        return const UpscaleToolScreen();
       case 'shots':
-        return _buildInlineToolContent('shots', 'Shots', 'Generate 9 cinematic angles', 10);
+        return const tools_shots.ShotsToolScreen();
       case 'inpainting':
-        return _buildInlineToolContent('inpainting', 'Inpainting', 'Paint to replace areas in your image', 5, showPrompt: true);
+        return const InpaintingToolScreen();
       case 'object-erase':
-        return _buildInlineToolContent('object-erase', 'Object Erase', 'Remove unwanted objects from images', 4);
+        return const ObjectEraseToolScreen();
       case 'background-remove':
-        return _buildInlineToolContent('background-remove', 'Remove Background', 'Remove image backgrounds instantly', 2);
+        return const BackgroundRemoveToolScreen();
       case 'style-transfer':
-        return _buildInlineToolContent('style-transfer', 'Style Transfer', 'Apply artistic styles to your images', 4, showPrompt: true);
+        return const StyleTransferToolScreen();
       case 'skin-enhancer':
-        return _buildInlineToolContent('skin-enhancer', 'Skin Enhancer', 'Portrait retouching and skin enhancement', 3, showIntensity: true);
+        return const SkinEnhancerToolScreen();
       case 'angle':
-        return _buildInlineToolContent('angle', 'Change Angle', 'View from new perspectives', 4, showPrompt: true);
+        return const AngleToolScreen();
       default:
         return _buildGenerateContent();
     }
-  }
-
-  Widget _buildInlineToolContent(
-    String toolId,
-    String toolName,
-    String description,
-    int credits, {
-    bool showPrompt = false,
-    bool showScale = false,
-    bool showIntensity = false,
-  }) {
-    return _InlineImageToolContent(
-      key: ValueKey(toolId),
-      toolId: toolId,
-      toolName: toolName,
-      toolDescription: description,
-      creditCost: credits,
-      showPrompt: showPrompt,
-      showScale: showScale,
-      showIntensity: showIntensity,
-    );
   }
 
   Widget _buildGenerateContent() {
@@ -1111,7 +1099,8 @@ class _InlineImageToolContent extends StatefulWidget {
   });
 
   @override
-  State<_InlineImageToolContent> createState() => _InlineImageToolContentState();
+  State<_InlineImageToolContent> createState() =>
+      _InlineImageToolContentState();
 }
 
 class _InlineImageToolContentState extends State<_InlineImageToolContent> {
@@ -1146,7 +1135,9 @@ class _InlineImageToolContentState extends State<_InlineImageToolContent> {
       if (fileSize > 10 * 1024 * 1024) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('File too large. Max 10MB.'), backgroundColor: Colors.red),
+            const SnackBar(
+                content: Text('File too large. Max 10MB.'),
+                backgroundColor: Colors.red),
           );
         }
         return;
@@ -1161,9 +1152,11 @@ class _InlineImageToolContentState extends State<_InlineImageToolContent> {
       if (user == null) throw Exception('Not authenticated');
 
       final fileExt = path.extension(file.path).replaceFirst('.', '');
-      final fileName = '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      final fileName =
+          '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$fileExt';
       await _supabase.storage.from('generation-inputs').upload(fileName, file);
-      final publicUrl = _supabase.storage.from('generation-inputs').getPublicUrl(fileName);
+      final publicUrl =
+          _supabase.storage.from('generation-inputs').getPublicUrl(fileName);
 
       setState(() => _inputUrl = publicUrl);
     } catch (e) {
@@ -1181,8 +1174,12 @@ class _InlineImageToolContentState extends State<_InlineImageToolContent> {
     if (_inputUrl == null) return;
 
     final creditsProvider = context.read<CreditsProvider>();
-    if (!creditsProvider.hasActiveSubscription && creditsProvider.credits < widget.creditCost) {
-      showAddCreditsDialog(context: context, currentCredits: creditsProvider.credits, requiredCredits: widget.creditCost);
+    if (!creditsProvider.hasActiveSubscription &&
+        creditsProvider.credits < widget.creditCost) {
+      showAddCreditsDialog(
+          context: context,
+          currentCredits: creditsProvider.credits,
+          requiredCredits: widget.creditCost);
       return;
     }
 
@@ -1193,7 +1190,8 @@ class _InlineImageToolContentState extends State<_InlineImageToolContent> {
 
     try {
       final options = <String, dynamic>{};
-      if (widget.showPrompt && _promptController.text.isNotEmpty) options['prompt'] = _promptController.text;
+      if (widget.showPrompt && _promptController.text.isNotEmpty)
+        options['prompt'] = _promptController.text;
       if (widget.showIntensity) options['intensity'] = _intensity.round();
       if (widget.showScale) options['scale'] = _scale;
 
@@ -1209,14 +1207,18 @@ class _InlineImageToolContentState extends State<_InlineImageToolContent> {
         creditsProvider.refresh();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${widget.toolName} completed!'), backgroundColor: AppTheme.primary),
+            SnackBar(
+                content: Text('${widget.toolName} completed!'),
+                backgroundColor: AppTheme.primary),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Processing failed: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Processing failed: $e'),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -1242,33 +1244,46 @@ class _InlineImageToolContentState extends State<_InlineImageToolContent> {
             child: Row(
               children: [
                 Container(
-                  width: 48, height: 48,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
                     color: AppTheme.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(_getToolIcon(), color: AppTheme.primary, size: 24),
+                  child:
+                      Icon(_getToolIcon(), color: AppTheme.primary, size: 24),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(widget.toolName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(widget.toolName,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      Text(widget.toolDescription, style: const TextStyle(color: AppTheme.muted, fontSize: 13)),
+                      Text(widget.toolDescription,
+                          style: const TextStyle(
+                              color: AppTheme.muted, fontSize: 13)),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16)),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(Icons.bolt, color: AppTheme.primary, size: 14),
                       const SizedBox(width: 4),
-                      Text('${widget.creditCost}', style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                      Text('${widget.creditCost}',
+                          style: const TextStyle(
+                              color: AppTheme.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13)),
                     ],
                   ),
                 ),
@@ -1286,7 +1301,9 @@ class _InlineImageToolContentState extends State<_InlineImageToolContent> {
               decoration: BoxDecoration(
                 color: AppTheme.secondary,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _inputUrl != null ? AppTheme.primary : AppTheme.border),
+                border: Border.all(
+                    color:
+                        _inputUrl != null ? AppTheme.primary : AppTheme.border),
               ),
               child: _isUploading
                   ? const Center(child: CircularProgressIndicator())
@@ -1294,15 +1311,25 @@ class _InlineImageToolContentState extends State<_InlineImageToolContent> {
                       ? Stack(
                           fit: StackFit.expand,
                           children: [
-                            ClipRRect(borderRadius: BorderRadius.circular(15), child: SmartMediaImage(imageUrl: _inputUrl!, fit: BoxFit.cover)),
+                            ClipRRect(
+                                borderRadius: BorderRadius.circular(15),
+                                child: SmartMediaImage(
+                                    imageUrl: _inputUrl!, fit: BoxFit.cover)),
                             Positioned(
-                              top: 8, right: 8,
+                              top: 8,
+                              right: 8,
                               child: GestureDetector(
-                                onTap: () => setState(() { _inputUrl = null; _outputUrl = null; }),
+                                onTap: () => setState(() {
+                                  _inputUrl = null;
+                                  _outputUrl = null;
+                                }),
                                 child: Container(
                                   padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
-                                  child: const Icon(Icons.close, size: 16, color: Colors.white),
+                                  decoration: BoxDecoration(
+                                      color: Colors.black54,
+                                      borderRadius: BorderRadius.circular(12)),
+                                  child: const Icon(Icons.close,
+                                      size: 16, color: Colors.white),
                                 ),
                               ),
                             ),
@@ -1311,9 +1338,11 @@ class _InlineImageToolContentState extends State<_InlineImageToolContent> {
                       : Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: const [
-                            Icon(Icons.add_photo_alternate_outlined, size: 48, color: AppTheme.muted),
+                            Icon(Icons.add_photo_alternate_outlined,
+                                size: 48, color: AppTheme.muted),
                             SizedBox(height: 12),
-                            Text('Tap to upload image', style: TextStyle(color: AppTheme.muted)),
+                            Text('Tap to upload image',
+                                style: TextStyle(color: AppTheme.muted)),
                           ],
                         ),
             ),
@@ -1323,14 +1352,22 @@ class _InlineImageToolContentState extends State<_InlineImageToolContent> {
           // Controls
           if (_inputUrl != null && _outputUrl == null) ...[
             if (widget.showPrompt) ...[
-              const Text('Prompt', style: TextStyle(fontWeight: FontWeight.w600)),
+              const Text('Prompt',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Container(
-                decoration: BoxDecoration(color: AppTheme.secondary, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.border)),
+                decoration: BoxDecoration(
+                    color: AppTheme.secondary,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.border)),
                 child: TextField(
                   controller: _promptController,
                   maxLines: 2,
-                  decoration: const InputDecoration(hintText: 'Describe what you want...', hintStyle: TextStyle(color: AppTheme.muted), contentPadding: EdgeInsets.all(12), border: InputBorder.none),
+                  decoration: const InputDecoration(
+                      hintText: 'Describe what you want...',
+                      hintStyle: TextStyle(color: AppTheme.muted),
+                      contentPadding: EdgeInsets.all(12),
+                      border: InputBorder.none),
                 ),
               ),
               const SizedBox(height: 16),
@@ -1338,13 +1375,24 @@ class _InlineImageToolContentState extends State<_InlineImageToolContent> {
             if (widget.showIntensity) ...[
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [const Text('Intensity', style: TextStyle(fontWeight: FontWeight.w600)), Text('${_intensity.round()}%', style: const TextStyle(color: AppTheme.primary))],
+                children: [
+                  const Text('Intensity',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  Text('${_intensity.round()}%',
+                      style: const TextStyle(color: AppTheme.primary))
+                ],
               ),
-              Slider(value: _intensity, min: 0, max: 100, activeColor: AppTheme.primary, onChanged: (v) => setState(() => _intensity = v)),
+              Slider(
+                  value: _intensity,
+                  min: 0,
+                  max: 100,
+                  activeColor: AppTheme.primary,
+                  onChanged: (v) => setState(() => _intensity = v)),
               const SizedBox(height: 12),
             ],
             if (widget.showScale) ...[
-              const Text('Scale', style: TextStyle(fontWeight: FontWeight.w600)),
+              const Text('Scale',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Row(
                 children: [2, 3, 4].map((s) {
@@ -1356,11 +1404,22 @@ class _InlineImageToolContentState extends State<_InlineImageToolContent> {
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color: isSelected ? AppTheme.primary : AppTheme.secondary,
+                          color: isSelected
+                              ? AppTheme.primary
+                              : AppTheme.secondary,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: isSelected ? AppTheme.primary : AppTheme.border),
+                          border: Border.all(
+                              color: isSelected
+                                  ? AppTheme.primary
+                                  : AppTheme.border),
                         ),
-                        child: Center(child: Text('${s}x', style: TextStyle(fontWeight: FontWeight.w600, color: isSelected ? Colors.white : AppTheme.mutedForeground))),
+                        child: Center(
+                            child: Text('${s}x',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : AppTheme.mutedForeground))),
                       ),
                     ),
                   );
@@ -1375,18 +1434,30 @@ class _InlineImageToolContentState extends State<_InlineImageToolContent> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Result', style: TextStyle(fontWeight: FontWeight.w600)),
+                const Text('Result',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
                 GestureDetector(
-                  onTap: () => setState(() { _inputUrl = null; _outputUrl = null; }),
-                  child: const Text('Reset', style: TextStyle(color: AppTheme.primary, fontSize: 13)),
+                  onTap: () => setState(() {
+                    _inputUrl = null;
+                    _outputUrl = null;
+                  }),
+                  child: const Text('Reset',
+                      style: TextStyle(color: AppTheme.primary, fontSize: 13)),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             Container(
-              height: 250, width: double.infinity,
-              decoration: BoxDecoration(color: AppTheme.secondary, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppTheme.primary)),
-              child: ClipRRect(borderRadius: BorderRadius.circular(15), child: SmartMediaImage(imageUrl: _outputUrl!, fit: BoxFit.contain)),
+              height: 250,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                  color: AppTheme.secondary,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.primary)),
+              child: ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: SmartMediaImage(
+                      imageUrl: _outputUrl!, fit: BoxFit.contain)),
             ),
             const SizedBox(height: 16),
           ],
@@ -1397,8 +1468,16 @@ class _InlineImageToolContentState extends State<_InlineImageToolContent> {
             child: ElevatedButton(
               onPressed: _isProcessing || _inputUrl == null ? null : _process,
               child: _isProcessing
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.auto_awesome, size: 18), const SizedBox(width: 8), Text('Process (${widget.creditCost} credits)')]),
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      const Icon(Icons.auto_awesome, size: 18),
+                      const SizedBox(width: 8),
+                      Text('Process (${widget.creditCost} credits)')
+                    ]),
             ),
           ),
           const SizedBox(height: 80),
@@ -1409,16 +1488,26 @@ class _InlineImageToolContentState extends State<_InlineImageToolContent> {
 
   IconData _getToolIcon() {
     switch (widget.toolId) {
-      case 'relight': return Icons.wb_sunny;
-      case 'upscale': return Icons.hd;
-      case 'shots': return Icons.grid_view;
-      case 'inpainting': return Icons.brush;
-      case 'object-erase': return Icons.auto_fix_high;
-      case 'background-remove': return Icons.content_cut;
-      case 'style-transfer': return Icons.palette;
-      case 'skin-enhancer': return Icons.face;
-      case 'angle': return Icons.rotate_90_degrees_ccw;
-      default: return Icons.auto_awesome;
+      case 'relight':
+        return Icons.wb_sunny;
+      case 'upscale':
+        return Icons.hd;
+      case 'shots':
+        return Icons.grid_view;
+      case 'inpainting':
+        return Icons.brush;
+      case 'object-erase':
+        return Icons.auto_fix_high;
+      case 'background-remove':
+        return Icons.content_cut;
+      case 'style-transfer':
+        return Icons.palette;
+      case 'skin-enhancer':
+        return Icons.face;
+      case 'angle':
+        return Icons.rotate_90_degrees_ccw;
+      default:
+        return Icons.auto_awesome;
     }
   }
 }

@@ -251,9 +251,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (credits.hasActiveSubscription) {
                     return const SizedBox.shrink();
                   }
-                return GestureDetector(
-                  onTap: () => context.push('/upgrade-wizard'),
-                  child: Container(
+                  return GestureDetector(
+                    onTap: () => context.push('/upgrade-wizard', extra: true),
+                    child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
@@ -832,14 +832,14 @@ class _RecentCard extends StatelessWidget {
         children: [
           if (imageUrl != null)
             isVideo
-              ? VideoThumbnailImage(
-                  thumbnailUrl: imageUrl,
-                  fit: BoxFit.cover,
-                )
-              : SmartMediaImage(
-                  imageUrl: imageUrl,
-                  fit: BoxFit.cover,
-                ),
+                ? VideoThumbnailImage(
+                    thumbnailUrl: imageUrl,
+                    fit: BoxFit.cover,
+                  )
+                : SmartMediaImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                  ),
           if (isVideo)
             const Center(
               child: Icon(Icons.play_arrow, color: Colors.white70, size: 32),

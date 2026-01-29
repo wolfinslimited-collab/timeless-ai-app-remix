@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:http/http.dart' as http;
@@ -8,7 +7,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../core/video_models.dart';
 import '../../providers/generation_provider.dart';
@@ -19,6 +17,16 @@ import '../../widgets/common/smart_media_image.dart';
 import '../../widgets/add_credits_dialog.dart';
 import '../../widgets/tool_selector.dart';
 import 'video_model_selector.dart';
+import 'tools/video_upscale_tool_screen.dart';
+import 'tools/lip_sync_tool_screen.dart';
+import 'tools/interpolate_tool_screen.dart';
+import 'tools/extend_video_tool_screen.dart';
+import 'tools/sketch_to_video_tool_screen.dart';
+import 'tools/draw_to_video_tool_screen.dart';
+import 'tools/mixed_media_tool_screen.dart';
+import 'tools/click_to_ad_tool_screen.dart';
+import 'tools/ugc_factory_tool_screen.dart';
+import 'tools/sora_trends_tool_screen.dart';
 
 // Video tools with ToolItem format
 const List<ToolItem> videoToolItems = [
@@ -751,55 +759,35 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
     );
   }
 
-  /// Build content based on selected tool
+  /// Build content based on selected tool.
+  /// Tools with routes show the same widget as defined in routes.dart.
   Widget _buildToolContent() {
     switch (_selectedToolId) {
       case 'generate':
         return _buildCreateContent();
       case 'mixed-media':
-        return _buildInlineToolContent('mixed-media', 'Mixed Media', 'Create mixed media projects', 15);
+        return const MixedMediaToolScreen();
       case 'click-to-ad':
-        return _buildInlineToolContent('click-to-ad', 'Click to Ad', 'Product URLs to video ads', 20, showPrompt: true);
+        return const ClickToAdToolScreen();
       case 'sora-trends':
-        return _buildInlineToolContent('sora-trends', 'Sora Trends', 'Turn ideas into viral videos', 25, showPrompt: true);
+        return const SoraTrendsToolScreen();
       case 'lip-sync':
-        return _buildInlineToolContent('lip-sync', 'Lipsync', 'Sync audio to video with realistic lip movements', 15, showSecondaryUpload: true, secondaryUploadLabel: 'Audio');
+        return const LipSyncToolScreen();
       case 'draw-to-video':
-        return _buildInlineToolContent('draw-to-video', 'Draw to Video', 'Sketch to cinematic video', 18, showPrompt: true);
+        return const DrawToVideoToolScreen();
       case 'video-upscale':
-        return _buildInlineToolContent('video-upscale', 'Video Upscale', 'Enhance video quality', 8, showScale: true);
+        return const VideoUpscaleToolScreen();
       case 'extend':
-        return _buildInlineToolContent('extend', 'Extend Video', 'Extend video length', 12, showDuration: true);
+        return const ExtendVideoToolScreen();
       case 'interpolate':
-        return _buildInlineToolContent('interpolate', 'Frame Interpolation', 'Smooth frame rate', 6);
+        return const InterpolateToolScreen();
+      case 'sketch-to-video':
+        return const SketchToVideoToolScreen();
+      case 'ugc-factory':
+        return const UGCFactoryToolScreen();
       default:
         return _buildCreateContent();
     }
-  }
-
-  Widget _buildInlineToolContent(
-    String toolId,
-    String toolName,
-    String description,
-    int credits, {
-    bool showPrompt = false,
-    bool showScale = false,
-    bool showDuration = false,
-    bool showSecondaryUpload = false,
-    String? secondaryUploadLabel,
-  }) {
-    return _InlineVideoToolContent(
-      key: ValueKey(toolId),
-      toolId: toolId,
-      toolName: toolName,
-      toolDescription: description,
-      creditCost: credits,
-      showPrompt: showPrompt,
-      showScale: showScale,
-      showDuration: showDuration,
-      showSecondaryUpload: showSecondaryUpload,
-      secondaryUploadLabel: secondaryUploadLabel,
-    );
   }
 
   Widget _buildCreateContent() {

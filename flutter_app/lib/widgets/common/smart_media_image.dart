@@ -5,7 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme.dart';
 
 /// A smart image widget that handles both URL-based images and base64 data URIs.
-/// 
+///
 /// For regular URLs (http:// or https://): Uses CachedNetworkImage with caching
 /// For base64 data URIs (data:image/...): Decodes and displays as Image.memory
 /// For videos without thumbnails: Shows a video placeholder with play icon
@@ -99,7 +99,8 @@ class SmartMediaImage extends StatelessWidget {
     }
 
     // Unknown format
-    debugPrint('Unknown image URL format: ${imageUrl?.substring(0, imageUrl!.length > 50 ? 50 : imageUrl!.length)}...');
+    debugPrint(
+        'Unknown image URL format: ${imageUrl?.substring(0, imageUrl!.length > 50 ? 50 : imageUrl!.length)}...');
     return _buildErrorWidget();
   }
 
@@ -143,7 +144,7 @@ class SmartMediaImage extends StatelessWidget {
 
 /// Widget specifically for video thumbnails that handles:
 /// - Base64 thumbnails
-/// - URL thumbnails  
+/// - URL thumbnails
 /// - Video URL first frame extraction (shows placeholder with play icon)
 class VideoThumbnailImage extends StatelessWidget {
   final String? thumbnailUrl;
@@ -165,7 +166,7 @@ class VideoThumbnailImage extends StatelessWidget {
   Widget build(BuildContext context) {
     // Priority: thumbnailUrl > show video placeholder
     final imageUrl = thumbnailUrl;
-    
+
     if (imageUrl != null && imageUrl.isNotEmpty) {
       return SmartMediaImage(
         imageUrl: imageUrl,
@@ -229,16 +230,18 @@ class SmartNetworkImage extends StatelessWidget {
           fit: fit,
           width: width,
           height: height,
-          errorBuilder: errorBuilder ?? (context, error, stackTrace) {
-            return Container(
-              width: width,
-              height: height,
-              color: AppTheme.secondary,
-              child: const Center(
-                child: Icon(Icons.error_outline, color: AppTheme.muted, size: 32),
-              ),
-            );
-          },
+          errorBuilder: errorBuilder ??
+              (context, error, stackTrace) {
+                return Container(
+                  width: width,
+                  height: height,
+                  color: AppTheme.secondary,
+                  child: const Center(
+                    child: Icon(Icons.error_outline,
+                        color: AppTheme.muted, size: 32),
+                  ),
+                );
+              },
         );
       }
       return Container(

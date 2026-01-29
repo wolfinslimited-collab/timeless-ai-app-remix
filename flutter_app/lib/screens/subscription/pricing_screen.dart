@@ -16,17 +16,27 @@ class PricingScreen extends StatefulWidget {
 class _PricingScreenState extends State<PricingScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late PageController _plansPageController;
   bool _isYearly = false;
   bool _isLoading = true;
+  int _plansPageIndex = 0;
 
   List<SubscriptionPlan> _subscriptionPlans = [];
   List<CreditPackage> _creditPackages = [];
   final PricingService _pricingService = PricingService();
 
+  List<SubscriptionPlan> get _monthlyPlans =>
+      _subscriptionPlans.where((p) => p.period == 'Monthly').toList();
+  List<SubscriptionPlan> get _yearlyPlans =>
+      _subscriptionPlans.where((p) => p.period == 'Yearly').toList();
+  List<SubscriptionPlan> get _currentPlans =>
+      _isYearly ? _yearlyPlans : _monthlyPlans;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _plansPageController = PageController();
     _fetchPricing();
     _setupIAPCallbacks();
   }
@@ -34,6 +44,7 @@ class _PricingScreenState extends State<PricingScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _plansPageController.dispose();
     super.dispose();
   }
 
@@ -156,11 +167,6 @@ class _PricingScreenState extends State<PricingScreen>
     await iapProvider.restorePurchases();
   }
 
-  List<SubscriptionPlan> get _filteredPlans {
-    final period = _isYearly ? 'Yearly' : 'Monthly';
-    return _subscriptionPlans.where((p) => p.period == period).toList();
-  }
-
   IconData _getIconData(String iconName) {
     switch (iconName) {
       case 'Zap':
@@ -188,6 +194,74 @@ class _PricingScreenState extends State<PricingScreen>
       appBar: AppBar(
         title: const Text('Pricing'),
         actions: [
+          // Credits & subscriber in top right
+          Consumer<CreditsProvider>(
+            builder: (context, credits, _) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 8, top: 12, bottom: 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.secondary,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.toll,
+                              size: 18,
+                              color: Theme.of(context).colorScheme.onSurface),
+                          const SizedBox(width: 6),
+                          Text(
+                            credits.hasActiveSubscription
+                                ? '∞'
+                                : '${credits.credits}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (credits.hasActiveSubscription) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.primary.withOpacity(0.3),
+                              const Color(0xFFEC4899).withOpacity(0.3),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.workspace_premium,
+                                size: 14, color: Color(0xFFFBBF24)),
+                            SizedBox(width: 4),
+                            Text(
+                              'Pro',
+                              style: TextStyle(
+                                  fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
           TextButton(
             onPressed: _handleRestore,
             child: const Text('Restore'),
@@ -196,87 +270,11 @@ class _PricingScreenState extends State<PricingScreen>
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Consumer2<CreditsProvider, IAPProvider>(
-              builder: (context, credits, iapProvider, child) {
+          : Consumer<IAPProvider>(
+              builder: (context, iapProvider, child) {
                 return Column(
                   children: [
-                    // Current balance & subscription status
-                    Container(
-                      margin: const EdgeInsets.all(16),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.secondary,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(Icons.toll,
-                                color: Colors.white, size: 24),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Your Balance',
-                                  style: TextStyle(
-                                      color: AppTheme.muted, fontSize: 12),
-                                ),
-                                Text(
-                                  '${credits.credits} credits',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (credits.hasActiveSubscription)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    AppTheme.primary.withOpacity(0.3),
-                                    const Color(0xFFEC4899).withOpacity(0.3),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: AppTheme.primary.withOpacity(0.5),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Icon(Icons.workspace_premium,
-                                      size: 16, color: Color(0xFFFBBF24)),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Subscriber',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-
-                    // Tab bar
+                    // Tab bar — user selects by tap only
                     Container(
                       margin: const EdgeInsets.symmetric(horizontal: 16),
                       padding: const EdgeInsets.all(4),
@@ -322,10 +320,11 @@ class _PricingScreenState extends State<PricingScreen>
                     ),
                     const SizedBox(height: 16),
 
-                    // Tab content
+                    // Tab content — switch with tab buttons only (no swipe)
                     Expanded(
                       child: TabBarView(
                         controller: _tabController,
+                        physics: const NeverScrollableScrollPhysics(),
                         children: [
                           // Subscriptions tab
                           _buildSubscriptionsTab(iapProvider),
@@ -342,12 +341,13 @@ class _PricingScreenState extends State<PricingScreen>
   }
 
   Widget _buildSubscriptionsTab(IAPProvider iapProvider) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        children: [
-          // Billing period toggle
-          Container(
+    final plans = _currentPlans;
+    return Column(
+      children: [
+        // Monthly / Yearly toggle — user select only (no pager between them)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: AppTheme.secondary,
@@ -357,7 +357,15 @@ class _PricingScreenState extends State<PricingScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
-                  onTap: () => setState(() => _isYearly = false),
+                  onTap: () {
+                    if (_isYearly) {
+                      setState(() {
+                        _isYearly = false;
+                        _plansPageIndex = 0;
+                      });
+                      _plansPageController.jumpToPage(0);
+                    }
+                  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 10),
@@ -375,7 +383,15 @@ class _PricingScreenState extends State<PricingScreen>
                   ),
                 ),
                 GestureDetector(
-                  onTap: () => setState(() => _isYearly = true),
+                  onTap: () {
+                    if (!_isYearly) {
+                      setState(() {
+                        _isYearly = true;
+                        _plansPageIndex = 0;
+                      });
+                      _plansPageController.jumpToPage(0);
+                    }
+                  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 10),
@@ -415,29 +431,78 @@ class _PricingScreenState extends State<PricingScreen>
               ],
             ),
           ),
-          const SizedBox(height: 20),
+        ),
+        const SizedBox(height: 16),
 
-          // Subscription plans
-          ..._filteredPlans.map((plan) => _SubscriptionPlanCard(
-                plan: plan,
-                iconData: _getIconData(plan.icon),
-                isPurchasing: iapProvider.isPurchasing,
-                onPurchase: () => _handleSubscriptionPurchase(plan),
-              )),
+        // Pager between plan items (one card per page for selected period)
+        Expanded(
+          child: plans.isEmpty
+              ? const Center(
+                  child: Text(
+                    'No plans available',
+                    style: TextStyle(color: AppTheme.muted),
+                  ),
+                )
+              : PageView.builder(
+                  controller: _plansPageController,
+                  onPageChanged: (index) {
+                    setState(() => _plansPageIndex = index);
+                  },
+                  itemCount: plans.length,
+                  itemBuilder: (context, index) {
+                    final plan = plans[index];
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        child: _SubscriptionPlanCard(
+                          plan: plan,
+                          iconData: _getIconData(plan.icon),
+                          isPurchasing: iapProvider.isPurchasing,
+                          onPurchase: () => _handleSubscriptionPurchase(plan),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
 
-          const SizedBox(height: 24),
+        // Page indicator for plan items
+        if (plans.length > 1) ...[
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              plans.length,
+              (index) => AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: _plansPageIndex == index ? 20 : 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4),
+                  color: _plansPageIndex == index
+                      ? AppTheme.primary
+                      : AppTheme.border,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
 
-          // Footer text
-          Text(
+        // Footer text
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          child: Text(
             Platform.isIOS
                 ? 'Payment will be charged to your Apple ID account. Subscription automatically renews unless auto-renew is turned off at least 24-hours before the end of the current period.'
                 : 'Payment will be charged to your Google Play account. Subscription automatically renews unless cancelled.',
             style: const TextStyle(color: AppTheme.muted, fontSize: 11),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 100),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

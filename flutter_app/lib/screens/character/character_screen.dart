@@ -78,7 +78,8 @@ class _CharacterScreenState extends State<CharacterScreen> {
       // Upload images
       for (final image in images) {
         final file = File(image.path);
-        final uploaded = await _service.uploadCharacterImage(characterId!, file);
+        final uploaded =
+            await _service.uploadCharacterImage(characterId!, file);
 
         if (uploaded != null) {
           setState(() => _uploadedImages.add(uploaded));
@@ -153,27 +154,31 @@ class _CharacterScreenState extends State<CharacterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (_viewState == 'upload') {
-              setState(() {
-                _viewState = _characters.isNotEmpty ? 'characters' : 'landing';
-                _uploadedImages.clear();
-                _currentCharacterId = null;
-              });
-            } else {
-              context.go('/create');
-            }
-          },
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              if (_viewState == 'upload') {
+                setState(() {
+                  _viewState =
+                      _characters.isNotEmpty ? 'characters' : 'landing';
+                  _uploadedImages.clear();
+                  _currentCharacterId = null;
+                });
+              } else {
+                context.go('/create');
+              }
+            },
+          ),
+          title: const Text('Character'),
         ),
-        title: const Text('Character'),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _buildContent(),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _buildContent(),
     );
   }
 
@@ -259,7 +264,7 @@ class _CharacterScreenState extends State<CharacterScreen> {
             label: const Text('Create Character'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.accent,
-              foregroundColor: AppTheme.accentForeground,
+              foregroundColor: const Color.fromARGB(255, 134, 87, 6),
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             ),
           ),
@@ -442,8 +447,8 @@ class _CharacterScreenState extends State<CharacterScreen> {
                             child: SmartMediaImage(
                               imageUrl: img.imageUrl,
                               fit: BoxFit.cover,
-                              width: double.infinity,
-                              height: double.infinity,
+                              width: 100,
+                              height: 100,
                             ),
                           ),
                           Positioned(

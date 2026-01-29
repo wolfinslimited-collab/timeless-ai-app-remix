@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -17,12 +16,6 @@ class SubscriptionScreen extends StatefulWidget {
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
   bool _isLoading = false;
   bool _isRestoring = false;
-
-  String get _platform {
-    if (Platform.isIOS) return 'ios';
-    if (Platform.isAndroid) return 'android';
-    return 'web';
-  }
 
   Future<void> _handleSubscribe(bool hasActiveSubscription) async {
     setState(() => _isLoading = true);
@@ -80,307 +73,135 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       appBar: AppBar(
         title: const Text('Account'),
       ),
-      body: Stack(
-        children: [
-          // Scrollable content
-          SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Profile Section
-                Consumer<AuthProvider>(
-                  builder: (context, auth, child) {
-                    final profile = auth.profile;
-                    return Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: AppTheme.card,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppTheme.border),
-                      ),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 32,
-                            backgroundColor: AppTheme.primary,
-                            child: Text(
-                              (profile?.displayName ?? 'U')[0].toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 15.0),
+        child: Column(
+          children: [
+            // Profile: avatar + email
+            Consumer<AuthProvider>(
+              builder: (context, auth, child) {
+                final profile = auth.profile;
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppTheme.card,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 32,
+                        backgroundColor: AppTheme.primary,
+                        child: Text(
+                          (profile?.displayName ?? 'U')[0].toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  profile?.displayName ?? 'User',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  auth.user?.email ?? '',
-                                  style: const TextStyle(color: AppTheme.muted),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 24),
-
-                // Credits Section
-                const Text(
-                  'Credits & Subscription',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                Consumer2<CreditsProvider, AuthProvider>(
-                  builder: (context, credits, auth, child) {
-                    final hasSubscription = credits.hasActiveSubscription;
-                    final profile = auth.profile;
-
-                    return Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: hasSubscription
-                            ? LinearGradient(
-                                colors: [
-                                  AppTheme.primary.withOpacity(0.2),
-                                  const Color(0xFFEC4899).withOpacity(0.2),
-                                ],
-                              )
-                            : null,
-                        color: hasSubscription ? null : AppTheme.card,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: hasSubscription
-                              ? AppTheme.primary.withOpacity(0.3)
-                              : AppTheme.border,
                         ),
                       ),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Current Credits'),
-                              Row(
-                                children: [
-                                  const Icon(Icons.toll,
-                                      size: 20, color: AppTheme.accent),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    hasSubscription
-                                        ? '∞'
-                                        : '${credits.credits}',
-                                    style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              profile?.displayName ?? 'User',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
                               ),
-                            ],
-                          ),
-                          const Divider(height: 32),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Plan'),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: hasSubscription
-                                      ? const LinearGradient(
-                                          colors: [
-                                            AppTheme.primary,
-                                            Color(0xFFEC4899)
-                                          ],
-                                        )
-                                      : null,
-                                  color: hasSubscription
-                                      ? null
-                                      : AppTheme.secondary,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  hasSubscription ? 'Timeless Pro' : 'Free',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color:
-                                        hasSubscription ? Colors.white : null,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (hasSubscription &&
-                              profile?.subscriptionEndDate != null) ...[
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('Renews'),
-                                Text(
-                                  _formatDate(profile!.subscriptionEndDate!),
-                                  style: const TextStyle(color: AppTheme.muted),
-                                ),
-                              ],
+                            ),
+                            Text(
+                              auth.user?.email ?? '',
+                              style: const TextStyle(color: AppTheme.muted),
                             ),
                           ],
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 32),
-
-                // Upgrade Banner for non-premium users
-                Consumer<CreditsProvider>(
-                  builder: (context, credits, child) {
-                    if (credits.hasActiveSubscription) {
-                      return const SizedBox.shrink();
-                    }
-                    return GestureDetector(
-                      onTap: () => context.push('/upgrade-wizard'),
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 24),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppTheme.primary.withOpacity(0.15),
-                              const Color(0xFFEC4899).withOpacity(0.15),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: AppTheme.primary.withOpacity(0.3),
-                          ),
                         ),
-                        child: Row(
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+
+            // Current credits & plan
+            Consumer2<CreditsProvider, AuthProvider>(
+              builder: (context, credits, auth, child) {
+                final hasSubscription = credits.hasActiveSubscription;
+                final profile = auth.profile;
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.card,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.toll, size: 22, color: AppTheme.accent),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
+                            Text(
+                              hasSubscription
+                                  ? '∞ credits'
+                                  : '${credits.credits} credits',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              hasSubscription
+                                  ? (profile?.subscriptionEndDate != null
+                                      ? 'Renews ${_formatDate(profile!.subscriptionEndDate!)}'
+                                      : 'Timeless Pro')
+                                  : 'Free plan',
+                              style: const TextStyle(
+                                color: AppTheme.muted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          gradient: hasSubscription
+                              ? const LinearGradient(
                                   colors: [
                                     AppTheme.primary,
-                                    const Color(0xFFEC4899),
+                                    Color(0xFFEC4899),
                                   ],
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.auto_awesome,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Unlock Premium Features',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'See what Timeless Pro can do for you',
-                                    style: TextStyle(
-                                      color: AppTheme.muted,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(
-                              Icons.arrow_forward_ios,
-                              color: AppTheme.primary,
-                              size: 18,
-                            ),
-                          ],
+                                )
+                              : null,
+                          color: hasSubscription ? null : AppTheme.secondary,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          hasSubscription ? 'Pro' : 'Free',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            color: hasSubscription ? Colors.white : null,
+                          ),
                         ),
                       ),
-                    );
-                  },
-                ),
-
-                // Settings
-                const Text(
-                  'Settings',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                _SettingsTile(
-                  icon: Icons.person_outline,
-                  title: 'Edit Profile',
-                  onTap: () {},
-                ),
-                _SettingsTile(
-                  icon: Icons.notifications_outlined,
-                  title: 'Notifications',
-                  onTap: () {},
-                ),
-                _SettingsTile(
-                  icon: Icons.help_outline,
-                  title: 'Help & Support',
-                  onTap: () {},
-                ),
-                _SettingsTile(
-                  icon: Icons.info_outline,
-                  title: 'About',
-                  onTap: () {},
-                ),
-                const SizedBox(height: 24),
-
-                // Sign out
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      await context.read<AuthProvider>().signOut();
-                      if (context.mounted) {
-                        context.go('/login');
-                      }
-                    },
-                    icon: const Icon(Icons.logout, color: AppTheme.destructive),
-                    label: const Text(
-                      'Sign Out',
-                      style: TextStyle(color: AppTheme.destructive),
-                    ),
+                    ],
                   ),
-                ),
-              ],
+                );
+              },
             ),
-          ),
-
-          // Fixed Bottom Sheet
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Consumer<CreditsProvider>(
+            Spacer(),
+            Consumer<CreditsProvider>(
               builder: (context, credits, child) {
                 final hasActiveSubscription = credits.hasActiveSubscription;
 
@@ -397,7 +218,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       stops: const [0.0, 0.3, 1.0],
                     ),
                   ),
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
                   child: SafeArea(
                     top: false,
                     child: Container(
@@ -524,36 +345,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 );
               },
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   String _formatDate(DateTime date) {
     return '${date.month}/${date.day}/${date.year}';
-  }
-}
-
-class _SettingsTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final VoidCallback onTap;
-
-  const _SettingsTile({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, color: AppTheme.muted),
-      title: Text(title),
-      trailing: const Icon(Icons.chevron_right, color: AppTheme.muted),
-      onTap: onTap,
-      contentPadding: EdgeInsets.zero,
-    );
   }
 }
