@@ -17,90 +17,84 @@ import '../../providers/download_provider.dart';
 import '../../models/download_model.dart';
 import '../../widgets/common/smart_media_image.dart';
 import '../../widgets/add_credits_dialog.dart';
+import '../../widgets/tool_selector.dart';
 import 'video_model_selector.dart';
 
-// Video tools matching web sidebar
-const List<Map<String, dynamic>> videoTools = [
-  {
-    'id': 'mixed-media',
-    'name': 'Mixed Media',
-    'description': 'Create mixed media projects',
-    'icon': Icons.auto_awesome_mosaic,
-    'badge': 'NEW',
-    'route': 'mixed-media'
-  },
-  {
-    'id': 'click-to-ad',
-    'name': 'Click to Ad',
-    'description': 'Product URLs to video ads',
-    'icon': Icons.ads_click,
-    'badge': null,
-    'route': 'click-to-ad'
-  },
-  {
-    'id': 'sora-trends',
-    'name': 'Sora 2 Trends',
-    'description': 'Turn ideas into viral videos',
-    'icon': Icons.trending_up,
-    'badge': null,
-    'route': 'sora-trends'
-  },
-  {
-    'id': 'lip-sync',
-    'name': 'Lipsync Studio',
-    'description': 'Create talking clips',
-    'icon': Icons.record_voice_over,
-    'badge': null,
-    'route': 'lip-sync'
-  },
-  {
-    'id': 'draw-to-video',
-    'name': 'Draw to Video',
-    'description': 'Sketch to cinematic video',
-    'icon': Icons.brush,
-    'badge': null,
-    'route': 'draw-to-video'
-  },
-  {
-    'id': 'sketch-to-video',
-    'name': 'Sketch to Video',
-    'description': 'From sketch to video with Sora',
-    'icon': Icons.edit,
-    'badge': null,
-    'route': 'sketch-to-video'
-  },
-  {
-    'id': 'ugc-factory',
-    'name': 'UGC Factory',
-    'description': 'Build UGC with AI avatars',
-    'icon': Icons.person_pin,
-    'badge': null,
-    'route': 'ugc-factory'
-  },
-  {
-    'id': 'video-upscale',
-    'name': 'Video Upscale',
-    'description': 'Enhance video quality',
-    'icon': Icons.hd,
-    'badge': null,
-    'route': 'video-upscale'
-  },
-  {
-    'id': 'extend',
-    'name': 'Extend',
-    'description': 'Extend video length',
-    'icon': Icons.add_circle_outline,
-    'badge': null,
-    'route': 'extend'
-  },
-  {
-    'id': 'interpolate',
-    'name': 'Interpolate',
-    'description': 'Smooth frame rate',
-    'icon': Icons.animation,
-    'badge': null,
-    'route': 'interpolate'
-  },
+// Video tools with ToolItem format
+const List<ToolItem> videoToolItems = [
+  ToolItem(
+    id: 'generate',
+    name: 'Generate',
+    description: 'Create videos from text prompts',
+    icon: Icons.play_circle_outline,
+    credits: 15,
+    isGenerate: true,
+  ),
+  ToolItem(
+    id: 'mixed-media',
+    name: 'Mixed',
+    description: 'Create mixed media projects',
+    icon: Icons.auto_awesome_mosaic,
+    credits: 15,
+    route: '/create/video/mixed-media',
+    badge: 'NEW',
+  ),
+  ToolItem(
+    id: 'click-to-ad',
+    name: 'Ad',
+    description: 'Product URLs to video ads',
+    icon: Icons.ads_click,
+    credits: 20,
+    route: '/create/video/click-to-ad',
+  ),
+  ToolItem(
+    id: 'sora-trends',
+    name: 'Trends',
+    description: 'Turn ideas into viral videos',
+    icon: Icons.trending_up,
+    credits: 25,
+    route: '/create/video/sora-trends',
+  ),
+  ToolItem(
+    id: 'lip-sync',
+    name: 'Lipsync',
+    description: 'Create talking clips',
+    icon: Icons.record_voice_over,
+    credits: 15,
+    route: '/create/video/lip-sync',
+  ),
+  ToolItem(
+    id: 'draw-to-video',
+    name: 'Draw',
+    description: 'Sketch to cinematic video',
+    icon: Icons.brush,
+    credits: 18,
+    route: '/create/video/draw-to-video',
+  ),
+  ToolItem(
+    id: 'video-upscale',
+    name: 'Upscale',
+    description: 'Enhance video quality',
+    icon: Icons.hd,
+    credits: 8,
+    route: '/create/video/video-upscale',
+  ),
+  ToolItem(
+    id: 'extend',
+    name: 'Extend',
+    description: 'Extend video length',
+    icon: Icons.add_circle_outline,
+    credits: 12,
+    route: '/create/video/extend',
+  ),
+  ToolItem(
+    id: 'interpolate',
+    name: 'Smooth',
+    description: 'Smooth frame rate',
+    icon: Icons.animation,
+    credits: 6,
+    route: '/create/video/interpolate',
+  ),
 ];
 
 // Video Templates
@@ -138,15 +132,17 @@ const List<Map<String, String>> videoTemplates = [
 ];
 
 class VideoCreateScreen extends StatefulWidget {
-  const VideoCreateScreen({super.key});
+  final String? initialTool;
+  
+  const VideoCreateScreen({super.key, this.initialTool});
 
   @override
   State<VideoCreateScreen> createState() => _VideoCreateScreenState();
 }
 
-class _VideoCreateScreenState extends State<VideoCreateScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _VideoCreateScreenState extends State<VideoCreateScreen> {
+  late String _selectedToolId;
+  
   final _promptController = TextEditingController();
   String _selectedModel = 'wan-2.6';
   String _selectedAspectRatio = '16:9';
@@ -163,12 +159,11 @@ class _VideoCreateScreenState extends State<VideoCreateScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _selectedToolId = widget.initialTool ?? 'generate';
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     _promptController.dispose();
     _videoController?.dispose();
     super.dispose();
@@ -679,29 +674,59 @@ class _VideoCreateScreenState extends State<VideoCreateScreen>
     );
   }
 
+  ToolItem get _selectedTool => videoToolItems.firstWhere(
+        (t) => t.id == _selectedToolId,
+        orElse: () => videoToolItems.first,
+      );
+
+  void _handleToolSelected(ToolItem tool) {
+    if (tool.route != null && !tool.isGenerate) {
+      context.push(tool.route!);
+    } else {
+      setState(() => _selectedToolId = tool.id);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Video'),
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppTheme.primary,
-          labelColor: Colors.white,
-          unselectedLabelColor: AppTheme.muted,
-          tabs: const [
-            Tab(text: 'Create'),
-            Tab(text: 'Tools'),
+        toolbarHeight: 48,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _selectedTool.name,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            Text(
+              _selectedTool.description,
+              style: TextStyle(fontSize: 11, color: AppTheme.muted),
+            ),
           ],
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Center(
-              child: Text(
-                '$_selectedModelCredits cr',
-                style: const TextStyle(color: AppTheme.muted, fontSize: 12),
-              ),
+          Container(
+            margin: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.bolt, color: AppTheme.primary, size: 14),
+                const SizedBox(width: 2),
+                Text(
+                  '${_selectedModelCredits}',
+                  style: const TextStyle(
+                    color: AppTheme.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -709,18 +734,27 @@ class _VideoCreateScreenState extends State<VideoCreateScreen>
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.opaque,
-        child: TabBarView(
-          controller: _tabController,
+        child: Column(
           children: [
-            _buildCreateTab(),
-            _buildToolsTab(),
+            // Horizontal Tool Selector
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 8),
+              child: ToolSelector(
+                tools: videoToolItems,
+                selectedToolId: _selectedToolId,
+                onToolSelected: _handleToolSelected,
+              ),
+            ),
+            const Divider(height: 1, color: AppTheme.border),
+            // Content based on selected tool
+            Expanded(child: _buildCreateContent()),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCreateTab() {
+  Widget _buildCreateContent() {
     return Column(
       children: [
         // Preview Area
@@ -1173,89 +1207,4 @@ class _VideoCreateScreenState extends State<VideoCreateScreen>
     );
   }
 
-  Widget _buildToolsTab() {
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: videoTools.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final tool = videoTools[index];
-        return _buildToolTile(tool);
-      },
-    );
-  }
-
-  Widget _buildToolTile(Map<String, dynamic> tool) {
-    return GestureDetector(
-      onTap: () => context.push('/create/video/${tool['route']}'),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(tool['icon'] as IconData,
-                  color: AppTheme.primary, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        tool['name'] as String,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 15),
-                      ),
-                      if (tool['badge'] != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: tool['badge'] == 'NEW'
-                                ? Colors.green.withOpacity(0.2)
-                                : AppTheme.primary.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            tool['badge'] as String,
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: tool['badge'] == 'NEW'
-                                  ? Colors.green
-                                  : AppTheme.primary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    tool['description'] as String,
-                    style: const TextStyle(color: AppTheme.muted, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right, color: AppTheme.muted, size: 20),
-          ],
-        ),
-      ),
-    );
-  }
 }

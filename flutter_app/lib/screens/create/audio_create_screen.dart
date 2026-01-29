@@ -7,17 +7,88 @@ import '../../providers/credits_provider.dart';
 import '../../services/audio_player_service.dart';
 import '../../widgets/music_player_bar.dart';
 import '../../widgets/add_credits_dialog.dart';
+import '../../widgets/tool_selector.dart';
+
+// Audio tools with ToolItem format
+const List<ToolItem> audioToolItems = [
+  ToolItem(
+    id: 'generate',
+    name: 'Generate',
+    description: 'Create music from text prompts',
+    icon: Icons.music_note,
+    credits: 5,
+    isGenerate: true,
+  ),
+  ToolItem(
+    id: 'stems',
+    name: 'Stems',
+    description: 'Separate audio into stems',
+    icon: Icons.album,
+    credits: 8,
+    route: '/create/audio/stems',
+  ),
+  ToolItem(
+    id: 'remix',
+    name: 'Remix',
+    description: 'AI-powered remixes',
+    icon: Icons.auto_fix_high,
+    credits: 12,
+    route: '/create/audio/remix',
+  ),
+  ToolItem(
+    id: 'audio-enhance',
+    name: 'Enhance',
+    description: 'Clean up audio',
+    icon: Icons.graphic_eq,
+    credits: 4,
+    route: '/create/audio/audio-enhance',
+  ),
+  ToolItem(
+    id: 'sound-effects',
+    name: 'SFX',
+    description: 'Generate sound effects',
+    icon: Icons.radio,
+    credits: 5,
+    route: '/create/audio/sound-effects',
+  ),
+  ToolItem(
+    id: 'vocals',
+    name: 'Vocals',
+    description: 'Generate AI vocals',
+    icon: Icons.mic,
+    credits: 15,
+    route: '/create/audio/vocals',
+  ),
+  ToolItem(
+    id: 'mastering',
+    name: 'Master',
+    description: 'AI mastering',
+    icon: Icons.tune,
+    credits: 6,
+    route: '/create/audio/mastering',
+  ),
+  ToolItem(
+    id: 'tempo-pitch',
+    name: 'Tempo',
+    description: 'Adjust speed and pitch',
+    icon: Icons.speed,
+    credits: 3,
+    route: '/create/audio/tempo-pitch',
+  ),
+];
 
 class AudioCreateScreen extends StatefulWidget {
-  const AudioCreateScreen({super.key});
+  final String? initialTool;
+  
+  const AudioCreateScreen({super.key, this.initialTool});
 
   @override
   State<AudioCreateScreen> createState() => _AudioCreateScreenState();
 }
 
-class _AudioCreateScreenState extends State<AudioCreateScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _AudioCreateScreenState extends State<AudioCreateScreen> {
+  late String _selectedToolId;
+  
   final _supabase = Supabase.instance.client;
 
   final _lyricsController = TextEditingController();
@@ -61,13 +132,12 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _selectedToolId = widget.initialTool ?? 'generate';
     _loadTracks();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     _lyricsController.dispose();
     _customStyleController.dispose();
     _titleController.dispose();
@@ -244,33 +314,86 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
     }
   }
 
+  ToolItem get _selectedTool => audioToolItems.firstWhere(
+        (t) => t.id == _selectedToolId,
+        orElse: () => audioToolItems.first,
+      );
+
+  void _handleToolSelected(ToolItem tool) {
+    if (tool.route != null && !tool.isGenerate) {
+      context.push(tool.route!);
+    } else {
+      setState(() => _selectedToolId = tool.id);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Music Studio'),
+        toolbarHeight: 48,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/create'),
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Create'),
-            Tab(text: 'Tools'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _selectedTool.name,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            Text(
+              _selectedTool.description,
+              style: TextStyle(fontSize: 11, color: AppTheme.muted),
+            ),
           ],
         ),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.bolt, color: AppTheme.primary, size: 14),
+                const SizedBox(width: 2),
+                Text(
+                  '${_selectedModelCredits}',
+                  style: const TextStyle(
+                    color: AppTheme.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.opaque,
         child: Stack(
           children: [
-            TabBarView(
-              controller: _tabController,
+            Column(
               children: [
-                _buildCreateTab(),
-                _buildToolsTab(),
+                // Horizontal Tool Selector
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 8),
+                  child: ToolSelector(
+                    tools: audioToolItems,
+                    selectedToolId: _selectedToolId,
+                    onToolSelected: _handleToolSelected,
+                  ),
+                ),
+                const Divider(height: 1, color: AppTheme.border),
+                // Content based on selected tool
+                Expanded(child: _buildCreateContent()),
               ],
             ),
             // Bottom music player bar
@@ -286,7 +409,7 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
     );
   }
 
-  Widget _buildCreateTab() {
+  Widget _buildCreateContent() {
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 100),
       child: Column(
@@ -960,86 +1083,6 @@ class _AudioCreateScreenState extends State<AudioCreateScreen>
     );
   }
 
-  Widget _buildToolsTab() {
-    final tools = [
-      {
-        'icon': Icons.layers,
-        'title': 'Stem Separation',
-        'description': 'Separate vocals, drums, bass, and other',
-        'badge': 'TOP',
-        'badgeColor': Colors.blue,
-        'route': '/create/audio/stems',
-        'credits': 8
-      },
-      {
-        'icon': Icons.tune,
-        'title': 'AI Remix',
-        'description': 'Create unique AI-powered remixes',
-        'badge': 'NEW',
-        'badgeColor': AppTheme.primary,
-        'route': '/create/audio/remix',
-        'credits': 12
-      },
-      {
-        'icon': Icons.mic,
-        'title': 'Voice Generator',
-        'description': 'Generate AI singing vocals',
-        'route': '/create/audio/vocals',
-        'credits': 15
-      },
-      {
-        'icon': Icons.volume_up,
-        'title': 'AI Mastering',
-        'description': 'Professional-quality mastering',
-        'route': '/create/audio/mastering',
-        'credits': 6
-      },
-      {
-        'icon': Icons.graphic_eq,
-        'title': 'Sound Effects',
-        'description': 'Generate SFX from text',
-        'route': '/create/audio/sound-effects',
-        'credits': 5
-      },
-      {
-        'icon': Icons.auto_awesome,
-        'title': 'Audio Enhance',
-        'description': 'Clean and enhance audio quality',
-        'route': '/create/audio/enhance',
-        'credits': 4
-      },
-      {
-        'icon': Icons.speed,
-        'title': 'Tempo & Pitch',
-        'description': 'Adjust speed and key',
-        'route': '/create/audio/tempo-pitch',
-        'credits': 3
-      },
-    ];
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 1.5,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: tools.length,
-      itemBuilder: (context, index) {
-        final tool = tools[index];
-        return _buildToolCard(
-          icon: tool['icon'] as IconData,
-          title: tool['title'] as String,
-          description: tool['description'] as String,
-          credits: tool['credits'] as int,
-          badge: tool['badge'] as String?,
-          badgeColor: tool['badgeColor'] as Color?,
-          onTap: () => context.go(tool['route'] as String),
-        );
-      },
-    );
-  }
 
   Widget _buildSectionHeader({
     required String title,

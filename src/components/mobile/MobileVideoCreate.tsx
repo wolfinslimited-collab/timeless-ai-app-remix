@@ -1,15 +1,28 @@
 import { useState } from "react";
-import { ArrowLeft, Video, Sparkles, Loader2, Camera } from "lucide-react";
+import { ArrowLeft, Video, Sparkles, Loader2, Camera, Play, Layers, TrendingUp, Mic, Brush, Maximize, PlusCircle, Timer, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase, TIMELESS_SUPABASE_URL } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { useToast } from "@/hooks/use-toast";
 import AddCreditsDialog from "@/components/AddCreditsDialog";
+import { ToolSelector, type ToolItem } from "./ToolSelector";
 
 interface MobileVideoCreateProps {
   onBack: () => void;
+  initialTool?: string;
 }
+
+const TOOLS: ToolItem[] = [
+  { id: "generate", name: "Generate", description: "Create videos from text prompts", icon: Play, credits: 15, isGenerate: true },
+  { id: "mixed-media", name: "Mixed", description: "Create mixed media projects", icon: Layers, credits: 15, badge: "NEW" },
+  { id: "sora-trends", name: "Trends", description: "Turn ideas into viral videos", icon: TrendingUp, credits: 25 },
+  { id: "lip-sync", name: "Lipsync", description: "Create talking clips", icon: Mic, credits: 15 },
+  { id: "draw-to-video", name: "Draw", description: "Sketch to cinematic video", icon: Brush, credits: 18 },
+  { id: "video-upscale", name: "Upscale", description: "Enhance video quality", icon: Maximize, credits: 8 },
+  { id: "extend", name: "Extend", description: "Extend video length", icon: PlusCircle, credits: 12 },
+  { id: "interpolate", name: "Smooth", description: "Smooth frame rate", icon: Timer, credits: 6 },
+];
 
 const MODELS = [
   { id: "kling-2.6", name: "Kling 2.1", credits: 25 },
@@ -20,7 +33,8 @@ const MODELS = [
 const ASPECT_RATIOS = ["16:9", "9:16", "1:1"];
 const QUALITIES = ["720p", "1080p"];
 
-export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
+export function MobileVideoCreate({ onBack, initialTool = "generate" }: MobileVideoCreateProps) {
+  const [selectedToolId, setSelectedToolId] = useState(initialTool);
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("kling-2.6");
   const [aspectRatio, setAspectRatio] = useState("16:9");
@@ -33,6 +47,13 @@ export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
   const { user } = useAuth();
   const { credits, refetch, hasEnoughCreditsForModel } = useCredits();
   const { toast } = useToast();
+
+  const selectedTool = TOOLS.find(t => t.id === selectedToolId) || TOOLS[0];
+  const selectedModel = MODELS.find(m => m.id === model);
+
+  const handleToolSelected = (tool: ToolItem) => {
+    setSelectedToolId(tool.id);
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -62,7 +83,6 @@ export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
     setGeneratedVideo(null);
 
     try {
-      // Start background generation
       const { data, error } = await supabase.functions.invoke("generate", {
         body: {
           prompt,
@@ -84,7 +104,6 @@ export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
           description: "This may take a few minutes. Check your library for the result.",
         });
         refetch();
-        // Poll for completion
         pollForCompletion(data.generationId);
       } else if (data?.error) {
         throw new Error(data.error);
@@ -101,7 +120,7 @@ export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
   };
 
   const pollForCompletion = async (generationId: string) => {
-    const maxAttempts = 60; // 5 minutes
+    const maxAttempts = 60;
     let attempts = 0;
 
     const poll = async () => {
@@ -146,29 +165,39 @@ export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
     setTimeout(poll, 5000);
   };
 
-  const selectedModel = MODELS.find(m => m.id === model);
-
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="px-4 py-2 flex items-center gap-3">
-        <button onClick={onBack} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-          <ArrowLeft className="w-4 h-4 text-white" />
+    <div className="h-full flex flex-col bg-background">
+      {/* Compact Header */}
+      <div className="px-4 py-2 flex items-center gap-3 border-b border-border">
+        <button onClick={onBack} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+          <ArrowLeft className="w-4 h-4 text-foreground" />
         </button>
-        <h1 className="text-white text-lg font-semibold">Create Video</h1>
-        <div className="ml-auto text-xs text-gray-400">
-          {selectedModel?.credits} credits
+        <div className="flex-1 min-w-0">
+          <h1 className="text-foreground text-sm font-semibold truncate">{selectedTool.name}</h1>
+          <p className="text-muted-foreground text-[10px] truncate">{selectedTool.description}</p>
+        </div>
+        <div className="flex items-center gap-1 bg-primary/15 px-2 py-1 rounded-lg">
+          <Zap className="w-3 h-3 text-primary" />
+          <span className="text-primary text-xs font-semibold">{selectedModel?.credits ?? 15}</span>
         </div>
       </div>
 
+      {/* Tool Selector */}
+      <ToolSelector
+        tools={TOOLS}
+        selectedToolId={selectedToolId}
+        onToolSelected={handleToolSelected}
+      />
+      <div className="h-px bg-border" />
+
       {/* Preview Area */}
       <div className="flex-1 px-4 py-4">
-        <div className="aspect-video bg-white/5 rounded-2xl border border-dashed border-white/20 flex flex-col items-center justify-center overflow-hidden">
+        <div className="aspect-video bg-secondary rounded-2xl border border-border flex flex-col items-center justify-center overflow-hidden">
           {isGenerating ? (
             <div className="flex flex-col items-center gap-3">
-              <Loader2 className="w-12 h-12 text-purple-400 animate-spin" />
-              <p className="text-gray-400 text-sm">Generating video...</p>
-              <p className="text-gray-500 text-xs">This may take a few minutes</p>
+              <Loader2 className="w-12 h-12 text-primary animate-spin" />
+              <p className="text-muted-foreground text-sm">Generating video...</p>
+              <p className="text-muted-foreground text-xs">This may take a few minutes</p>
             </div>
           ) : generatedVideo ? (
             <video 
@@ -178,11 +207,11 @@ export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
             />
           ) : (
             <>
-              <Video className="w-12 h-12 text-gray-500 mb-3" />
-              <p className="text-gray-400 text-sm">Your video will appear here</p>
-              <button className="mt-4 flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full">
-                <Camera className="w-4 h-4 text-gray-300" />
-                <span className="text-gray-300 text-xs">Add reference</span>
+              <Video className="w-12 h-12 text-muted-foreground mb-3" />
+              <p className="text-muted-foreground text-sm">Your video will appear here</p>
+              <button className="mt-4 flex items-center gap-2 px-4 py-2 bg-secondary rounded-full border border-border">
+                <Camera className="w-4 h-4 text-muted-foreground" />
+                <span className="text-muted-foreground text-xs">Add reference</span>
               </button>
             </>
           )}
@@ -190,7 +219,7 @@ export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
       </div>
 
       {/* Controls */}
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-4 border-t border-border">
         {/* Model Selector */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2">
           {MODELS.map((m) => (
@@ -200,8 +229,8 @@ export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
               className={cn(
                 "px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors",
                 model === m.id 
-                  ? "bg-purple-500 text-white" 
-                  : "bg-white/10 text-gray-300"
+                  ? "bg-primary text-primary-foreground" 
+                  : "bg-secondary text-muted-foreground"
               )}
             >
               {m.name}
@@ -212,7 +241,7 @@ export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
         {/* Settings Row */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-gray-400 text-xs">Ratio:</span>
+            <span className="text-muted-foreground text-xs">Ratio:</span>
             {ASPECT_RATIOS.map((ratio) => (
               <button
                 key={ratio}
@@ -220,8 +249,8 @@ export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
                 className={cn(
                   "px-2 py-1 rounded text-xs transition-colors",
                   aspectRatio === ratio 
-                    ? "bg-purple-500/20 text-purple-300" 
-                    : "bg-white/10 text-gray-400"
+                    ? "bg-primary/20 text-primary" 
+                    : "bg-secondary text-muted-foreground"
                 )}
               >
                 {ratio}
@@ -229,7 +258,7 @@ export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
             ))}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-gray-400 text-xs">Quality:</span>
+            <span className="text-muted-foreground text-xs">Quality:</span>
             {QUALITIES.map((q) => (
               <button
                 key={q}
@@ -237,8 +266,8 @@ export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
                 className={cn(
                   "px-2 py-1 rounded text-xs transition-colors",
                   quality === q 
-                    ? "bg-purple-500/20 text-purple-300" 
-                    : "bg-white/10 text-gray-400"
+                    ? "bg-primary/20 text-primary" 
+                    : "bg-secondary text-muted-foreground"
                 )}
               >
                 {q}
@@ -248,24 +277,24 @@ export function MobileVideoCreate({ onBack }: MobileVideoCreateProps) {
         </div>
 
         {/* Prompt Input */}
-        <div className="flex items-center gap-2 bg-white/10 rounded-full px-4 py-3">
+        <div className="flex items-center gap-2 bg-secondary rounded-full px-4 py-3 border border-border">
           <input
             type="text"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Describe your video..."
-            className="flex-1 bg-transparent text-white text-sm placeholder:text-gray-500 outline-none"
+            className="flex-1 bg-transparent text-foreground text-sm placeholder:text-muted-foreground outline-none"
             disabled={isGenerating}
           />
           <button 
             onClick={handleGenerate}
             disabled={isGenerating || !prompt.trim()}
-            className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center disabled:opacity-50"
+            className="w-10 h-10 rounded-full bg-primary flex items-center justify-center disabled:opacity-50"
           >
             {isGenerating ? (
-              <Loader2 className="w-5 h-5 text-white animate-spin" />
+              <Loader2 className="w-5 h-5 text-primary-foreground animate-spin" />
             ) : (
-              <Sparkles className="w-5 h-5 text-white" />
+              <Sparkles className="w-5 h-5 text-primary-foreground" />
             )}
           </button>
         </div>
