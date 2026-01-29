@@ -1,0 +1,106 @@
+{
+  "project_info": {
+    "project_number": "1012149210327",
+    "project_id": "timeless-983d7",
+    "storage_bucket": "timeless-983d7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1012149210327:android:bf0313065a4e47a1f8b492",
+        "android_client_info": {
+          "package_name": "com.health.timeless_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1012149210327-7dg02kf3k08bu0ksp41rhsntl5lpl4no.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD8oJLdlFfZvv5YZ49oruWIRT9wwwHbVvc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1012149210327-7dg02kf3k08bu0ksp41rhsntl5lpl4no.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1012149210327-63j4hf0g83bqlad026c29q574hqdf1ka.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.health.timelessApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1012149210327:android:a30b878241634e2bf8b492",
+        "android_client_info": {
+          "package_name": "com.wolfine.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1012149210327-8vf76duov2ggrrg7mlhr36861pm6js0b.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wolfine.app",
+            "certificate_hash": "c417ffe69616153754c2e151e9414eb395a4e88b"
+          }
+        },
+        {
+          "client_id": "1012149210327-mesnn827p10js367gvrgt64hnek3cq88.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wolfine.app",
+            "certificate_hash": "d0ebfdd65e4c47e54cd42dd3f88d01fe1cf8aa17"
+          }
+        },
+        {
+          "client_id": "1012149210327-patdola3iakivtqdnq08dm1spno0fl2c.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wolfine.app",
+            "certificate_hash": "52c6121932ce44cd73faca890fbd1144f004f8ba"
+          }
+        },
+        {
+          "client_id": "1012149210327-7dg02kf3k08bu0ksp41rhsntl5lpl4no.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD8oJLdlFfZvv5YZ49oruWIRT9wwwHbVvc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1012149210327-7dg02kf3k08bu0ksp41rhsntl5lpl4no.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1012149210327-63j4hf0g83bqlad026c29q574hqdf1ka.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.health.timelessApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

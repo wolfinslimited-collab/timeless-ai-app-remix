@@ -29,6 +29,11 @@
 		</array>
 	</dict>
 	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+	<string>fetch</string>
+	<string>remote-notification</string>
+	</array>
 	<key>TikTokAppID</key>
 	<string>7566328038468812807</string>
 	<key>FacebookAppID</key>
