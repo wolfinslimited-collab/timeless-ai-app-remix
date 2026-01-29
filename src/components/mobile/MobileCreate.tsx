@@ -18,7 +18,6 @@ export function MobileCreate({ onNavigate }: MobileCreateProps) {
           icon={Grid3X3} 
           title="Shots" 
           description="Upload 1 image → Get 9 cinematic angles"
-          gradient={["from-pink-500", "to-primary"]}
           badge="NEW"
           onClick={() => onNavigate("image")}
         />
@@ -44,6 +43,7 @@ export function MobileCreate({ onNavigate }: MobileCreateProps) {
           icon={Music} 
           title="Music & Audio" 
           description="Generate music, vocals, and sound effects"
+          onClick={() => onNavigate("audio")}
         />
 
         {/* AI Apps Card */}
@@ -51,6 +51,7 @@ export function MobileCreate({ onNavigate }: MobileCreateProps) {
           icon={Sparkles} 
           title="AI Apps" 
           description="Skin AI, Calorie AI, Sleep AI & more"
+          onClick={() => onNavigate("apps")}
         />
 
         {/* Cinema Studio Card */}
@@ -69,14 +70,12 @@ function CreateOption({
   icon: Icon, 
   title, 
   description, 
-  gradient,
   badge,
   onClick 
 }: { 
   icon: React.ComponentType<{ className?: string }>; 
   title: string; 
   description: string; 
-  gradient?: string[];
   badge?: string;
   onClick?: () => void;
 }) {

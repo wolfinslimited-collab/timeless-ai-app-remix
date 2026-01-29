@@ -97,10 +97,12 @@ export function MobileProfile({ onNavigate }: MobileProfileProps) {
         <ProfileMenuItem 
           icon={Download} 
           label="Downloads" 
+          onClick={() => onNavigate?.("downloads")}
         />
         <ProfileMenuItem 
           icon={Heart} 
           label="Favorites" 
+          onClick={() => onNavigate?.("favorites")}
         />
         <ProfileMenuItem 
           icon={Share2} 

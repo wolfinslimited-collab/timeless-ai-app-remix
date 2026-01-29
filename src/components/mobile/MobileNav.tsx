@@ -1,7 +1,21 @@
 import { Home, Sparkles, MessageSquare, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type Screen = "home" | "create" | "chat" | "library" | "profile" | "image" | "video" | "cinema" | "auth" | "subscription";
+export type Screen = 
+  | "home" 
+  | "create" 
+  | "chat" 
+  | "library" 
+  | "profile" 
+  | "image" 
+  | "video" 
+  | "cinema" 
+  | "audio"
+  | "apps"
+  | "auth" 
+  | "subscription"
+  | "downloads"
+  | "favorites";
 
 interface MobileNavProps {
   currentScreen: Screen;
@@ -9,6 +23,9 @@ interface MobileNavProps {
 }
 
 export function MobileNav({ currentScreen, onNavigate }: MobileNavProps) {
+  const isCreateActive = ["create", "image", "video", "cinema", "audio", "apps"].includes(currentScreen);
+  const isProfileActive = ["profile", "library", "subscription", "downloads", "favorites"].includes(currentScreen);
+
   return (
     <div className="absolute bottom-0 left-0 right-0 h-20 bg-background border-t border-border">
       <div className="flex items-center justify-around h-full px-2 pb-4">
@@ -21,7 +38,7 @@ export function MobileNav({ currentScreen, onNavigate }: MobileNavProps) {
         <NavItem 
           icon={Sparkles} 
           label="Create" 
-          active={currentScreen === "create" || currentScreen === "image" || currentScreen === "video"}
+          active={isCreateActive}
           onClick={() => onNavigate("create")}
         />
         <NavItem 
@@ -33,7 +50,7 @@ export function MobileNav({ currentScreen, onNavigate }: MobileNavProps) {
         <NavItem 
           icon={User} 
           label="Profile" 
-          active={currentScreen === "profile" || currentScreen === "library"}
+          active={isProfileActive}
           onClick={() => onNavigate("profile")}
         />
       </div>
