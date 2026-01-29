@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Mail, Lock, Loader2, Eye, EyeOff, ArrowLeft, User, Gift } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { CountryPickerField } from "./CountryPicker";
 import logo from "@/assets/logo.png";
