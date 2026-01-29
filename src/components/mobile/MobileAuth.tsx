@@ -105,34 +105,29 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
     setLoadingText("Sending verification code...");
 
     try {
-      const { data, error } = await supabase.functions.invoke("send-verification", {
-        body: {
-          email,
-          fullName,
-          country: country || null,
-          referralCode: referralCode || null,
-          password,
-        },
-      });
-
-      // Handle errors - extract message from various possible locations
-      if (error) {
-        console.error("Edge function error:", error);
-        // Try to get error message from response body (for 4xx errors)
-        const errorBody = error.context?.body;
-        let errorMessage = "Network error. Please check your connection and try again.";
-        
-        if (errorBody) {
-          try {
-            const parsed = typeof errorBody === 'string' ? JSON.parse(errorBody) : errorBody;
-            errorMessage = parsed.error || parsed.message || errorMessage;
-          } catch {
-            errorMessage = error.message || errorMessage;
-          }
-        } else if (error.message) {
-          errorMessage = error.message;
+      // Call the send-verification edge function on the primary backend
+      const response = await fetch(
+        "https://ifesxveahsbjhmrhkhhy.supabase.co/functions/v1/send-verification",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            fullName,
+            country: country || null,
+            referralCode: referralCode || null,
+            password,
+          }),
         }
-        
+      );
+
+      const data = await response.json();
+
+      // Handle non-OK responses
+      if (!response.ok) {
+        const errorMessage = data?.error || data?.message || "Failed to send verification code.";
         throw new Error(errorMessage);
       }
       
@@ -174,14 +169,26 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
     setLoadingText("Verifying...");
 
     try {
-      const { data, error } = await supabase.functions.invoke("verify-code", {
-        body: {
-          email,
-          code: verificationCode,
-        },
-      });
+      // Call verify-code with direct fetch
+      const response = await fetch(
+        "https://ifesxveahsbjhmrhkhhy.supabase.co/functions/v1/verify-code",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            code: verificationCode,
+          }),
+        }
+      );
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Verification failed");
+      }
       if (data?.error) throw new Error(data.error);
 
       // Sign in after verification
@@ -222,17 +229,29 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
     setLoadingText("Resending code...");
 
     try {
-      const { data, error } = await supabase.functions.invoke("send-verification", {
-        body: {
-          email,
-          fullName,
-          country: country || null,
-          referralCode: referralCode || null,
-          password,
-        },
-      });
+      // Call send-verification with direct fetch
+      const response = await fetch(
+        "https://ifesxveahsbjhmrhkhhy.supabase.co/functions/v1/send-verification",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            fullName,
+            country: country || null,
+            referralCode: referralCode || null,
+            password,
+          }),
+        }
+      );
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to resend code");
+      }
       if (data?.error) throw new Error(data.error);
 
       setVerificationCode("");
