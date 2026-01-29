@@ -153,6 +153,23 @@ function AnimatedPrice({ value, duration = 400 }: { value: number; duration?: nu
 // Fallback plans
 const fallbackSubscriptionPlans: SubscriptionPlan[] = [
   {
+    id: "basic-monthly",
+    name: "Basic",
+    period: "Monthly",
+    credits: 100,
+    price: 4.99,
+    price_id: "price_basic_monthly",
+    icon: "Zap",
+    features: [
+      { text: "100 credits per month", included: true },
+      { text: "Standard processing", included: true },
+      { text: "HD exports", included: true },
+      { text: "Email support", included: true },
+    ],
+    display_order: 1,
+    is_active: true,
+  },
+  {
     id: "premium-monthly",
     name: "Premium",
     period: "Monthly",
@@ -162,10 +179,46 @@ const fallbackSubscriptionPlans: SubscriptionPlan[] = [
     popular: true,
     icon: "Crown",
     features: [
-      { text: "Unlimited generations", included: true },
+      { text: "500 credits per month", included: true },
       { text: "Priority processing", included: true },
       { text: "4K resolution exports", included: true },
       { text: "Advanced AI models", included: true },
+    ],
+    display_order: 2,
+    is_active: true,
+  },
+  {
+    id: "pro-monthly",
+    name: "Pro",
+    period: "Monthly",
+    credits: 2000,
+    price: 29.99,
+    price_id: "price_pro_monthly",
+    icon: "Star",
+    features: [
+      { text: "2000 credits per month", included: true },
+      { text: "Fastest processing", included: true },
+      { text: "8K resolution exports", included: true },
+      { text: "All AI models access", included: true },
+      { text: "Priority support", included: true, badge: "VIP" },
+    ],
+    display_order: 3,
+    is_active: true,
+  },
+  {
+    id: "basic-yearly",
+    name: "Basic",
+    period: "Yearly",
+    credits: 1200,
+    price: 49.99,
+    price_id: "price_basic_yearly",
+    icon: "Zap",
+    features: [
+      { text: "100 credits per month", included: true },
+      { text: "Standard processing", included: true },
+      { text: "HD exports", included: true },
+      { text: "Email support", included: true },
+      { text: "2 months free", included: true, badge: "SAVE" },
     ],
     display_order: 1,
     is_active: true,
@@ -180,13 +233,33 @@ const fallbackSubscriptionPlans: SubscriptionPlan[] = [
     best_value: true,
     icon: "Crown",
     features: [
-      { text: "Unlimited generations", included: true },
+      { text: "500 credits per month", included: true },
       { text: "Priority processing", included: true },
       { text: "4K resolution exports", included: true },
       { text: "Advanced AI models", included: true },
       { text: "2 months free", included: true, badge: "BONUS" },
     ],
     display_order: 2,
+    is_active: true,
+  },
+  {
+    id: "pro-yearly",
+    name: "Pro",
+    period: "Yearly",
+    credits: 24000,
+    price: 299.99,
+    price_id: "price_pro_yearly",
+    popular: true,
+    icon: "Star",
+    features: [
+      { text: "2000 credits per month", included: true },
+      { text: "Fastest processing", included: true },
+      { text: "8K resolution exports", included: true },
+      { text: "All AI models access", included: true },
+      { text: "Priority support", included: true, badge: "VIP" },
+      { text: "2 months free", included: true, badge: "SAVE" },
+    ],
+    display_order: 3,
     is_active: true,
   },
 ];
@@ -240,7 +313,7 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
   const [loadingPackage, setLoadingPackage] = useState<string | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
   const [plansLoading, setPlansLoading] = useState(true);
-  const [currentPlanIndex, setCurrentPlanIndex] = useState(0);
+  const [currentPlanIndex, setCurrentPlanIndex] = useState(1);
   
   const { user } = useAuth();
   const { credits, hasActiveSubscription, refetch } = useCredits();
@@ -469,7 +542,7 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
             <div className="flex justify-center mb-3">
               <div className="bg-secondary rounded-full p-1 flex">
                 <button
-                  onClick={() => { setBillingPeriod("Monthly"); setCurrentPlanIndex(0); }}
+                  onClick={() => { setBillingPeriod("Monthly"); setCurrentPlanIndex(1); }}
                   className={cn(
                     "px-4 py-1.5 rounded-full text-sm font-medium transition-all",
                     billingPeriod === "Monthly"
@@ -480,7 +553,7 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
                   Monthly
                 </button>
                 <button
-                  onClick={() => { setBillingPeriod("Yearly"); setCurrentPlanIndex(0); }}
+                  onClick={() => { setBillingPeriod("Yearly"); setCurrentPlanIndex(1); }}
                   className={cn(
                     "px-4 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1",
                     billingPeriod === "Yearly"
@@ -535,9 +608,19 @@ export function MobileSubscription({ onBack }: MobileSubscriptionProps) {
                       {/* Plan Header */}
                       <div className="flex items-center justify-between mb-3 pt-1">
                         <div className="flex items-center gap-2">
-                          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary to-pink-500 flex items-center justify-center">
-                            <Crown className="w-5 h-5 text-white" />
-                          </div>
+                          {(() => {
+                            const IconComponent = iconMap[currentPlan.icon] || Crown;
+                            const gradientClass = currentPlan.name === "Basic" 
+                              ? "from-blue-500 to-blue-400" 
+                              : currentPlan.name === "Pro" 
+                                ? "from-yellow-500 to-orange-500" 
+                                : "from-primary to-pink-500";
+                            return (
+                              <div className={cn("w-11 h-11 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg", gradientClass)}>
+                                <IconComponent className="w-5 h-5 text-white" />
+                              </div>
+                            );
+                          })()}
                           <div>
                             <h3 className="text-foreground text-lg font-bold">{currentPlan.name}</h3>
                             <p className="text-muted-foreground text-xs">{currentPlan.period}</p>

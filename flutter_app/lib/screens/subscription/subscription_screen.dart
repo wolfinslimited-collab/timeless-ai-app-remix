@@ -19,12 +19,27 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   bool _isRestoring = false;
   int _activeTab = 0; // 0 = subscription, 1 = credits
   bool _isYearly = false;
-  
-  final PageController _planPageController = PageController(viewportFraction: 0.9);
-  int _currentPlanIndex = 0;
+
+  final PageController _planPageController = PageController(viewportFraction: 0.85, initialPage: 1);
+  int _currentPlanIndex = 1;
 
   // Subscription plans
   final List<Map<String, dynamic>> _monthlyPlans = [
+    {
+      'id': 'basic-monthly',
+      'name': 'Basic',
+      'period': 'Monthly',
+      'credits': 100,
+      'price': 4.99,
+      'icon': Icons.bolt,
+      'color': const Color(0xFF3B82F6),
+      'features': [
+        {'text': '100 credits per month', 'included': true},
+        {'text': 'Standard processing', 'included': true},
+        {'text': 'HD exports', 'included': true},
+        {'text': 'Email support', 'included': true},
+      ],
+    },
     {
       'id': 'premium-monthly',
       'name': 'Premium',
@@ -32,16 +47,50 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       'credits': 500,
       'price': 9.99,
       'popular': true,
+      'icon': Icons.workspace_premium,
+      'color': AppTheme.primary,
       'features': [
-        {'text': 'Unlimited generations', 'included': true},
+        {'text': '500 credits per month', 'included': true},
         {'text': 'Priority processing', 'included': true},
         {'text': '4K resolution exports', 'included': true},
         {'text': 'Advanced AI models', 'included': true},
       ],
     },
+    {
+      'id': 'pro-monthly',
+      'name': 'Pro',
+      'period': 'Monthly',
+      'credits': 2000,
+      'price': 29.99,
+      'icon': Icons.star,
+      'color': const Color(0xFFF59E0B),
+      'features': [
+        {'text': '2000 credits per month', 'included': true},
+        {'text': 'Fastest processing', 'included': true},
+        {'text': '8K resolution exports', 'included': true},
+        {'text': 'All AI models access', 'included': true},
+        {'text': 'Priority support', 'included': true, 'badge': 'VIP'},
+      ],
+    },
   ];
 
   final List<Map<String, dynamic>> _yearlyPlans = [
+    {
+      'id': 'basic-yearly',
+      'name': 'Basic',
+      'period': 'Yearly',
+      'credits': 1200,
+      'price': 49.99,
+      'icon': Icons.bolt,
+      'color': const Color(0xFF3B82F6),
+      'features': [
+        {'text': '100 credits per month', 'included': true},
+        {'text': 'Standard processing', 'included': true},
+        {'text': 'HD exports', 'included': true},
+        {'text': 'Email support', 'included': true},
+        {'text': '2 months free', 'included': true, 'badge': 'SAVE'},
+      ],
+    },
     {
       'id': 'premium-yearly',
       'name': 'Premium',
@@ -49,12 +98,32 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       'credits': 6000,
       'price': 99.99,
       'bestValue': true,
+      'icon': Icons.workspace_premium,
+      'color': AppTheme.primary,
       'features': [
-        {'text': 'Unlimited generations', 'included': true},
+        {'text': '500 credits per month', 'included': true},
         {'text': 'Priority processing', 'included': true},
         {'text': '4K resolution exports', 'included': true},
         {'text': 'Advanced AI models', 'included': true},
         {'text': '2 months free', 'included': true, 'badge': 'BONUS'},
+      ],
+    },
+    {
+      'id': 'pro-yearly',
+      'name': 'Pro',
+      'period': 'Yearly',
+      'credits': 24000,
+      'price': 299.99,
+      'popular': true,
+      'icon': Icons.star,
+      'color': const Color(0xFFF59E0B),
+      'features': [
+        {'text': '2000 credits per month', 'included': true},
+        {'text': 'Fastest processing', 'included': true},
+        {'text': '8K resolution exports', 'included': true},
+        {'text': 'All AI models access', 'included': true},
+        {'text': 'Priority support', 'included': true, 'badge': 'VIP'},
+        {'text': '2 months free', 'included': true, 'badge': 'SAVE'},
       ],
     },
   ];
@@ -424,7 +493,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               GestureDetector(
                 onTap: () => setState(() {
                   _isYearly = false;
-                  _currentPlanIndex = 0;
+                  _currentPlanIndex = 1;
+                  _planPageController.jumpToPage(1);
                 }),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -445,7 +515,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               GestureDetector(
                 onTap: () => setState(() {
                   _isYearly = true;
-                  _currentPlanIndex = 0;
+                  _currentPlanIndex = 1;
+                  _planPageController.jumpToPage(1);
                 }),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -591,13 +662,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                                   width: 44,
                                   height: 44,
                                   decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [AppTheme.primary, Color(0xFFEC4899)],
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        plan['color'] ?? AppTheme.primary,
+                                        (plan['color'] ?? AppTheme.primary).withOpacity(0.7),
+                                      ],
                                     ),
                                     borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: (plan['color'] ?? AppTheme.primary).withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                                   ),
-                                  child: const Icon(
-                                    Icons.workspace_premium,
+                                  child: Icon(
+                                    plan['icon'] ?? Icons.workspace_premium,
                                     color: Colors.white,
                                     size: 22,
                                   ),
