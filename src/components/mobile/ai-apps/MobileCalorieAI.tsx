@@ -41,8 +41,8 @@ export function MobileCalorieAI({ onBack }: MobileCalorieAIProps) {
           </button>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-lime-500/20 to-green-500/20 flex items-center justify-center mb-6">
-            <Apple className="w-10 h-10 text-lime-500" />
+          <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mb-6">
+            <Apple className="w-10 h-10 text-muted-foreground" />
           </div>
           <h1 className="text-2xl font-bold text-foreground mb-3">Welcome to Calorie AI</h1>
           <p className="text-sm text-muted-foreground mb-8">
@@ -104,9 +104,9 @@ export function MobileCalorieAI({ onBack }: MobileCalorieAIProps) {
         <div className="p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             {/* Calories */}
-            <div className="p-3 bg-secondary rounded-xl">
+            <div className="p-3 bg-secondary rounded-xl border border-border">
               <div className="flex items-center justify-between mb-2">
-                <Flame className="w-4 h-4 text-orange-500" />
+                <Flame className="w-4 h-4 text-muted-foreground" />
                 <span className="text-[10px] text-muted-foreground">{Math.round(calorieProgress * 100)}%</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Calories</p>
@@ -115,12 +115,12 @@ export function MobileCalorieAI({ onBack }: MobileCalorieAIProps) {
                 <span className="text-[10px] text-muted-foreground">/{profile.recommendedCalories}</span>
               </div>
               <div className="mt-2 h-1 bg-border rounded-full overflow-hidden">
-                <div className="h-full bg-orange-500 transition-all" style={{ width: `${calorieProgress * 100}%` }} />
+                <div className="h-full bg-muted-foreground transition-all" style={{ width: `${calorieProgress * 100}%` }} />
               </div>
             </div>
 
             {/* Protein */}
-            <div className="p-3 bg-secondary rounded-xl">
+            <div className="p-3 bg-secondary rounded-xl border border-border">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm">🥩</span>
                 <span className="text-[10px] text-muted-foreground">{Math.round((todayData.protein / profile.recommendedProtein) * 100)}%</span>
@@ -131,12 +131,12 @@ export function MobileCalorieAI({ onBack }: MobileCalorieAIProps) {
                 <span className="text-[10px] text-muted-foreground">/{profile.recommendedProtein}g</span>
               </div>
               <div className="mt-2 h-1 bg-border rounded-full overflow-hidden">
-                <div className="h-full bg-red-400 transition-all" style={{ width: `${(todayData.protein / profile.recommendedProtein) * 100}%` }} />
+                <div className="h-full bg-muted-foreground transition-all" style={{ width: `${(todayData.protein / profile.recommendedProtein) * 100}%` }} />
               </div>
             </div>
 
             {/* Carbs */}
-            <div className="p-3 bg-secondary rounded-xl">
+            <div className="p-3 bg-secondary rounded-xl border border-border">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm">🌾</span>
                 <span className="text-[10px] text-muted-foreground">{Math.round((todayData.carbs / profile.recommendedCarbs) * 100)}%</span>
@@ -147,14 +147,14 @@ export function MobileCalorieAI({ onBack }: MobileCalorieAIProps) {
                 <span className="text-[10px] text-muted-foreground">/{profile.recommendedCarbs}g</span>
               </div>
               <div className="mt-2 h-1 bg-border rounded-full overflow-hidden">
-                <div className="h-full bg-amber-500 transition-all" style={{ width: `${(todayData.carbs / profile.recommendedCarbs) * 100}%` }} />
+                <div className="h-full bg-muted-foreground transition-all" style={{ width: `${(todayData.carbs / profile.recommendedCarbs) * 100}%` }} />
               </div>
             </div>
 
             {/* Fat */}
-            <div className="p-3 bg-secondary rounded-xl">
+            <div className="p-3 bg-secondary rounded-xl border border-border">
               <div className="flex items-center justify-between mb-2">
-                <Droplet className="w-4 h-4 text-blue-500" />
+                <Droplet className="w-4 h-4 text-muted-foreground" />
                 <span className="text-[10px] text-muted-foreground">{Math.round((todayData.fat / profile.recommendedFat) * 100)}%</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Fat</p>
@@ -163,16 +163,16 @@ export function MobileCalorieAI({ onBack }: MobileCalorieAIProps) {
                 <span className="text-[10px] text-muted-foreground">/{profile.recommendedFat}g</span>
               </div>
               <div className="mt-2 h-1 bg-border rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 transition-all" style={{ width: `${(todayData.fat / profile.recommendedFat) * 100}%` }} />
+                <div className="h-full bg-muted-foreground transition-all" style={{ width: `${(todayData.fat / profile.recommendedFat) * 100}%` }} />
               </div>
             </div>
           </div>
 
           {/* Water Tracker */}
-          <div className="p-4 bg-secondary rounded-xl">
+          <div className="p-4 bg-secondary rounded-xl border border-border">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <span className="text-lg">💧</span>
+                <Droplet className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm font-medium text-foreground">Water</span>
               </div>
               <span className="text-xs text-muted-foreground">{waterGlasses}/8 glasses</span>
@@ -180,13 +180,13 @@ export function MobileCalorieAI({ onBack }: MobileCalorieAIProps) {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setWaterGlasses(Math.max(0, waterGlasses - 1))}
-                className="w-8 h-8 rounded-full bg-card flex items-center justify-center"
+                className="w-8 h-8 rounded-full bg-card border border-border flex items-center justify-center"
               >
                 <Minus className="w-4 h-4 text-muted-foreground" />
               </button>
               <div className="flex-1 h-2 bg-border rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-blue-500 transition-all"
+                  className="h-full bg-muted-foreground transition-all"
                   style={{ width: `${(waterGlasses / 8) * 100}%` }}
                 />
               </div>
@@ -200,16 +200,16 @@ export function MobileCalorieAI({ onBack }: MobileCalorieAIProps) {
           </div>
 
           {/* Remaining Calories */}
-          <div className="p-5 bg-gradient-to-br from-lime-500/10 to-green-500/10 rounded-2xl border border-lime-500/20 text-center">
+          <div className="p-5 bg-secondary rounded-2xl border border-border text-center">
             <p className="text-sm text-muted-foreground mb-1">Remaining Today</p>
             <p className={cn(
               "text-3xl font-bold",
-              remainingCalories > 0 ? "text-lime-500" : "text-red-500"
+              remainingCalories > 0 ? "text-foreground" : "text-destructive"
             )}>
               {remainingCalories > 0 ? remainingCalories : 0} cal
             </p>
             {remainingCalories < 0 && (
-              <p className="text-xs text-red-500 mt-1">Over by {Math.abs(remainingCalories)} cal</p>
+              <p className="text-xs text-destructive mt-1">Over by {Math.abs(remainingCalories)} cal</p>
             )}
           </div>
         </div>
@@ -265,9 +265,9 @@ export function MobileCalorieAI({ onBack }: MobileCalorieAIProps) {
                 { meal: "Snack", items: "Greek yogurt", cal: 180 },
                 { meal: "Dinner", items: "Salmon with vegetables", cal: 400 },
               ].map((log) => (
-                <div key={log.meal} className="flex items-center gap-3 p-3 bg-secondary rounded-xl">
-                  <div className="w-10 h-10 rounded-lg bg-lime-500/10 flex items-center justify-center">
-                    <Apple className="w-5 h-5 text-lime-500" />
+                <div key={log.meal} className="flex items-center gap-3 p-3 bg-secondary rounded-xl border border-border">
+                  <div className="w-10 h-10 rounded-lg bg-card flex items-center justify-center">
+                    <Apple className="w-5 h-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground">{log.meal}</p>
