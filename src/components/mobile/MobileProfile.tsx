@@ -22,6 +22,7 @@ export function MobileProfile({ onNavigate }: MobileProfileProps) {
   const { user, signOut } = useAuth();
   const { credits, hasActiveSubscription } = useCredits();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showSignOutDialog, setShowSignOutDialog] = useState(false);
 
   const displayName = user?.email?.split("@")[0] || "User";
   const initials = displayName.charAt(0).toUpperCase();
@@ -129,7 +130,7 @@ export function MobileProfile({ onNavigate }: MobileProfileProps) {
         
         {/* Sign Out Button */}
         <button
-          onClick={signOut}
+          onClick={() => setShowSignOutDialog(true)}
           className="w-full flex items-center gap-4 p-4 bg-destructive/10 rounded-xl hover:bg-destructive/20 transition-all"
         >
           <LogOut className="w-5 h-5 text-destructive" />
@@ -162,6 +163,27 @@ export function MobileProfile({ onNavigate }: MobileProfileProps) {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete Account
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Sign Out Confirmation Dialog */}
+      <AlertDialog open={showSignOutDialog} onOpenChange={setShowSignOutDialog}>
+        <AlertDialogContent className="bg-background border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sign Out</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to sign out of your account?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={signOut}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Sign Out
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
