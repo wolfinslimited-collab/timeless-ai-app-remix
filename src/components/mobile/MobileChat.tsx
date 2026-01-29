@@ -351,8 +351,8 @@ export function MobileChat() {
         <div className="flex items-end gap-2">
           {/* Image Button (Vision Models) */}
           {supportsVision && (
-            <button className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-              <ImageIcon className="w-5 h-5 text-muted-foreground" />
+            <button className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+              <ImageIcon className="w-4 h-4 text-muted-foreground" />
             </button>
           )}
           
@@ -360,29 +360,29 @@ export function MobileChat() {
           <button 
             onClick={() => setWebSearchEnabled(!webSearchEnabled)}
             className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 border-2 transition-all",
+              "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 border transition-all",
               webSearchEnabled 
                 ? "bg-primary/20 border-primary" 
                 : "bg-secondary border-transparent"
             )}
           >
             <Globe className={cn(
-              "w-5 h-5",
+              "w-4 h-4",
               webSearchEnabled ? "text-primary" : "text-muted-foreground"
             )} />
           </button>
 
           {/* Text Input */}
-          <div className="flex-1 bg-secondary rounded-3xl">
+          <div className="flex-1 bg-secondary rounded-2xl">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
               placeholder={webSearchEnabled 
-                ? `Search the web with ${currentModel.name}...` 
-                : `Message ${currentModel.name}...`}
-              className="w-full px-4 py-3 bg-transparent text-foreground text-sm placeholder:text-muted-foreground outline-none"
+                ? `Search the web...` 
+                : `Write something creative...`}
+              className="w-full px-4 py-2.5 bg-transparent text-foreground text-sm placeholder:text-muted-foreground outline-none"
               disabled={isLoading}
             />
           </div>
@@ -392,14 +392,14 @@ export function MobileChat() {
             onClick={handleSend}
             disabled={isLoading || !input.trim()}
             className={cn(
-              "w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-all",
+              "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all",
               isLoading || !input.trim() ? "bg-muted" : "bg-primary"
             )}
           >
             {isLoading ? (
-              <Loader2 className="w-5 h-5 text-white animate-spin" />
+              <Loader2 className="w-4 h-4 text-white animate-spin" />
             ) : (
-              <Send className="w-5 h-5 text-white -rotate-45" />
+              <Send className="w-4 h-4 text-white -rotate-45" />
             )}
           </button>
         </div>
