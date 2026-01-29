@@ -680,11 +680,7 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
       );
 
   void _handleToolSelected(ToolItem tool) {
-    if (tool.route != null && !tool.isGenerate) {
-      context.push(tool.route!);
-    } else {
-      setState(() => _selectedToolId = tool.id);
-    }
+    setState(() => _selectedToolId = tool.id);
   }
 
   @override
