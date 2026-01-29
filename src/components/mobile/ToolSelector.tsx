@@ -20,7 +20,7 @@ interface ToolSelectorProps {
 export function ToolSelector({ tools, selectedToolId, onToolSelected }: ToolSelectorProps) {
   return (
     <div className="overflow-x-auto">
-      <div className="flex gap-3 px-4 py-2" style={{ width: "max-content" }}>
+      <div className="flex gap-3 px-4 py-3" style={{ width: "max-content" }}>
         {tools.map((tool) => {
           const isSelected = tool.id === selectedToolId;
           const Icon = tool.icon;
@@ -33,21 +33,25 @@ export function ToolSelector({ tools, selectedToolId, onToolSelected }: ToolSele
             >
               <div
                 className={cn(
-                  "w-13 h-13 rounded-xl flex items-center justify-center relative transition-all",
+                  "w-13 h-13 rounded-2xl flex items-center justify-center relative transition-all",
                   isSelected
-                    ? "bg-primary shadow-lg shadow-primary/30"
-                    : "bg-secondary border border-border"
+                    ? "bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/40"
+                    : "bg-white/5 backdrop-blur-xl border border-white/10 shadow-lg shadow-black/5"
                 )}
-                style={{ width: 52, height: 52 }}
+                style={{ width: 56, height: 56 }}
               >
+                {/* Glass highlight effect */}
+                {!isSelected && (
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+                )}
                 <Icon
                   className={cn(
-                    "w-6 h-6",
-                    isSelected ? "text-primary-foreground" : "text-muted-foreground"
+                    "w-6 h-6 relative z-10",
+                    isSelected ? "text-primary-foreground" : "text-foreground/70"
                   )}
                 />
                 {tool.badge && (
-                  <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-green-500 text-[8px] font-bold text-white rounded">
+                  <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-gradient-to-r from-green-500 to-emerald-500 text-[8px] font-bold text-white rounded-md shadow-lg shadow-green-500/30">
                     {tool.badge}
                   </span>
                 )}
