@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Mail, Lock, Loader2, Eye, EyeOff, ArrowLeft, User, Gift } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { CountryPickerField } from "./CountryPicker";
 import logo from "@/assets/logo.png";
@@ -115,8 +115,31 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
         },
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      // Handle errors - extract message from various possible locations
+      if (error) {
+        console.error("Edge function error:", error);
+        // Try to get error message from response body (for 4xx errors)
+        const errorBody = error.context?.body;
+        let errorMessage = "Network error. Please check your connection and try again.";
+        
+        if (errorBody) {
+          try {
+            const parsed = typeof errorBody === 'string' ? JSON.parse(errorBody) : errorBody;
+            errorMessage = parsed.error || parsed.message || errorMessage;
+          } catch {
+            errorMessage = error.message || errorMessage;
+          }
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
+      // Handle API-level errors returned in the response
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       changeView("verification");
       setResendCountdown(30);
@@ -125,10 +148,11 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
         description: "Please check your email for the 4-digit code.",
       });
     } catch (error: any) {
+      console.error("Sign up error:", error);
       toast({
         variant: "destructive",
         title: "Sign up failed",
-        description: error.message || "Failed to send verification code",
+        description: error.message || "Failed to send verification code. Please try again.",
       });
     } finally {
       setIsLoading(false);
