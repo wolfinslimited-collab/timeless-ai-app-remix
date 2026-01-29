@@ -41,7 +41,7 @@ const List<ToolItem> audioToolItems = [
     description: 'Clean up audio',
     icon: Icons.graphic_eq,
     credits: 4,
-    route: '/create/audio/audio-enhance',
+    route: '/create/audio/enhance',
   ),
   ToolItem(
     id: 'sound-effects',
@@ -320,6 +320,11 @@ class _AudioCreateScreenState extends State<AudioCreateScreen> {
       );
 
   void _handleToolSelected(ToolItem tool) {
+    // Navigate to dedicated tool screen if route is defined
+    if (tool.route != null) {
+      context.push(tool.route!);
+      return;
+    }
     setState(() => _selectedToolId = tool.id);
   }
 
