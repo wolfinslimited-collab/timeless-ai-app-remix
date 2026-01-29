@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { 
   Bell, Moon, Brain, Sparkles, DollarSign, Apple, Fingerprint, 
-  Megaphone, ArrowLeft, ArrowRight
+  ArrowLeft, ArrowRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Screen } from "./MobileNav";
@@ -72,15 +72,6 @@ const aiApps: AIAppItem[] = [
     icon: Fingerprint,
     category: "productivity",
     badge: "NEW",
-  },
-  {
-    id: "ads-ai",
-    name: "Ads AI",
-    description: "Create high-converting ad campaigns with AI",
-    icon: Megaphone,
-    category: "marketing",
-    badge: "SOON",
-    comingSoon: true,
   },
 ];
 
