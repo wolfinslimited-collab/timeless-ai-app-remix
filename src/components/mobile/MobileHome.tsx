@@ -177,11 +177,23 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
   };
 
   const handleAppTap = (appId: string) => {
-    // Match Flutter behavior - only skin-ai navigates, others show coming soon
-    if (appId === 'skin-ai') {
-      onNavigate("apps");
+    // Navigate to specific app screens - matching Flutter AppsScreen
+    switch (appId) {
+      case 'skin-ai':
+        onNavigate("skin-ai");
+        break;
+      case 'calorie-ai':
+        onNavigate("calorie-ai");
+        break;
+      case 'brain-ai':
+        onNavigate("brain-ai");
+        break;
+      case 'sleep-ai':
+        onNavigate("sleep-ai");
+        break;
+      default:
+        onNavigate("apps");
     }
-    // Other apps - could show toast or navigate
   };
 
   // Show upgrade wizard if triggered

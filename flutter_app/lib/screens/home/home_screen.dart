@@ -647,13 +647,24 @@ class _AppCard extends StatelessWidget {
   const _AppCard({required this.app});
 
   void _handleTap(BuildContext context) {
-    if (app.id == 'skin-ai') {
-      context.push('/skin-analyze');
-    } else {
-      // Other apps - show coming soon or navigate
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${app.name} coming soon!')),
-      );
+    // Navigate to specific app screens - matching AppsScreen
+    switch (app.id) {
+      case 'skin-ai':
+        context.push('/skin-analyze');
+        break;
+      case 'calorie-ai':
+        context.push('/calorie');
+        break;
+      case 'brain-ai':
+        context.push('/brain-ai');
+        break;
+      case 'sleep-ai':
+        context.push('/sleep-ai');
+        break;
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Opening ${app.name}...')),
+        );
     }
   }
 
