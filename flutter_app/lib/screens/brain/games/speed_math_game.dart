@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import '../../core/theme.dart';
+import '../../../core/theme.dart';
 
 class SpeedMathGameScreen extends StatefulWidget {
   const SpeedMathGameScreen({super.key});
@@ -12,7 +12,7 @@ class SpeedMathGameScreen extends StatefulWidget {
 
 class _SpeedMathGameScreenState extends State<SpeedMathGameScreen> {
   static const gameDuration = 60;
-  
+
   _MathProblem? currentProblem;
   int score = 0;
   int streak = 0;
@@ -54,9 +54,9 @@ class _SpeedMathGameScreenState extends State<SpeedMathGameScreen> {
     final random = Random();
     final operations = ['+', '-', '×'];
     final operation = operations[random.nextInt(operations.length)];
-    
+
     int num1, num2, answer;
-    
+
     switch (operation) {
       case '+':
         num1 = random.nextInt(50) + 1;
@@ -248,7 +248,7 @@ class _SpeedMathGameScreenState extends State<SpeedMathGameScreen> {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    
+
                     // Options grid
                     GridView.count(
                       shrinkWrap: true,
@@ -257,7 +257,7 @@ class _SpeedMathGameScreenState extends State<SpeedMathGameScreen> {
                       crossAxisSpacing: 12,
                       childAspectRatio: 2,
                       children: (currentProblem?.options ?? []).map((option) {
-                        final isCorrectAnswer = feedback != null && 
+                        final isCorrectAnswer = feedback != null &&
                             option == currentProblem?.answer;
                         return GestureDetector(
                           onTap: () => _handleAnswer(option),
@@ -280,9 +280,7 @@ class _SpeedMathGameScreenState extends State<SpeedMathGameScreen> {
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
-                                  color: isCorrectAnswer
-                                      ? Colors.green
-                                      : null,
+                                  color: isCorrectAnswer ? Colors.green : null,
                                 ),
                               ),
                             ),
@@ -299,66 +297,70 @@ class _SpeedMathGameScreenState extends State<SpeedMathGameScreen> {
       ),
 
       // Completion dialog
-      bottomSheet: isComplete ? Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: AppTheme.card,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
+      bottomSheet: isComplete
+          ? Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
+                color: AppTheme.card,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(color: AppTheme.border),
               ),
-              child: Icon(Icons.emoji_events, size: 40, color: AppTheme.primary),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              "Time's Up!",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '$score points',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primary,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.emoji_events,
+                        size: 40, color: AppTheme.primary),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Time's Up!",
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '$score points',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Great job! Keep practicing to improve your score.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppTheme.muted),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Exit'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _startGame,
+                          child: const Text('Play Again'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Great job! Keep practicing to improve your score.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppTheme.muted),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Exit'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _startGame,
-                    child: const Text('Play Again'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ) : null,
+            )
+          : null,
     );
   }
 
@@ -373,7 +375,8 @@ class _SpeedMathGameScreenState extends State<SpeedMathGameScreen> {
             color: isWarning ? Colors.red : null,
           ),
         ),
-        Text(label, style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+        Text(label,
+            style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
       ],
     );
   }

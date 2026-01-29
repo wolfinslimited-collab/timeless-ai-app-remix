@@ -18,7 +18,7 @@ import 'image_model_selector.dart';
 
 class ImageCreateScreen extends StatefulWidget {
   final String? initialTool;
-  
+
   const ImageCreateScreen({super.key, this.initialTool});
 
   @override
@@ -30,7 +30,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
   late String _selectedToolId;
   final ImagePicker _picker = ImagePicker();
   final SupabaseClient _supabase = Supabase.instance.client;
-  
+
   String _selectedModel = 'nano-banana';
   String _selectedAspectRatio = '1:1';
   String _selectedQuality = '1024';
@@ -38,7 +38,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
   String? _generatedImageUrl;
   String? _generatedGenerationId;
   bool _isLoadingImage = false;
-  
+
   // Reference images (up to 3)
   List<String> _referenceImageUrls = [];
   List<File?> _referenceImageFiles = [null, null, null];
@@ -163,15 +163,15 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
 
   String get _finalPrompt {
     if (_selectedStyle == null) return _promptController.text.trim();
-    
+
     final stylePreset = ImageModels.stylePresets.firstWhere(
       (s) => s['id'] == _selectedStyle,
       orElse: () => {},
     );
-    
+
     final stylePrompt = stylePreset['prompt'] as String?;
     if (stylePrompt == null) return _promptController.text.trim();
-    
+
     return '${_promptController.text.trim()}, $stylePrompt';
   }
 
@@ -183,12 +183,12 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
         maxHeight: 2048,
         imageQuality: 90,
       );
-      
+
       if (image == null) return;
-      
+
       final file = File(image.path);
       final fileSize = await file.length();
-      
+
       if (fileSize > 10 * 1024 * 1024) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -200,11 +200,11 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
         }
         return;
       }
-      
+
       setState(() {
         _referenceImageFiles[index] = file;
       });
-      
+
       await _uploadReferenceImage(file, index);
     } catch (e) {
       if (mounted) {
@@ -221,16 +221,18 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
   Future<void> _uploadReferenceImage(File file, int index) async {
     final user = _supabase.auth.currentUser;
     if (user == null) return;
-    
+
     setState(() => _isUploadingRef[index] = true);
-    
+
     try {
       final fileExt = path.extension(file.path).replaceFirst('.', '');
-      final fileName = '${user.id}/ref-${DateTime.now().millisecondsSinceEpoch}-$index.$fileExt';
-      
+      final fileName =
+          '${user.id}/ref-${DateTime.now().millisecondsSinceEpoch}-$index.$fileExt';
+
       await _supabase.storage.from('generation-inputs').upload(fileName, file);
-      final publicUrl = _supabase.storage.from('generation-inputs').getPublicUrl(fileName);
-      
+      final publicUrl =
+          _supabase.storage.from('generation-inputs').getPublicUrl(fileName);
+
       setState(() {
         if (index < _referenceImageUrls.length) {
           _referenceImageUrls[index] = publicUrl;
@@ -289,26 +291,29 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
               const SizedBox(height: 20),
               Row(
                 children: List.generate(3, (index) {
-                  final hasImage = index < _referenceImageUrls.length && _referenceImageUrls[index].isNotEmpty;
+                  final hasImage = index < _referenceImageUrls.length &&
+                      _referenceImageUrls[index].isNotEmpty;
                   final isUploading = _isUploadingRef[index];
-                  
+
                   return Expanded(
                     child: Padding(
                       padding: EdgeInsets.only(right: index < 2 ? 8 : 0),
                       child: GestureDetector(
-                        onTap: isUploading ? null : () async {
-                          await _pickReferenceImage(index);
-                          setDialogState(() {});
-                          setState(() {});
-                        },
+                        onTap: isUploading
+                            ? null
+                            : () async {
+                                await _pickReferenceImage(index);
+                                setDialogState(() {});
+                                setState(() {});
+                              },
                         child: Container(
                           height: 100,
                           decoration: BoxDecoration(
                             color: AppTheme.secondary,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: index == 0 && hasImage 
-                                  ? AppTheme.primary 
+                              color: index == 0 && hasImage
+                                  ? AppTheme.primary
                                   : AppTheme.border,
                             ),
                           ),
@@ -317,7 +322,8 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                                   child: SizedBox(
                                     width: 24,
                                     height: 24,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
                                   ),
                                 )
                               : hasImage
@@ -325,9 +331,11 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                                       fit: StackFit.expand,
                                       children: [
                                         ClipRRect(
-                                          borderRadius: BorderRadius.circular(11),
+                                          borderRadius:
+                                              BorderRadius.circular(11),
                                           child: SmartMediaImage(
-                                            imageUrl: _referenceImageUrls[index],
+                                            imageUrl:
+                                                _referenceImageUrls[index],
                                             fit: BoxFit.cover,
                                           ),
                                         ),
@@ -344,9 +352,12 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                                               padding: const EdgeInsets.all(4),
                                               decoration: BoxDecoration(
                                                 color: Colors.black54,
-                                                borderRadius: BorderRadius.circular(12),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
                                               ),
-                                              child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                              child: const Icon(Icons.close,
+                                                  size: 14,
+                                                  color: Colors.white),
                                             ),
                                           ),
                                         ),
@@ -355,21 +366,29 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                                             top: 4,
                                             left: 4,
                                             child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
                                               decoration: BoxDecoration(
                                                 color: AppTheme.primary,
-                                                borderRadius: BorderRadius.circular(6),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
                                               ),
                                               child: const Text(
                                                 'PRIMARY',
-                                                style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
+                                                style: TextStyle(
+                                                    fontSize: 8,
+                                                    fontWeight:
+                                                        FontWeight.bold),
                                               ),
                                             ),
                                           ),
                                       ],
                                     )
                                   : Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.add_photo_alternate_outlined,
@@ -434,7 +453,8 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
       type: 'image',
       aspectRatio: _selectedAspectRatio,
       quality: _selectedQuality,
-      imageUrl: _referenceImageUrls.isNotEmpty ? _referenceImageUrls.first : null,
+      imageUrl:
+          _referenceImageUrls.isNotEmpty ? _referenceImageUrls.first : null,
     );
 
     if (result != null && result.outputUrl != null) {
@@ -447,13 +467,13 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
 
       // Short delay to show shimmer effect, image loads in background
       await Future.delayed(const Duration(milliseconds: 300));
-      
+
       if (mounted) {
         setState(() {
           _isLoadingImage = false;
         });
       }
-      
+
       creditsProvider.refresh();
     }
   }
@@ -494,7 +514,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
 
   void _showFullScreenImage() {
     if (_generatedImageUrl == null) return;
-    
+
     FullScreenImageViewer.show(
       context,
       imageUrl: _generatedImageUrl!,
@@ -585,6 +605,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
   }
 
   Widget _buildGenerateContent() {
+    return Column(
       children: [
         // Preview Area
         Expanded(
@@ -702,7 +723,8 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
               GestureDetector(
                 onTap: _showModelSelector,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: AppTheme.secondary,
                     borderRadius: BorderRadius.circular(12),
@@ -717,7 +739,8 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                           color: AppTheme.primary.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.auto_awesome, color: AppTheme.primary, size: 18),
+                        child: const Icon(Icons.auto_awesome,
+                            color: AppTheme.primary, size: 18),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -726,11 +749,13 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                           children: [
                             Text(
                               _selectedModelName,
-                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
                             ),
                             Text(
                               '$_selectedModelCredits credits',
-                              style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+                              style: const TextStyle(
+                                  color: AppTheme.muted, fontSize: 12),
                             ),
                           ],
                         ),
@@ -755,26 +780,33 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                         separatorBuilder: (_, __) => const SizedBox(width: 8),
                         itemBuilder: (context, index) {
                           final quality = _availableQualityOptions[index];
-                          final qualityData = ImageModels.qualityOptions[quality];
+                          final qualityData =
+                              ImageModels.qualityOptions[quality];
                           final isSelected = quality == _selectedQuality;
                           return GestureDetector(
-                            onTap: () => setState(() => _selectedQuality = quality),
+                            onTap: () =>
+                                setState(() => _selectedQuality = quality),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
                               decoration: BoxDecoration(
                                 color: isSelected
                                     ? AppTheme.primary.withOpacity(0.2)
                                     : AppTheme.secondary,
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: isSelected ? AppTheme.primary : AppTheme.border,
+                                  color: isSelected
+                                      ? AppTheme.primary
+                                      : AppTheme.border,
                                 ),
                               ),
                               alignment: Alignment.center,
                               child: Text(
                                 qualityData?['name'] ?? quality,
                                 style: TextStyle(
-                                  color: isSelected ? AppTheme.primary : AppTheme.mutedForeground,
+                                  color: isSelected
+                                      ? AppTheme.primary
+                                      : AppTheme.mutedForeground,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -801,7 +833,8 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                         items: ImageModels.aspectRatios.map((ratio) {
                           return DropdownMenuItem(
                             value: ratio,
-                            child: Text(ratio, style: const TextStyle(fontSize: 12)),
+                            child: Text(ratio,
+                                style: const TextStyle(fontSize: 12)),
                           );
                         }).toList(),
                         onChanged: (value) {
@@ -832,29 +865,36 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           decoration: BoxDecoration(
-                            color: isSelected ? AppTheme.primary : AppTheme.secondary,
+                            color: isSelected
+                                ? AppTheme.primary
+                                : AppTheme.secondary,
                             borderRadius: BorderRadius.circular(18),
                           ),
                           alignment: Alignment.center,
                           child: Text(
                             'None',
                             style: TextStyle(
-                              color: isSelected ? Colors.white : AppTheme.mutedForeground,
+                              color: isSelected
+                                  ? Colors.white
+                                  : AppTheme.mutedForeground,
                               fontSize: 12,
                             ),
                           ),
                         ),
                       );
                     }
-                    
+
                     final style = ImageModels.stylePresets[index - 1];
                     final isSelected = _selectedStyle == style['id'];
                     return GestureDetector(
-                      onTap: () => setState(() => _selectedStyle = style['id'] as String),
+                      onTap: () => setState(
+                          () => _selectedStyle = style['id'] as String),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          color: isSelected ? AppTheme.primary : AppTheme.secondary,
+                          color: isSelected
+                              ? AppTheme.primary
+                              : AppTheme.secondary,
                           borderRadius: BorderRadius.circular(18),
                         ),
                         alignment: Alignment.center,
@@ -864,13 +904,17 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                             Icon(
                               _getStyleIcon(style['icon'] as String),
                               size: 14,
-                              color: isSelected ? Colors.white : AppTheme.mutedForeground,
+                              color: isSelected
+                                  ? Colors.white
+                                  : AppTheme.mutedForeground,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               style['name'] as String,
                               style: TextStyle(
-                                color: isSelected ? Colors.white : AppTheme.mutedForeground,
+                                color: isSelected
+                                    ? Colors.white
+                                    : AppTheme.mutedForeground,
                                 fontSize: 12,
                               ),
                             ),
@@ -893,13 +937,13 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: _referenceImageUrls.isNotEmpty 
-                            ? AppTheme.primary.withOpacity(0.2) 
+                        color: _referenceImageUrls.isNotEmpty
+                            ? AppTheme.primary.withOpacity(0.2)
                             : AppTheme.secondary,
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: _referenceImageUrls.isNotEmpty 
-                              ? AppTheme.primary 
+                          color: _referenceImageUrls.isNotEmpty
+                              ? AppTheme.primary
                               : AppTheme.border,
                         ),
                       ),
@@ -914,7 +958,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                                 ),
                               ),
                             )
-                          : const Icon(Icons.add_photo_alternate_outlined, 
+                          : const Icon(Icons.add_photo_alternate_outlined,
                               color: AppTheme.muted, size: 20),
                     ),
                   ),
@@ -993,5 +1037,4 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
         return Icons.style;
     }
   }
-
 }

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import '../../core/theme.dart';
+import '../../../core/theme.dart';
 
 class MemoryMatchGameScreen extends StatefulWidget {
   const MemoryMatchGameScreen({super.key});
@@ -12,7 +12,7 @@ class MemoryMatchGameScreen extends StatefulWidget {
 
 class _MemoryMatchGameScreenState extends State<MemoryMatchGameScreen> {
   static const symbols = ['🎯', '⭐', '💎', '🔥', '🌙', '⚡', '🎨', '🎵'];
-  
+
   List<_MemoryCard> cards = [];
   List<int> flippedCards = [];
   int moves = 0;
@@ -36,14 +36,18 @@ class _MemoryMatchGameScreenState extends State<MemoryMatchGameScreen> {
   void _initializeGame() {
     final allSymbols = [...symbols, ...symbols];
     allSymbols.shuffle();
-    
+
     setState(() {
-      cards = allSymbols.asMap().entries.map((e) => _MemoryCard(
-        id: e.key,
-        symbol: e.value,
-        isFlipped: false,
-        isMatched: false,
-      )).toList();
+      cards = allSymbols
+          .asMap()
+          .entries
+          .map((e) => _MemoryCard(
+                id: e.key,
+                symbol: e.value,
+                isFlipped: false,
+                isMatched: false,
+              ))
+          .toList();
       flippedCards = [];
       moves = 0;
       matches = 0;
@@ -61,10 +65,10 @@ class _MemoryMatchGameScreenState extends State<MemoryMatchGameScreen> {
 
   void _handleCardTap(int cardId) {
     if (flippedCards.length == 2) return;
-    
+
     final cardIndex = cards.indexWhere((c) => c.id == cardId);
     if (cardIndex == -1) return;
-    
+
     final card = cards[cardIndex];
     if (card.isFlipped || card.isMatched) return;
 
@@ -75,7 +79,7 @@ class _MemoryMatchGameScreenState extends State<MemoryMatchGameScreen> {
 
     if (flippedCards.length == 2) {
       setState(() => moves++);
-      
+
       final firstCard = cards.firstWhere((c) => c.id == flippedCards[0]);
       final secondCard = cards.firstWhere((c) => c.id == flippedCards[1]);
 
@@ -91,7 +95,7 @@ class _MemoryMatchGameScreenState extends State<MemoryMatchGameScreen> {
             }).toList();
             matches++;
             flippedCards.clear();
-            
+
             if (matches == symbols.length) {
               isComplete = true;
               timer?.cancel();
@@ -148,7 +152,7 @@ class _MemoryMatchGameScreenState extends State<MemoryMatchGameScreen> {
               ],
             ),
           ),
-          
+
           // Game grid
           Expanded(
             child: Center(
@@ -159,7 +163,8 @@ class _MemoryMatchGameScreenState extends State<MemoryMatchGameScreen> {
                   child: GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 4,
                       mainAxisSpacing: 8,
                       crossAxisSpacing: 8,
@@ -185,12 +190,12 @@ class _MemoryMatchGameScreenState extends State<MemoryMatchGameScreen> {
                           ),
                           child: Center(
                             child: Text(
-                              card.isFlipped || card.isMatched ? card.symbol : '?',
+                              card.isFlipped || card.isMatched
+                                  ? card.symbol
+                                  : '?',
                               style: TextStyle(
                                 fontSize: 28,
-                                color: card.isMatched 
-                                    ? AppTheme.muted 
-                                    : null,
+                                color: card.isMatched ? AppTheme.muted : null,
                               ),
                             ),
                           ),
@@ -204,59 +209,63 @@ class _MemoryMatchGameScreenState extends State<MemoryMatchGameScreen> {
           ),
         ],
       ),
-      
+
       // Completion dialog
-      bottomSheet: isComplete ? Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: AppTheme.card,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
+      bottomSheet: isComplete
+          ? Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
+                color: AppTheme.card,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(color: AppTheme.border),
               ),
-              child: Icon(Icons.emoji_events, size: 40, color: AppTheme.primary),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Congratulations!',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'You completed the game in $moves moves and ${_formatTime(elapsedSeconds)}!',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppTheme.muted),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Exit'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.emoji_events,
+                        size: 40, color: AppTheme.primary),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _initializeGame,
-                    child: const Text('Play Again'),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Congratulations!',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ) : null,
+                  const SizedBox(height: 8),
+                  Text(
+                    'You completed the game in $moves moves and ${_formatTime(elapsedSeconds)}!',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppTheme.muted),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Exit'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _initializeGame,
+                          child: const Text('Play Again'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            )
+          : null,
     );
   }
 
@@ -267,7 +276,8 @@ class _MemoryMatchGameScreenState extends State<MemoryMatchGameScreen> {
           value,
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
-        Text(label, style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+        Text(label,
+            style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
       ],
     );
   }
