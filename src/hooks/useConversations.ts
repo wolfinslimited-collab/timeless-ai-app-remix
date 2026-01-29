@@ -104,8 +104,8 @@ export function useConversations(currentModel: string) {
     loadData();
   }, [loadData]);
 
-  // Filter by current model
-  const modelConversations = conversations.filter((c) => c.model === currentModel);
+  // Show ALL conversations (no model filter - users expect to see all history)
+  const modelConversations = conversations;
 
   // Filter by search query
   const filteredConversations = searchQuery
