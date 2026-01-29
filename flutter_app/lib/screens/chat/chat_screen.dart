@@ -566,21 +566,21 @@ class _ChatScreenState extends State<ChatScreen> {
                         GestureDetector(
                           onTap: _isUploadingImage ? null : _showImageOptions,
                           child: Container(
-                            width: 40,
-                            height: 40,
+                            width: 36,
+                            height: 36,
                             margin: const EdgeInsets.only(right: 8),
                             decoration: BoxDecoration(
                               color: AppTheme.secondary,
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(18),
                             ),
                             child: _isUploadingImage
                                 ? const Padding(
-                                    padding: EdgeInsets.all(10),
+                                    padding: EdgeInsets.all(8),
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2),
                                   )
                                 : const Icon(Icons.image,
-                                    size: 20, color: AppTheme.muted),
+                                    size: 18, color: AppTheme.muted),
                           ),
                         ),
 
@@ -589,24 +589,24 @@ class _ChatScreenState extends State<ChatScreen> {
                         onTap: () =>
                             setState(() => _webSearchEnabled = !_webSearchEnabled),
                         child: Container(
-                          width: 40,
-                          height: 40,
+                          width: 36,
+                          height: 36,
                           margin: const EdgeInsets.only(right: 8),
                           decoration: BoxDecoration(
                             color: _webSearchEnabled
                                 ? AppTheme.primary.withOpacity(0.2)
                                 : AppTheme.secondary,
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(18),
                             border: Border.all(
                               color: _webSearchEnabled
                                   ? AppTheme.primary
                                   : Colors.transparent,
-                              width: 1.5,
+                              width: 1,
                             ),
                           ),
                           child: Icon(
                             Icons.language,
-                            size: 20,
+                            size: 18,
                             color: _webSearchEnabled
                                 ? AppTheme.primary
                                 : AppTheme.muted,
@@ -620,7 +620,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           constraints: const BoxConstraints(maxHeight: 120),
                           decoration: BoxDecoration(
                             color: AppTheme.secondary,
-                            borderRadius: BorderRadius.circular(24),
+                            borderRadius: BorderRadius.circular(20),
                           ),
                           child: TextField(
                             controller: _messageController,
@@ -629,13 +629,13 @@ class _ChatScreenState extends State<ChatScreen> {
                             onSubmitted: (_) => _sendMessage(),
                             decoration: InputDecoration(
                               hintText: _webSearchEnabled
-                                  ? 'Search the web with $modelName...'
-                                  : 'Message $modelName...',
+                                  ? 'Search the web...'
+                                  : 'Write something creative...',
                               hintStyle: const TextStyle(
                                   color: AppTheme.muted, fontSize: 14),
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16,
-                                vertical: 12,
+                                vertical: 10,
                               ),
                               border: InputBorder.none,
                             ),
@@ -650,23 +650,23 @@ class _ChatScreenState extends State<ChatScreen> {
                         onTap: _isLoading ? null : _sendMessage,
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          width: 44,
-                          height: 44,
+                          width: 40,
+                          height: 40,
                           decoration: BoxDecoration(
                             color:
                                 _isLoading ? AppTheme.muted : AppTheme.primary,
-                            borderRadius: BorderRadius.circular(22),
+                            borderRadius: BorderRadius.circular(20),
                           ),
                           child: _isLoading
                               ? const Padding(
-                                  padding: EdgeInsets.all(12),
+                                  padding: EdgeInsets.all(10),
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     color: Colors.white,
                                   ),
                                 )
                               : const Icon(Icons.arrow_upward,
-                                  size: 20, color: Colors.white),
+                                  size: 18, color: Colors.white),
                         ),
                       ),
                     ],
