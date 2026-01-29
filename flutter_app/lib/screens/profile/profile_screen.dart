@@ -183,6 +183,60 @@ class ProfileScreen extends StatelessWidget {
     }
   }
 
+  void _showDeleteAccountDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.secondary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppTheme.border),
+        ),
+        title: const Text(
+          'Delete Account',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.',
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.7),
+            fontSize: 14,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white.withOpacity(0.7)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await context.read<AuthProvider>().signOut();
+              if (context.mounted) {
+                context.go('/login');
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red[400],
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Delete Account'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
@@ -452,12 +506,7 @@ class ProfileScreen extends StatelessWidget {
 
                   // Delete Account Button (acts like sign out)
                   GestureDetector(
-                    onTap: () async {
-                      await context.read<AuthProvider>().signOut();
-                      if (context.mounted) {
-                        context.go('/login');
-                      }
-                    },
+                    onTap: () => _showDeleteAccountDialog(context),
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
