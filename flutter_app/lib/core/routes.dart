@@ -14,7 +14,6 @@ import '../screens/create/audio_create_screen.dart';
 import '../screens/create/tools/relight_tool_screen.dart';
 import '../screens/create/tools/upscale_tool_screen.dart';
 import '../screens/create/tools/shots_tool_screen.dart' as tools_shots;
-import '../screens/create/shots_tool_screen.dart';
 import '../screens/create/tools/inpainting_tool_screen.dart';
 import '../screens/create/tools/object_erase_tool_screen.dart';
 import '../screens/create/tools/angle_tool_screen.dart';
@@ -59,6 +58,7 @@ import '../screens/upgrade_plan/upgrade_plan_wizard_page.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/downloads/downloads_screen.dart';
 import '../screens/favorites/favorites_screen.dart';
+import '../screens/character/character_screen.dart';
 import '../widgets/common/main_scaffold.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -131,11 +131,6 @@ final appRouter = GoRouter(
             child: CreateScreen(),
           ),
           routes: [
-            // Shots - direct access from Create menu
-            GoRoute(
-              path: 'shots',
-              builder: (context, state) => const ShotsToolScreen(),
-            ),
             GoRoute(
               path: 'image',
               builder: (context, state) => const ImageCreateScreen(),
@@ -279,6 +274,12 @@ final appRouter = GoRouter(
           path: '/cinema',
           pageBuilder: (context, state) => const NoTransitionPage(
             child: CinemaStudioScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/character',
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: CharacterScreen(),
           ),
         ),
         GoRoute(
