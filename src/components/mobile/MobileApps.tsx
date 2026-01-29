@@ -121,8 +121,8 @@ const categories = [
 ];
 
 interface MobileAppsProps {
-  onBack: () => void;
-  onNavigate: (screen: Screen) => void;
+  onBack?: () => void;
+  onNavigate?: (screen: Screen) => void;
 }
 
 export function MobileApps({ onBack, onNavigate }: MobileAppsProps) {
@@ -159,13 +159,15 @@ export function MobileApps({ onBack, onNavigate }: MobileAppsProps) {
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="px-4 py-2">
-        <button 
-          onClick={onBack}
-          className="flex items-center gap-2 text-muted-foreground mb-4"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span className="text-sm">Back</span>
-        </button>
+        {onBack && (
+          <button 
+            onClick={onBack}
+            className="flex items-center gap-2 text-muted-foreground mb-4"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="text-sm">Back</span>
+          </button>
+        )}
 
         {/* Hero Section */}
         <div className="mb-5">
