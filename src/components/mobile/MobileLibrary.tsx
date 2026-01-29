@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Search, Heart, Play, Image, Video, Loader2, X } from "lucide-react";
+import { Search, Heart, Play, Image, Video, Loader2, X, Music } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,9 +13,10 @@ interface Generation {
   prompt: string;
   created_at: string;
   status: string;
+  title?: string;
 }
 
-type Filter = "all" | "image" | "video";
+type Filter = "all" | "image" | "video" | "music";
 
 export function MobileLibrary() {
   const { user } = useAuth();
@@ -35,7 +36,7 @@ export function MobileLibrary() {
     
     let query = supabase
       .from("generations")
-      .select("id, type, output_url, thumbnail_url, prompt, created_at, status")
+      .select("id, type, output_url, thumbnail_url, prompt, created_at, status, title")
       .eq("user_id", user?.id)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -65,34 +66,45 @@ export function MobileLibrary() {
     }
   };
 
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case "video":
+        return <Video className="w-8 h-8 text-muted-foreground" />;
+      case "music":
+        return <Music className="w-8 h-8 text-muted-foreground" />;
+      default:
+        return <Image className="w-8 h-8 text-muted-foreground" />;
+    }
+  };
+
   return (
     <>
       <PullToRefresh onRefresh={handleRefresh} className="h-full">
         <div className="px-4 py-2">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-white text-xl font-bold">Library</h1>
+            <h1 className="text-foreground text-xl font-bold">Library</h1>
             <div className="flex items-center gap-2">
-              <button className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                <Search className="w-4 h-4 text-white" />
+              <button className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                <Search className="w-4 h-4 text-foreground" />
               </button>
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex items-center gap-2 mb-4">
-            {(["all", "image", "video"] as const).map((f) => (
+          {/* Tabs - matching Flutter with Music tab */}
+          <div className="flex items-center gap-2 mb-4 overflow-x-auto">
+            {(["all", "image", "video", "music"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
                 className={cn(
-                  "px-4 py-2 rounded-full text-sm capitalize transition-colors",
+                  "px-4 py-2 rounded-full text-sm capitalize transition-colors whitespace-nowrap",
                   filter === f
-                    ? "bg-purple-500 text-white"
-                    : "bg-white/10 text-gray-300"
+                    ? "bg-primary text-white"
+                    : "bg-secondary text-muted-foreground"
                 )}
               >
-                {f === "all" ? "All" : f === "image" ? "Images" : "Videos"}
+                {f === "all" ? "All" : f === "image" ? "Images" : f === "video" ? "Videos" : "Music"}
               </button>
             ))}
           </div>
@@ -100,15 +112,15 @@ export function MobileLibrary() {
           {/* Grid */}
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
             </div>
           ) : generations.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                <Image className="w-8 h-8 text-gray-500" />
+              <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-4">
+                <Image className="w-8 h-8 text-muted-foreground" />
               </div>
-              <h3 className="text-white font-semibold mb-2">No creations yet</h3>
-              <p className="text-gray-400 text-sm">Start creating to see them here</p>
+              <h3 className="text-foreground font-semibold mb-2">No creations yet</h3>
+              <p className="text-muted-foreground text-sm">Start creating to see them here</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
@@ -117,14 +129,40 @@ export function MobileLibrary() {
                   key={gen.id}
                   onClick={() => handleVideoClick(gen)}
                   className={cn(
-                    "aspect-square rounded-xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 overflow-hidden relative",
-                    gen.type === "video" && gen.output_url && "cursor-pointer"
+                    "aspect-square rounded-xl overflow-hidden relative",
+                    gen.type === "music" 
+                      ? "bg-gradient-to-br from-emerald-500/30 to-teal-500/30"
+                      : "bg-gradient-to-br from-primary/20 to-blue-500/20",
+                    (gen.type === "video" || gen.type === "music") && gen.output_url && "cursor-pointer"
                   )}
                 >
                   {gen.status === "processing" ? (
                     <div className="w-full h-full flex flex-col items-center justify-center">
-                      <Loader2 className="w-6 h-6 text-purple-400 animate-spin mb-2" />
-                      <span className="text-gray-400 text-xs">Processing...</span>
+                      <Loader2 className="w-6 h-6 text-primary animate-spin mb-2" />
+                      <span className="text-muted-foreground text-xs">Processing...</span>
+                    </div>
+                  ) : gen.type === "music" ? (
+                    // Music card - matching Flutter
+                    <div className="w-full h-full flex flex-col items-center justify-center p-3">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mb-2">
+                        <Play className="w-6 h-6 text-white fill-white" />
+                      </div>
+                      {/* Waveform visualization */}
+                      <div className="flex items-center gap-0.5 mb-2">
+                        {Array.from({ length: 12 }).map((_, i) => {
+                          const height = 8 + (i % 3) * 6 + (i % 2) * 4;
+                          return (
+                            <div
+                              key={i}
+                              className="w-[3px] bg-emerald-500 rounded-full"
+                              style={{ height: `${height}px` }}
+                            />
+                          );
+                        })}
+                      </div>
+                      <p className="text-foreground text-[11px] text-center line-clamp-2 px-2">
+                        {gen.title || gen.prompt}
+                      </p>
                     </div>
                   ) : gen.output_url || gen.thumbnail_url ? (
                     <>
@@ -154,15 +192,11 @@ export function MobileLibrary() {
                     </>
                   ) : gen.status === "failed" ? (
                     <div className="w-full h-full flex flex-col items-center justify-center">
-                      <span className="text-red-400 text-xs">Failed</span>
+                      <span className="text-destructive text-xs">Failed</span>
                     </div>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      {gen.type === "video" ? (
-                        <Video className="w-8 h-8 text-gray-500" />
-                      ) : (
-                        <Image className="w-8 h-8 text-gray-500" />
-                      )}
+                      {getTypeIcon(gen.type)}
                     </div>
                   )}
 
@@ -199,15 +233,31 @@ export function MobileLibrary() {
           >
             <X className="w-6 h-6 text-white" />
           </button>
-          <video
-            src={selectedVideo.output_url || undefined}
-            poster={selectedVideo.thumbnail_url || undefined}
-            controls
-            autoPlay
-            playsInline
-            className="max-w-full max-h-full rounded-lg"
-            onClick={(e) => e.stopPropagation()}
-          />
+          {selectedVideo.type === "music" ? (
+            <div className="flex flex-col items-center gap-4 p-8">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                <Music className="w-12 h-12 text-white" />
+              </div>
+              <p className="text-white text-center max-w-xs">{selectedVideo.title || selectedVideo.prompt}</p>
+              <audio
+                src={selectedVideo.output_url || undefined}
+                controls
+                autoPlay
+                className="w-full max-w-md"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          ) : (
+            <video
+              src={selectedVideo.output_url || undefined}
+              poster={selectedVideo.thumbnail_url || undefined}
+              controls
+              autoPlay
+              playsInline
+              className="max-w-full max-h-full rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
         </div>
       )}
     </>
