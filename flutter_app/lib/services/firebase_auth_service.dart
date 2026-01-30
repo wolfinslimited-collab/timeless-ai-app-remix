@@ -27,12 +27,18 @@ class FirebaseAuthService {
   /// 2. Google credential is exchanged for Firebase ID token
   /// 3. Firebase ID token is sent to mobile-auth edge function
   /// 4. Edge function validates token and returns Supabase session
+  // iOS Client ID from Google Cloud Console (for iOS Google Sign-In)
+  static const String _iosClientId =
+      '1012149210327-63jr6shcfn9pefhn1dmstgm58nqedr0i.apps.googleusercontent.com';
+
   Future<AuthResponse?> signInWithGoogle() async {
     try {
       debugPrint('Starting Firebase Google Sign-In...');
 
       // Trigger the Google Sign-In flow
+      // iOS requires the iOS Client ID to be specified
       final GoogleSignIn googleSignIn = GoogleSignIn(
+        clientId: Platform.isIOS ? _iosClientId : null,
         scopes: ['email', 'profile'],
       );
 
@@ -182,20 +188,14 @@ class FirebaseAuthService {
 
       // Extract session data from response
       final sessionData = responseData['session'] as Map<String, dynamic>;
+      final refreshToken = sessionData['refresh_token'] as String;
 
-      // Set the session in Supabase client
-      final session =
-          await _supabase.auth.setSession(sessionData['access_token']);
+      // Set the session in Supabase client using the refresh token
+      // The setSession method requires the refresh_token to establish a valid session
+      final session = await _supabase.auth.setSession(refreshToken);
 
       if (session.session == null) {
-        // If setSession didn't work, try to recover the session
-        await _supabase.auth.recoverSession(
-          jsonEncode({
-            'access_token': sessionData['access_token'],
-            'refresh_token': sessionData['refresh_token'],
-            'expires_at': sessionData['expires_at'],
-          }),
-        );
+        throw Exception('Failed to set session with refresh token');
       }
 
       // Return the current session
