@@ -87,10 +87,14 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
 
       final bytes = await file.readAsBytes();
       final ext = path.extension(image.path).replaceFirst('.', '');
-      final fileName = '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final fileName =
+          '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$ext';
 
-      await _supabase.storage.from('generation-inputs').uploadBinary(fileName, bytes);
-      final publicUrl = _supabase.storage.from('generation-inputs').getPublicUrl(fileName);
+      await _supabase.storage
+          .from('generation-inputs')
+          .uploadBinary(fileName, bytes);
+      final publicUrl =
+          _supabase.storage.from('generation-inputs').getPublicUrl(fileName);
 
       setState(() {
         _inputImageUrl = publicUrl;
@@ -131,7 +135,8 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
         throw Exception('Please sign in');
       }
 
-      final lightingPrompt = '$_lightMode $_selectedDirection lighting, brightness ${_brightness.toInt()}%';
+      final lightingPrompt =
+          '$_lightMode $_selectedDirection lighting, brightness ${_brightness.toInt()}%';
       final supabaseUrl = _supabase.rest.url.replaceAll('/rest/v1', '');
 
       final response = await http.post(
@@ -146,11 +151,12 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
           'imageUrl': _inputImageUrl,
           'prompt': lightingPrompt,
           'intensity': _brightness.toInt(),
-          'lightDirection': _selectedDirection.isNotEmpty 
-            ? _selectedDirection 
-            : 'x:${_lightPosition.dx.toStringAsFixed(2)},y:${_lightPosition.dy.toStringAsFixed(2)}',
+          'lightDirection': _selectedDirection.isNotEmpty
+              ? _selectedDirection
+              : 'x:${_lightPosition.dx.toStringAsFixed(2)},y:${_lightPosition.dy.toStringAsFixed(2)}',
           'lightMode': _lightMode,
-          'lightColor': '#${_lightColor.value.toRadixString(16).padLeft(8, '0').substring(2)}',
+          'lightColor':
+              '#${_lightColor.value.toRadixString(16).padLeft(8, '0').substring(2)}',
         }),
       );
 
@@ -175,15 +181,16 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
   }
 
   Future<void> _downloadImage() async {
-    final imageUrl = _selectedPreviewIndex == null 
-      ? _inputImageUrl 
-      : _generationHistory[_selectedPreviewIndex!];
+    final imageUrl = _selectedPreviewIndex == null
+        ? _inputImageUrl
+        : _generationHistory[_selectedPreviewIndex!];
     if (imageUrl == null) return;
 
     try {
       final response = await http.get(Uri.parse(imageUrl));
       final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/relight-${DateTime.now().millisecondsSinceEpoch}.png');
+      final file = File(
+          '${tempDir.path}/relight-${DateTime.now().millisecondsSinceEpoch}.png');
       await file.writeAsBytes(response.bodyBytes);
       await Share.shareXFiles([XFile(file.path)]);
     } catch (e) {
@@ -228,35 +235,35 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/create/image'),
-        ),
-        title: const Text('Relight'),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.bolt, size: 16, color: AppTheme.primary),
-                const SizedBox(width: 4),
-                Text(
-                  '$CREDIT_COST credits',
-                  style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      // appBar: AppBar(
+      //   backgroundColor: Colors.transparent,
+      //   elevation: 0,
+      //   leading: IconButton(
+      //     icon: const Icon(Icons.arrow_back),
+      //     onPressed: () => context.go('/create/image'),
+      //   ),
+      //   title: const Text('Relight'),
+      //   actions: [
+      //     Container(
+      //       margin: const EdgeInsets.only(right: 16),
+      //       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      //       decoration: BoxDecoration(
+      //         color: AppTheme.primary.withOpacity(0.1),
+      //         borderRadius: BorderRadius.circular(20),
+      //       ),
+      //       child: Row(
+      //         children: [
+      //           Icon(Icons.bolt, size: 16, color: AppTheme.primary),
+      //           const SizedBox(width: 4),
+      //           Text(
+      //             '$CREDIT_COST credits',
+      //             style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600),
+      //           ),
+      //         ],
+      //       ),
+      //     ),
+      //   ],
+      // ),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -265,20 +272,20 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
             children: [
               // Image Preview
               _buildImagePreview(),
-              
+
               const SizedBox(height: 24),
-              
+
               // Light Controls
               if (_inputImageUrl != null) ...[
                 _buildLightControls(),
                 const SizedBox(height: 24),
               ],
-              
+
               // Action Button
               _buildActionButton(),
-              
+
               const SizedBox(height: 16),
-              
+
               // Generation History
               if (_generationHistory.isNotEmpty) _buildHistory(),
             ],
@@ -315,7 +322,8 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
                         return Center(
                           child: CircularProgressIndicator(
                             value: progress.expectedTotalBytes != null
-                                ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                                ? progress.cumulativeBytesLoaded /
+                                    progress.expectedTotalBytes!
                                 : null,
                           ),
                         );
@@ -333,7 +341,8 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
                               color: Colors.black54,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.download, color: Colors.white, size: 20),
+                            child: const Icon(Icons.download,
+                                color: Colors.white, size: 20),
                           ),
                         ),
                       ),
@@ -348,7 +357,8 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
                             color: Colors.black54,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.add, color: Colors.white, size: 20),
+                          child: const Icon(Icons.add,
+                              color: Colors.white, size: 20),
                         ),
                       ),
                     ),
@@ -367,7 +377,8 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
           if (_isUploading)
             const CircularProgressIndicator()
           else
-            const Icon(Icons.cloud_upload_outlined, size: 48, color: AppTheme.muted),
+            const Icon(Icons.cloud_upload_outlined,
+                size: 48, color: AppTheme.muted),
           const SizedBox(height: 12),
           Text(
             _isUploading ? 'Uploading...' : 'Upload an image to start',
@@ -390,7 +401,8 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Quick Select Directions
-          const Text('Light Direction', style: TextStyle(fontWeight: FontWeight.w600)),
+          const Text('Light Direction',
+              style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
@@ -408,11 +420,12 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
               );
             }).toList(),
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Light Mode
-          const Text('Light Mode', style: TextStyle(fontWeight: FontWeight.w600)),
+          const Text('Light Mode',
+              style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           Row(
             children: LIGHT_MODES.map((mode) {
@@ -433,15 +446,17 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
               );
             }).toList(),
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Brightness Slider
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Brightness', style: TextStyle(fontWeight: FontWeight.w600)),
-              Text('${_brightness.toInt()}%', style: const TextStyle(color: AppTheme.muted)),
+              const Text('Brightness',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              Text('${_brightness.toInt()}%',
+                  style: const TextStyle(color: AppTheme.muted)),
             ],
           ),
           const SizedBox(height: 8),
@@ -453,11 +468,12 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
             activeColor: AppTheme.primary,
             onChanged: (value) => setState(() => _brightness = value),
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Light Color
-          const Text('Light Color', style: TextStyle(fontWeight: FontWeight.w600)),
+          const Text('Light Color',
+              style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -527,7 +543,8 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
             backgroundColor: AppTheme.primary,
             foregroundColor: Colors.black,
             padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
       );
@@ -541,7 +558,8 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
             ? const SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.black),
               )
             : const Icon(Icons.auto_awesome),
         label: Text(_isProcessing ? 'Processing...' : 'Apply Relight'),
@@ -549,7 +567,8 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
           backgroundColor: AppTheme.primary,
           foregroundColor: Colors.black,
           padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
     );
@@ -559,7 +578,8 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Generation History', style: TextStyle(fontWeight: FontWeight.w600)),
+        const Text('Generation History',
+            style: TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 12),
         SizedBox(
           height: 80,
@@ -568,10 +588,10 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
             itemCount: _generationHistory.length + 1, // +1 for original
             itemBuilder: (context, index) {
               final isOriginal = index == 0;
-              final isSelected = isOriginal 
-                ? _selectedPreviewIndex == null 
-                : _selectedPreviewIndex == index - 1;
-              
+              final isSelected = isOriginal
+                  ? _selectedPreviewIndex == null
+                  : _selectedPreviewIndex == index - 1;
+
               return GestureDetector(
                 onTap: () {
                   setState(() {
@@ -595,14 +615,17 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
                       fit: StackFit.expand,
                       children: [
                         SmartNetworkImage(
-                          isOriginal ? _inputImageUrl! : _generationHistory[index - 1],
+                          isOriginal
+                              ? _inputImageUrl!
+                              : _generationHistory[index - 1],
                           fit: BoxFit.cover,
                         ),
                         if (isOriginal)
                           Container(
                             color: Colors.black38,
                             child: const Center(
-                              child: Text('Original', style: TextStyle(fontSize: 10)),
+                              child: Text('Original',
+                                  style: TextStyle(fontSize: 10)),
                             ),
                           ),
                       ],

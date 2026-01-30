@@ -283,7 +283,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
     try {
       // Use download provider to save and track
       final downloadProvider = context.read<DownloadProvider>();
-      
+
       await downloadProvider.downloadFile(
         url: _outputImageUrl!,
         title: _prompt.isNotEmpty ? _prompt : '${widget.toolName} Output',
@@ -387,57 +387,57 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/create/image'),
-        ),
-        title: Text(widget.toolName),
-        actions: [
-          if (_inputImageUrl != null || _outputImageUrl != null)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _reset,
-              tooltip: 'Reset',
-            ),
-        ],
-      ),
+      // appBar: AppBar(
+      //   leading: IconButton(
+      //     icon: const Icon(Icons.arrow_back),
+      //     onPressed: () => context.go('/create/image'),
+      //   ),
+      //   title: Text(widget.toolName),
+      //   actions: [
+      //     if (_inputImageUrl != null || _outputImageUrl != null)
+      //       IconButton(
+      //         icon: const Icon(Icons.refresh),
+      //         onPressed: _reset,
+      //         tooltip: 'Reset',
+      //       ),
+      //   ],
+      // ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.opaque,
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Tool Info Header
-              _buildToolInfo(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Tool Info Header
+                _buildToolInfo(),
 
-              const SizedBox(height: 24),
-
-              // Input Section
-              _buildInputSection(),
-
-              const SizedBox(height: 24),
-
-              // Controls (if image is uploaded)
-              if (_inputImageUrl != null && _outputImageUrl == null) ...[
-                _buildControls(),
                 const SizedBox(height: 24),
-              ],
 
-              // Output Section
-              if (_outputImageUrl != null) ...[
-                _buildOutputSection(),
+                // Input Section
+                _buildInputSection(),
+
                 const SizedBox(height: 24),
-              ],
 
-              // Action Button
-              _buildActionButton(),
-            ],
+                // Controls (if image is uploaded)
+                if (_inputImageUrl != null && _outputImageUrl == null) ...[
+                  _buildControls(),
+                  const SizedBox(height: 24),
+                ],
+
+                // Output Section
+                if (_outputImageUrl != null) ...[
+                  _buildOutputSection(),
+                  const SizedBox(height: 24),
+                ],
+
+                // Action Button
+                _buildActionButton(),
+              ],
+            ),
           ),
-        ),
         ),
       ),
     );

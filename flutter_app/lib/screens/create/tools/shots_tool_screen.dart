@@ -12,15 +12,51 @@ import '../../../core/theme.dart';
 import '../../../widgets/common/smart_media_image.dart';
 
 const List<Map<String, String>> CINEMATIC_ANGLES = [
-  {'prompt': 'SHOT 1 - MEDIUM PORTRAIT: Front-facing, head and shoulders visible, warm smile, standard headshot with space around the head', 'label': 'Portrait'},
-  {'prompt': 'SHOT 2 - CONFIDENT POSE: Three-quarter body angle, ARMS FOLDED ACROSS CHEST, confident smirk, showing torso to waist level', 'label': 'Confident'},
-  {'prompt': 'SHOT 3 - MACRO FACE CROP: EXTREME CLOSE-UP - crop so the face FILLS the entire frame edge to edge', 'label': 'Macro Face'},
-  {'prompt': 'SHOT 4 - LEFT SIDE PROFILE: Pure 90-degree left profile silhouette, neutral expression, artistic side view showing ear', 'label': 'Profile'},
-  {'prompt': 'SHOT 5 - LOOKING UP AT SKY: Subject tilting head far UP looking at ceiling, shot from below showing underside of chin', 'label': 'Looking Up'},
-  {'prompt': 'SHOT 6 - TOP DOWN AERIAL: Camera directly ABOVE looking DOWN at top of head, bird\'s eye foreshortened view', 'label': 'Top Down'},
-  {'prompt': 'SHOT 7 - GLANCE BACK: View from BEHIND, subject looking back over shoulder at camera, showing back of head and partial face', 'label': 'Over Shoulder'},
-  {'prompt': 'SHOT 8 - COMPLETE BACK: Full back of head and shoulders, subject facing completely AWAY, no face visible at all', 'label': 'Back View'},
-  {'prompt': 'SHOT 9 - EYES ONLY CROP: Ultra tight crop showing ONLY eyes, no nose, no mouth, just eyes filling the frame', 'label': 'Eyes Detail'},
+  {
+    'prompt':
+        'SHOT 1 - MEDIUM PORTRAIT: Front-facing, head and shoulders visible, warm smile, standard headshot with space around the head',
+    'label': 'Portrait'
+  },
+  {
+    'prompt':
+        'SHOT 2 - CONFIDENT POSE: Three-quarter body angle, ARMS FOLDED ACROSS CHEST, confident smirk, showing torso to waist level',
+    'label': 'Confident'
+  },
+  {
+    'prompt':
+        'SHOT 3 - MACRO FACE CROP: EXTREME CLOSE-UP - crop so the face FILLS the entire frame edge to edge',
+    'label': 'Macro Face'
+  },
+  {
+    'prompt':
+        'SHOT 4 - LEFT SIDE PROFILE: Pure 90-degree left profile silhouette, neutral expression, artistic side view showing ear',
+    'label': 'Profile'
+  },
+  {
+    'prompt':
+        'SHOT 5 - LOOKING UP AT SKY: Subject tilting head far UP looking at ceiling, shot from below showing underside of chin',
+    'label': 'Looking Up'
+  },
+  {
+    'prompt':
+        'SHOT 6 - TOP DOWN AERIAL: Camera directly ABOVE looking DOWN at top of head, bird\'s eye foreshortened view',
+    'label': 'Top Down'
+  },
+  {
+    'prompt':
+        'SHOT 7 - GLANCE BACK: View from BEHIND, subject looking back over shoulder at camera, showing back of head and partial face',
+    'label': 'Over Shoulder'
+  },
+  {
+    'prompt':
+        'SHOT 8 - COMPLETE BACK: Full back of head and shoulders, subject facing completely AWAY, no face visible at all',
+    'label': 'Back View'
+  },
+  {
+    'prompt':
+        'SHOT 9 - EYES ONLY CROP: Ultra tight crop showing ONLY eyes, no nose, no mouth, just eyes filling the frame',
+    'label': 'Eyes Detail'
+  },
 ];
 
 const List<Map<String, String>> ASPECT_RATIOS = [
@@ -90,17 +126,22 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
 
       final bytes = await file.readAsBytes();
       final ext = path.extension(image.path).replaceFirst('.', '');
-      final fileName = '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final fileName =
+          '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$ext';
 
-      await _supabase.storage.from('generation-inputs').uploadBinary(fileName, bytes);
-      final publicUrl = _supabase.storage.from('generation-inputs').getPublicUrl(fileName);
+      await _supabase.storage
+          .from('generation-inputs')
+          .uploadBinary(fileName, bytes);
+      final publicUrl =
+          _supabase.storage.from('generation-inputs').getPublicUrl(fileName);
 
       setState(() {
         _inputImageUrl = publicUrl;
         _isUploading = false;
       });
 
-      _showSuccess('Image uploaded. Click Generate to create 9 cinematic angles.');
+      _showSuccess(
+          'Image uploaded. Click Generate to create 9 cinematic angles.');
     } catch (e) {
       _showError('Failed to upload image: $e');
       setState(() => _isUploading = false);
@@ -126,10 +167,10 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
         final batch = CINEMATIC_ANGLES.skip(i).take(3).toList();
         final batchResults = await Future.wait(
           batch.map((angle) => _generateSingleAngle(
-            supabaseUrl,
-            session.accessToken,
-            angle['prompt']!,
-          )),
+                supabaseUrl,
+                session.accessToken,
+                angle['prompt']!,
+              )),
         );
         results.addAll(batchResults);
 
@@ -157,7 +198,8 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
     }
   }
 
-  Future<String?> _generateSingleAngle(String supabaseUrl, String accessToken, String prompt) async {
+  Future<String?> _generateSingleAngle(
+      String supabaseUrl, String accessToken, String prompt) async {
     try {
       final response = await http.post(
         Uri.parse('$supabaseUrl/functions/v1/image-tools'),
@@ -203,7 +245,8 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
       }
 
       final supabaseUrl = _supabase.rest.url.replaceAll('/rest/v1', '');
-      final selectedUrls = _selectedImages.map((i) => _generatedImages[i]).toList();
+      final selectedUrls =
+          _selectedImages.map((i) => _generatedImages[i]).toList();
 
       final results = await Future.wait(
         selectedUrls.map((imageUrl) async {
@@ -300,49 +343,49 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/create/image'),
-        ),
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Shots', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text(
-              'Upload one image, get 9 cinematic angles',
-              style: TextStyle(fontSize: 12, color: AppTheme.muted),
-            ),
-          ],
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.bolt, size: 16, color: AppTheme.primary),
-                const SizedBox(width: 4),
-                Text(
-                  '$CREDIT_COST',
-                  style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      // appBar: AppBar(
+      //   backgroundColor: Colors.transparent,
+      //   elevation: 0,
+      //   leading: IconButton(
+      //     icon: const Icon(Icons.arrow_back),
+      //     onPressed: () => context.go('/create/image'),
+      //   ),
+      //   title: const Column(
+      //     crossAxisAlignment: CrossAxisAlignment.start,
+      //     children: [
+      //       Text('Shots', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+      //       Text(
+      //         'Upload one image, get 9 cinematic angles',
+      //         style: TextStyle(fontSize: 12, color: AppTheme.muted),
+      //       ),
+      //     ],
+      //   ),
+      //   actions: [
+      //     Container(
+      //       margin: const EdgeInsets.only(right: 16),
+      //       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      //       decoration: BoxDecoration(
+      //         color: AppTheme.primary.withOpacity(0.1),
+      //         borderRadius: BorderRadius.circular(20),
+      //       ),
+      //       child: Row(
+      //         children: [
+      //           Icon(Icons.bolt, size: 16, color: AppTheme.primary),
+      //           const SizedBox(width: 4),
+      //           Text(
+      //             '$CREDIT_COST',
+      //             style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600),
+      //           ),
+      //         ],
+      //       ),
+      //     ),
+      //   ],
+      // ),
       body: Column(
         children: [
           // Progress Steps
           _buildProgressSteps(),
-          
+
           // Content
           Expanded(
             child: _buildStepContent(),
@@ -452,20 +495,27 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
                               left: 16,
                               right: 16,
                               child: ElevatedButton.icon(
-                                onPressed: _isGenerating ? null : _generateAngles,
+                                onPressed:
+                                    _isGenerating ? null : _generateAngles,
                                 icon: _isGenerating
                                     ? const SizedBox(
                                         width: 20,
                                         height: 20,
-                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.black),
                                       )
                                     : const Icon(Icons.auto_awesome),
-                                label: Text(_isGenerating ? 'Generating...' : 'Generate 9 Angles'),
+                                label: Text(_isGenerating
+                                    ? 'Generating...'
+                                    : 'Generate 9 Angles'),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppTheme.primary,
                                   foregroundColor: Colors.black,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
                                 ),
                               ),
                             ),
@@ -480,7 +530,8 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
 
           // Aspect Ratio Selector
           if (_inputImageUrl != null) ...[
-            const Text('Aspect Ratio', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text('Aspect Ratio',
+                style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -492,7 +543,8 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
                     child: ChoiceChip(
                       label: Text(ratio['label']!),
                       selected: isSelected,
-                      onSelected: (_) => setState(() => _aspectRatio = ratio['id']!),
+                      onSelected: (_) =>
+                          setState(() => _aspectRatio = ratio['id']!),
                       selectedColor: AppTheme.primary,
                       labelStyle: TextStyle(
                         color: isSelected ? Colors.black : Colors.white,
@@ -516,7 +568,8 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
           if (_isUploading)
             const CircularProgressIndicator()
           else
-            const Icon(Icons.cloud_upload_outlined, size: 64, color: AppTheme.muted),
+            const Icon(Icons.cloud_upload_outlined,
+                size: 64, color: AppTheme.muted),
           const SizedBox(height: 16),
           Text(
             _isUploading ? 'Uploading...' : 'Upload an image to start',
@@ -569,7 +622,8 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
                               color: AppTheme.primary,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.check, color: Colors.black, size: 16),
+                            child: const Icon(Icons.check,
+                                color: Colors.black, size: 16),
                           ),
                         ),
                       ),
@@ -577,14 +631,18 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
                       bottom: 4,
                       left: 4,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.black54,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          CINEMATIC_ANGLES[index < CINEMATIC_ANGLES.length ? index : 0]['label']!,
-                          style: const TextStyle(fontSize: 10, color: Colors.white),
+                          CINEMATIC_ANGLES[index < CINEMATIC_ANGLES.length
+                              ? index
+                              : 0]['label']!,
+                          style: const TextStyle(
+                              fontSize: 10, color: Colors.white),
                         ),
                       ),
                     ),
@@ -607,7 +665,8 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
                   label: const Text('Download All'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
@@ -621,7 +680,8 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
                     backgroundColor: AppTheme.primary,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
@@ -643,7 +703,8 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
                     children: [
                       CircularProgressIndicator(),
                       SizedBox(height: 16),
-                      Text('Upscaling to 4K...', style: TextStyle(color: AppTheme.muted)),
+                      Text('Upscaling to 4K...',
+                          style: TextStyle(color: AppTheme.muted)),
                     ],
                   ),
                 )
@@ -670,14 +731,16 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
                           top: 8,
                           right: 8,
                           child: IconButton(
-                            onPressed: () => _downloadImage(_upscaledImages[index], index),
+                            onPressed: () =>
+                                _downloadImage(_upscaledImages[index], index),
                             icon: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
                                 color: Colors.black54,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(Icons.download, color: Colors.white, size: 20),
+                              child: const Icon(Icons.download,
+                                  color: Colors.white, size: 20),
                             ),
                           ),
                         ),
@@ -685,7 +748,8 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
                           top: 8,
                           left: 8,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: AppTheme.primary,
                               borderRadius: BorderRadius.circular(8),
@@ -719,7 +783,8 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
                 backgroundColor: AppTheme.primary,
                 foregroundColor: Colors.black,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),

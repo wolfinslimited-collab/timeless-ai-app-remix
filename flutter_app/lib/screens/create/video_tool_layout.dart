@@ -232,32 +232,32 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  '${widget.creditCost} credits',
-                  style: const TextStyle(
-                    color: AppTheme.primary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      // appBar: AppBar(
+      //   title: Text(widget.title),
+      //   actions: [
+      //     Padding(
+      //       padding: const EdgeInsets.only(right: 16),
+      //       child: Center(
+      //         child: Container(
+      //           padding:
+      //               const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      //           decoration: BoxDecoration(
+      //             color: AppTheme.primary.withOpacity(0.2),
+      //             borderRadius: BorderRadius.circular(16),
+      //           ),
+      //           child: Text(
+      //             '${widget.creditCost} credits',
+      //             style: const TextStyle(
+      //               color: AppTheme.primary,
+      //               fontSize: 12,
+      //               fontWeight: FontWeight.w500,
+      //             ),
+      //           ),
+      //         ),
+      //       ),
+      //     ),
+      //   ],
+      // ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.opaque,

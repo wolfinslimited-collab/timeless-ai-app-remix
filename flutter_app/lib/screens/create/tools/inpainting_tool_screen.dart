@@ -284,49 +284,49 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(toolName, style: theme.textTheme.titleMedium),
-            Text(
-              toolDescription,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.stars, size: 16, color: theme.colorScheme.primary),
-                const SizedBox(width: 4),
-                Text(
-                  '$creditCost credits',
-                  style: TextStyle(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      // appBar: AppBar(
+      //   backgroundColor: Colors.transparent,
+      //   elevation: 0,
+      //   leading: IconButton(
+      //     icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
+      //     onPressed: () => Navigator.pop(context),
+      //   ),
+      //   title: Column(
+      //     crossAxisAlignment: CrossAxisAlignment.start,
+      //     children: [
+      //       Text(toolName, style: theme.textTheme.titleMedium),
+      //       Text(
+      //         toolDescription,
+      //         style: theme.textTheme.bodySmall?.copyWith(
+      //           color: theme.colorScheme.onSurface.withOpacity(0.7),
+      //         ),
+      //       ),
+      //     ],
+      //   ),
+      //   actions: [
+      //     Container(
+      //       margin: const EdgeInsets.only(right: 16),
+      //       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      //       decoration: BoxDecoration(
+      //         color: theme.colorScheme.primary.withOpacity(0.1),
+      //         borderRadius: BorderRadius.circular(20),
+      //       ),
+      //       child: Row(
+      //         children: [
+      //           Icon(Icons.stars, size: 16, color: theme.colorScheme.primary),
+      //           const SizedBox(width: 4),
+      //           Text(
+      //             '$creditCost credits',
+      //             style: TextStyle(
+      //               color: theme.colorScheme.primary,
+      //               fontWeight: FontWeight.w600,
+      //             ),
+      //           ),
+      //         ],
+      //       ),
+      //     ),
+      //   ],
+      // ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
