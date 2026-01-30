@@ -143,7 +143,21 @@ class _PricingScreenState extends State<PricingScreen>
   }
 
   Future<void> _handleCreditPurchase(CreditPackage package) async {
+    final creditsProvider = context.read<CreditsProvider>();
     final iapProvider = context.read<IAPProvider>();
+
+    // Check if user has active subscription - only premium users can buy credits
+    if (!creditsProvider.hasActiveSubscription) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A premium subscription is required to purchase credits'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      // Switch to subscriptions tab
+      _tabController.animateTo(0);
+      return;
+    }
 
     final productId = package.platformProductId;
     if (productId == null || productId.isEmpty) {
@@ -524,36 +538,139 @@ class _PricingScreenState extends State<PricingScreen>
   }
 
   Widget _buildCreditPacksTab(IAPProvider iapProvider) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        children: [
-          const Text(
-            'One-time credit purchases. No subscription required.',
-            style: TextStyle(color: AppTheme.muted, fontSize: 14),
-            textAlign: TextAlign.center,
+    return Consumer<CreditsProvider>(
+      builder: (context, creditsProvider, child) {
+        final hasActiveSubscription = creditsProvider.hasActiveSubscription;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            children: [
+              // Show subscription required message if user is not premium
+              if (!hasActiveSubscription) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppTheme.primary.withOpacity(0.1),
+                        const Color(0xFFEC4899).withOpacity(0.1),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppTheme.primary.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.lock_outline,
+                        color: AppTheme.primary,
+                        size: 32,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Premium Required',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Subscribe to a premium plan to unlock credit purchases.',
+                        style: TextStyle(
+                          color: AppTheme.muted,
+                          fontSize: 14,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [AppTheme.primary, Color(0xFFEC4899)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ElevatedButton(
+                            onPressed: () {
+                              // Switch to subscriptions tab
+                              _tabController.animateTo(0);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              'View Subscription Plans',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Credit packs available after subscribing:',
+                  style: TextStyle(color: AppTheme.muted, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                // Show credit packages as disabled previews
+                ..._creditPackages.map((pkg) => Opacity(
+                      opacity: 0.5,
+                      child: IgnorePointer(
+                        child: _CreditPackageCard(
+                          package: pkg,
+                          iconData: _getIconData(pkg.icon),
+                          isPurchasing: false,
+                          onPurchase: () {},
+                        ),
+                      ),
+                    )),
+              ] else ...[
+                const Text(
+                  'One-time credit purchases for Pro members.',
+                  style: TextStyle(color: AppTheme.muted, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+
+                // Credit packages - enabled for premium users
+                ..._creditPackages.map((pkg) => _CreditPackageCard(
+                      package: pkg,
+                      iconData: _getIconData(pkg.icon),
+                      isPurchasing: iapProvider.isPurchasing,
+                      onPurchase: () => _handleCreditPurchase(pkg),
+                    )),
+              ],
+
+              const SizedBox(height: 24),
+
+              // Footer
+              const Text(
+                'Credits never expire and can be used for any generation.',
+                style: TextStyle(color: AppTheme.muted, fontSize: 11),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 100),
+            ],
           ),
-          const SizedBox(height: 20),
-
-          // Credit packages
-          ..._creditPackages.map((pkg) => _CreditPackageCard(
-                package: pkg,
-                iconData: _getIconData(pkg.icon),
-                isPurchasing: iapProvider.isPurchasing,
-                onPurchase: () => _handleCreditPurchase(pkg),
-              )),
-
-          const SizedBox(height: 24),
-
-          // Footer
-          const Text(
-            'Credits never expire and can be used for any generation.',
-            style: TextStyle(color: AppTheme.muted, fontSize: 11),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 100),
-        ],
-      ),
+        );
+      },
     );
   }
 }
