@@ -50,6 +50,9 @@ class PushNotificationService {
       // Get FCM token
       await _getToken();
 
+      // Subscribe to platform-specific topics
+      await _subscribeToPlatformTopics();
+
       // Listen for token refresh
       _messaging.onTokenRefresh.listen(_handleTokenRefresh);
 
@@ -281,6 +284,34 @@ class PushNotificationService {
     // }
   }
 
+  /// Subscribe to platform-specific topics (ios_users / android_users)
+  Future<void> _subscribeToPlatformTopics() async {
+    try {
+      // Subscribe to platform-specific topic
+      final platformTopic = Platform.isIOS ? 'ios_users' : 'android_users';
+      await _messaging.subscribeToTopic(platformTopic);
+      debugPrint('Subscribed to platform topic: $platformTopic');
+
+      // Subscribe to all_users topic for broadcast messages
+      await _messaging.subscribeToTopic('all_users');
+      debugPrint('Subscribed to topic: all_users');
+    } catch (e) {
+      debugPrint('Error subscribing to platform topics: $e');
+    }
+  }
+
+  /// Unsubscribe from platform-specific topics (call on logout)
+  Future<void> _unsubscribeFromPlatformTopics() async {
+    try {
+      final platformTopic = Platform.isIOS ? 'ios_users' : 'android_users';
+      await _messaging.unsubscribeFromTopic(platformTopic);
+      await _messaging.unsubscribeFromTopic('all_users');
+      debugPrint('Unsubscribed from platform topics');
+    } catch (e) {
+      debugPrint('Error unsubscribing from platform topics: $e');
+    }
+  }
+
   /// Subscribe to a topic for targeted notifications
   Future<void> subscribeToTopic(String topic) async {
     try {
@@ -303,16 +334,26 @@ class PushNotificationService {
 
   /// Delete the FCM token (call on logout)
   Future<void> deleteToken() async {
-    try {
+    try:
+      // Unsubscribe from platform topics
+      await _unsubscribeFromPlatformTopics();
+
       final user = _supabase.auth.currentUser;
 
-      // Remove token from database
+      // Deactivate device in database
       if (user != null && _fcmToken != null) {
-        await _supabase
-            .from('device_tokens')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('token', _fcmToken!);
+        try {
+          await _supabase.functions.invoke(
+            'register-device',
+            body: {
+              'fcmToken': _fcmToken,
+              'deviceType': Platform.isIOS ? 'ios' : 'android',
+              'deactivate': true,
+            },
+          );
+        } catch (e) {
+          debugPrint('Error deactivating device: $e');
+        }
       }
 
       // Delete the FCM token
