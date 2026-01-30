@@ -133,7 +133,9 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: 'image',
-              builder: (context, state) => const ImageCreateScreen(),
+              builder: (context, state) => ImageCreateScreen(
+                initialTool: state.uri.queryParameters['tool'],
+              ),
               routes: [
                 // Image tool sub-routes
                 GoRoute(
@@ -176,7 +178,9 @@ final appRouter = GoRouter(
             ),
             GoRoute(
               path: 'video',
-              builder: (context, state) => const VideoCreateScreen(),
+              builder: (context, state) => VideoCreateScreen(
+                initialTool: state.uri.queryParameters['tool'],
+              ),
               routes: [
                 // Video tool sub-routes
                 GoRoute(

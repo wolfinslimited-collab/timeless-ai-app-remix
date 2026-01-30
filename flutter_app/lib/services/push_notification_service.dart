@@ -14,12 +14,14 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 /// Service for managing Firebase Cloud Messaging push notifications
 class PushNotificationService {
-  static final PushNotificationService _instance = PushNotificationService._internal();
+  static final PushNotificationService _instance =
+      PushNotificationService._internal();
   factory PushNotificationService() => _instance;
   PushNotificationService._internal();
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
   final SupabaseClient _supabase = Supabase.instance.client;
 
   String? _fcmToken;
@@ -82,17 +84,20 @@ class PushNotificationService {
       sound: true,
     );
 
-    final authorized = settings.authorizationStatus == AuthorizationStatus.authorized ||
-        settings.authorizationStatus == AuthorizationStatus.provisional;
+    final authorized =
+        settings.authorizationStatus == AuthorizationStatus.authorized ||
+            settings.authorizationStatus == AuthorizationStatus.provisional;
 
-    debugPrint('Push notification permission status: ${settings.authorizationStatus}');
+    debugPrint(
+        'Push notification permission status: ${settings.authorizationStatus}');
     return authorized;
   }
 
   /// Initialize local notifications for foreground display
   Future<void> _initializeLocalNotifications() async {
     // Android initialization
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
 
     // iOS initialization
     const iosSettings = DarwinInitializationSettings(
@@ -121,7 +126,8 @@ class PushNotificationService {
       );
 
       await _localNotifications
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
     }
   }
@@ -161,27 +167,27 @@ class PushNotificationService {
 
   /// Save FCM token to database
   Future<void> _saveTokenToDatabase() async {
-    if (_fcmToken == null) return;
+    // if (_fcmToken == null) return;
 
-    final user = _supabase.auth.currentUser;
-    if (user == null) {
-      debugPrint('Cannot save FCM token: user not logged in');
-      return;
-    }
+    // final user = _supabase.auth.currentUser;
+    // if (user == null) {
+    //   debugPrint('Cannot save FCM token: user not logged in');
+    //   return;
+    // }
 
-    try {
-      // Upsert the device token
-      await _supabase.from('device_tokens').upsert({
-        'user_id': user.id,
-        'token': _fcmToken,
-        'platform': Platform.isIOS ? 'ios' : 'android',
-        'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'user_id,token');
+    // try {
+    //   // Upsert the device token
+    //   await _supabase.from('device_tokens').upsert({
+    //     'user_id': user.id,
+    //     'token': _fcmToken,
+    //     'platform': Platform.isIOS ? 'ios' : 'android',
+    //     'updated_at': DateTime.now().toIso8601String(),
+    //   }, onConflict: 'user_id,token');
 
-      debugPrint('FCM token saved to database');
-    } catch (e) {
-      debugPrint('Error saving FCM token: $e');
-    }
+    //   debugPrint('FCM token saved to database');
+    // } catch (e) {
+    //   debugPrint('Error saving FCM token: $e');
+    // }
   }
 
   /// Handle foreground messages
@@ -293,7 +299,7 @@ class PushNotificationService {
   Future<void> deleteToken() async {
     try {
       final user = _supabase.auth.currentUser;
-      
+
       // Remove token from database
       if (user != null && _fcmToken != null) {
         await _supabase
@@ -306,7 +312,7 @@ class PushNotificationService {
       // Delete the FCM token
       await _messaging.deleteToken();
       _fcmToken = null;
-      
+
       debugPrint('FCM token deleted');
     } catch (e) {
       debugPrint('Error deleting FCM token: $e');

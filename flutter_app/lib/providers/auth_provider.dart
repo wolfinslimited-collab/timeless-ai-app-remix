@@ -212,7 +212,7 @@ class AuthProvider extends ChangeNotifier {
         if (response?.user != null) {
           _user = response!.user;
           await _fetchProfile();
-          await _trackOAuthSignIn(response.user!, 'apple');
+          _trackOAuthSignIn(response.user!, 'apple');
           return true;
         }
         return false;

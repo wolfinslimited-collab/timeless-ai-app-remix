@@ -13,7 +13,7 @@ import '../../widgets/country_picker.dart';
 
 class SignupScreen extends StatefulWidget {
   final String? referralCode;
-  
+
   const SignupScreen({super.key, this.referralCode});
 
   @override
@@ -28,14 +28,14 @@ class _SignupScreenState extends State<SignupScreen>
   final _passwordController = TextEditingController();
   final _referralController = TextEditingController();
   final _otpController = TextEditingController();
-  
+
   String? _selectedCountry;
   bool _obscurePassword = true;
   bool _showVerification = false;
   bool _isLoading = false;
   String? _error;
   int _resendCountdown = 0;
-  
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -46,7 +46,7 @@ class _SignupScreenState extends State<SignupScreen>
     if (widget.referralCode != null) {
       _referralController.text = widget.referralCode!;
     }
-    
+
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -100,8 +100,8 @@ class _SignupScreenState extends State<SignupScreen>
           'email': _emailController.text.trim(),
           'fullName': _nameController.text.trim(),
           'country': _selectedCountry,
-          'referralCode': _referralController.text.trim().isNotEmpty 
-              ? _referralController.text.trim() 
+          'referralCode': _referralController.text.trim().isNotEmpty
+              ? _referralController.text.trim()
               : null,
           'password': _passwordController.text,
         }),
@@ -118,7 +118,7 @@ class _SignupScreenState extends State<SignupScreen>
         _isLoading = false;
       });
       _startResendCountdown();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -208,8 +208,8 @@ class _SignupScreenState extends State<SignupScreen>
           'email': _emailController.text.trim(),
           'fullName': _nameController.text.trim(),
           'country': _selectedCountry,
-          'referralCode': _referralController.text.trim().isNotEmpty 
-              ? _referralController.text.trim() 
+          'referralCode': _referralController.text.trim().isNotEmpty
+              ? _referralController.text.trim()
               : null,
           'password': _passwordController.text,
         }),
@@ -223,7 +223,7 @@ class _SignupScreenState extends State<SignupScreen>
 
       _otpController.clear();
       _startResendCountdown();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -258,12 +258,31 @@ class _SignupScreenState extends State<SignupScreen>
 
   Future<void> _handleGoogleSignIn() async {
     final authProvider = context.read<AuthProvider>();
-    await authProvider.signInWithGoogle();
+    final success = await authProvider.signInWithGoogle();
+
+    if (success && mounted) {
+      _navigateAfterAuth(authProvider);
+    }
   }
 
   Future<void> _handleAppleSignIn() async {
     final authProvider = context.read<AuthProvider>();
-    await authProvider.signInWithApple();
+    final success = await authProvider.signInWithApple();
+
+    if (success && mounted) {
+      _navigateAfterAuth(authProvider);
+    }
+  }
+
+  void _navigateAfterAuth(AuthProvider authProvider) {
+    // Check if user has active subscription
+    final hasSubscription = authProvider.hasActiveSubscription;
+    if (hasSubscription) {
+      context.go('/');
+    } else {
+      // Show upgrade wizard for non-premium users
+      context.go('/upgrade-wizard', extra: true);
+    }
   }
 
   @override
@@ -294,7 +313,7 @@ class _SignupScreenState extends State<SignupScreen>
             child: Column(
               children: [
                 const SizedBox(height: 48),
-                
+
                 // Icon
                 Container(
                   padding: const EdgeInsets.all(20),
@@ -309,7 +328,7 @@ class _SignupScreenState extends State<SignupScreen>
                   ),
                 ),
                 const SizedBox(height: 32),
-                
+
                 const Text(
                   'Verify Your Email',
                   style: TextStyle(
@@ -385,10 +404,11 @@ class _SignupScreenState extends State<SignupScreen>
                           // Update with single digit
                           if (value.isNotEmpty) {
                             final newOtp = _otpController.text.length > index
-                                ? _otpController.text.replaceRange(index, index + 1, value)
+                                ? _otpController.text
+                                    .replaceRange(index, index + 1, value)
                                 : _otpController.text + value;
-                            _otpController.text = newOtp.length > 4 
-                                ? newOtp.substring(0, 4) 
+                            _otpController.text = newOtp.length > 4
+                                ? newOtp.substring(0, 4)
                                 : newOtp;
                           }
                         },
@@ -444,7 +464,7 @@ class _SignupScreenState extends State<SignupScreen>
                       ),
                   ],
                 ),
-                
+
                 const Spacer(),
 
                 // Verify Button
@@ -589,7 +609,7 @@ class _SignupScreenState extends State<SignupScreen>
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        
+
                         // Referral banner
                         if (_referralController.text.isNotEmpty) ...[
                           const SizedBox(height: 16),
@@ -677,7 +697,8 @@ class _SignupScreenState extends State<SignupScreen>
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.close, size: 18),
-                                  onPressed: () => setState(() => _error = null),
+                                  onPressed: () =>
+                                      setState(() => _error = null),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
                                 ),
@@ -826,7 +847,8 @@ class _SignupScreenState extends State<SignupScreen>
                           decoration: InputDecoration(
                             labelText: 'Referral Code (optional)',
                             hintText: 'Enter referral code',
-                            prefixIcon: const Icon(Icons.card_giftcard_outlined),
+                            prefixIcon:
+                                const Icon(Icons.card_giftcard_outlined),
                             filled: true,
                             fillColor: AppTheme.card,
                             border: OutlineInputBorder(
@@ -846,8 +868,10 @@ class _SignupScreenState extends State<SignupScreen>
                           ),
                           onChanged: (value) {
                             _referralController.text = value.toUpperCase();
-                            _referralController.selection = TextSelection.fromPosition(
-                              TextPosition(offset: _referralController.text.length),
+                            _referralController.selection =
+                                TextSelection.fromPosition(
+                              TextPosition(
+                                  offset: _referralController.text.length),
                             );
                           },
                         ),
@@ -884,7 +908,8 @@ class _SignupScreenState extends State<SignupScreen>
                             ],
                           ),
                           child: ElevatedButton(
-                            onPressed: _isLoading ? null : _handleSendVerification,
+                            onPressed:
+                                _isLoading ? null : _handleSendVerification,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.transparent,
                               shadowColor: Colors.transparent,

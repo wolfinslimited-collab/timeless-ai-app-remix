@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/oauth_icons.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -71,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _handleGoogleSignIn() async {
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.signInWithGoogle();
-    
+
     if (success && mounted) {
       _navigateAfterAuth(authProvider);
     }
@@ -80,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _handleAppleSignIn() async {
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.signInWithApple();
-    
+
     if (success && mounted) {
       _navigateAfterAuth(authProvider);
     }

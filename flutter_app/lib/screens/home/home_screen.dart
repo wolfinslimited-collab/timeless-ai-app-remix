@@ -107,18 +107,24 @@ class _HomeScreenState extends State<HomeScreen> {
             'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/d49d2f58-acca-48f6-b890-2cf2443c4bba-style-transfer-preview-ezgif.com-resize-video.mp4',
       };
 
-      // Manual mapping of titles to routes
+      // Manual mapping of titles to routes (toolbox screen + selected tool via ?tool=)
       final Map<String, String> titleToRoute = {
-        'Relight': '/create/image/relight',
-        'Upscale': '/create/image/upscale',
-        'Shots': '/create/image/shots',
-        'Inpainting': '/create/image/inpainting',
-        'Change Angle': '/create/image/angle',
-        'Angle': '/create/image/angle',
-        'Skin Enhancer': '/create/image/skin-enhancer',
-        'Style Transfer': '/create/image/style-transfer',
-        'Remove Background': '/create/image/background-remove',
-        'Background Remove': '/create/image/background-remove',
+        // Image tools -> ImageCreateScreen with tool selected
+        'Relight': '/create/image?tool=relight',
+        'Upscale': '/create/image?tool=upscale',
+        'Shots': '/create/image?tool=shots',
+        'Inpainting': '/create/image?tool=inpainting',
+        'Change Angle': '/create/image?tool=angle',
+        'Angle': '/create/image?tool=angle',
+        'Skin Enhancer': '/create/image?tool=skin-enhancer',
+        'Style Transfer': '/create/image?tool=style-transfer',
+        'Remove Background': '/create/image?tool=background-remove',
+        'Background Remove': '/create/image?tool=background-remove',
+        // Video tools -> VideoCreateScreen with tool selected
+        'Video Upscale': '/create/video?tool=video-upscale',
+        'Draw to Video': '/create/video?tool=draw-to-video',
+        'Cinema Studio': '/cinema',
+        'Music Studio': '/create/audio',
       };
 
       final response = await Supabase.instance.client
@@ -462,42 +468,14 @@ class _TrendingTile extends StatelessWidget {
   void _handleTap(BuildContext context) {
     final linkUrl = item.linkUrl;
     if (linkUrl != null && linkUrl.isNotEmpty) {
-      // Parse link_url and navigate to corresponding Flutter routes
-      // Handle all patterns from featured_items table
-
-      // Cinema Studio
-      if (linkUrl.contains('/create?type=cinema')) {
+      // linkUrl is from titleToRoute: /create/image?tool=..., /create/video?tool=..., /cinema, /create/audio
+      if (linkUrl.startsWith('/')) {
+        GoRouter.of(context).go(linkUrl);
+      } else if (linkUrl.contains('/create?type=cinema')) {
         GoRouter.of(context).go('/cinema');
-      }
-      // Music Studio
-      else if (linkUrl.contains('/create?type=music')) {
-        GoRouter.of(context).go('/apps');
-      }
-      // Video tools
-      else if (linkUrl.contains('/create?app=video-upscale') ||
-          linkUrl.contains('/create?app=draw-to-video')) {
-        GoRouter.of(context).go('/create/video');
-      }
-      // Image tools - direct paths like /create/image/relight
-      else if (linkUrl.contains('/create/image/relight')) {
-        GoRouter.of(context).go('/create/image/relight');
-      } else if (linkUrl.contains('/create/image/upscale')) {
-        GoRouter.of(context).go('/create/image/upscale');
-      } else if (linkUrl.contains('/create/image/shots')) {
-        GoRouter.of(context).go('/create/image/shots');
-      } else if (linkUrl.contains('/create/image/inpainting')) {
-        GoRouter.of(context).go('/create/image/inpainting');
-      } else if (linkUrl.contains('/create/image/angle')) {
-        GoRouter.of(context).go('/create/image/angle');
-      } else if (linkUrl.contains('/create/image/skin-enhancer')) {
-        GoRouter.of(context).go('/create/image/skin-enhancer');
-      } else if (linkUrl.contains('/create/image/style-transfer')) {
-        GoRouter.of(context).go('/create/image/style-transfer');
-      } else if (linkUrl.contains('/create/image/background-remove')) {
-        GoRouter.of(context).go('/create/image/background-remove');
-      }
-      // Fallback to apps
-      else {
+      } else if (linkUrl.contains('/create?type=music')) {
+        GoRouter.of(context).go('/create/audio');
+      } else {
         GoRouter.of(context).go('/apps');
       }
     }
