@@ -165,29 +165,35 @@ class PushNotificationService {
     _saveTokenToDatabase();
   }
 
-  /// Save FCM token to database
+  /// Save FCM token to database via register-device edge function
   Future<void> _saveTokenToDatabase() async {
-    // if (_fcmToken == null) return;
+    if (_fcmToken == null) return;
 
-    // final user = _supabase.auth.currentUser;
-    // if (user == null) {
-    //   debugPrint('Cannot save FCM token: user not logged in');
-    //   return;
-    // }
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      debugPrint('Cannot save FCM token: user not logged in');
+      return;
+    }
 
-    // try {
-    //   // Upsert the device token
-    //   await _supabase.from('device_tokens').upsert({
-    //     'user_id': user.id,
-    //     'token': _fcmToken,
-    //     'platform': Platform.isIOS ? 'ios' : 'android',
-    //     'updated_at': DateTime.now().toIso8601String(),
-    //   }, onConflict: 'user_id,token');
+    try {
+      // Call the register-device edge function
+      final response = await _supabase.functions.invoke(
+        'register-device',
+        body: {
+          'fcmToken': _fcmToken,
+          'deviceType': Platform.isIOS ? 'ios' : 'android',
+          'deviceName': Platform.isIOS ? 'iOS Device' : 'Android Device',
+        },
+      );
 
-    //   debugPrint('FCM token saved to database');
-    // } catch (e) {
-    //   debugPrint('Error saving FCM token: $e');
-    // }
+      if (response.status == 200) {
+        debugPrint('FCM token registered successfully: ${response.data}');
+      } else {
+        debugPrint('Failed to register FCM token: ${response.data}');
+      }
+    } catch (e) {
+      debugPrint('Error saving FCM token: $e');
+    }
   }
 
   /// Handle foreground messages
