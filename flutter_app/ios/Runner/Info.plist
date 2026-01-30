@@ -22,28 +22,22 @@
 	<string>????</string>
 	<key>CFBundleURLTypes</key>
 	<array>
-	<dict>
-		<key>CFBundleURLSchemes</key>
-		<array>
-		<string>fb730921032871755</string>
-		</array>
-	</dict>
-	</array>
-	<key>UIBackgroundModes</key>
-	<array>
-	<string>fetch</string>
-	<string>remote-notification</string>
-	</array>
-	<key>TikTokAppID</key>
-	<string>7566328038468812807</string>
-	<key>FacebookAppID</key>
-	<string>730921032871755</string>
-	<key>FacebookClientToken</key>
-	<string>47667fcbfc2ee801006f91a794ad414c</string>
-	<key>FacebookDisplayName</key>
-	<string>Timeless AI</string>
-	<key>CFBundleURLTypes</key>
-	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.1012149210327-63j4hf0g83bqlad026c29q574hqdf1ka</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fb730921032871755</string>
+			</array>
+		</dict>
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
