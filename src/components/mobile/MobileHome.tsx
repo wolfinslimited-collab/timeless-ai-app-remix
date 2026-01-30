@@ -56,6 +56,15 @@ interface FeaturedItem {
   linkUrl: string | null;
 }
 
+// Hardcoded fallback featured items (used when DB table doesn't exist)
+const FALLBACK_FEATURED_ITEMS: FeaturedItem[] = [
+  { id: '1', title: 'Cinema Studio', description: 'Professional cinematic video creation with AI', tag: 'Featured', videoUrl: titleToVideoUrl['Cinema Studio'], displayOrder: 1, linkUrl: '/create?type=cinema' },
+  { id: '2', title: 'Video Upscale', description: 'Enhance video quality up to 4K resolution', tag: 'Popular', videoUrl: titleToVideoUrl['Video Upscale'], displayOrder: 2, linkUrl: '/create?app=video-upscale' },
+  { id: '3', title: 'Draw to Video', description: 'Transform sketches into animated videos', tag: 'New', videoUrl: titleToVideoUrl['Draw to Video'], displayOrder: 3, linkUrl: '/create?app=draw-to-video' },
+  { id: '4', title: 'Music Studio', description: 'AI-powered music creation and remixing', tag: 'Hot', videoUrl: titleToVideoUrl['Music Studio'], displayOrder: 4, linkUrl: '/create?type=music' },
+  { id: '5', title: 'Visual Styles', description: 'Ultra-realistic fashion visuals', tag: 'New', videoUrl: titleToVideoUrl['Style Transfer'], displayOrder: 5, linkUrl: '/create?type=image' },
+];
+
 interface MobileHomeProps {
   onNavigate: (screen: Screen) => void;
   credits: number;
@@ -110,7 +119,7 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
 
       if (error) throw error;
 
-      if (data) {
+      if (data && data.length > 0) {
         const items: FeaturedItem[] = (data as any[]).map((item: any) => {
           const title = item.title || '';
           // Override video_url based on title if mapping exists
@@ -127,9 +136,14 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
           };
         });
         setFeaturedItems(items);
+      } else {
+        // Use fallback items if no data from DB
+        setFeaturedItems(FALLBACK_FEATURED_ITEMS);
       }
     } catch (e) {
       console.error("Error loading featured items:", e);
+      // Use fallback items on error
+      setFeaturedItems(FALLBACK_FEATURED_ITEMS);
     } finally {
       setLoadingFeatured(false);
     }
