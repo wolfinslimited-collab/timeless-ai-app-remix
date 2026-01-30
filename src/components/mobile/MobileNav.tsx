@@ -16,7 +16,6 @@ export type Screen =
   | "subscription"
   | "downloads"
   | "favorites"
-  | "trend"
   | "notify-ai"
   | "sleep-ai"
   | "brain-ai"
