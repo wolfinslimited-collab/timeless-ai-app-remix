@@ -7,33 +7,83 @@ const corsHeaders = {
 };
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : "";
   console.log(`[MOBILE-SUBSCRIPTION] ${step}${detailsStr}`);
 };
 
-// Product ID mappings for iOS and Android
-// Include App Store Connect / Google Play product IDs and any product_id returned in Apple receipts (renewals, legacy IDs)
-const PRODUCT_MAPPINGS: Record<string, { plan: string; credits: number; type: 'subscription' | 'consumable' }> = {
-  // iOS Product IDs (from App Store Connect)
-  "com.timeless.premium.monthly": { plan: "premium", credits: -1, type: "subscription" }, // -1 = unlimited
-  "com.timeless.premium.yearly": { plan: "premium", credits: -1, type: "subscription" },
-  "credits_1500_ios": { plan: "free", credits: 1500, type: "consumable" },
-  // Apple receipt can return alternate product_id (renewals, legacy, sandbox)
-  "basic_weekly": { plan: "premium", credits: -1, type: "subscription" },
-  "basic_monthly": { plan: "premium", credits: -1, type: "subscription" },
-  "basic_monthly_renew": { plan: "premium", credits: -1, type: "subscription" },
-  "basic_yearly": { plan: "premium", credits: -1, type: "subscription" },
-  "66": { plan: "premium", credits: -1, type: "subscription" },
-  "22": { plan: "premium", credits: -1, type: "subscription" },
+interface ProductMapping {
+  plan: string;
+  credits: number;
+  type: "subscription" | "consumable";
+}
 
-  // Android Product IDs (from Google Play Console)
-  "timeless.premium.monthly": { plan: "premium", credits: -1, type: "subscription" },
-  "timeless.premium.yearly": { plan: "premium", credits: -1, type: "subscription" },
-  "credits_1500_android": { plan: "free", credits: 1500, type: "consumable" },
-};
+// Fetch product mappings dynamically from database
+async function getProductMappings(supabase: any, platform: "ios" | "android"): Promise<Record<string, ProductMapping>> {
+  const mappings: Record<string, ProductMapping> = {};
+  const productIdColumn = platform === "ios" ? "apple_product_id" : "android_product_id";
+
+  try {
+    // Fetch subscription plans
+    const { data: plans, error: plansError } = await supabase
+      .from("subscription_plans")
+      .select(`id, name, credits, ${productIdColumn}`)
+      .eq("is_active", true);
+
+    if (plansError) {
+      logStep("Error fetching subscription plans", { error: plansError.message });
+    } else if (plans) {
+      for (const plan of plans) {
+        const productId = plan[productIdColumn];
+        if (productId) {
+          // Extract plan name from the subscription plan name (e.g., "Premium Monthly" -> "premium")
+          const planName = plan.name.toLowerCase().includes("plus")
+            ? "premium_plus"
+            : plan.name.toLowerCase().includes("premium")
+              ? "premium"
+              : "free";
+          mappings[productId] = {
+            plan: planName,
+            credits: plan.credits || 0,
+            type: "subscription",
+          };
+        }
+      }
+    }
+
+    // Fetch credit packages
+    const { data: packages, error: packagesError } = await supabase
+      .from("credit_packages")
+      .select(`id, name, credits, ${productIdColumn}`)
+      .eq("is_active", true);
+
+    if (packagesError) {
+      logStep("Error fetching credit packages", { error: packagesError.message });
+    } else if (packages) {
+      for (const pkg of packages) {
+        const productId = pkg[productIdColumn];
+        if (productId) {
+          mappings[productId] = {
+            plan: "free", // Credit packages don't change the plan
+            credits: pkg.credits || 0,
+            type: "consumable",
+          };
+        }
+      }
+    }
+
+    logStep("Product mappings loaded", { platform, count: Object.keys(mappings).length });
+  } catch (error) {
+    logStep("Error loading product mappings", { error: String(error) });
+  }
+
+  return mappings;
+}
 
 // Apple App Store Receipt Verification
-async function verifyAppleReceipt(receiptData: string, isSandbox = false): Promise<{
+async function verifyAppleReceipt(
+  receiptData: string,
+  isSandbox = false,
+): Promise<{
   isValid: boolean;
   productId?: string;
   expiresDate?: Date;
@@ -46,7 +96,7 @@ async function verifyAppleReceipt(receiptData: string, isSandbox = false): Promi
     return { isValid: false, error: "Apple shared secret not configured" };
   }
 
-  const verifyUrl = isSandbox 
+  const verifyUrl = isSandbox
     ? "https://sandbox.itunes.apple.com/verifyReceipt"
     : "https://buy.itunes.apple.com/verifyReceipt";
 
@@ -56,7 +106,7 @@ async function verifyAppleReceipt(receiptData: string, isSandbox = false): Promi
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         "receipt-data": receiptData,
-        "password": appleSharedSecret,
+        password: appleSharedSecret,
         "exclude-old-transactions": true,
       }),
     });
@@ -79,9 +129,7 @@ async function verifyAppleReceipt(receiptData: string, isSandbox = false): Promi
       return { isValid: false, error: "No receipt info found" };
     }
 
-    const expiresDate = latestReceipt.expires_date_ms 
-      ? new Date(parseInt(latestReceipt.expires_date_ms))
-      : undefined;
+    const expiresDate = latestReceipt.expires_date_ms ? new Date(parseInt(latestReceipt.expires_date_ms)) : undefined;
 
     return {
       isValid: true,
@@ -101,7 +149,7 @@ async function verifyGoogleReceipt(
   packageName: string,
   productId: string,
   purchaseToken: string,
-  isSubscription: boolean
+  isSubscription: boolean,
 ): Promise<{
   isValid: boolean;
   productId?: string;
@@ -117,7 +165,7 @@ async function verifyGoogleReceipt(
 
   try {
     const serviceAccount = JSON.parse(serviceAccountJson);
-    
+
     // Generate JWT for Google API authentication
     const now = Math.floor(Date.now() / 1000);
     const jwtHeader = { alg: "RS256", typ: "JWT" };
@@ -131,8 +179,8 @@ async function verifyGoogleReceipt(
 
     // Encode JWT parts
     const encoder = new TextEncoder();
-    const headerB64 = btoa(JSON.stringify(jwtHeader)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-    const claimsB64 = btoa(JSON.stringify(jwtClaims)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+    const headerB64 = btoa(JSON.stringify(jwtHeader)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+    const claimsB64 = btoa(JSON.stringify(jwtClaims)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
     const signatureInput = `${headerB64}.${claimsB64}`;
 
     // Import private key and sign
@@ -141,25 +189,23 @@ async function verifyGoogleReceipt(
       .replace("-----BEGIN PRIVATE KEY-----", "")
       .replace("-----END PRIVATE KEY-----", "")
       .replace(/\s/g, "");
-    const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
-    
+    const binaryKey = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
+
     const cryptoKey = await crypto.subtle.importKey(
       "pkcs8",
       binaryKey,
       { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
       false,
-      ["sign"]
+      ["sign"],
     );
-    
-    const signature = await crypto.subtle.sign(
-      "RSASSA-PKCS1-v1_5",
-      cryptoKey,
-      encoder.encode(signatureInput)
-    );
-    
+
+    const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", cryptoKey, encoder.encode(signatureInput));
+
     const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-      .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-    
+      .replace(/=/g, "")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_");
+
     const jwt = `${signatureInput}.${signatureB64}`;
 
     // Get access token
@@ -168,23 +214,23 @@ async function verifyGoogleReceipt(
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
     });
-    
+
     const tokenData = await tokenResponse.json();
     if (!tokenData.access_token) {
       return { isValid: false, error: "Failed to get Google access token" };
     }
 
     // Verify purchase with Google Play API
-    const apiPath = isSubscription 
+    const apiPath = isSubscription
       ? `subscriptions/${productId}/tokens/${purchaseToken}`
       : `products/${productId}/purchases/${purchaseToken}`;
-    
+
     const verifyUrl = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/purchases/${apiPath}`;
-    
+
     const verifyResponse = await fetch(verifyUrl, {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
-    
+
     const purchaseData = await verifyResponse.json();
     logStep("Google verification response", { purchaseData });
 
@@ -193,17 +239,13 @@ async function verifyGoogleReceipt(
     }
 
     // Check purchase state
-    const purchaseState = isSubscription 
-      ? purchaseData.paymentState 
-      : purchaseData.purchaseState;
-    
+    const purchaseState = isSubscription ? purchaseData.paymentState : purchaseData.purchaseState;
+
     if (purchaseState !== 1 && purchaseState !== 0) {
       return { isValid: false, error: "Purchase not valid or canceled" };
     }
 
-    const expiresDate = purchaseData.expiryTimeMillis 
-      ? new Date(parseInt(purchaseData.expiryTimeMillis))
-      : undefined;
+    const expiresDate = purchaseData.expiryTimeMillis ? new Date(parseInt(purchaseData.expiryTimeMillis)) : undefined;
 
     return {
       isValid: true,
@@ -224,7 +266,7 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-    auth: { persistSession: false }
+    auth: { persistSession: false },
   });
 
   try {
@@ -233,7 +275,7 @@ serve(async (req) => {
     // Authenticate user
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header provided");
-    
+
     const token = authHeader.replace("Bearer ", "");
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
     if (userError) throw new Error(`Authentication error: ${userError.message}`);
@@ -247,9 +289,12 @@ serve(async (req) => {
     logStep("Request received", { action, platform, productId });
 
     if (action === "verify") {
+      // Fetch product mappings dynamically based on platform
+      const PRODUCT_MAPPINGS = await getProductMappings(supabase, platform as "ios" | "android");
+
       // Verify and process purchase
       let verificationResult;
-      
+
       if (platform === "ios") {
         verificationResult = await verifyAppleReceipt(receiptData);
       } else if (platform === "android") {
@@ -266,33 +311,51 @@ serve(async (req) => {
 
       if (!verificationResult.isValid) {
         logStep("Verification failed", { error: verificationResult.error });
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: verificationResult.error 
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400,
-        });
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: verificationResult.error,
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          },
+        );
       }
 
-      const verifiedProductId = verificationResult.productId;
-      const productMapping = PRODUCT_MAPPINGS[verifiedProductId || ""];
-      
+      // Product ID from the receipt (Apple may return legacy IDs e.g. basic_weekly)
+      let verifiedProductId = verificationResult.productId;
+      let productMapping = PRODUCT_MAPPINGS[verifiedProductId || ""];
+
+      // iOS: Apple's receipt can contain legacy product IDs. If the receipt is valid but
+      // the receipt's product_id is not in our mappings, use the productId from the request.
+      if (!productMapping && platform === "ios" && productId && PRODUCT_MAPPINGS[productId]) {
+        logStep("Using request productId (receipt had legacy ID)", {
+          receiptProductId: verifiedProductId,
+          requestProductId: productId,
+        });
+        productMapping = PRODUCT_MAPPINGS[productId];
+        verifiedProductId = productId;
+      }
+
       if (!productMapping) {
         logStep("Unknown product ID", { productId: verifiedProductId });
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: `Unknown product ID: ${verifiedProductId}` 
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400,
-        });
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Unknown product ID: ${verifiedProductId}`,
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          },
+        );
       }
 
       // Get current profile
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("credits, plan, subscription_status")
+        .select("credits, plan, subscription_status, source")
         .eq("user_id", user.id)
         .single();
 
@@ -300,6 +363,30 @@ serve(async (req) => {
 
       const currentCredits = profile?.credits || 0;
       const transactionId = verificationResult.transactionId || verificationResult.originalTransactionId;
+
+      // Check for duplicate transaction
+      if (transactionId) {
+        const { data: existingTransaction } = await supabase
+          .from("credit_transactions")
+          .select("id")
+          .eq("reference_id", transactionId)
+          .single();
+
+        if (existingTransaction) {
+          logStep("Duplicate transaction detected", { transactionId });
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message: "Purchase already processed",
+              duplicate: true,
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 200,
+            },
+          );
+        }
+      }
 
       // Process based on purchase type
       if (productMapping.type === "subscription") {
@@ -311,6 +398,7 @@ serve(async (req) => {
             subscription_status: "active",
             subscription_end_date: verificationResult.expiresDate?.toISOString() || null,
             subscription_id: transactionId,
+            source: platform,
             credits: currentCredits + productMapping.credits,
             updated_at: new Date().toISOString(),
           })
@@ -318,65 +406,90 @@ serve(async (req) => {
 
         if (updateError) throw new Error(`Update error: ${updateError.message}`);
 
-        logStep("Subscription activated", { plan: productMapping.plan, credits: productMapping.credits });
+        // Log transaction
+        await supabase.from("credit_transactions").insert({
+          user_id: user.id,
+          type: "subscription",
+          amount: productMapping.credits,
+          description: `${platform.toUpperCase()} ${productMapping.plan} subscription`,
+          reference_id: transactionId,
+        });
 
+        logStep("Subscription activated", { plan: productMapping.plan, credits: productMapping.credits });
       } else {
         // Credit pack purchase
         const { error: updateError } = await supabase
           .from("profiles")
           .update({
             credits: currentCredits + productMapping.credits,
+            source: platform,
             updated_at: new Date().toISOString(),
           })
           .eq("user_id", user.id);
 
         if (updateError) throw new Error(`Update error: ${updateError.message}`);
 
+        // Log transaction
+        await supabase.from("credit_transactions").insert({
+          user_id: user.id,
+          type: "purchase",
+          amount: productMapping.credits,
+          description: `${platform.toUpperCase()} credit pack (${productMapping.credits} credits)`,
+          reference_id: transactionId,
+        });
+
         logStep("Credits added", { credits: productMapping.credits });
       }
 
-      return new Response(JSON.stringify({ 
-        success: true,
-        productId: verifiedProductId,
-        credits: productMapping.credits,
-        plan: productMapping.plan,
-        type: productMapping.type,
-        expiresDate: verificationResult.expiresDate?.toISOString(),
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-
+      return new Response(
+        JSON.stringify({
+          success: true,
+          productId: verifiedProductId,
+          credits: productMapping.credits,
+          plan: productMapping.plan,
+          type: productMapping.type,
+          expiresDate: verificationResult.expiresDate?.toISOString(),
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
     } else if (action === "check") {
       // Check current subscription status
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("credits, plan, subscription_status, subscription_end_date")
+        .select("credits, plan, subscription_status, subscription_end_date, source")
         .eq("user_id", user.id)
         .single();
 
       if (profileError) throw new Error(`Profile error: ${profileError.message}`);
 
-      return new Response(JSON.stringify({ 
-        success: true,
-        credits: profile?.credits || 0,
-        plan: profile?.plan || "free",
-        subscriptionStatus: profile?.subscription_status || "none",
-        subscriptionEndDate: profile?.subscription_end_date,
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-
+      return new Response(
+        JSON.stringify({
+          success: true,
+          credits: profile?.credits || 0,
+          plan: profile?.plan || "free",
+          subscriptionStatus: profile?.subscription_status || "none",
+          subscriptionEndDate: profile?.subscription_end_date,
+          source: profile?.source || "web",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
     } else if (action === "restore") {
       // Restore purchases - re-verify and update status
       if (platform === "ios" && receiptData) {
         const verificationResult = await verifyAppleReceipt(receiptData);
-        
+
         if (verificationResult.isValid && verificationResult.expiresDate) {
           const isActive = verificationResult.expiresDate > new Date();
+          // Fetch iOS product mappings for restore
+          const PRODUCT_MAPPINGS = await getProductMappings(supabase, "ios");
           const productMapping = PRODUCT_MAPPINGS[verificationResult.productId || ""];
-          
+
           if (isActive && productMapping) {
             await supabase
               .from("profiles")
@@ -385,40 +498,45 @@ serve(async (req) => {
                 subscription_status: "active",
                 subscription_end_date: verificationResult.expiresDate.toISOString(),
                 subscription_id: verificationResult.originalTransactionId,
+                source: "ios",
                 updated_at: new Date().toISOString(),
               })
               .eq("user_id", user.id);
 
             logStep("Subscription restored", { plan: productMapping.plan });
 
-            return new Response(JSON.stringify({ 
-              success: true,
-              restored: true,
-              plan: productMapping.plan,
-              expiresDate: verificationResult.expiresDate.toISOString(),
-            }), {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 200,
-            });
+            return new Response(
+              JSON.stringify({
+                success: true,
+                restored: true,
+                plan: productMapping.plan,
+                expiresDate: verificationResult.expiresDate.toISOString(),
+              }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 200,
+              },
+            );
           }
         }
 
-        return new Response(JSON.stringify({ 
-          success: true,
-          restored: false,
-          message: "No active subscription found to restore",
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
-        });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            restored: false,
+            message: "No active subscription found to restore",
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          },
+        );
       }
 
       throw new Error("Restore requires iOS receiptData");
-
     } else {
       throw new Error("Invalid action. Use 'verify', 'check', or 'restore'");
     }
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
