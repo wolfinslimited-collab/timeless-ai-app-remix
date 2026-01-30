@@ -49,27 +49,26 @@ const FALLBACK_PRODUCT_MAPPINGS: Record<string, ProductMapping> = {
   "credits_1500_android": { plan: "free", credits: 1500, type: "consumable" },
 };
 
-// Fetch product mappings dynamically from database, with fallback to hardcoded mappings
+// Fetch product mappings dynamically from database, ALWAYS including fallback mappings
 async function getProductMappings(supabase: any, platform: "ios" | "android"): Promise<Record<string, ProductMapping>> {
-  const mappings: Record<string, ProductMapping> = {};
+  // ALWAYS start with fallback mappings to ensure legacy product IDs are recognized
+  const mappings: Record<string, ProductMapping> = { ...FALLBACK_PRODUCT_MAPPINGS };
   const productIdColumn = platform === "ios" ? "apple_product_id" : "android_product_id";
 
   try {
-    // Fetch subscription plans
+    // Try to fetch subscription plans from database (will override fallback if found)
     const { data: plans, error: plansError } = await supabase
       .from("subscription_plans")
       .select(`id, name, credits, ${productIdColumn}`)
       .eq("is_active", true);
 
     if (plansError) {
-      logStep("Error fetching subscription plans (using fallback)", { error: plansError.message });
-      // Return fallback mappings if table doesn't exist
-      return { ...FALLBACK_PRODUCT_MAPPINGS };
-    } else if (plans) {
+      logStep("Error fetching subscription plans (using fallback only)", { error: plansError.message });
+      // Continue with fallback mappings, don't return early
+    } else if (plans && plans.length > 0) {
       for (const plan of plans) {
         const productId = plan[productIdColumn];
         if (productId) {
-          // Extract plan name from the subscription plan name (e.g., "Premium Monthly" -> "premium")
           const planName = plan.name.toLowerCase().includes("plus")
             ? "premium_plus"
             : plan.name.toLowerCase().includes("premium")
@@ -82,41 +81,40 @@ async function getProductMappings(supabase: any, platform: "ios" | "android"): P
           };
         }
       }
+      logStep("Subscription plans loaded from database", { count: plans.length });
     }
 
-    // Fetch credit packages
+    // Try to fetch credit packages from database (will override fallback if found)
     const { data: packages, error: packagesError } = await supabase
       .from("credit_packages")
       .select(`id, name, credits, ${productIdColumn}`)
       .eq("is_active", true);
 
     if (packagesError) {
-      logStep("Error fetching credit packages (using fallback)", { error: packagesError.message });
-      // Return fallback mappings if table doesn't exist
-      return { ...FALLBACK_PRODUCT_MAPPINGS };
-    } else if (packages) {
+      logStep("Error fetching credit packages (using fallback only)", { error: packagesError.message });
+      // Continue with fallback mappings, don't return early
+    } else if (packages && packages.length > 0) {
       for (const pkg of packages) {
         const productId = pkg[productIdColumn];
         if (productId) {
           mappings[productId] = {
-            plan: "free", // Credit packages don't change the plan
+            plan: "free",
             credits: pkg.credits || 0,
             type: "consumable",
           };
         }
       }
+      logStep("Credit packages loaded from database", { count: packages.length });
     }
 
-    // If no mappings found from database, use fallback
-    if (Object.keys(mappings).length === 0) {
-      logStep("No product mappings in database, using fallback");
-      return { ...FALLBACK_PRODUCT_MAPPINGS };
-    }
-
-    logStep("Product mappings loaded from database", { platform, count: Object.keys(mappings).length });
+    logStep("Product mappings ready", { 
+      platform, 
+      totalCount: Object.keys(mappings).length,
+      hasFallback: true 
+    });
   } catch (error) {
-    logStep("Error loading product mappings (using fallback)", { error: String(error) });
-    return { ...FALLBACK_PRODUCT_MAPPINGS };
+    logStep("Error loading product mappings (using fallback only)", { error: String(error) });
+    // mappings already contains fallback, so just continue
   }
 
   return mappings;
