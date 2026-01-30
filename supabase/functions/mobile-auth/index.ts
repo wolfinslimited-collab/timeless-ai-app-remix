@@ -437,9 +437,6 @@ serve(async (req) => {
       
       const publicKey = await jose.importJWK(key, header.alg || "RS256");
       
-      // Get the Google Client ID from secrets or allow any Google audience
-      const googleClientId = Deno.env.get("GOOGLE_CLIENT_ID") || "";
-      
       // Verify with our list of valid Google Client IDs
       const { payload } = await jose.jwtVerify(idToken, publicKey, {
         issuer: ["https://accounts.google.com", "accounts.google.com"],
