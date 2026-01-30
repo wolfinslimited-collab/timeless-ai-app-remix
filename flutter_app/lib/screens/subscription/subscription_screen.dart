@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/credits_provider.dart';
+import '../../providers/iap_provider.dart';
 import '../../services/subscription_service.dart';
 
 class SubscriptionScreen extends StatefulWidget {
@@ -43,12 +44,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     setState(() => _isRestoring = true);
 
     try {
-      // TODO: Integrate with native IAP restore
-      // For iOS: StoreKit restore
-      // For Android: Google Play restore
+      final iapProvider = context.read<IAPProvider>();
+      await iapProvider.restorePurchases();
+      
+      // Wait a moment for the restore to process
       await Future.delayed(const Duration(seconds: 2));
-
+      
+      // Refresh credits after restore
       if (mounted) {
+        await context.read<CreditsProvider>().refresh();
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Purchases restored successfully'),

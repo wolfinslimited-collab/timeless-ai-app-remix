@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Image, Video, Music, Clapperboard, ChevronRight, Zap, Crown, Bell, Play } from "lucide-react";
+import { Image, Video, Music, Clapperboard, ChevronRight, Zap, Infinity, Bell, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -229,26 +229,26 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
         {/* Subtitle - matching Flutter */}
         <p className="text-muted-foreground text-sm mb-6">Create anything with AI</p>
 
-        {/* Quick Actions - matching Flutter 4 column grid */}
+        {/* Quick Actions - matching Flutter 4 column grid exactly */}
         <div className="mb-6">
           <h2 className="text-foreground text-base font-semibold mb-3">Quick Actions</h2>
           <div className="flex justify-around">
-            <QuickAction icon={Image} label="Image" color="bg-blue-500" onClick={() => onNavigate("image")} />
+            <QuickAction icon={Image} label="Image" color="bg-[#3B82F6]" onClick={() => onNavigate("image")} />
             <QuickAction icon={Video} label="Video" color="bg-primary" onClick={() => onNavigate("video")} />
-            <QuickAction icon={Music} label="Music" color="bg-pink-500" onClick={() => onNavigate("audio")} />
-            <QuickAction icon={Clapperboard} label="Cinema" color="bg-amber-500" onClick={() => onNavigate("cinema")} />
+            <QuickAction icon={Music} label="Music" color="bg-[#EC4899]" onClick={() => onNavigate("audio")} />
+            <QuickAction icon={Clapperboard} label="Cinema" color="bg-[#F59E0B]" onClick={() => onNavigate("cinema")} />
           </div>
         </div>
 
-        {/* Pro Banner - only show if not subscribed - matching Flutter */}
+        {/* Pro Banner - only show if not subscribed - matching Flutter exactly */}
         {!hasActiveSubscription && (
           <button 
             onClick={handleProBannerClick}
-            className="w-full bg-gradient-to-br from-primary to-pink-500 rounded-2xl p-4 mb-6"
+            className="w-full bg-gradient-to-br from-primary to-[#EC4899] rounded-2xl p-4 mb-6"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                <Crown className="w-5 h-5 text-white" />
+                <Infinity className="w-5 h-5 text-white" />
               </div>
               <div className="flex-1 text-left">
                 <h3 className="text-white font-semibold text-sm">Upgrade to Pro</h3>
