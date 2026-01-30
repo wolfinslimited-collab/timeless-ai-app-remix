@@ -259,20 +259,6 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
           </button>
         )}
 
-        {/* Trending Styles Banner */}
-        <button 
-          onClick={() => onNavigate("trend")}
-          className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-4 mb-6 text-left"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-white font-semibold text-sm">Trending styles</h3>
-              <p className="text-white/70 text-xs">Ultra-realistic fashion visuals</p>
-            </div>
-            <ChevronRight className="w-5 h-5 text-white" />
-          </div>
-        </button>
-
         {/* Trending Section - fetched from Supabase like Flutter */}
         <div className="mb-6">
           <h2 className="text-foreground text-base font-semibold mb-3">Trending</h2>
