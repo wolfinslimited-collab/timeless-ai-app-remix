@@ -18,6 +18,12 @@ const VALID_APPLE_AUDIENCES = [
   "com.health.timelessApp",  // iOS bundle ID (native Sign In with Apple)
 ];
 
+// Valid audience values for Google tokens (OAuth Client IDs)
+const VALID_GOOGLE_AUDIENCES = [
+  "1012149210327-63j4hf0g83bqlad026c29q574hqdf1ka.apps.googleusercontent.com",  // iOS Client ID
+  "1012149210327-7dgq6ib94d4btrvi1tntm5jhmj4l69cb.apps.googleusercontent.com",  // Web Client ID
+];
+
 const logStep = (step: string, details?: Record<string, unknown>) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[MOBILE-AUTH] ${step}${detailsStr}`);
@@ -434,21 +440,16 @@ serve(async (req) => {
       // Get the Google Client ID from secrets or allow any Google audience
       const googleClientId = Deno.env.get("GOOGLE_CLIENT_ID") || "";
       
-      // deno-lint-ignore no-explicit-any
-      const verifyOptions: any = {
+      // Verify with our list of valid Google Client IDs
+      const { payload } = await jose.jwtVerify(idToken, publicKey, {
         issuer: ["https://accounts.google.com", "accounts.google.com"],
-      };
-      
-      // Only validate audience if we have a specific client ID configured
-      if (googleClientId) {
-        verifyOptions.audience = googleClientId;
-      }
-      
-      const { payload } = await jose.jwtVerify(idToken, publicKey, verifyOptions);
+        audience: VALID_GOOGLE_AUDIENCES,
+      });
       
       logStep("Google token verified", { 
         sub: payload.sub, 
-        email: payload.email 
+        email: payload.email,
+        aud: payload.aud
       });
       
       authResult = await handleProviderAuth(
