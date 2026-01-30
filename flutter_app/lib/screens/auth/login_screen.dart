@@ -70,12 +70,31 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _handleGoogleSignIn() async {
     final authProvider = context.read<AuthProvider>();
-    await authProvider.signInWithGoogle();
+    final success = await authProvider.signInWithGoogle();
+    
+    if (success && mounted) {
+      _navigateAfterAuth(authProvider);
+    }
   }
 
   Future<void> _handleAppleSignIn() async {
     final authProvider = context.read<AuthProvider>();
-    await authProvider.signInWithApple();
+    final success = await authProvider.signInWithApple();
+    
+    if (success && mounted) {
+      _navigateAfterAuth(authProvider);
+    }
+  }
+
+  void _navigateAfterAuth(AuthProvider authProvider) {
+    // Check if user has active subscription
+    final hasSubscription = authProvider.hasActiveSubscription;
+    if (hasSubscription) {
+      context.go('/');
+    } else {
+      // Show upgrade wizard for non-premium users
+      context.go('/upgrade-wizard', extra: true);
+    }
   }
 
   @override
