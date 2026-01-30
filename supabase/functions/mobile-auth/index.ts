@@ -15,11 +15,17 @@ const GOOGLE_KEYS_URL = "https://www.googleapis.com/oauth2/v3/certs";
 
 // Valid audience values for Apple tokens (bundle ID for native iOS)
 const VALID_APPLE_AUDIENCES = [
-  "com.health.timelessApp",  // iOS bundle ID (native Sign In with Apple)
+  "com.health.timelessApp", // iOS bundle ID (native Sign In with Apple)
+];
+
+// Valid audience values for Google tokens (OAuth Client IDs)
+const VALID_GOOGLE_AUDIENCES = [
+  "1012149210327-63j4hf0g83bqlad026c29q574hqdf1ka.apps.googleusercontent.com", // iOS Client ID
+  "1012149210327-7dgq6ib94d4btrvi1tntm5jhmj4l69cb.apps.googleusercontent.com", // Web Client ID
 ];
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : "";
   console.log(`[MOBILE-AUTH] ${step}${detailsStr}`);
 };
 
@@ -34,41 +40,44 @@ async function fetchPublicKeys(url: string): Promise<jose.JWK[]> {
 }
 
 // Verify Apple ID token manually
-async function verifyAppleToken(idToken: string, nonce?: string): Promise<{
+async function verifyAppleToken(
+  idToken: string,
+  nonce?: string,
+): Promise<{
   sub: string;
   email?: string;
   email_verified?: boolean;
   is_private_email?: boolean;
 }> {
   logStep("Verifying Apple token manually");
-  
+
   const header = jose.decodeProtectedHeader(idToken);
   const kid = header.kid;
-  
+
   if (!kid) {
     throw new Error("Token missing key ID (kid) in header");
   }
-  
+
   const keys = await fetchPublicKeys(APPLE_KEYS_URL);
-  const key = keys.find(k => k.kid === kid);
-  
+  const key = keys.find((k) => k.kid === kid);
+
   if (!key) {
     throw new Error(`No matching Apple public key found for kid: ${kid}`);
   }
-  
+
   const publicKey = await jose.importJWK(key, header.alg || "RS256");
-  
+
   const { payload } = await jose.jwtVerify(idToken, publicKey, {
     issuer: "https://appleid.apple.com",
     audience: VALID_APPLE_AUDIENCES,
   });
-  
-  logStep("Apple token verified", { 
-    sub: payload.sub, 
+
+  logStep("Apple token verified", {
+    sub: payload.sub,
     email: payload.email,
-    aud: payload.aud 
+    aud: payload.aud,
   });
-  
+
   // Verify nonce if provided
   if (nonce) {
     const tokenNonce = payload.nonce as string | undefined;
@@ -79,14 +88,14 @@ async function verifyAppleToken(idToken: string, nonce?: string): Promise<{
     const data = encoder.encode(nonce);
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashedNonce = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-    
+    const hashedNonce = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+
     if (tokenNonce !== hashedNonce) {
       throw new Error("Nonce mismatch");
     }
     logStep("Nonce verified");
   }
-  
+
   return {
     sub: payload.sub as string,
     email: payload.email as string | undefined,
@@ -96,7 +105,10 @@ async function verifyAppleToken(idToken: string, nonce?: string): Promise<{
 }
 
 // Verify Firebase ID token (works for Google, Facebook, and other Firebase Auth providers)
-async function verifyFirebaseToken(idToken: string, firebaseProjectId: string): Promise<{
+async function verifyFirebaseToken(
+  idToken: string,
+  firebaseProjectId: string,
+): Promise<{
   sub: string;
   email?: string;
   email_verified?: boolean;
@@ -105,61 +117,62 @@ async function verifyFirebaseToken(idToken: string, firebaseProjectId: string): 
   provider?: string;
 }> {
   logStep("Verifying Firebase token");
-  
+
   const header = jose.decodeProtectedHeader(idToken);
   const kid = header.kid;
-  
+
   if (!kid) {
     throw new Error("Token missing key ID (kid) in header");
   }
-  
+
   // Firebase uses Google's public keys
   const FIREBASE_KEYS_URL = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com";
-  
+
   // Fetch Firebase/Google public certificates
   const response = await fetch(FIREBASE_KEYS_URL);
   if (!response.ok) {
     throw new Error(`Failed to fetch Firebase public keys: ${response.status}`);
   }
   const certs = await response.json();
-  
+
   const certPem = certs[kid];
   if (!certPem) {
     throw new Error(`No matching Firebase public key found for kid: ${kid}`);
   }
-  
+
   // Import the certificate
   const publicKey = await jose.importX509(certPem, "RS256");
-  
+
   // Verify the token
   const { payload } = await jose.jwtVerify(idToken, publicKey, {
     issuer: `https://securetoken.google.com/${firebaseProjectId}`,
     audience: firebaseProjectId,
   });
-  
+
   // Verify expiration and issued-at
   const now = Math.floor(Date.now() / 1000);
   if (payload.exp && payload.exp < now) {
     throw new Error("Token has expired");
   }
-  if (payload.iat && payload.iat > now + 60) { // Allow 60s clock skew
+  if (payload.iat && payload.iat > now + 60) {
+    // Allow 60s clock skew
     throw new Error("Token issued in the future");
   }
   if (payload.auth_time && (payload.auth_time as number) > now + 60) {
     throw new Error("Auth time is in the future");
   }
-  
+
   // Get the sign-in provider from firebase identities
   // deno-lint-ignore no-explicit-any
   const firebase = payload.firebase as any;
   const signInProvider = firebase?.sign_in_provider || "unknown";
-  
-  logStep("Firebase token verified", { 
-    sub: payload.sub, 
+
+  logStep("Firebase token verified", {
+    sub: payload.sub,
     email: payload.email,
-    provider: signInProvider
+    provider: signInProvider,
   });
-  
+
   return {
     sub: payload.sub as string,
     email: payload.email as string | undefined,
@@ -184,7 +197,7 @@ async function handleProviderAuth(
     picture?: string;
     provider: string;
   },
-  additionalName?: string
+  additionalName?: string,
 ): Promise<{
   userId: string;
   userEmail?: string;
@@ -199,44 +212,41 @@ async function handleProviderAuth(
 }> {
   const { sub, email, name, picture, provider } = providerPayload;
   const displayName = name || additionalName;
-  
+
   logStep("Looking up user", { provider, sub, email });
-  
+
   // Find existing user by provider identity or email
   const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-  
+
   if (listError) {
     throw new Error(`Failed to list users: ${listError.message}`);
   }
-  
+
   // Find user with matching provider identity
   // deno-lint-ignore no-explicit-any
-  let existingUser = existingUsers.users.find((user: any) => 
-    // deno-lint-ignore no-explicit-any
-    user.identities?.some((identity: any) => 
-      identity.provider === provider && identity.id === sub
-    ) ||
-    // Also match by app_metadata provider_id
-    (user.app_metadata?.provider === provider && user.user_metadata?.provider_id === sub)
+  let existingUser = existingUsers.users.find(
+    (user: any) =>
+      // deno-lint-ignore no-explicit-any
+      user.identities?.some((identity: any) => identity.provider === provider && identity.id === sub) ||
+      // Also match by app_metadata provider_id
+      (user.app_metadata?.provider === provider && user.user_metadata?.provider_id === sub),
   );
-  
+
   // Check by email if no identity match
   if (!existingUser && email) {
     // deno-lint-ignore no-explicit-any
-    existingUser = existingUsers.users.find((user: any) => 
-      user.email?.toLowerCase() === email.toLowerCase()
-    );
+    existingUser = existingUsers.users.find((user: any) => user.email?.toLowerCase() === email.toLowerCase());
   }
-  
+
   let userId: string;
   let userEmail: string | undefined;
   let isNewUser = false;
-  
+
   if (existingUser) {
     logStep("Found existing user", { userId: existingUser.id });
     userId = existingUser.id;
     userEmail = existingUser.email;
-    
+
     // Update user metadata if needed
     if (displayName || picture) {
       await supabaseAdmin.auth.admin.updateUserById(userId, {
@@ -250,7 +260,7 @@ async function handleProviderAuth(
   } else {
     // Create new user
     logStep("Creating new user", { email, provider });
-    
+
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email: email || `${provider}_${sub.substring(0, 20)}@placeholder.local`,
       email_confirm: true,
@@ -265,51 +275,51 @@ async function handleProviderAuth(
         providers: [provider],
       },
     });
-    
+
     if (createError) {
       throw new Error(`Failed to create user: ${createError.message}`);
     }
-    
+
     userId = newUser.user.id;
     userEmail = newUser.user.email;
     isNewUser = true;
     logStep("Created new user", { userId });
   }
-  
+
   // Generate session using temporary password approach
   logStep("Generating session for user", { userId });
-  
+
   const tempPassword = crypto.randomUUID() + crypto.randomUUID();
-  const signInEmail = userEmail || `${provider}_${userId.replace(/-/g, '')}@placeholder.local`;
-  
+  const signInEmail = userEmail || `${provider}_${userId.replace(/-/g, "")}@placeholder.local`;
+
   // Set temp password
   await supabaseAdmin.auth.admin.updateUserById(userId, {
     email: signInEmail,
     email_confirm: true,
     password: tempPassword,
   });
-  
+
   // Sign in with temp password to get session
   const anonClient = createClient(supabaseUrl, anonKey, {
-    auth: { persistSession: false }
+    auth: { persistSession: false },
   });
-  
+
   const { data: sessionData, error: sessionError } = await anonClient.auth.signInWithPassword({
     email: signInEmail,
     password: tempPassword,
   });
-  
+
   if (sessionError || !sessionData.session) {
-    throw new Error(`Failed to create session: ${sessionError?.message || 'No session returned'}`);
+    throw new Error(`Failed to create session: ${sessionError?.message || "No session returned"}`);
   }
-  
+
   logStep("Session created successfully", { userId });
-  
+
   // Clear the temporary password
   await supabaseAdmin.auth.admin.updateUserById(userId, {
     password: crypto.randomUUID() + crypto.randomUUID() + crypto.randomUUID(),
   });
-  
+
   return {
     userId,
     userEmail,
@@ -332,14 +342,14 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  
+
   // Firebase project ID for token verification
-  const firebaseProjectId = Deno.env.get("FIREBASE_PROJECT_ID") || "";
+  const firebaseProjectId = Deno.env.get("FIREBASE_PROJECT_ID") || "timeless-983d7";
 
   try {
     const body = await req.json();
     const { provider, idToken, name, deviceId, nonce, source } = body;
-    
+
     // source can be: "native" (native SDKs), "firebase" (Firebase Auth)
     const authSource = source || "native";
 
@@ -356,7 +366,7 @@ serve(async (req) => {
 
     // Create admin client for user operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: { persistSession: false }
+      auth: { persistSession: false },
     });
 
     let authResult: {
@@ -378,9 +388,9 @@ serve(async (req) => {
       if (!firebaseProjectId) {
         throw new Error("Firebase Project ID not configured. Add FIREBASE_PROJECT_ID to secrets.");
       }
-      
+
       const firebasePayload = await verifyFirebaseToken(idToken, firebaseProjectId);
-      
+
       authResult = await handleProviderAuth(
         supabaseAdmin,
         supabaseUrl,
@@ -393,12 +403,12 @@ serve(async (req) => {
           picture: firebasePayload.picture,
           provider: provider, // Use the provider passed in (google, facebook, etc.)
         },
-        name
+        name,
       );
     } else if (provider === "apple") {
       // Native Apple Sign In (iOS)
       const applePayload = await verifyAppleToken(idToken, nonce);
-      
+
       authResult = await handleProviderAuth(
         supabaseAdmin,
         supabaseUrl,
@@ -409,48 +419,40 @@ serve(async (req) => {
           email_verified: applePayload.email_verified,
           provider: "apple",
         },
-        name
+        name,
       );
     } else if (provider === "google") {
       // Native Google Sign In (Android) - verify Google ID token directly
       logStep("Verifying native Google token");
-      
+
       const header = jose.decodeProtectedHeader(idToken);
       const kid = header.kid;
-      
+
       if (!kid) {
         throw new Error("Token missing key ID (kid) in header");
       }
-      
+
       const keys = await fetchPublicKeys(GOOGLE_KEYS_URL);
-      const key = keys.find(k => k.kid === kid);
-      
+      const key = keys.find((k) => k.kid === kid);
+
       if (!key) {
         throw new Error(`No matching Google public key found for kid: ${kid}`);
       }
-      
+
       const publicKey = await jose.importJWK(key, header.alg || "RS256");
-      
-      // Get the Google Client ID from secrets or allow any Google audience
-      const googleClientId = Deno.env.get("GOOGLE_CLIENT_ID") || "";
-      
-      // deno-lint-ignore no-explicit-any
-      const verifyOptions: any = {
+
+      // Verify with our list of valid Google Client IDs
+      const { payload } = await jose.jwtVerify(idToken, publicKey, {
         issuer: ["https://accounts.google.com", "accounts.google.com"],
-      };
-      
-      // Only validate audience if we have a specific client ID configured
-      if (googleClientId) {
-        verifyOptions.audience = googleClientId;
-      }
-      
-      const { payload } = await jose.jwtVerify(idToken, publicKey, verifyOptions);
-      
-      logStep("Google token verified", { 
-        sub: payload.sub, 
-        email: payload.email 
+        audience: VALID_GOOGLE_AUDIENCES,
       });
-      
+
+      logStep("Google token verified", {
+        sub: payload.sub,
+        email: payload.email,
+        aud: payload.aud,
+      });
+
       authResult = await handleProviderAuth(
         supabaseAdmin,
         supabaseUrl,
@@ -463,7 +465,7 @@ serve(async (req) => {
           picture: payload.picture as string | undefined,
           provider: "google",
         },
-        name
+        name,
       );
     } else {
       throw new Error(`Provider ${provider} requires Firebase authentication. Set source: "firebase"`);
@@ -486,10 +488,7 @@ serve(async (req) => {
         updates.display_name = authResult.userName;
       }
       if (Object.keys(updates).length > 0) {
-        await supabaseAdmin
-          .from("profiles")
-          .update(updates)
-          .eq("user_id", authResult.userId);
+        await supabaseAdmin.from("profiles").update(updates).eq("user_id", authResult.userId);
         logStep("Updated profile", updates);
       }
     }
@@ -507,27 +506,25 @@ serve(async (req) => {
           name: authResult.userName || name,
         },
         session: authResult.session,
-        profile: profile ? {
-          credits: profile.credits,
-          plan: profile.plan,
-        } : null,
+        profile: profile
+          ? {
+              credits: profile.credits,
+              plan: profile.plan,
+            }
+          : null,
         isNewUser: authResult.isNewUser || false,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
-      }
+      },
     );
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
-    return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      }
-    );
+    return new Response(JSON.stringify({ success: false, error: errorMessage }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
+    });
   }
 });
