@@ -110,9 +110,6 @@ class IAPService {
         return false;
       }
 
-      // Note: enablePendingPurchases() is no longer needed as Google Play
-      // now requires pending purchases support by default
-
       // Listen to purchase updates
       _subscription = _iap.purchaseStream.listen(
         _handlePurchaseUpdates,
@@ -123,6 +120,9 @@ class IAPService {
         },
       );
 
+      // Complete any pending transactions from previous sessions
+      await _completePendingTransactions();
+
       // Load products
       await loadProducts();
 
@@ -132,6 +132,24 @@ class IAPService {
       debugPrint('[IAP] Initialization error: $e');
       onError?.call('Failed to initialize purchases: $e');
       return false;
+    }
+  }
+
+  /// Complete any pending transactions left over from previous sessions
+  Future<void> _completePendingTransactions() async {
+    if (Platform.isIOS) {
+      try {
+        final iosPlatformAddition = _iap.getPlatformAddition<InAppPurchaseStoreKitPlatformAddition>();
+        final transactions = await SKPaymentQueueWrapper().transactions();
+        debugPrint('[IAP] Found ${transactions.length} pending iOS transactions');
+        
+        for (final transaction in transactions) {
+          debugPrint('[IAP] Completing pending transaction: ${transaction.transactionIdentifier} - ${transaction.payment.productIdentifier}');
+          await SKPaymentQueueWrapper().finishTransaction(transaction);
+        }
+      } catch (e) {
+        debugPrint('[IAP] Error completing pending transactions: $e');
+      }
     }
   }
 
