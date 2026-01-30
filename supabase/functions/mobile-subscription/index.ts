@@ -12,23 +12,17 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
 };
 
 // Product ID mappings for iOS and Android
+// IMPORTANT: These MUST match EXACTLY the product IDs configured in App Store Connect / Google Play Console
 const PRODUCT_MAPPINGS: Record<string, { plan: string; credits: number; type: 'subscription' | 'consumable' }> = {
-  // iOS Product IDs
-  "timeless_premium_monthly": { plan: "premium", credits: 500, type: "subscription" },
-  "timeless_premium_yearly": { plan: "premium", credits: 5000, type: "subscription" },
-  "timeless_premium_plus_monthly": { plan: "premium_plus", credits: 1000, type: "subscription" },
-  "timeless_premium_plus_yearly": { plan: "premium_plus", credits: 7500, type: "subscription" },
-  "timeless_credits_350": { plan: "free", credits: 350, type: "consumable" },
-  "timeless_credits_700": { plan: "free", credits: 700, type: "consumable" },
-  "timeless_credits_1400": { plan: "free", credits: 1400, type: "consumable" },
-  // Android Product IDs (same structure)
-  "timeless.premium.monthly": { plan: "premium", credits: 500, type: "subscription" },
-  "timeless.premium.yearly": { plan: "premium", credits: 5000, type: "subscription" },
-  "timeless.premium_plus.monthly": { plan: "premium_plus", credits: 1000, type: "subscription" },
-  "timeless.premium_plus.yearly": { plan: "premium_plus", credits: 7500, type: "subscription" },
-  "timeless.credits.350": { plan: "free", credits: 350, type: "consumable" },
-  "timeless.credits.700": { plan: "free", credits: 700, type: "consumable" },
-  "timeless.credits.1400": { plan: "free", credits: 1400, type: "consumable" },
+  // iOS Product IDs (from App Store Connect)
+  "com.timeless.premium.monthly": { plan: "premium", credits: -1, type: "subscription" }, // -1 = unlimited
+  "com.timeless.premium.yearly": { plan: "premium", credits: -1, type: "subscription" },
+  "credits_1500_ios": { plan: "free", credits: 1500, type: "consumable" },
+  
+  // Android Product IDs (from Google Play Console)
+  "timeless.premium.monthly": { plan: "premium", credits: -1, type: "subscription" },
+  "timeless.premium.yearly": { plan: "premium", credits: -1, type: "subscription" },
+  "credits_1500_android": { plan: "free", credits: 1500, type: "consumable" },
 };
 
 // Apple App Store Receipt Verification

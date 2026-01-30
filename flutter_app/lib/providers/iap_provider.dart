@@ -30,26 +30,38 @@ class IAPProvider extends ChangeNotifier {
 
   void _setupCallbacks() {
     _iapService.onError = (message) {
+      debugPrint('[IAPProvider] Error received: $message');
       _error = message;
       _isPurchasing = false;
       notifyListeners();
     };
 
     _iapService.onPurchaseSuccess = (productId, credits) {
-      _successMessage = 'Purchase successful! $credits credits added.';
+      debugPrint('[IAPProvider] Purchase success: $productId, credits: $credits');
+      _successMessage = credits > 0 
+          ? 'Purchase successful! $credits credits added.'
+          : 'Purchase successful! Your subscription is now active.';
       _isPurchasing = false;
       notifyListeners();
+      
+      // Call the completion callback to trigger credits refresh
+      debugPrint('[IAPProvider] Calling onPurchaseComplete callback');
       onPurchaseComplete?.call();
     };
 
     _iapService.onPurchaseRestored = () {
+      debugPrint('[IAPProvider] Purchases restored');
       _successMessage = 'Purchases restored successfully!';
       _isPurchasing = false;
       notifyListeners();
+      
+      // Call the restore callback to trigger credits refresh
+      debugPrint('[IAPProvider] Calling onRestoreComplete callback');
       onRestoreComplete?.call();
     };
 
     _iapService.onPurchasePending = (isPending) {
+      debugPrint('[IAPProvider] Purchase pending: $isPending');
       _isPurchasing = isPending;
       notifyListeners();
     };

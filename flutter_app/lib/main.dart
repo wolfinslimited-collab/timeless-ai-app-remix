@@ -20,6 +20,9 @@ import 'services/facebook_service.dart';
 import 'services/audio_player_service.dart';
 import 'services/push_notification_service.dart';
 
+// Global navigator key for showing snackbars from anywhere
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -67,12 +70,71 @@ class TimelessAIApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => FavoritesProvider()),
         ChangeNotifierProvider(create: (_) => AudioPlayerService()),
       ],
-      child: MaterialApp.router(
-        title: 'Timeless AI',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.darkTheme,
-        routerConfig: appRouter,
-      ),
+      child: const _IAPWiredApp(),
+    );
+  }
+}
+
+/// Widget that wires IAP callbacks to credits provider
+class _IAPWiredApp extends StatefulWidget {
+  const _IAPWiredApp();
+
+  @override
+  State<_IAPWiredApp> createState() => _IAPWiredAppState();
+}
+
+class _IAPWiredAppState extends State<_IAPWiredApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Wire IAP callbacks to refresh credits after purchase/restore
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupIAPCallbacks();
+    });
+  }
+
+  void _setupIAPCallbacks() {
+    final iapProvider = context.read<IAPProvider>();
+    final creditsProvider = context.read<CreditsProvider>();
+
+    // When purchase completes successfully, refresh credits
+    iapProvider.onPurchaseComplete = () {
+      debugPrint('[App] IAP purchase complete - refreshing credits');
+      creditsProvider.refresh();
+      
+      // Show success toast using global key
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text('🎉 Purchase successful! Your account has been upgraded.'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    };
+
+    // When restore completes, refresh credits
+    iapProvider.onRestoreComplete = () {
+      debugPrint('[App] IAP restore complete - refreshing credits');
+      creditsProvider.refresh();
+      
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text('✅ Purchases restored successfully!'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      scaffoldMessengerKey: scaffoldMessengerKey,
+      title: 'Timeless AI',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.darkTheme,
+      routerConfig: appRouter,
     );
   }
 }
