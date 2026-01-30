@@ -12,8 +12,18 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
 };
 
 // Product ID mappings for iOS and Android
+// IMPORTANT: Include ALL product IDs that may exist in pending transactions
 const PRODUCT_MAPPINGS: Record<string, { plan: string; credits: number; type: 'subscription' | 'consumable' }> = {
-  // iOS Product IDs
+  // === CURRENT iOS Product IDs (from App Store Connect) ===
+  "com.timeless.premium.monthly": { plan: "premium", credits: 0, type: "subscription" },
+  "com.timeless.premium.yearly": { plan: "premium", credits: 0, type: "subscription" },
+  "credits_1500_ios": { plan: "free", credits: 1500, type: "consumable" },
+  
+  // === LEGACY iOS Product IDs (for pending transactions cleanup) ===
+  "basic_weekly": { plan: "premium", credits: 0, type: "subscription" },
+  "basic_monthly": { plan: "premium", credits: 0, type: "subscription" },
+  "basic_monthly_renew": { plan: "premium", credits: 0, type: "subscription" },
+  "basic_yearly": { plan: "premium", credits: 0, type: "subscription" },
   "timeless_premium_monthly": { plan: "premium", credits: 500, type: "subscription" },
   "timeless_premium_yearly": { plan: "premium", credits: 5000, type: "subscription" },
   "timeless_premium_plus_monthly": { plan: "premium_plus", credits: 1000, type: "subscription" },
@@ -21,7 +31,8 @@ const PRODUCT_MAPPINGS: Record<string, { plan: string; credits: number; type: 's
   "timeless_credits_350": { plan: "free", credits: 350, type: "consumable" },
   "timeless_credits_700": { plan: "free", credits: 700, type: "consumable" },
   "timeless_credits_1400": { plan: "free", credits: 1400, type: "consumable" },
-  // Android Product IDs (same structure)
+  
+  // === Android Product IDs ===
   "timeless.premium.monthly": { plan: "premium", credits: 500, type: "subscription" },
   "timeless.premium.yearly": { plan: "premium", credits: 5000, type: "subscription" },
   "timeless.premium_plus.monthly": { plan: "premium_plus", credits: 1000, type: "subscription" },
@@ -29,6 +40,7 @@ const PRODUCT_MAPPINGS: Record<string, { plan: string; credits: number; type: 's
   "timeless.credits.350": { plan: "free", credits: 350, type: "consumable" },
   "timeless.credits.700": { plan: "free", credits: 700, type: "consumable" },
   "timeless.credits.1400": { plan: "free", credits: 1400, type: "consumable" },
+  "credits_1500_android": { plan: "free", credits: 1500, type: "consumable" },
 };
 
 // Apple App Store Receipt Verification
