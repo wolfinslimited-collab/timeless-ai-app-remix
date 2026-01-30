@@ -12,7 +12,6 @@ import Pricing from "./pages/Pricing";
 import Subscription from "./pages/Subscription";
 import AIApps from "./pages/AIApps";
 import MobilePreview from "./pages/MobilePreview";
-import Trend from "./pages/Trend";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,7 +33,6 @@ const App = () => (
             <Route path="/subscription" element={<Subscription />} />
             <Route path="/ai-apps" element={<AIApps />} />
             <Route path="/ai-apps/:appId" element={<AIApps />} />
-            <Route path="/trend" element={<Trend />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
