@@ -136,21 +136,49 @@ class IAPService {
   }
 
   /// Complete any pending transactions left over from previous sessions
+  /// This MUST run before any new purchase to avoid storekit_duplicate_product_object errors
   Future<void> _completePendingTransactions() async {
     if (Platform.isIOS) {
       try {
-        final iosPlatformAddition = _iap.getPlatformAddition<InAppPurchaseStoreKitPlatformAddition>();
-        final transactions = await SKPaymentQueueWrapper().transactions();
-        debugPrint('[IAP] Found ${transactions.length} pending iOS transactions');
+        final wrapper = SKPaymentQueueWrapper();
+        var transactions = await wrapper.transactions();
+        debugPrint('[IAP] Found ${transactions.length} pending iOS transactions to clear');
         
-        for (final transaction in transactions) {
-          debugPrint('[IAP] Completing pending transaction: ${transaction.transactionIdentifier} - ${transaction.payment.productIdentifier}');
-          await SKPaymentQueueWrapper().finishTransaction(transaction);
+        // Keep trying until all transactions are finished
+        int attempts = 0;
+        while (transactions.isNotEmpty && attempts < 5) {
+          for (final transaction in transactions) {
+            debugPrint('[IAP] Finishing transaction: ${transaction.transactionIdentifier} - ${transaction.payment.productIdentifier} - state: ${transaction.transactionState}');
+            try {
+              await wrapper.finishTransaction(transaction);
+            } catch (e) {
+              debugPrint('[IAP] Error finishing individual transaction: $e');
+            }
+          }
+          
+          // Small delay to let the queue update
+          await Future.delayed(const Duration(milliseconds: 200));
+          
+          // Check if there are still pending transactions
+          transactions = await wrapper.transactions();
+          attempts++;
+          debugPrint('[IAP] After attempt $attempts: ${transactions.length} transactions remaining');
+        }
+        
+        if (transactions.isEmpty) {
+          debugPrint('[IAP] ✅ All pending transactions cleared');
+        } else {
+          debugPrint('[IAP] ⚠️ Some transactions still pending after $attempts attempts');
         }
       } catch (e) {
         debugPrint('[IAP] Error completing pending transactions: $e');
       }
     }
+  }
+  
+  /// Force clear all pending transactions - call before initiating a purchase
+  Future<void> clearPendingTransactions() async {
+    await _completePendingTransactions();
   }
 
   /// Load available products from the store
@@ -218,6 +246,10 @@ class IAPService {
 
     try {
       debugPrint('[IAP] Initiating purchase for: $productId');
+      
+      // CRITICAL: Clear any pending transactions BEFORE starting a new purchase
+      // This prevents storekit_duplicate_product_object errors
+      await _completePendingTransactions();
 
       final isSubscription = IAPProducts.subscriptionIds.contains(productId);
       final purchaseParam = PurchaseParam(productDetails: product);
