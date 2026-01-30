@@ -17,7 +17,39 @@ interface ProductMapping {
   type: "subscription" | "consumable";
 }
 
-// Fetch product mappings dynamically from database
+// Hardcoded fallback product mappings (used when database tables don't exist)
+// IMPORTANT: Include ALL product IDs that may exist in pending transactions
+const FALLBACK_PRODUCT_MAPPINGS: Record<string, ProductMapping> = {
+  // === CURRENT iOS Product IDs (from App Store Connect) ===
+  "com.timeless.premium.monthly": { plan: "premium", credits: 0, type: "subscription" },
+  "com.timeless.premium.yearly": { plan: "premium", credits: 0, type: "subscription" },
+  "credits_1500_ios": { plan: "free", credits: 1500, type: "consumable" },
+  
+  // === LEGACY iOS Product IDs (for pending transactions cleanup) ===
+  "basic_weekly": { plan: "premium", credits: 0, type: "subscription" },
+  "basic_monthly": { plan: "premium", credits: 0, type: "subscription" },
+  "basic_monthly_renew": { plan: "premium", credits: 0, type: "subscription" },
+  "basic_yearly": { plan: "premium", credits: 0, type: "subscription" },
+  "timeless_premium_monthly": { plan: "premium", credits: 500, type: "subscription" },
+  "timeless_premium_yearly": { plan: "premium", credits: 5000, type: "subscription" },
+  "timeless_premium_plus_monthly": { plan: "premium_plus", credits: 1000, type: "subscription" },
+  "timeless_premium_plus_yearly": { plan: "premium_plus", credits: 7500, type: "subscription" },
+  "timeless_credits_350": { plan: "free", credits: 350, type: "consumable" },
+  "timeless_credits_700": { plan: "free", credits: 700, type: "consumable" },
+  "timeless_credits_1400": { plan: "free", credits: 1400, type: "consumable" },
+  
+  // === Android Product IDs ===
+  "timeless.premium.monthly": { plan: "premium", credits: 500, type: "subscription" },
+  "timeless.premium.yearly": { plan: "premium", credits: 5000, type: "subscription" },
+  "timeless.premium_plus.monthly": { plan: "premium_plus", credits: 1000, type: "subscription" },
+  "timeless.premium_plus.yearly": { plan: "premium_plus", credits: 7500, type: "subscription" },
+  "timeless.credits.350": { plan: "free", credits: 350, type: "consumable" },
+  "timeless.credits.700": { plan: "free", credits: 700, type: "consumable" },
+  "timeless.credits.1400": { plan: "free", credits: 1400, type: "consumable" },
+  "credits_1500_android": { plan: "free", credits: 1500, type: "consumable" },
+};
+
+// Fetch product mappings dynamically from database, with fallback to hardcoded mappings
 async function getProductMappings(supabase: any, platform: "ios" | "android"): Promise<Record<string, ProductMapping>> {
   const mappings: Record<string, ProductMapping> = {};
   const productIdColumn = platform === "ios" ? "apple_product_id" : "android_product_id";
@@ -30,7 +62,9 @@ async function getProductMappings(supabase: any, platform: "ios" | "android"): P
       .eq("is_active", true);
 
     if (plansError) {
-      logStep("Error fetching subscription plans", { error: plansError.message });
+      logStep("Error fetching subscription plans (using fallback)", { error: plansError.message });
+      // Return fallback mappings if table doesn't exist
+      return { ...FALLBACK_PRODUCT_MAPPINGS };
     } else if (plans) {
       for (const plan of plans) {
         const productId = plan[productIdColumn];
@@ -57,7 +91,9 @@ async function getProductMappings(supabase: any, platform: "ios" | "android"): P
       .eq("is_active", true);
 
     if (packagesError) {
-      logStep("Error fetching credit packages", { error: packagesError.message });
+      logStep("Error fetching credit packages (using fallback)", { error: packagesError.message });
+      // Return fallback mappings if table doesn't exist
+      return { ...FALLBACK_PRODUCT_MAPPINGS };
     } else if (packages) {
       for (const pkg of packages) {
         const productId = pkg[productIdColumn];
@@ -71,9 +107,16 @@ async function getProductMappings(supabase: any, platform: "ios" | "android"): P
       }
     }
 
-    logStep("Product mappings loaded", { platform, count: Object.keys(mappings).length });
+    // If no mappings found from database, use fallback
+    if (Object.keys(mappings).length === 0) {
+      logStep("No product mappings in database, using fallback");
+      return { ...FALLBACK_PRODUCT_MAPPINGS };
+    }
+
+    logStep("Product mappings loaded from database", { platform, count: Object.keys(mappings).length });
   } catch (error) {
-    logStep("Error loading product mappings", { error: String(error) });
+    logStep("Error loading product mappings (using fallback)", { error: String(error) });
+    return { ...FALLBACK_PRODUCT_MAPPINGS };
   }
 
   return mappings;
