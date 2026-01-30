@@ -80,21 +80,18 @@ class NativeAuthService {
 
       // Extract session data from response
       final sessionData = responseData['session'] as Map<String, dynamic>;
+      // ignore: unused_local_variable
       final userData = responseData['user'] as Map<String, dynamic>;
 
-      // Set the session in Supabase client
-      final session =
-          await _supabase.auth.setSession(sessionData['access_token']);
+      final accessToken = sessionData['access_token'] as String;
+      final refreshToken = sessionData['refresh_token'] as String;
+
+      // Set the session in Supabase client using the refresh token
+      // The setSession method requires the refresh_token to establish a valid session
+      final session = await _supabase.auth.setSession(refreshToken);
 
       if (session.session == null) {
-        // If setSession didn't work, try to recover the session
-        await _supabase.auth.recoverSession(
-          jsonEncode({
-            'access_token': sessionData['access_token'],
-            'refresh_token': sessionData['refresh_token'],
-            'expires_at': sessionData['expires_at'],
-          }),
-        );
+        throw Exception('Failed to set session with refresh token');
       }
 
       // Return the current session
