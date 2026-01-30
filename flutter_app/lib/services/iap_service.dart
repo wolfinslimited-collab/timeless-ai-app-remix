@@ -9,73 +9,57 @@ import 'tiktok_service.dart';
 import 'facebook_service.dart';
 
 /// Product IDs for subscriptions and consumables
+/// IMPORTANT: These MUST match EXACTLY the product IDs in App Store Connect / Google Play Console
 class IAPProducts {
-  // iOS Product IDs
-  static const String premiumMonthlyIOS = 'timeless_premium_monthly';
-  static const String premiumYearlyIOS = 'timeless_premium_yearly';
-  static const String premiumPlusMonthlyIOS = 'timeless_premium_plus_monthly';
-  static const String premiumPlusYearlyIOS = 'timeless_premium_plus_yearly';
-  static const String credits350IOS = 'timeless_credits_350';
-  static const String credits700IOS = 'timeless_credits_700';
-  static const String credits1400IOS = 'timeless_credits_1400';
+  // iOS Product IDs (from App Store Connect)
+  static const String premiumMonthlyIOS = 'com.timeless.premium.monthly';
+  static const String premiumYearlyIOS = 'com.timeless.premium.yearly';
+  static const String credits1500IOS = 'credits_1500_ios';
 
-  // Android Product IDs
+  // Android Product IDs (from Google Play Console)
   static const String premiumMonthlyAndroid = 'timeless.premium.monthly';
   static const String premiumYearlyAndroid = 'timeless.premium.yearly';
-  static const String premiumPlusMonthlyAndroid =
-      'timeless.premium_plus.monthly';
-  static const String premiumPlusYearlyAndroid = 'timeless.premium_plus.yearly';
-  static const String credits350Android = 'timeless.credits.350';
-  static const String credits700Android = 'timeless.credits.700';
-  static const String credits1400Android = 'timeless.credits.1400';
+  static const String credits1500Android = 'credits_1500_android';
 
+  /// Returns all product IDs to query from the store
+  /// This is used on initialization to load all available products
   static Set<String> get allProductIds {
     if (Platform.isIOS) {
       return {
         premiumMonthlyIOS,
         premiumYearlyIOS,
-        premiumPlusMonthlyIOS,
-        premiumPlusYearlyIOS,
-        credits350IOS,
-        credits700IOS,
-        credits1400IOS,
+        credits1500IOS,
       };
     } else {
       return {
         premiumMonthlyAndroid,
         premiumYearlyAndroid,
-        premiumPlusMonthlyAndroid,
-        premiumPlusYearlyAndroid,
-        credits350Android,
-        credits700Android,
-        credits1400Android,
+        credits1500Android,
       };
     }
   }
 
+  /// Subscription product IDs (auto-renewable)
   static Set<String> get subscriptionIds {
     if (Platform.isIOS) {
       return {
         premiumMonthlyIOS,
         premiumYearlyIOS,
-        premiumPlusMonthlyIOS,
-        premiumPlusYearlyIOS,
       };
     } else {
       return {
         premiumMonthlyAndroid,
         premiumYearlyAndroid,
-        premiumPlusMonthlyAndroid,
-        premiumPlusYearlyAndroid,
       };
     }
   }
 
+  /// Consumable product IDs (credit packs)
   static Set<String> get consumableIds {
     if (Platform.isIOS) {
-      return {credits350IOS, credits700IOS, credits1400IOS};
+      return {credits1500IOS};
     } else {
-      return {credits350Android, credits700Android, credits1400Android};
+      return {credits1500Android};
     }
   }
 
@@ -85,11 +69,8 @@ class IAPProducts {
   static String getPremiumYearly() =>
       Platform.isIOS ? premiumYearlyIOS : premiumYearlyAndroid;
 
-  static String getPremiumPlusMonthly() =>
-      Platform.isIOS ? premiumPlusMonthlyIOS : premiumPlusMonthlyAndroid;
-
-  static String getPremiumPlusYearly() =>
-      Platform.isIOS ? premiumPlusYearlyIOS : premiumPlusYearlyAndroid;
+  static String getCredits1500() =>
+      Platform.isIOS ? credits1500IOS : credits1500Android;
 }
 
 /// In-App Purchase Service
@@ -156,22 +137,38 @@ class IAPService {
 
   /// Load available products from the store
   Future<void> loadProducts() async {
-    if (!_isAvailable) return;
+    if (!_isAvailable) {
+      debugPrint('[IAP] Store not available, skipping product load');
+      return;
+    }
 
     try {
-      final response =
-          await _iap.queryProductDetails(IAPProducts.allProductIds);
+      final productIds = IAPProducts.allProductIds;
+      debugPrint('[IAP] Querying products: $productIds');
+      
+      final response = await _iap.queryProductDetails(productIds);
 
       if (response.notFoundIDs.isNotEmpty) {
-        debugPrint('[IAP] Products not found: ${response.notFoundIDs}');
+        debugPrint('[IAP] ⚠️ Products NOT FOUND: ${response.notFoundIDs}');
+        debugPrint('[IAP] ⚠️ Make sure these product IDs exist in App Store Connect / Google Play Console');
+        debugPrint('[IAP] ⚠️ Common causes:');
+        debugPrint('[IAP]   1. Product ID mismatch (case-sensitive)');
+        debugPrint('[IAP]   2. Product status is Draft (must be Ready to Submit or Approved)');
+        debugPrint('[IAP]   3. Paid Apps Agreement not signed');
+        debugPrint('[IAP]   4. Banking/Tax info not complete');
+        debugPrint('[IAP]   5. No build uploaded to App Store Connect');
+        debugPrint('[IAP]   6. Products created <30 mins ago (propagation delay)');
       }
 
       _products = response.productDetails;
-      debugPrint('[IAP] Loaded ${_products.length} products');
+      debugPrint('[IAP] ✅ Loaded ${_products.length} products successfully');
 
       for (final product in _products) {
-        debugPrint(
-            '[IAP] Product: ${product.id} - ${product.title} - ${product.price}');
+        debugPrint('[IAP] Product: ${product.id} - ${product.title} - ${product.price}');
+      }
+
+      if (_products.isEmpty && response.notFoundIDs.isNotEmpty) {
+        onError?.call('No products available. Please check App Store Connect configuration.');
       }
     } catch (e) {
       debugPrint('[IAP] Error loading products: $e');
