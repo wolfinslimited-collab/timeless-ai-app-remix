@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../core/theme.dart';
 
 /// Shows a modal bottom sheet for adding credits or subscribing.
-/// 
+///
 /// This dialog is shown when a user tries to perform an action but doesn't
 /// have enough credits. It offers:
 /// - Subscribe to Pro (unlimited generations)
@@ -37,85 +38,96 @@ class AddCreditsDialogContent extends StatelessWidget {
     required this.requiredCredits,
   });
 
-  int get creditsNeeded => requiredCredits > currentCredits 
-      ? requiredCredits - currentCredits 
-      : 0;
+  int get creditsNeeded =>
+      requiredCredits > currentCredits ? requiredCredits - currentCredits : 0;
 
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom + 24;
     return Padding(
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 20,
-        bottom: MediaQuery.of(context).padding.bottom + 24,
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0).copyWith(
+        bottom: bottomPadding,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Handle bar
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppTheme.muted.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(2),
+          // Handle bar (centered)
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTheme.muted.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Header: icon + title + description (centered)
+          Center(
+            child: Column(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppTheme.secondary,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AppTheme.border.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: PhosphorIcon(
+                    PhosphorIconsRegular.coins,
+                    size: 26,
+                    color: AppTheme.mutedForeground,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Add Credits to Continue',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.foreground,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    creditsNeeded > 0
+                        ? 'You need $creditsNeeded more credits for this generation.'
+                        : 'Choose a credit package or go unlimited with Pro.',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.muted,
+                      height: 1.35,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 20),
 
-          // Icon
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: AppTheme.accent.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.toll,
-              size: 32,
-              color: AppTheme.accent,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Title
-          const Text(
-            'Add Credits to Continue',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.foreground,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Description
-          Text(
-            creditsNeeded > 0
-                ? 'You need $creditsNeeded more credits for this generation.'
-                : 'Choose a credit package or go unlimited with Pro.',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppTheme.muted,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 20),
-
-          // Current balance
+          // Current balance — mono icon
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: AppTheme.secondary.withOpacity(0.5),
+              color: AppTheme.secondary,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.border.withOpacity(0.3)),
+              border: Border.all(color: AppTheme.border.withValues(alpha: 0.5)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                const Text(
                   'Current Balance',
                   style: TextStyle(
                     fontSize: 14,
@@ -123,11 +135,12 @@ class AddCreditsDialogContent extends StatelessWidget {
                   ),
                 ),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.toll,
+                    PhosphorIcon(
+                      PhosphorIconsRegular.coins,
                       size: 18,
-                      color: Colors.amber[600],
+                      color: AppTheme.mutedForeground,
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -145,56 +158,54 @@ class AddCreditsDialogContent extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // Pro Subscription Option
+          // Pro subscription card
           InkWell(
             onTap: () {
               Navigator.pop(context);
-              context.push('/subscription');
+              context.push('/pricing');
             },
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppTheme.primary.withOpacity(0.15),
-                    AppTheme.primary.withOpacity(0.05),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
+                color: AppTheme.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: AppTheme.primary.withOpacity(0.5),
-                  width: 2,
+                  color: AppTheme.primary.withValues(alpha: 0.4),
+                  width: 1.5,
                 ),
               ),
               child: Row(
                 children: [
                   Container(
-                    width: 48,
-                    height: 48,
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: AppTheme.primary,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
-                      Icons.all_inclusive,
+                    child: PhosphorIcon(
+                      PhosphorIconsFill.infinity,
+                      size: 22,
                       color: Colors.white,
-                      size: 24,
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const Text(
                           'Timeless Pro',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: FontWeight.w600,
                             color: AppTheme.foreground,
                           ),
                         ),
+                        const SizedBox(height: 2),
                         Text(
                           'Unlimited generations',
                           style: TextStyle(
@@ -207,12 +218,13 @@ class AddCreditsDialogContent extends StatelessWidget {
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
                         '\$19.99',
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
                           color: AppTheme.foreground,
                         ),
                       ),
@@ -229,14 +241,19 @@ class AddCreditsDialogContent extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-          // Divider
+          // Divider: or buy credits
           Row(
             children: [
-              Expanded(child: Divider(color: AppTheme.border.withOpacity(0.3))),
+              Expanded(
+                child: Divider(
+                  color: AppTheme.border.withValues(alpha: 0.5),
+                  thickness: 1,
+                ),
+              ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Text(
                   'or buy credits',
                   style: TextStyle(
@@ -245,41 +262,58 @@ class AddCreditsDialogContent extends StatelessWidget {
                   ),
                 ),
               ),
-              Expanded(child: Divider(color: AppTheme.border.withOpacity(0.3))),
+              Expanded(
+                child: Divider(
+                  color: AppTheme.border.withValues(alpha: 0.5),
+                  thickness: 1,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
 
-          // Credit Packs
+          // Credit packs — same mono icon for all
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildCreditPack(
-                context: context,
-                name: 'Starter',
-                credits: 50,
-                price: '\$4.99',
-                icon: Icons.toll,
+              Expanded(
+                child: _CreditPackCard(
+                  credits: 50,
+                  price: '\$4.99',
+                  isBest: false,
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/subscription');
+                  },
+                ),
               ),
-              const SizedBox(width: 8),
-              _buildCreditPack(
-                context: context,
-                name: 'Pro',
-                credits: 150,
-                price: '\$9.99',
-                icon: Icons.flash_on,
-                isPopular: true,
+              const SizedBox(width: 10),
+              Expanded(
+                child: _CreditPackCard(
+                  credits: 150,
+                  price: '\$9.99',
+                  isBest: true,
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/subscription');
+                  },
+                ),
               ),
-              const SizedBox(width: 8),
-              _buildCreditPack(
-                context: context,
-                name: 'Ultimate',
-                credits: 500,
-                price: '\$19.99',
-                icon: Icons.workspace_premium,
+              const SizedBox(width: 10),
+              Expanded(
+                child: _CreditPackCard(
+                  credits: 500,
+                  price: '\$19.99',
+                  isBest: false,
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/subscription');
+                  },
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
 
           // Footer
           Row(
@@ -290,22 +324,24 @@ class AddCreditsDialogContent extends StatelessWidget {
                   Navigator.pop(context);
                   context.push('/subscription');
                 },
-                child: Text(
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.muted,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                child: const Text(
                   'View all plans →',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.muted,
-                  ),
+                  style: TextStyle(fontSize: 13),
                 ),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.foreground,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
                 child: const Text(
                   'Cancel',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.foreground,
-                  ),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                 ),
               ),
             ],
@@ -314,105 +350,107 @@ class AddCreditsDialogContent extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildCreditPack({
-    required BuildContext context,
-    required String name,
-    required int credits,
-    required String price,
-    required IconData icon,
-    bool isPopular = false,
-  }) {
-    return Expanded(
+/// Single credit pack card — mono icon (coins), optional "Best" badge inside card.
+class _CreditPackCard extends StatelessWidget {
+  final int credits;
+  final String price;
+  final bool isBest;
+  final VoidCallback onTap;
+
+  const _CreditPackCard({
+    required this.credits,
+    required this.price,
+    required this.isBest,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
-        onTap: () {
-          Navigator.pop(context);
-          context.push('/subscription');
-        },
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        child: Stack(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                color: isPopular 
-                    ? AppTheme.primary.withOpacity(0.05) 
-                    : AppTheme.secondary.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isPopular 
-                      ? AppTheme.primary.withOpacity(0.5) 
-                      : AppTheme.border.withOpacity(0.3),
-                  width: isPopular ? 2 : 1,
-                ),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: isPopular ? AppTheme.primary : AppTheme.secondary,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      icon,
-                      size: 18,
-                      color: isPopular ? Colors.white : AppTheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '$credits',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.foreground,
-                    ),
-                  ),
-                  Text(
-                    'credits',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppTheme.muted,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    price,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.foreground,
-                    ),
-                  ),
-                ],
-              ),
+        child: Container(
+          padding: EdgeInsets.fromLTRB(12, isBest ? 18 : 14, 12, 14),
+          decoration: BoxDecoration(
+            color: isBest
+                ? AppTheme.primary.withValues(alpha: 0.06)
+                : AppTheme.secondary,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isBest
+                  ? AppTheme.primary.withValues(alpha: 0.4)
+                  : AppTheme.border.withValues(alpha: 0.5),
+              width: isBest ? 1.5 : 1,
             ),
-            if (isPopular)
-              Positioned(
-                top: -8,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'Best',
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // "Best" badge inside card, top center
+              if (isBest)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'Best',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
                     ),
                   ),
                 ),
+              // Mono icon — same for all packs
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary.withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: PhosphorIcon(
+                  PhosphorIconsRegular.coins,
+                  size: 18,
+                  color: AppTheme.mutedForeground,
+                ),
               ),
-          ],
+              const SizedBox(height: 10),
+              Text(
+                '$credits',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.foreground,
+                ),
+              ),
+              Text(
+                'credits',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.muted,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                price,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.foreground,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

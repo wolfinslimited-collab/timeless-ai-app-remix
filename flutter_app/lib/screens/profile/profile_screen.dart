@@ -219,9 +219,9 @@ class ProfileScreen extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(context);
               await context.read<AuthProvider>().signOut();
-              if (context.mounted) {
-                context.go('/login');
-              }
+              // if (context.mounted) {
+              context.go('/login');
+              // }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red[400],
@@ -303,11 +303,11 @@ class ProfileScreen extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () async {
+                  final router = GoRouter.of(context);
+                  final auth = context.read<AuthProvider>();
                   Navigator.pop(context);
-                  await context.read<AuthProvider>().signOut();
-                  if (context.mounted) {
-                    context.go('/login');
-                  }
+                  await auth.signOut();
+                  router.go('/login');
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red[400],

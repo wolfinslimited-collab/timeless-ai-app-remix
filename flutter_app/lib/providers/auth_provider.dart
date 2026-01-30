@@ -102,7 +102,7 @@ class AuthProvider extends ChangeNotifier {
           userId: response.user!.id,
           method: 'email',
         );
-        
+
         // Identify user for attribution
         await tiktokService.identify(
           externalId: response.user!.id,
@@ -174,16 +174,19 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Use Firebase Auth service for Google sign-in
-      final response = await _firebaseAuthService.signInWithGoogle();
-      
+      // iOS: Use native Google Sign-In (bypass Firebase to avoid 403 / OAuth client mismatch).
+      // Android: Use Firebase Auth for Google sign-in.
+      final AuthResponse? response = Platform.isIOS
+          ? await _nativeAuthService.signInWithGoogleNativeIOS()
+          : await _firebaseAuthService.signInWithGoogle();
+
       if (response?.user != null) {
         _user = response!.user;
         await _fetchProfile();
         await _trackOAuthSignIn(response.user!, 'google');
         return true;
       }
-      
+
       _isLoading = false;
       notifyListeners();
       return false;
@@ -215,7 +218,8 @@ class AuthProvider extends ChangeNotifier {
         return false;
       } else {
         // Android/Other: Use web-based OAuth
-        final success = await _nativeAuthService.signInWithOAuthWeb(OAuthProvider.apple);
+        final success =
+            await _nativeAuthService.signInWithOAuthWeb(OAuthProvider.apple);
         _isLoading = false;
         notifyListeners();
         return success;
@@ -243,25 +247,48 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Parse authentication errors into user-friendly messages
+  /// Parse authentication errors: extract error string first, then map known patterns.
+  /// If no mapping matches, the actual error string is returned so backend messages are shown.
   String _parseAuthError(dynamic error) {
-    final errorStr = error.toString().toLowerCase();
-    
-    if (errorStr.contains('invalid login credentials')) {
+    // 1. Extract the actual error string (prefer .message from AuthException/Exception)
+    String? rawMessage;
+    if (error is AuthException) {
+      rawMessage = error.message;
+    } else if (error is Exception) {
+      final s = error.toString();
+      rawMessage =
+          s.startsWith('Exception: ') ? s.substring(11).trim() : s.trim();
+    } else {
+      rawMessage = error.toString().trim();
+    }
+    if (rawMessage.isEmpty) {
+      return 'An error occurred. Please try again';
+    }
+    final lower = rawMessage.toLowerCase();
+
+    // 2. Map known patterns to user-friendly messages
+    if (lower.contains('invalid login credentials')) {
       return 'Invalid email or password';
-    } else if (errorStr.contains('email not confirmed')) {
+    }
+    if (lower.contains('email not confirmed')) {
       return 'Please verify your email address';
-    } else if (errorStr.contains('user already registered')) {
+    }
+    if (lower.contains('user already registered') ||
+        lower.contains('already been registered')) {
       return 'An account with this email already exists';
-    } else if (errorStr.contains('cancelled') || errorStr.contains('canceled')) {
+    }
+    if (lower.contains('cancelled') || lower.contains('canceled')) {
       return 'Sign-in was cancelled';
-    } else if (errorStr.contains('network')) {
+    }
+    if (lower.contains('network')) {
       return 'Network error. Please check your connection';
-    } else if (errorStr.contains('popup_closed')) {
+    }
+    if (lower.contains('popup_closed')) {
       return 'Sign-in popup was closed';
     }
-    
-    return 'An error occurred. Please try again';
+
+    // 3. No mapping: return the actual error string so the user sees the real message
+    return rawMessage;
   }
 
   Future<void> resetPassword(String email) async {

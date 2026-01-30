@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../core/theme.dart';
 
 class CreateScreen extends StatelessWidget {
@@ -27,7 +28,7 @@ class CreateScreen extends StatelessWidget {
 
             // Character Tool Card (Featured)
             _CreateOptionCard(
-              icon: Icons.person_4,
+              icon: PhosphorIconsFill.person,
               title: 'Character',
               description: 'Train your own AI character from photos',
               gradient: [const Color(0xFFE879F9), const Color(0xFF8B5CF6)],
@@ -38,7 +39,7 @@ class CreateScreen extends StatelessWidget {
 
             // Image Generation Card
             _CreateOptionCard(
-              icon: Icons.image,
+              icon: PhosphorIconsFill.image,
               title: 'Image Generation',
               description: 'Create stunning images with AI',
               gradient: [AppTheme.primary, const Color(0xFFEC4899)],
@@ -48,7 +49,7 @@ class CreateScreen extends StatelessWidget {
 
             // Video Generation Card
             _CreateOptionCard(
-              icon: Icons.videocam,
+              icon: PhosphorIconsFill.videoCamera,
               title: 'Video Generation',
               description: 'Generate videos from text or images',
               gradient: [const Color(0xFF3B82F6), const Color(0xFF06B6D4)],
@@ -58,7 +59,7 @@ class CreateScreen extends StatelessWidget {
 
             // Audio/Music Generation Card
             _CreateOptionCard(
-              icon: Icons.music_note,
+              icon: PhosphorIconsFill.musicNotes,
               title: 'Music & Audio',
               description: 'Generate music, vocals, and sound effects',
               gradient: [const Color(0xFF10B981), const Color(0xFF059669)],
@@ -68,7 +69,7 @@ class CreateScreen extends StatelessWidget {
 
             // Cinema Studio Card
             _CreateOptionCard(
-              icon: Icons.movie_creation,
+              icon: PhosphorIconsFill.filmStrip,
               title: 'Cinema Studio',
               description: 'Professional video creation workspace',
               gradient: [const Color(0xFFEF4444), const Color(0xFFBE185D)],
@@ -119,7 +120,7 @@ class _CreateOptionCard extends StatelessWidget {
                 color: AppTheme.secondary,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: AppTheme.foreground, size: 28),
+              child: PhosphorIcon(icon, color: AppTheme.foreground, size: 28),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -166,7 +167,7 @@ class _CreateOptionCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppTheme.muted),
+            PhosphorIcon(PhosphorIconsRegular.caretRight, color: AppTheme.muted, size: 20),
           ],
         ),
       ),

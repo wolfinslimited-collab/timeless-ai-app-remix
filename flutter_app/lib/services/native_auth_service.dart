@@ -112,6 +112,48 @@ class NativeAuthService {
     }
   }
 
+  /// Native Google Sign-In for iOS.
+  /// Bypasses Firebase and sends the Google ID token to mobile-auth (same pattern as Apple).
+  /// Avoids Firebase 403 on iOS when Firebase project / OAuth client mismatch.
+  Future<AuthResponse?> signInWithGoogleNativeIOS() async {
+    if (!Platform.isIOS) {
+      throw UnsupportedError(
+          'signInWithGoogleNativeIOS is only supported on iOS');
+    }
+
+    try {
+      // On iOS, GoogleSignIn uses the client from Info.plist / GoogleService-Info.plist
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        scopes: ['email', 'profile'],
+      );
+
+      final googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        debugPrint('Google Sign-In cancelled by user');
+        return null;
+      }
+
+      final googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+
+      if (idToken == null) {
+        throw Exception('Failed to get ID token from Google');
+      }
+
+      debugPrint(
+          'Google Sign-In successful (iOS native), calling mobile-auth...');
+
+      return await _authenticateWithMobileAuth(
+        provider: 'google',
+        idToken: idToken,
+        name: googleUser.displayName,
+      );
+    } catch (e) {
+      debugPrint('Native Google Sign-In (iOS) error: $e');
+      rethrow;
+    }
+  }
+
   /// Native Google Sign-In for Android
   ///
   /// Requirements:

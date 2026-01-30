@@ -7,19 +7,21 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 
 /// Firebase-based authentication service for Google and Facebook OAuth
-/// 
+///
 /// This service uses Firebase Authentication as an intermediary to get
 /// valid ID tokens, which are then validated by our mobile-auth edge function
 /// to create Supabase sessions.
 class FirebaseAuthService {
   final SupabaseClient _supabase = Supabase.instance.client;
-  final firebase_auth.FirebaseAuth _firebaseAuth = firebase_auth.FirebaseAuth.instance;
+  final firebase_auth.FirebaseAuth _firebaseAuth =
+      firebase_auth.FirebaseAuth.instance;
 
   // Mobile auth edge function URL (external Supabase project)
-  static const String _mobileAuthUrl = 'https://ifesxveahsbjhmrhkhhy.supabase.co/functions/v1/mobile-auth';
+  static const String _mobileAuthUrl =
+      'https://ifesxveahsbjhmrhkhhy.supabase.co/functions/v1/mobile-auth';
 
   /// Sign in with Google using Firebase
-  /// 
+  ///
   /// Flow:
   /// 1. User signs in with Google (native on Android, web on iOS)
   /// 2. Google credential is exchanged for Firebase ID token
@@ -54,15 +56,16 @@ class FirebaseAuthService {
       );
 
       // Sign in to Firebase with the credential
-      final userCredential = await _firebaseAuth.signInWithCredential(credential);
-      
+      final userCredential =
+          await _firebaseAuth.signInWithCredential(credential);
+
       if (userCredential.user == null) {
         throw Exception('Firebase sign-in failed');
       }
 
       // Get Firebase ID token
       final firebaseIdToken = await userCredential.user!.getIdToken();
-      
+
       if (firebaseIdToken == null) {
         throw Exception('Failed to get Firebase ID token');
       }
@@ -84,7 +87,7 @@ class FirebaseAuthService {
   }
 
   /// Sign in with Facebook using Firebase
-  /// 
+  ///
   /// Flow:
   /// 1. User signs in with Facebook via Firebase Auth
   /// 2. Facebook credential is exchanged for Firebase ID token
@@ -103,7 +106,8 @@ class FirebaseAuthService {
 
       if (Platform.isAndroid || Platform.isIOS) {
         // Mobile: Use popup-based sign in
-        userCredential = await _firebaseAuth.signInWithProvider(facebookProvider);
+        userCredential =
+            await _firebaseAuth.signInWithProvider(facebookProvider);
       } else {
         // Web/other: Use redirect
         userCredential = await _firebaseAuth.signInWithPopup(facebookProvider);
@@ -115,12 +119,13 @@ class FirebaseAuthService {
 
       // Get Firebase ID token
       final firebaseIdToken = await userCredential.user!.getIdToken();
-      
+
       if (firebaseIdToken == null) {
         throw Exception('Failed to get Firebase ID token');
       }
 
-      debugPrint('Firebase Facebook Sign-In successful, calling mobile-auth...');
+      debugPrint(
+          'Firebase Facebook Sign-In successful, calling mobile-auth...');
 
       // Extract user info
       final displayName = userCredential.user!.displayName;
@@ -149,7 +154,8 @@ class FirebaseAuthService {
     String? avatarUrl,
   }) async {
     try {
-      debugPrint('Calling mobile-auth edge function for $provider (source: $source)...');
+      debugPrint(
+          'Calling mobile-auth edge function for $provider (source: $source)...');
 
       final response = await http.post(
         Uri.parse(_mobileAuthUrl),
@@ -178,7 +184,8 @@ class FirebaseAuthService {
       final sessionData = responseData['session'] as Map<String, dynamic>;
 
       // Set the session in Supabase client
-      final session = await _supabase.auth.setSession(sessionData['access_token']);
+      final session =
+          await _supabase.auth.setSession(sessionData['access_token']);
 
       if (session.session == null) {
         // If setSession didn't work, try to recover the session
@@ -213,7 +220,7 @@ class FirebaseAuthService {
   Future<void> signOut() async {
     try {
       await _firebaseAuth.signOut();
-      
+
       // Also sign out from Google to allow account selection on next sign-in
       final googleSignIn = GoogleSignIn();
       if (await googleSignIn.isSignedIn()) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -548,7 +549,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // Left actions — mono color icons
+                          // Left actions — Phosphor icons, web search shows selected state
                           Padding(
                             padding: const EdgeInsets.only(left: 8),
                             child: Row(
@@ -561,7 +562,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                         : _showImageOptions,
                                     icon: _isUploadingImage
                                         ? null
-                                        : Icons.add_photo_alternate_outlined,
+                                        : PhosphorIconsRegular.imageSquare,
                                     loading: _isUploadingImage,
                                     size: 24,
                                   ),
@@ -569,14 +570,25 @@ class _ChatScreenState extends State<ChatScreen> {
                                 GestureDetector(
                                   onTap: () => setState(() =>
                                       _webSearchEnabled = !_webSearchEnabled),
-                                  child: Container(
-                                    width: 24,
-                                    height: 24,
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    width: 28,
+                                    height: 28,
                                     alignment: Alignment.center,
-                                    child: Icon(
-                                      Icons.language,
+                                    decoration: BoxDecoration(
+                                      color: _webSearchEnabled
+                                          ? AppTheme.primary.withOpacity(0.15)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: PhosphorIcon(
+                                      _webSearchEnabled
+                                          ? PhosphorIconsFill.globe
+                                          : PhosphorIconsRegular.globe,
                                       size: 18,
-                                      color: AppTheme.mutedForeground,
+                                      color: _webSearchEnabled
+                                          ? AppTheme.primary
+                                          : AppTheme.mutedForeground,
                                     ),
                                   ),
                                 ),
@@ -635,8 +647,11 @@ class _ChatScreenState extends State<ChatScreen> {
                                           color: Colors.white,
                                         ),
                                       )
-                                    : const Icon(Icons.arrow_upward,
-                                        size: 18, color: Colors.white),
+                                    : PhosphorIcon(
+                                        PhosphorIconsFill.paperPlaneTilt,
+                                        size: 18,
+                                        color: Colors.white,
+                                      ),
                               ),
                             ),
                           ),
@@ -738,7 +753,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-/// Compact icon button for the chat input bar (image, etc.).
+/// Compact icon button for the chat input bar (uses Phosphor icons).
 class _InputActionButton extends StatelessWidget {
   const _InputActionButton({
     required this.onTap,
@@ -770,7 +785,13 @@ class _InputActionButton extends StatelessWidget {
                   ),
                 ),
               )
-            : Icon(icon, size: size * 0.6, color: AppTheme.mutedForeground),
+            : icon != null
+                ? PhosphorIcon(
+                    icon!,
+                    size: size * 0.6,
+                    color: AppTheme.mutedForeground,
+                  )
+                : const SizedBox.shrink(),
       ),
     );
   }
