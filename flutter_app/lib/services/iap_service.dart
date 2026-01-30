@@ -4,74 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
+import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'pricing_service.dart';
 import 'tiktok_service.dart';
 import 'facebook_service.dart';
-
-/// Product IDs for subscriptions and consumables
-/// IMPORTANT: These MUST match EXACTLY the product IDs in App Store Connect / Google Play Console
-class IAPProducts {
-  // iOS Product IDs (from App Store Connect)
-  static const String premiumMonthlyIOS = 'com.timeless.premium.monthly';
-  static const String premiumYearlyIOS = 'com.timeless.premium.yearly';
-  static const String credits1500IOS = 'credits_1500_ios';
-
-  // Android Product IDs (from Google Play Console)
-  static const String premiumMonthlyAndroid = 'timeless.premium.monthly';
-  static const String premiumYearlyAndroid = 'timeless.premium.yearly';
-  static const String credits1500Android = 'credits_1500_android';
-
-  /// Returns all product IDs to query from the store
-  /// This is used on initialization to load all available products
-  static Set<String> get allProductIds {
-    if (Platform.isIOS) {
-      return {
-        premiumMonthlyIOS,
-        premiumYearlyIOS,
-        credits1500IOS,
-      };
-    } else {
-      return {
-        premiumMonthlyAndroid,
-        premiumYearlyAndroid,
-        credits1500Android,
-      };
-    }
-  }
-
-  /// Subscription product IDs (auto-renewable)
-  static Set<String> get subscriptionIds {
-    if (Platform.isIOS) {
-      return {
-        premiumMonthlyIOS,
-        premiumYearlyIOS,
-      };
-    } else {
-      return {
-        premiumMonthlyAndroid,
-        premiumYearlyAndroid,
-      };
-    }
-  }
-
-  /// Consumable product IDs (credit packs)
-  static Set<String> get consumableIds {
-    if (Platform.isIOS) {
-      return {credits1500IOS};
-    } else {
-      return {credits1500Android};
-    }
-  }
-
-  static String getPremiumMonthly() =>
-      Platform.isIOS ? premiumMonthlyIOS : premiumMonthlyAndroid;
-
-  static String getPremiumYearly() =>
-      Platform.isIOS ? premiumYearlyIOS : premiumYearlyAndroid;
-
-  static String getCredits1500() =>
-      Platform.isIOS ? credits1500IOS : credits1500Android;
-}
 
 /// In-App Purchase Service
 class IAPService {
@@ -81,9 +18,12 @@ class IAPService {
 
   final InAppPurchase _iap = InAppPurchase.instance;
   final SupabaseClient _supabase = Supabase.instance.client;
+  final PricingService _pricingService = PricingService();
 
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   List<ProductDetails> _products = [];
+  final Set<String> _subscriptionIds = {};
+  final Set<String> _consumableIds = {};
   bool _isAvailable = false;
   bool _isInitialized = false;
 
@@ -142,46 +82,50 @@ class IAPService {
       try {
         final wrapper = SKPaymentQueueWrapper();
         var transactions = await wrapper.transactions();
-        debugPrint('[IAP] Found ${transactions.length} pending iOS transactions to clear');
-        
+        debugPrint(
+            '[IAP] Found ${transactions.length} pending iOS transactions to clear');
+
         // Keep trying until all transactions are finished
         int attempts = 0;
         while (transactions.isNotEmpty && attempts < 5) {
           for (final transaction in transactions) {
-            debugPrint('[IAP] Finishing transaction: ${transaction.transactionIdentifier} - ${transaction.payment.productIdentifier} - state: ${transaction.transactionState}');
+            debugPrint(
+                '[IAP] Finishing transaction: ${transaction.transactionIdentifier} - ${transaction.payment.productIdentifier} - state: ${transaction.transactionState}');
             try {
               await wrapper.finishTransaction(transaction);
             } catch (e) {
               debugPrint('[IAP] Error finishing individual transaction: $e');
             }
           }
-          
+
           // Small delay to let the queue update
           await Future.delayed(const Duration(milliseconds: 200));
-          
+
           // Check if there are still pending transactions
           transactions = await wrapper.transactions();
           attempts++;
-          debugPrint('[IAP] After attempt $attempts: ${transactions.length} transactions remaining');
+          debugPrint(
+              '[IAP] After attempt $attempts: ${transactions.length} transactions remaining');
         }
-        
+
         if (transactions.isEmpty) {
           debugPrint('[IAP] ✅ All pending transactions cleared');
         } else {
-          debugPrint('[IAP] ⚠️ Some transactions still pending after $attempts attempts');
+          debugPrint(
+              '[IAP] ⚠️ Some transactions still pending after $attempts attempts');
         }
       } catch (e) {
         debugPrint('[IAP] Error completing pending transactions: $e');
       }
     }
   }
-  
+
   /// Force clear all pending transactions - call before initiating a purchase
   Future<void> clearPendingTransactions() async {
     await _completePendingTransactions();
   }
 
-  /// Load available products from the store
+  /// Load product IDs from Supabase (pricing service), then query the store
   Future<void> loadProducts() async {
     if (!_isAvailable) {
       debugPrint('[IAP] Store not available, skipping product load');
@@ -189,38 +133,62 @@ class IAPService {
     }
 
     try {
-      final productIds = IAPProducts.allProductIds;
-      debugPrint('[IAP] Querying products: $productIds');
-      
+      final pricing = await _pricingService.fetchPricing();
+      final productIds = <String>{};
+      _subscriptionIds.clear();
+      _consumableIds.clear();
+
+      for (final plan in pricing.subscriptionPlans) {
+        final id = plan.platformProductId;
+        if (id != null && id.isNotEmpty) {
+          productIds.add(id);
+          _subscriptionIds.add(id);
+        }
+      }
+      for (final pkg in pricing.creditPackages) {
+        final id = pkg.platformProductId;
+        if (id != null && id.isNotEmpty) {
+          productIds.add(id);
+          _consumableIds.add(id);
+        }
+      }
+
+      if (productIds.isEmpty) {
+        debugPrint(
+            '[IAP] No product IDs from Supabase pricing (subscription_plans / credit_packages or get-pricing)');
+        return;
+      }
+
+      debugPrint('[IAP] Querying products from Supabase: $productIds');
+
       final response = await _iap.queryProductDetails(productIds);
 
       if (response.notFoundIDs.isNotEmpty) {
         debugPrint('[IAP] ⚠️ Products NOT FOUND: ${response.notFoundIDs}');
-        debugPrint('[IAP] ⚠️ Make sure these product IDs exist in App Store Connect / Google Play Console');
-        debugPrint('[IAP] ⚠️ Common causes:');
-        debugPrint('[IAP]   1. Product ID mismatch (case-sensitive)');
-        debugPrint('[IAP]   2. Product status is Draft (must be Ready to Submit or Approved)');
-        debugPrint('[IAP]   3. Paid Apps Agreement not signed');
-        debugPrint('[IAP]   4. Banking/Tax info not complete');
-        debugPrint('[IAP]   5. No build uploaded to App Store Connect');
-        debugPrint('[IAP]   6. Products created <30 mins ago (propagation delay)');
+        debugPrint(
+            '[IAP] ⚠️ Ensure product IDs in Supabase match App Store Connect / Google Play Console');
       }
 
       _products = response.productDetails;
-      debugPrint('[IAP] ✅ Loaded ${_products.length} products successfully');
+      debugPrint('[IAP] ✅ Loaded ${_products.length} products');
 
       for (final product in _products) {
-        debugPrint('[IAP] Product: ${product.id} - ${product.title} - ${product.price}');
+        debugPrint(
+            '[IAP] Product: ${product.id} - ${product.title} - ${product.price}');
       }
 
       if (_products.isEmpty && response.notFoundIDs.isNotEmpty) {
-        onError?.call('No products available. Please check App Store Connect configuration.');
+        onError?.call(
+            'No products available. Check Supabase subscription_plans / credit_packages and store configuration.');
       }
     } catch (e) {
       debugPrint('[IAP] Error loading products: $e');
       onError?.call('Failed to load products: $e');
     }
   }
+
+  bool _isSubscriptionId(String productId) =>
+      _subscriptionIds.contains(productId);
 
   /// Get product details by ID
   ProductDetails? getProduct(String productId) {
@@ -246,12 +214,12 @@ class IAPService {
 
     try {
       debugPrint('[IAP] Initiating purchase for: $productId');
-      
+
       // CRITICAL: Clear any pending transactions BEFORE starting a new purchase
       // This prevents storekit_duplicate_product_object errors
       await _completePendingTransactions();
 
-      final isSubscription = IAPProducts.subscriptionIds.contains(productId);
+      final isSubscription = _isSubscriptionId(productId);
       final purchaseParam = PurchaseParam(productDetails: product);
 
       bool success;
@@ -374,17 +342,19 @@ class IAPService {
         final price = _extractPrice(product?.price ?? '0');
 
         // Track attribution events (TikTok & Facebook)
-        final isSubscription = IAPProducts.subscriptionIds.contains(purchase.productID);
+        final isSubscription = _isSubscriptionId(purchase.productID);
         if (isSubscription) {
           await tiktokService.trackSubscribe(
             productId: purchase.productID,
             price: price,
-            subscriptionType: purchase.productID.contains('yearly') ? 'yearly' : 'monthly',
+            subscriptionType:
+                purchase.productID.contains('yearly') ? 'yearly' : 'monthly',
           );
           await facebookService.trackSubscribe(
             productId: purchase.productID,
             price: price,
-            subscriptionType: purchase.productID.contains('yearly') ? 'yearly' : 'monthly',
+            subscriptionType:
+                purchase.productID.contains('yearly') ? 'yearly' : 'monthly',
           );
         } else {
           await tiktokService.trackPurchase(

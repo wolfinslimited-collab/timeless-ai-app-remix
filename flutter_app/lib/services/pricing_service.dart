@@ -151,21 +151,33 @@ class PricingData {
   });
 }
 
-/// Service to fetch pricing from the backend
+/// Service to fetch pricing from the backend.
+/// 1) Tries get-pricing edge function (returns subscriptionPlans, creditPackages).
+/// 2) Fallback: reads Supabase tables subscription_plans and credit_packages
+///    (columns: id, name, period, credits, price, price_id, apple_product_id,
+///     android_product_id, popular, best_value, icon, features, display_order, is_active).
 class PricingService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  /// Fetch all pricing data from the get-pricing edge function
+  /// Fetch all pricing data: tries get-pricing edge function first, then Supabase tables
   Future<PricingData> fetchPricing() async {
+    final fromEdge = await _fetchPricingFromEdgeFunction();
+    if (fromEdge != null) return fromEdge;
+
+    final fromSupabase = await _fetchPricingFromSupabase();
+    return fromSupabase;
+  }
+
+  /// Try get-pricing edge function
+  Future<PricingData?> _fetchPricingFromEdgeFunction() async {
     try {
       final response = await _supabase.functions.invoke('get-pricing');
-
       if (response.status != 200) {
-        debugPrint('[PricingService] Error fetching pricing: ${response.data}');
-        return _getFallbackPricing();
+        debugPrint('[PricingService] Edge function error: ${response.data}');
+        return null;
       }
-
-      final data = response.data as Map<String, dynamic>;
+      final data = response.data as Map<String, dynamic>?;
+      if (data == null) return null;
 
       final subscriptionPlansJson = data['subscriptionPlans'] as List<dynamic>? ?? [];
       final creditPackagesJson = data['creditPackages'] as List<dynamic>? ?? [];
@@ -173,93 +185,60 @@ class PricingService {
       final subscriptionPlans = subscriptionPlansJson
           .map((json) => SubscriptionPlan.fromJson(json as Map<String, dynamic>))
           .toList();
-
       final creditPackages = creditPackagesJson
           .map((json) => CreditPackage.fromJson(json as Map<String, dynamic>))
           .toList();
 
-      debugPrint('[PricingService] Loaded ${subscriptionPlans.length} subscription plans');
-      debugPrint('[PricingService] Loaded ${creditPackages.length} credit packages');
+      if (subscriptionPlans.isEmpty && creditPackages.isEmpty) return null;
 
-      // Return fallback if no data
-      if (subscriptionPlans.isEmpty && creditPackages.isEmpty) {
-        return _getFallbackPricing();
-      }
-
+      debugPrint('[PricingService] Loaded from edge: ${subscriptionPlans.length} plans, ${creditPackages.length} packages');
       return PricingData(
         subscriptionPlans: subscriptionPlans,
         creditPackages: creditPackages,
       );
     } catch (e) {
-      debugPrint('[PricingService] Error: $e');
-      return _getFallbackPricing();
+      debugPrint('[PricingService] Edge function error: $e');
+      return null;
+    }
+  }
+
+  /// Fallback: fetch from Supabase tables (subscription_plans, credit_packages)
+  Future<PricingData> _fetchPricingFromSupabase() async {
+    try {
+      final plansResponse = await _supabase
+          .from('subscription_plans')
+          .select('*')
+          .eq('is_active', true)
+          .order('display_order', ascending: true);
+      final packagesResponse = await _supabase
+          .from('credit_packages')
+          .select('*')
+          .eq('is_active', true)
+          .order('display_order', ascending: true);
+
+      final subscriptionPlans = (plansResponse as List)
+          .map((json) => SubscriptionPlan.fromJson(json as Map<String, dynamic>))
+          .toList();
+      final creditPackages = (packagesResponse as List)
+          .map((json) => CreditPackage.fromJson(json as Map<String, dynamic>))
+          .toList();
+
+      debugPrint('[PricingService] Loaded from Supabase: ${subscriptionPlans.length} plans, ${creditPackages.length} packages');
+      return PricingData(
+        subscriptionPlans: subscriptionPlans,
+        creditPackages: creditPackages,
+      );
+    } catch (e) {
+      debugPrint('[PricingService] Supabase tables error: $e');
+      return PricingData(
+        subscriptionPlans: [],
+        creditPackages: [],
+      );
     }
   }
 
   /// Filter subscription plans by billing period
   List<SubscriptionPlan> filterPlansByPeriod(List<SubscriptionPlan> plans, String period) {
     return plans.where((plan) => plan.period == period).toList();
-  }
-
-  /// Fallback pricing when API fails
-  /// IMPORTANT: These product IDs MUST match EXACTLY what's in App Store Connect / Google Play Console
-  PricingData _getFallbackPricing() {
-    return PricingData(
-      subscriptionPlans: [
-        SubscriptionPlan(
-          id: 'premium-monthly',
-          name: 'Premium',
-          period: 'Monthly',
-          credits: 500,
-          price: 9.99,
-          priceId: 'price_premium_monthly',
-          appleProductId: 'com.timeless.premium.monthly',
-          androidProductId: 'timeless.premium.monthly',
-          icon: 'Zap',
-          features: [
-            PlanFeature(text: 'Access to all models', included: true),
-            PlanFeature(text: '500 monthly credits', included: true),
-            PlanFeature(text: 'HD quality exports', included: true),
-          ],
-          displayOrder: 1,
-          isActive: true,
-        ),
-        SubscriptionPlan(
-          id: 'premium-yearly',
-          name: 'Premium',
-          period: 'Yearly',
-          credits: 500,
-          price: 99.99,
-          priceId: 'price_premium_yearly',
-          appleProductId: 'com.timeless.premium.yearly',
-          androidProductId: 'timeless.premium.yearly',
-          bestValue: true,
-          icon: 'Calendar',
-          features: [
-            PlanFeature(text: 'Access to all models', included: true),
-            PlanFeature(text: '500 monthly credits', included: true),
-            PlanFeature(text: 'HD quality exports', included: true),
-            PlanFeature(text: 'Save 17%', included: true, badge: 'Best Value'),
-          ],
-          displayOrder: 2,
-          isActive: true,
-        ),
-      ],
-      creditPackages: [
-        CreditPackage(
-          id: 'credits-1500',
-          name: '1500 Credits',
-          credits: 1500,
-          price: 14.99,
-          priceId: 'price_credits_1500',
-          appleProductId: 'credits_1500_ios',
-          androidProductId: 'credits_1500_android',
-          popular: true,
-          icon: 'Coins',
-          displayOrder: 1,
-          isActive: true,
-        ),
-      ],
-    );
   }
 }

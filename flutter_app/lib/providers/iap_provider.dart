@@ -19,21 +19,41 @@ class IAPProvider extends ChangeNotifier {
   String? get successMessage => _successMessage;
   List<ProductDetails> get products => _iapService.products;
 
-  // Callbacks for UI
+  // Callbacks for UI (verification runs after Apple/Google sheet closes)
   Function()? onPurchaseComplete;
   Function()? onRestoreComplete;
+  /// Called when backend verification fails so the screen can show error SnackBar
+  Function(String message)? onVerificationError;
 
   IAPProvider() {
     _setupCallbacks();
     initialize();
   }
 
+  /// True when the error is for a product ID that no longer exists (deprecated/legacy).
+  /// We suppress error toasts for these to avoid spamming the user.
+  static bool _isDeprecatedProductError(String message) {
+    if (message.isEmpty) return false;
+    final lower = message.toLowerCase();
+    return lower.contains('unknown product id') ||
+        lower.contains('unknown product:');
+  }
+
   void _setupCallbacks() {
     _iapService.onError = (message) {
+      // Don't show error toast or set error state for deprecated/non-existent product IDs
+      if (_isDeprecatedProductError(message)) {
+        debugPrint(
+            '[IAPProvider] Skipping error for deprecated product (no toast): $message');
+        _isPurchasing = false;
+        notifyListeners();
+        return;
+      }
       debugPrint('[IAPProvider] Error received: $message');
       _error = message;
       _isPurchasing = false;
       notifyListeners();
+      onVerificationError?.call(message);
     };
 
     _iapService.onPurchaseSuccess = (productId, credits) {

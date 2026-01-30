@@ -12,13 +12,20 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
 };
 
 // Product ID mappings for iOS and Android
-// IMPORTANT: These MUST match EXACTLY the product IDs configured in App Store Connect / Google Play Console
+// Include App Store Connect / Google Play product IDs and any product_id returned in Apple receipts (renewals, legacy IDs)
 const PRODUCT_MAPPINGS: Record<string, { plan: string; credits: number; type: 'subscription' | 'consumable' }> = {
   // iOS Product IDs (from App Store Connect)
   "com.timeless.premium.monthly": { plan: "premium", credits: -1, type: "subscription" }, // -1 = unlimited
   "com.timeless.premium.yearly": { plan: "premium", credits: -1, type: "subscription" },
   "credits_1500_ios": { plan: "free", credits: 1500, type: "consumable" },
-  
+  // Apple receipt can return alternate product_id (renewals, legacy, sandbox)
+  "basic_weekly": { plan: "premium", credits: -1, type: "subscription" },
+  "basic_monthly": { plan: "premium", credits: -1, type: "subscription" },
+  "basic_monthly_renew": { plan: "premium", credits: -1, type: "subscription" },
+  "basic_yearly": { plan: "premium", credits: -1, type: "subscription" },
+  "66": { plan: "premium", credits: -1, type: "subscription" },
+  "22": { plan: "premium", credits: -1, type: "subscription" },
+
   // Android Product IDs (from Google Play Console)
   "timeless.premium.monthly": { plan: "premium", credits: -1, type: "subscription" },
   "timeless.premium.yearly": { plan: "premium", credits: -1, type: "subscription" },

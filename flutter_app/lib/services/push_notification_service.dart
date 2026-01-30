@@ -334,7 +334,7 @@ class PushNotificationService {
 
   /// Delete the FCM token (call on logout)
   Future<void> deleteToken() async {
-    try:
+    try {
       // Unsubscribe from platform topics
       await _unsubscribeFromPlatformTopics();
 

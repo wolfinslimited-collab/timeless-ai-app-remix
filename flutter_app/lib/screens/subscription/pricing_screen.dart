@@ -69,22 +69,39 @@ class _PricingScreenState extends State<PricingScreen>
 
     iapProvider.onPurchaseComplete = () {
       context.read<CreditsProvider>().refresh();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(iapProvider.successMessage ?? 'Purchase successful!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(iapProvider.successMessage ?? 'Purchase successful!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        iapProvider.clearSuccess();
+      }
     };
 
     iapProvider.onRestoreComplete = () {
       context.read<CreditsProvider>().refresh();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Purchases restored successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Purchases restored successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    };
+
+    iapProvider.onVerificationError = (message) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.red,
+          ),
+        );
+        iapProvider.clearError();
+      }
     };
   }
 
