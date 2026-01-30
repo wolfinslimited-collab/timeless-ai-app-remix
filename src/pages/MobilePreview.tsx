@@ -27,6 +27,7 @@ import {
   MobileCalorieAI,
   MobileFingerprintAI,
 } from "@/components/mobile/ai-apps";
+import { MobileTrend } from "@/components/mobile/MobileTrend";
 
 export default function MobilePreview() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("home");
@@ -122,6 +123,8 @@ export default function MobilePreview() {
         return <MobileDownloads onBack={() => setCurrentScreen("profile")} />;
       case "favorites":
         return <MobileFavorites onBack={() => setCurrentScreen("profile")} />;
+      case "trend":
+        return <MobileTrend onBack={() => setCurrentScreen("home")} />;
       case "notify-ai":
         return <MobileNotifyAI onBack={() => setCurrentScreen("apps")} />;
       case "sleep-ai":
