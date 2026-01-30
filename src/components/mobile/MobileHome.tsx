@@ -262,6 +262,17 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
         {/* Trending Section - fetched from Supabase like Flutter */}
         <div className="mb-6">
           <h2 className="text-foreground text-base font-semibold mb-3">Trending</h2>
+          
+          {/* Trending Banner */}
+          <button 
+            onClick={() => onNavigate("trend")}
+            className="w-full bg-gradient-to-br from-[#8B5CF6] to-[#EC4899] rounded-2xl p-4 mb-4"
+          >
+            <div className="text-left">
+              <h3 className="text-white font-semibold text-sm">Trending styles</h3>
+              <p className="text-white/70 text-xs">Ultra-realistic fashion visuals.</p>
+            </div>
+          </button>
           {loadingFeatured ? (
             <div className="grid grid-cols-2 gap-3">
               {[...Array(4)].map((_, i) => (
