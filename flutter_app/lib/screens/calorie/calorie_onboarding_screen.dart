@@ -12,7 +12,7 @@ class CalorieOnboardingScreen extends StatefulWidget {
 }
 
 class _CalorieOnboardingScreenState extends State<CalorieOnboardingScreen> {
-  int _currentStep = 1;
+  int _currentStep = 0; // 0 = welcome, 1-5 = steps
   final int _totalSteps = 5;
   bool _isSaving = false;
 
@@ -27,7 +27,7 @@ class _CalorieOnboardingScreenState extends State<CalorieOnboardingScreen> {
   String _activityLevel = 'moderate';
   String _goal = 'maintain';
 
-  double get _progress => _currentStep / _totalSteps;
+  double get _progress => _currentStep == 0 ? 0 : _currentStep / _totalSteps;
 
   @override
   void dispose() {
@@ -78,6 +78,10 @@ class _CalorieOnboardingScreenState extends State<CalorieOnboardingScreen> {
   }
 
   void _nextStep() {
+    if (_currentStep == 0) {
+      setState(() => _currentStep = 1);
+      return;
+    }
     if (_validateStep()) {
       setState(() {
         _currentStep = (_currentStep + 1).clamp(1, _totalSteps);
@@ -87,7 +91,11 @@ class _CalorieOnboardingScreenState extends State<CalorieOnboardingScreen> {
 
   void _prevStep() {
     setState(() {
-      _currentStep = (_currentStep - 1).clamp(1, _totalSteps);
+      if (_currentStep == 1) {
+        _currentStep = 0;
+      } else {
+        _currentStep = (_currentStep - 1).clamp(1, _totalSteps);
+      }
     });
   }
 
@@ -152,14 +160,19 @@ class _CalorieOnboardingScreenState extends State<CalorieOnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Welcome screen
+    if (_currentStep == 0) {
+      return _buildWelcome();
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => context.pop(),
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _prevStep,
         ),
       ),
       body: SafeArea(
@@ -253,6 +266,115 @@ class _CalorieOnboardingScreenState extends State<CalorieOnboardingScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildWelcome() {
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => context.pop(),
+        ),
+        title: const Text('Calorie AI'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFF22C55E).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: const Icon(
+                Icons.restaurant_menu,
+                size: 80,
+                color: Color(0xFF22C55E),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Welcome to Calorie AI',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Track your nutrition, count calories with AI, and achieve your health goals effortlessly.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.muted),
+            ),
+            const SizedBox(height: 32),
+            _buildFeatureItem(
+              Icons.camera_alt,
+              'AI Food Scanning',
+              'Take a photo to instantly identify foods and track calories',
+            ),
+            _buildFeatureItem(
+              Icons.pie_chart,
+              'Macro Tracking',
+              'Monitor protein, carbs, and fats for balanced nutrition',
+            ),
+            _buildFeatureItem(
+              Icons.timeline,
+              'Progress Charts',
+              'Visualize your journey with detailed analytics',
+            ),
+            _buildFeatureItem(
+              Icons.restaurant,
+              'Meal Suggestions',
+              'Get AI-powered meal ideas based on your goals',
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _nextStep,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF22C55E),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: const Text('Get Started'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureItem(IconData icon, String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF22C55E).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: const Color(0xFF22C55E)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  description,
+                  style: TextStyle(color: AppTheme.muted, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

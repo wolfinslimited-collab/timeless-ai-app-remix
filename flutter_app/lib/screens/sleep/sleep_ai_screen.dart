@@ -20,6 +20,8 @@ class _SleepAIScreenState extends State<SleepAIScreen>
   List<SleepLog> _sleepLogs = [];
   SleepAnalysis? _analysis;
   bool _isLoading = true;
+  bool _showWelcome = false;
+  bool _showOnboarding = false;
 
   @override
   void initState() {
@@ -39,7 +41,10 @@ class _SleepAIScreenState extends State<SleepAIScreen>
 
     final profile = await _sleepService.getProfile();
     if (profile == null) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _showWelcome = true;
+        _isLoading = false;
+      });
       return;
     }
 
@@ -54,14 +59,125 @@ class _SleepAIScreenState extends State<SleepAIScreen>
     });
   }
 
+  void _startOnboarding() {
+    setState(() {
+      _showWelcome = false;
+      _showOnboarding = true;
+    });
+  }
+
   void _handleOnboardingComplete(SleepProfile profile) {
-    setState(() => _profile = profile);
+    setState(() {
+      _profile = profile;
+      _showOnboarding = false;
+    });
     _loadData();
   }
 
   int get _streak {
     if (_profile == null) return 0;
     return _sleepService.calculateStreak(_sleepLogs, _profile!.sleepGoalHours);
+  }
+
+  Widget _buildWelcome() {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Sleep AI')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.indigo.withOpacity(0.2),
+                    Colors.purple.withOpacity(0.2),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: const Icon(
+                Icons.nightlight_round,
+                size: 80,
+                color: Colors.indigo,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Welcome to Sleep AI',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Optimize your sleep patterns, track your rest quality, and wake up feeling refreshed every day.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.muted),
+            ),
+            const SizedBox(height: 32),
+            _buildFeatureItem(
+              Icons.bed,
+              'Sleep Tracking',
+              'Log and monitor your nightly sleep patterns',
+            ),
+            _buildFeatureItem(
+              Icons.insights,
+              'AI Analysis',
+              'Get personalized insights and recommendations',
+            ),
+            _buildFeatureItem(
+              Icons.music_note,
+              'Sleep Sounds',
+              'Relax with calming sounds to help you drift off',
+            ),
+            _buildFeatureItem(
+              Icons.local_fire_department,
+              'Sleep Streaks',
+              'Build healthy habits with goal tracking',
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _startOnboarding,
+                child: const Text('Get Started'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureItem(IconData icon, String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.indigo.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: Colors.indigo),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  description,
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -73,9 +189,19 @@ class _SleepAIScreenState extends State<SleepAIScreen>
       );
     }
 
-    // Show onboarding if no profile
-    if (_profile == null) {
+    // Show welcome screen first
+    if (_showWelcome) {
+      return _buildWelcome();
+    }
+
+    // Show onboarding if started
+    if (_showOnboarding) {
       return SleepOnboarding(onComplete: _handleOnboardingComplete);
+    }
+
+    // Show welcome if no profile (fallback)
+    if (_profile == null) {
+      return _buildWelcome();
     }
 
     return Scaffold(

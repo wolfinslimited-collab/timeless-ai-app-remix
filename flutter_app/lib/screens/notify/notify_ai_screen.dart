@@ -543,7 +543,7 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          const SizedBox(height: 40),
+          const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
@@ -557,30 +557,82 @@ class _NotifyAIScreenState extends State<NotifyAIScreen>
             ),
             child: const Icon(
               Icons.notifications_active,
-              size: 64,
+              size: 80,
               color: Colors.amber,
             ),
           ),
           const SizedBox(height: 24),
           const Text(
-            'Create Smart Notifications',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            'Welcome to Notify AI',
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           const Text(
-            'Tell me what you want to be notified about and I\'ll set it up for you.',
+            'Create smart, AI-powered notifications that adapt to your needs. Never miss what matters.',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppTheme.muted),
           ),
           const SizedBox(height: 32),
+          _buildFeatureItem(
+            Icons.smart_toy,
+            'AI-Powered',
+            'Just describe what you want and AI sets it up for you',
+          ),
+          _buildFeatureItem(
+            Icons.schedule,
+            'Smart Scheduling',
+            'One-time, recurring, or event-based notifications',
+          ),
+          _buildFeatureItem(
+            Icons.notifications_active,
+            'Multi-Channel',
+            'Get notified via push, email, or both',
+          ),
+          _buildFeatureItem(
+            Icons.psychology,
+            'Context-Aware',
+            'Notifications that understand your timezone and habits',
+          ),
+          const SizedBox(height: 24),
           const Text(
             'Try these suggestions:',
             style: TextStyle(fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 16),
-          ...NotifyService.quickSuggestions.take(6).map(
+          const SizedBox(height: 12),
+          ...NotifyService.quickSuggestions.take(4).map(
                 (s) => _buildSuggestionChip(s),
               ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureItem(IconData icon, String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.amber.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: Colors.amber),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  description,
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
