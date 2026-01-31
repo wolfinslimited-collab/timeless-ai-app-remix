@@ -57,9 +57,11 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
   String? _outputUrl;
   bool _isProcessing = false;
   bool _isUploading = false;
+  bool _isPolling = false;
   int _duration = 5;
   int _upscaleFactor = 2;
   int _targetFps = 60;
+  String? _processingStatus;
   VideoPlayerController? _videoController;
 
   @override
@@ -160,6 +162,7 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
     setState(() {
       _isProcessing = true;
       _outputUrl = null;
+      _processingStatus = 'Starting...';
     });
 
     try {
@@ -191,11 +194,17 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
         throw Exception(result['error'] ?? 'Processing failed');
       }
 
-      if (result['status'] == 'processing') {
-        _showSnackBar(
-            'Video is being processed! Check your Library for results.');
+      // Handle background processing with polling
+      if (result['status'] == 'processing' && result['taskId'] != null) {
+        setState(() => _processingStatus = 'Processing video...');
+        await _pollForCompletion(
+          taskId: result['taskId'] as String,
+          endpoint: result['endpoint'] as String?,
+          generationId: result['generationId'] as String?,
+        );
         creditsProvider.refresh();
       } else if (result['outputUrl'] != null) {
+        // Immediate result
         setState(() => _outputUrl = result['outputUrl']);
         _initializeVideoPlayer(result['outputUrl']);
         _showSnackBar('Processing complete!');
@@ -203,8 +212,89 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
       }
     } catch (e) {
       _showSnackBar(e.toString());
-    } finally {
       setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _pollForCompletion({
+    required String taskId,
+    String? endpoint,
+    String? generationId,
+  }) async {
+    if (_isPolling) return;
+    _isPolling = true;
+
+    const maxAttempts = 120;
+    const pollInterval = Duration(seconds: 3);
+
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session == null) throw Exception('Not authenticated');
+
+      final supabaseUrl =
+          Supabase.instance.client.rest.url.replaceAll('/rest/v1', '');
+
+      for (int attempt = 0; attempt < maxAttempts; attempt++) {
+        await Future.delayed(pollInterval);
+        if (!mounted) return;
+
+        try {
+          final response = await http.post(
+            Uri.parse('$supabaseUrl/functions/v1/check-generation'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ${session.accessToken}',
+              'apikey': Supabase.instance.client.rest.headers['apikey'] ?? '',
+            },
+            body: jsonEncode({
+              'taskId': taskId,
+              'endpoint': endpoint,
+              'generationId': generationId,
+            }),
+          );
+
+          final result = jsonDecode(response.body);
+          final status = result['status'] as String?;
+
+          if (status == 'completed') {
+            final outputUrl = result['output_url'] as String?;
+            if (outputUrl != null && mounted) {
+              setState(() {
+                _outputUrl = outputUrl;
+                _isProcessing = false;
+                _processingStatus = null;
+              });
+              _initializeVideoPlayer(outputUrl);
+              _showSnackBar('Processing complete!');
+            }
+            return;
+          } else if (status == 'failed') {
+            throw Exception(result['error'] ?? 'Processing failed');
+          }
+
+          // Update progress indicator
+          final progress = result['progress'];
+          if (progress != null && mounted) {
+            setState(() {
+              _processingStatus = 'Processing... ${(progress * 100).toInt()}%';
+            });
+          }
+        } catch (e) {
+          debugPrint('Polling error: $e');
+          // Continue polling on error
+        }
+      }
+
+      // Max attempts reached
+      if (mounted) {
+        _showSnackBar('Processing is taking longer than expected. Check Library for results.');
+        setState(() => _isProcessing = false);
+      }
+    } finally {
+      _isPolling = false;
+      if (mounted && _isProcessing) {
+        setState(() => _isProcessing = false);
+      }
     }
   }
 
@@ -677,8 +767,13 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                const Text('Processing video...',
-                    style: TextStyle(color: AppTheme.muted)),
+                Text(_processingStatus ?? 'Processing video...',
+                    style: const TextStyle(color: AppTheme.muted)),
+                if (_isPolling) ...[
+                  const SizedBox(height: 8),
+                  const Text('This may take a few minutes...',
+                      style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+                ],
               ],
             )
           : _outputUrl != null
