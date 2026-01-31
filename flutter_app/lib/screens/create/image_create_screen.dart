@@ -445,6 +445,8 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
   }
 
   Future<void> _handleGenerate() async {
+    // Unfocus all input fields before generating
+    FocusScope.of(context).unfocus();
     if (_promptController.text.trim().isEmpty && _selectedStyles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
