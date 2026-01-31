@@ -19,7 +19,7 @@ export function MobileCreate({ onNavigate }: MobileCreateProps) {
           title="Visual Styles" 
           description="Ultra-realistic fashion visuals with AI styling"
           badge="NEW"
-          onClick={() => onNavigate("image")}
+          onClick={() => onNavigate("visual-styles")}
         />
 
         {/* Shots Tool Card - matching Flutter */}

@@ -10,6 +10,7 @@ import '../screens/create/create_screen.dart';
 import '../screens/create/image_create_screen.dart';
 import '../screens/create/video_create_screen.dart';
 import '../screens/create/audio_create_screen.dart';
+import '../screens/create/visual_styles_screen.dart';
 // Image Tools
 import '../screens/create/tools/relight_tool_screen.dart';
 import '../screens/create/tools/upscale_tool_screen.dart';
@@ -131,6 +132,10 @@ final appRouter = GoRouter(
             child: CreateScreen(),
           ),
           routes: [
+            GoRoute(
+              path: 'visual-styles',
+              builder: (context, state) => const VisualStylesScreen(),
+            ),
             GoRoute(
               path: 'image',
               builder: (context, state) => ImageCreateScreen(

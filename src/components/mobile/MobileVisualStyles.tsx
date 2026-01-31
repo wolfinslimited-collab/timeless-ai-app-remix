@@ -1,0 +1,530 @@
+import { useState, useRef } from "react";
+import { ArrowLeft, Sparkles, Loader2, Plus, X, Zap, ChevronDown, Upload, User, Palette, Image as ImageIcon, Infinity } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { useCredits } from "@/hooks/useCredits";
+import { useToast } from "@/hooks/use-toast";
+import AddCreditsDialog from "@/components/AddCreditsDialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+
+interface MobileVisualStylesProps {
+  onBack: () => void;
+}
+
+const ASPECT_RATIOS = [
+  { id: "1:1", label: "1:1", description: "Square" },
+  { id: "16:9", label: "16:9", description: "Landscape" },
+  { id: "9:16", label: "9:16", description: "Portrait" },
+  { id: "4:3", label: "4:3", description: "Classic" },
+  { id: "3:4", label: "3:4", description: "Portrait" },
+  { id: "21:9", label: "21:9", description: "Cinematic" },
+];
+
+const QUALITY_OPTIONS = [
+  { id: "1024", label: "Standard", description: "1024px", credits: 4 },
+  { id: "2K", label: "High", description: "2048px", credits: 6 },
+  { id: "4K", label: "Ultra", description: "4096px", credits: 10 },
+];
+
+const STYLE_PRESETS = [
+  { id: "cinematic", name: "Cinematic", prompt: "cinematic lighting, film grain, dramatic shadows, movie still" },
+  { id: "portrait", name: "Portrait", prompt: "professional portrait, soft lighting, shallow depth of field" },
+  { id: "anime", name: "Anime", prompt: "anime style, cel shading, vibrant colors, Japanese animation" },
+  { id: "cyberpunk", name: "Cyberpunk", prompt: "cyberpunk aesthetic, neon lights, futuristic, dystopian cityscape" },
+  { id: "fantasy", name: "Fantasy", prompt: "fantasy art, magical atmosphere, ethereal lighting" },
+  { id: "oil-painting", name: "Oil Painting", prompt: "oil painting style, visible brushstrokes, classical art technique" },
+  { id: "watercolor", name: "Watercolor", prompt: "watercolor painting, soft edges, flowing colors" },
+  { id: "minimalist", name: "Minimalist", prompt: "minimalist design, clean lines, simple composition" },
+  { id: "vintage", name: "Vintage", prompt: "vintage photography, retro aesthetic, film grain, faded colors" },
+  { id: "neon", name: "Neon", prompt: "neon glow, vibrant colors, dark background, synthwave" },
+];
+
+const BATCH_SIZES = [1, 2, 4, 9];
+
+// Mock characters - in production, fetch from user's trained characters
+const CHARACTERS = [
+  { id: "none", name: "None", avatar: null },
+  { id: "char-1", name: "Character 1", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=1" },
+  { id: "char-2", name: "Character 2", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=2" },
+];
+
+export function MobileVisualStyles({ onBack }: MobileVisualStylesProps) {
+  const [prompt, setPrompt] = useState("");
+  const [aspectRatio, setAspectRatio] = useState("1:1");
+  const [quality, setQuality] = useState("1024");
+  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
+  const [selectedCharacter, setSelectedCharacter] = useState("none");
+  const [batchSize, setBatchSize] = useState(1);
+  const [unlimited, setUnlimited] = useState(false);
+  const [referenceImage, setReferenceImage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [showAddCreditsDialog, setShowAddCreditsDialog] = useState(false);
+  const [showAspectRatioDropdown, setShowAspectRatioDropdown] = useState(false);
+  const [showQualityDropdown, setShowQualityDropdown] = useState(false);
+  const [showCharacterDropdown, setShowCharacterDropdown] = useState(false);
+  const [showBatchDropdown, setShowBatchDropdown] = useState(false);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+  const { credits, refetch, hasEnoughCreditsForModel } = useCredits();
+  const { toast } = useToast();
+
+  const selectedQualityData = QUALITY_OPTIONS.find(q => q.id === quality);
+  const totalCredits = (selectedQualityData?.credits || 4) * batchSize;
+
+  const toggleStyle = (styleId: string) => {
+    setSelectedStyles(prev => 
+      prev.includes(styleId) 
+        ? prev.filter(s => s !== styleId) 
+        : [...prev, styleId]
+    );
+  };
+
+  const getFinalPrompt = () => {
+    const basePrompt = prompt.trim();
+    if (selectedStyles.length === 0) return basePrompt;
+
+    const stylePrompts = selectedStyles
+      .map(id => STYLE_PRESETS.find(s => s.id === id)?.prompt)
+      .filter(Boolean)
+      .join(", ");
+
+    return basePrompt ? `${basePrompt}, ${stylePrompts}` : stylePrompts;
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "File too large",
+        description: "Maximum file size is 10MB",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/visual-styles-ref-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("generation-inputs")
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("generation-inputs")
+        .getPublicUrl(fileName);
+
+      setReferenceImage(publicUrl);
+      toast({
+        title: "Image uploaded",
+        description: "Reference image added successfully",
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to upload image",
+      });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleGenerate = async () => {
+    const finalPrompt = getFinalPrompt();
+    if (!finalPrompt) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please enter a prompt or select a style",
+      });
+      return;
+    }
+
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please sign in to generate images",
+      });
+      return;
+    }
+
+    if ((credits || 0) < totalCredits) {
+      setShowAddCreditsDialog(true);
+      return;
+    }
+
+    setIsGenerating(true);
+    setGeneratedImages([]);
+
+    try {
+      // Generate multiple images if batch size > 1
+      const promises = Array.from({ length: batchSize }, async () => {
+        const { data, error } = await supabase.functions.invoke("generate", {
+          body: {
+            prompt: finalPrompt,
+            type: "image",
+            model: "nano-banana-pro",
+            aspectRatio,
+            quality,
+            stream: false,
+            background: unlimited, // Use background queue if unlimited mode
+            ...(referenceImage && { imageUrl: referenceImage }),
+            ...(selectedCharacter !== "none" && { characterId: selectedCharacter }),
+          },
+        });
+
+        if (error) throw error;
+        return data?.output_url || data?.result?.output_url;
+      });
+
+      const results = await Promise.all(promises);
+      const validResults = results.filter(Boolean) as string[];
+      
+      setGeneratedImages(validResults);
+      
+      if (validResults.length > 0) {
+        toast({
+          title: `${validResults.length} image${validResults.length > 1 ? 's' : ''} generated!`,
+          description: "Your images have been created successfully",
+        });
+        refetch();
+      }
+    } catch (error) {
+      console.error("Generation error:", error);
+      toast({
+        variant: "destructive",
+        title: "Generation failed",
+        description: error instanceof Error ? error.message : "Something went wrong",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div className="h-full flex flex-col bg-background">
+      {/* Header */}
+      <div className="px-4 py-3 flex items-center gap-3 border-b border-border">
+        <button onClick={onBack} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+          <ArrowLeft className="w-4 h-4 text-foreground" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h1 className="text-foreground text-base font-semibold">Visual Styles</h1>
+            <span className="px-1.5 py-0.5 text-[9px] font-bold text-primary-foreground rounded bg-primary">
+              NEW
+            </span>
+          </div>
+          <p className="text-muted-foreground text-xs">Ultra-realistic fashion visuals with AI styling</p>
+        </div>
+        <div className="flex items-center gap-1 bg-primary/15 px-2 py-1 rounded-lg">
+          <Zap className="w-3 h-3 text-primary" />
+          <span className="text-primary text-xs font-semibold">{totalCredits}</span>
+        </div>
+      </div>
+
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+        
+        {/* Preview Area */}
+        <div className={cn(
+          "bg-secondary rounded-2xl border border-border flex items-center justify-center overflow-hidden min-h-[200px]",
+          aspectRatio === "1:1" && "aspect-square",
+          aspectRatio === "16:9" && "aspect-video",
+          aspectRatio === "9:16" && "aspect-[9/16] max-h-[300px]",
+          aspectRatio === "4:3" && "aspect-[4/3]",
+          aspectRatio === "3:4" && "aspect-[3/4] max-h-[300px]",
+          aspectRatio === "21:9" && "aspect-[21/9]"
+        )}>
+          {isGenerating ? (
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="w-10 h-10 text-primary animate-spin" />
+              <p className="text-muted-foreground text-sm">Generating {batchSize} image{batchSize > 1 ? 's' : ''}...</p>
+            </div>
+          ) : generatedImages.length > 0 ? (
+            <div className={cn(
+              "w-full h-full grid gap-1",
+              generatedImages.length === 1 && "grid-cols-1",
+              generatedImages.length === 2 && "grid-cols-2",
+              generatedImages.length === 4 && "grid-cols-2",
+              generatedImages.length === 9 && "grid-cols-3"
+            )}>
+              {generatedImages.map((url, i) => (
+                <img key={i} src={url} alt={`Generated ${i + 1}`} className="w-full h-full object-cover" />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <Palette className="w-10 h-10 text-muted-foreground" />
+              <p className="text-muted-foreground text-sm">Your styled images will appear here</p>
+            </div>
+          )}
+        </div>
+
+        {/* Configuration Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Aspect Ratio Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowAspectRatioDropdown(!showAspectRatioDropdown)}
+              className="w-full flex items-center justify-between p-3 rounded-xl bg-secondary border border-border"
+            >
+              <div className="text-left">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Aspect Ratio</p>
+                <p className="text-sm font-medium text-foreground">{aspectRatio}</p>
+              </div>
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            </button>
+            {showAspectRatioDropdown && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden">
+                {ASPECT_RATIOS.map((ratio) => (
+                  <button
+                    key={ratio.id}
+                    onClick={() => { setAspectRatio(ratio.id); setShowAspectRatioDropdown(false); }}
+                    className={cn(
+                      "w-full px-3 py-2 text-left hover:bg-secondary transition-colors",
+                      aspectRatio === ratio.id && "bg-primary/10"
+                    )}
+                  >
+                    <span className="text-sm font-medium text-foreground">{ratio.label}</span>
+                    <span className="text-xs text-muted-foreground ml-2">{ratio.description}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Quality Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowQualityDropdown(!showQualityDropdown)}
+              className="w-full flex items-center justify-between p-3 rounded-xl bg-secondary border border-border"
+            >
+              <div className="text-left">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Quality</p>
+                <p className="text-sm font-medium text-foreground">{selectedQualityData?.label}</p>
+              </div>
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            </button>
+            {showQualityDropdown && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden">
+                {QUALITY_OPTIONS.map((q) => (
+                  <button
+                    key={q.id}
+                    onClick={() => { setQuality(q.id); setShowQualityDropdown(false); }}
+                    className={cn(
+                      "w-full px-3 py-2 text-left hover:bg-secondary transition-colors flex justify-between items-center",
+                      quality === q.id && "bg-primary/10"
+                    )}
+                  >
+                    <div>
+                      <span className="text-sm font-medium text-foreground">{q.label}</span>
+                      <span className="text-xs text-muted-foreground ml-2">{q.description}</span>
+                    </div>
+                    <span className="text-xs text-primary font-medium">{q.credits} credits</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Character Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowCharacterDropdown(!showCharacterDropdown)}
+              className="w-full flex items-center justify-between p-3 rounded-xl bg-secondary border border-border"
+            >
+              <div className="text-left">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Character</p>
+                <p className="text-sm font-medium text-foreground">
+                  {CHARACTERS.find(c => c.id === selectedCharacter)?.name}
+                </p>
+              </div>
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            </button>
+            {showCharacterDropdown && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden">
+                {CHARACTERS.map((char) => (
+                  <button
+                    key={char.id}
+                    onClick={() => { setSelectedCharacter(char.id); setShowCharacterDropdown(false); }}
+                    className={cn(
+                      "w-full px-3 py-2 text-left hover:bg-secondary transition-colors flex items-center gap-2",
+                      selectedCharacter === char.id && "bg-primary/10"
+                    )}
+                  >
+                    {char.avatar ? (
+                      <img src={char.avatar} className="w-6 h-6 rounded-full" alt={char.name} />
+                    ) : (
+                      <User className="w-6 h-6 text-muted-foreground" />
+                    )}
+                    <span className="text-sm font-medium text-foreground">{char.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Batch Size Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowBatchDropdown(!showBatchDropdown)}
+              className="w-full flex items-center justify-between p-3 rounded-xl bg-secondary border border-border"
+            >
+              <div className="text-left">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Batch Size</p>
+                <p className="text-sm font-medium text-foreground">{batchSize} image{batchSize > 1 ? 's' : ''}</p>
+              </div>
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            </button>
+            {showBatchDropdown && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden">
+                {BATCH_SIZES.map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => { setBatchSize(size); setShowBatchDropdown(false); }}
+                    className={cn(
+                      "w-full px-3 py-2 text-left hover:bg-secondary transition-colors",
+                      batchSize === size && "bg-primary/10"
+                    )}
+                  >
+                    <span className="text-sm font-medium text-foreground">{size} image{size > 1 ? 's' : ''}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Reference Image Upload */}
+        <div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Reference Image</p>
+          <div className="flex items-center gap-3">
+            {referenceImage ? (
+              <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-border">
+                <img src={referenceImage} alt="Reference" className="w-full h-full object-cover" />
+                <button
+                  onClick={() => setReferenceImage(null)}
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center"
+                >
+                  <X className="w-3 h-3 text-white" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="w-20 h-20 rounded-xl border border-dashed border-border bg-secondary flex flex-col items-center justify-center"
+              >
+                {isUploading ? (
+                  <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+                ) : (
+                  <>
+                    <Upload className="w-5 h-5 text-muted-foreground mb-1" />
+                    <span className="text-[10px] text-muted-foreground">Upload</span>
+                  </>
+                )}
+              </button>
+            )}
+            <p className="text-xs text-muted-foreground flex-1">
+              Optional: Add a reference image for style consistency
+            </p>
+          </div>
+        </div>
+
+        {/* Style Presets */}
+        <div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Style Presets</p>
+          <div className="flex flex-wrap gap-2">
+            {STYLE_PRESETS.map((style) => (
+              <button
+                key={style.id}
+                onClick={() => toggleStyle(style.id)}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                  selectedStyles.includes(style.id)
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-foreground border border-border hover:border-primary/50"
+                )}
+              >
+                {style.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Unlimited Mode Toggle */}
+        <div className="flex items-center justify-between p-3 rounded-xl bg-secondary border border-border">
+          <div className="flex items-center gap-3">
+            <Infinity className="w-5 h-5 text-primary" />
+            <div>
+              <p className="text-sm font-medium text-foreground">Unlimited Mode</p>
+              <p className="text-[10px] text-muted-foreground">Relax queue for unlimited runs (slower)</p>
+            </div>
+          </div>
+          <Switch checked={unlimited} onCheckedChange={setUnlimited} />
+        </div>
+      </div>
+
+      {/* Bottom Controls */}
+      <div className="p-4 border-t border-border space-y-3">
+        {/* Prompt Input */}
+        <div className="flex items-center gap-2 bg-secondary rounded-full px-4 py-2 border border-border">
+          <input
+            type="text"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Describe your visual style..."
+            className="flex-1 bg-transparent text-foreground text-sm placeholder:text-muted-foreground outline-none"
+            disabled={isGenerating}
+          />
+          <button 
+            onClick={handleGenerate}
+            disabled={isGenerating || (!prompt.trim() && selectedStyles.length === 0)}
+            className="w-10 h-10 rounded-full bg-primary flex items-center justify-center disabled:opacity-50"
+          >
+            {isGenerating ? (
+              <Loader2 className="w-5 h-5 text-primary-foreground animate-spin" />
+            ) : (
+              <Sparkles className="w-5 h-5 text-primary-foreground" />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleImageUpload}
+      />
+
+      {/* Add Credits Dialog */}
+      <AddCreditsDialog
+        open={showAddCreditsDialog}
+        onOpenChange={setShowAddCreditsDialog}
+        currentCredits={credits ?? 0}
+        requiredCredits={totalCredits}
+      />
+    </div>
+  );
+}
