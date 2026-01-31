@@ -1,14 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart' as path;
-import 'package:share_plus/share_plus.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'dart:convert';
 import '../../../core/theme.dart';
+import '../../../models/download_model.dart';
+import '../../../services/download_service.dart';
 import '../../../widgets/common/smart_media_image.dart';
 
 const List<Map<String, String>> CINEMATIC_ANGLES = [
@@ -297,23 +296,77 @@ class _ShotsToolScreenState extends State<ShotsToolScreen> {
     });
   }
 
+  /// Normalize API response: may be http URL, data:image/...;base64,..., or raw base64.
+  String _normalizeImageUrl(String urlOrBase64) {
+    if (urlOrBase64.startsWith('http://') ||
+        urlOrBase64.startsWith('https://')) {
+      return urlOrBase64;
+    }
+    if (urlOrBase64.startsWith('data:image/')) {
+      return urlOrBase64;
+    }
+    // Raw base64 from API
+    return 'data:image/png;base64,$urlOrBase64';
+  }
+
   Future<void> _downloadImage(String imageUrl, int index) async {
     try {
-      final response = await http.get(Uri.parse(imageUrl));
-      final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/shot-${index + 1}-4k.png');
-      await file.writeAsBytes(response.bodyBytes);
-      await Share.shareXFiles([XFile(file.path)]);
-    } catch (e) {
-      _showError('Download failed: $e');
+      final downloadService = DownloadService();
+      final normalized = _normalizeImageUrl(imageUrl);
+      await downloadService.downloadFile(
+        url: normalized,
+        title: 'shot-${index + 1}',
+        type: DownloadType.image,
+        saveToGallery: true,
+      );
+      if (mounted) _showSuccess('Saved to gallery.');
+    } on Exception catch (e) {
+      final msg = e.toString();
+      if (msg.contains('PERMISSION_DENIED') || msg.contains('Photo library')) {
+        if (mounted)
+          _showError(
+              'Photo library access denied. Enable it in Settings to save to gallery.');
+      } else {
+        if (mounted)
+          _showError(
+              'Save failed: ${e.toString().replaceFirst(RegExp(r'^Exception:?\s*'), '')}');
+      }
     }
   }
 
   Future<void> _downloadAll(List<String> urls, String prefix) async {
+    final downloadService = DownloadService();
+    int saved = 0;
+    String? lastError;
     for (int i = 0; i < urls.length; i++) {
-      await _downloadImage(urls[i], i);
+      try {
+        final normalized = _normalizeImageUrl(urls[i]);
+        await downloadService.downloadFile(
+          url: normalized,
+          title: '$prefix-${i + 1}',
+          type: DownloadType.image,
+          saveToGallery: true,
+        );
+        saved++;
+      } on Exception catch (e) {
+        lastError = e.toString();
+        if (mounted) _showError('Save ${i + 1} failed.');
+      }
     }
-    _showSuccess('${urls.length} images downloaded.');
+    if (mounted) {
+      if (saved == urls.length) {
+        _showSuccess('$saved images saved to gallery.');
+      } else if (saved > 0) {
+        _showSuccess('$saved of ${urls.length} saved. ${lastError ?? ''}');
+      } else if (lastError != null &&
+          (lastError.contains('PERMISSION_DENIED') ||
+              lastError.contains('Photo library'))) {
+        _showError(
+            'Photo library access denied. Enable it in Settings to save to gallery.');
+      } else {
+        _showError('Save failed. ${lastError ?? ''}');
+      }
+    }
   }
 
   void _reset() {

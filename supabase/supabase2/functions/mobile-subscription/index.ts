@@ -11,37 +11,70 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[MOBILE-SUBSCRIPTION] ${step}${detailsStr}`);
 };
 
-// Product ID mappings for iOS and Android
-// IMPORTANT: Include ALL product IDs that may exist in pending transactions
-const PRODUCT_MAPPINGS: Record<string, { plan: string; credits: number; type: 'subscription' | 'consumable' }> = {
-  // === CURRENT iOS Product IDs (from App Store Connect) ===
-  "com.timeless.premium.monthly": { plan: "premium", credits: 0, type: "subscription" },
-  "com.timeless.premium.yearly": { plan: "premium", credits: 0, type: "subscription" },
-  "credits_1500_ios": { plan: "free", credits: 1500, type: "consumable" },
-  
-  // === LEGACY iOS Product IDs (for pending transactions cleanup) ===
-  "basic_weekly": { plan: "premium", credits: 0, type: "subscription" },
-  "basic_monthly": { plan: "premium", credits: 0, type: "subscription" },
-  "basic_monthly_renew": { plan: "premium", credits: 0, type: "subscription" },
-  "basic_yearly": { plan: "premium", credits: 0, type: "subscription" },
-  "timeless_premium_monthly": { plan: "premium", credits: 500, type: "subscription" },
-  "timeless_premium_yearly": { plan: "premium", credits: 5000, type: "subscription" },
-  "timeless_premium_plus_monthly": { plan: "premium_plus", credits: 1000, type: "subscription" },
-  "timeless_premium_plus_yearly": { plan: "premium_plus", credits: 7500, type: "subscription" },
-  "timeless_credits_350": { plan: "free", credits: 350, type: "consumable" },
-  "timeless_credits_700": { plan: "free", credits: 700, type: "consumable" },
-  "timeless_credits_1400": { plan: "free", credits: 1400, type: "consumable" },
-  
-  // === Android Product IDs ===
-  "timeless.premium.monthly": { plan: "premium", credits: 500, type: "subscription" },
-  "timeless.premium.yearly": { plan: "premium", credits: 5000, type: "subscription" },
-  "timeless.premium_plus.monthly": { plan: "premium_plus", credits: 1000, type: "subscription" },
-  "timeless.premium_plus.yearly": { plan: "premium_plus", credits: 7500, type: "subscription" },
-  "timeless.credits.350": { plan: "free", credits: 350, type: "consumable" },
-  "timeless.credits.700": { plan: "free", credits: 700, type: "consumable" },
-  "timeless.credits.1400": { plan: "free", credits: 1400, type: "consumable" },
-  "credits_1500_android": { plan: "free", credits: 1500, type: "consumable" },
-};
+interface ProductMapping {
+  plan: string;
+  credits: number;
+  type: 'subscription' | 'consumable';
+}
+
+// Fetch product mappings dynamically from database
+async function getProductMappings(supabase: any, platform: 'ios' | 'android'): Promise<Record<string, ProductMapping>> {
+  const mappings: Record<string, ProductMapping> = {};
+  const productIdColumn = platform === 'ios' ? 'apple_product_id' : 'android_product_id';
+
+  try {
+    // Fetch subscription plans
+    const { data: plans, error: plansError } = await supabase
+      .from("subscription_plans")
+      .select(`id, name, credits, ${productIdColumn}`)
+      .eq("is_active", true);
+
+    if (plansError) {
+      logStep("Error fetching subscription plans", { error: plansError.message });
+    } else if (plans) {
+      for (const plan of plans) {
+        const productId = plan[productIdColumn];
+        if (productId) {
+          // Extract plan name from the subscription plan name (e.g., "Premium Monthly" -> "premium")
+          const planName = plan.name.toLowerCase().includes('plus') ? 'premium_plus' : 
+                          plan.name.toLowerCase().includes('premium') ? 'premium' : 'free';
+          mappings[productId] = {
+            plan: planName,
+            credits: plan.credits || 0,
+            type: 'subscription'
+          };
+        }
+      }
+    }
+
+    // Fetch credit packages
+    const { data: packages, error: packagesError } = await supabase
+      .from("credit_packages")
+      .select(`id, name, credits, ${productIdColumn}`)
+      .eq("is_active", true);
+
+    if (packagesError) {
+      logStep("Error fetching credit packages", { error: packagesError.message });
+    } else if (packages) {
+      for (const pkg of packages) {
+        const productId = pkg[productIdColumn];
+        if (productId) {
+          mappings[productId] = {
+            plan: 'free', // Credit packages don't change the plan
+            credits: pkg.credits || 0,
+            type: 'consumable'
+          };
+        }
+      }
+    }
+
+    logStep("Product mappings loaded", { platform, count: Object.keys(mappings).length });
+  } catch (error) {
+    logStep("Error loading product mappings", { error: String(error) });
+  }
+
+  return mappings;
+}
 
 // Apple App Store Receipt Verification
 async function verifyAppleReceipt(receiptData: string, isSandbox = false): Promise<{
@@ -258,6 +291,9 @@ serve(async (req) => {
     logStep("Request received", { action, platform, productId });
 
     if (action === "verify") {
+      // Fetch product mappings dynamically based on platform
+      const PRODUCT_MAPPINGS = await getProductMappings(supabase, platform as 'ios' | 'android');
+      
       // Verify and process purchase
       let verificationResult;
       
@@ -286,9 +322,21 @@ serve(async (req) => {
         });
       }
 
-      const verifiedProductId = verificationResult.productId;
-      const productMapping = PRODUCT_MAPPINGS[verifiedProductId || ""];
-      
+      // Product ID from the receipt (Apple may return legacy IDs e.g. basic_weekly)
+      let verifiedProductId = verificationResult.productId;
+      let productMapping = PRODUCT_MAPPINGS[verifiedProductId || ""];
+
+      // iOS: Apple's receipt can contain legacy product IDs. If the receipt is valid but
+      // the receipt's product_id is not in our mappings, use the productId from the request.
+      if (!productMapping && platform === "ios" && productId && PRODUCT_MAPPINGS[productId]) {
+        logStep("Using request productId (receipt had legacy ID)", {
+          receiptProductId: verifiedProductId,
+          requestProductId: productId,
+        });
+        productMapping = PRODUCT_MAPPINGS[productId];
+        verifiedProductId = productId;
+      }
+
       if (!productMapping) {
         logStep("Unknown product ID", { productId: verifiedProductId });
         return new Response(JSON.stringify({ 
@@ -428,6 +476,8 @@ serve(async (req) => {
         
         if (verificationResult.isValid && verificationResult.expiresDate) {
           const isActive = verificationResult.expiresDate > new Date();
+          // Fetch iOS product mappings for restore
+          const PRODUCT_MAPPINGS = await getProductMappings(supabase, 'ios');
           const productMapping = PRODUCT_MAPPINGS[verificationResult.productId || ""];
           
           if (isActive && productMapping) {
