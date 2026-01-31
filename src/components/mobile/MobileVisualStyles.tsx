@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { ArrowLeft, Sparkles, Loader2, Plus, X, Zap, ChevronDown, Upload, User, Palette, Image as ImageIcon, Infinity } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { ArrowLeft, Sparkles, Loader2, X, Zap, ChevronDown, Upload, User, Palette, Infinity, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,10 +7,19 @@ import { useCredits } from "@/hooks/useCredits";
 import { useToast } from "@/hooks/use-toast";
 import AddCreditsDialog from "@/components/AddCreditsDialog";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 
 interface MobileVisualStylesProps {
   onBack: () => void;
+}
+
+interface StyleItem {
+  id: string;
+  name: string;
+  prompt: string;
+  category: string;
+  hot: boolean;
+  preview_image: string | null;
+  display_order: number;
 }
 
 const ASPECT_RATIOS = [
@@ -26,19 +35,6 @@ const QUALITY_OPTIONS = [
   { id: "1024", label: "Standard", description: "1024px", credits: 4 },
   { id: "2K", label: "High", description: "2048px", credits: 6 },
   { id: "4K", label: "Ultra", description: "4096px", credits: 10 },
-];
-
-const STYLE_PRESETS = [
-  { id: "cinematic", name: "Cinematic", prompt: "cinematic lighting, film grain, dramatic shadows, movie still" },
-  { id: "portrait", name: "Portrait", prompt: "professional portrait, soft lighting, shallow depth of field" },
-  { id: "anime", name: "Anime", prompt: "anime style, cel shading, vibrant colors, Japanese animation" },
-  { id: "cyberpunk", name: "Cyberpunk", prompt: "cyberpunk aesthetic, neon lights, futuristic, dystopian cityscape" },
-  { id: "fantasy", name: "Fantasy", prompt: "fantasy art, magical atmosphere, ethereal lighting" },
-  { id: "oil-painting", name: "Oil Painting", prompt: "oil painting style, visible brushstrokes, classical art technique" },
-  { id: "watercolor", name: "Watercolor", prompt: "watercolor painting, soft edges, flowing colors" },
-  { id: "minimalist", name: "Minimalist", prompt: "minimalist design, clean lines, simple composition" },
-  { id: "vintage", name: "Vintage", prompt: "vintage photography, retro aesthetic, film grain, faded colors" },
-  { id: "neon", name: "Neon", prompt: "neon glow, vibrant colors, dark background, synthwave" },
 ];
 
 const BATCH_SIZES = [1, 2, 4, 9];
@@ -67,11 +63,52 @@ export function MobileVisualStyles({ onBack }: MobileVisualStylesProps) {
   const [showQualityDropdown, setShowQualityDropdown] = useState(false);
   const [showCharacterDropdown, setShowCharacterDropdown] = useState(false);
   const [showBatchDropdown, setShowBatchDropdown] = useState(false);
+  const [styles, setStyles] = useState<StyleItem[]>([]);
+  const [isLoadingStyles, setIsLoadingStyles] = useState(true);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
-  const { credits, refetch, hasEnoughCreditsForModel } = useCredits();
+  const { credits, refetch } = useCredits();
   const { toast } = useToast();
+
+  // Fetch styles from database
+  useEffect(() => {
+    const fetchStyles = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("trending_styles")
+          .select("id, name, prompt, category, hot, preview_image, display_order")
+          .eq("is_active", true)
+          .order("display_order", { ascending: true });
+
+        if (error) throw error;
+        setStyles(data || []);
+        // Set first category as active
+        if (data && data.length > 0) {
+          const categories = [...new Set(data.map(s => s.category))];
+          setActiveCategory(categories[0]);
+        }
+      } catch (error) {
+        console.error("Error fetching styles:", error);
+      } finally {
+        setIsLoadingStyles(false);
+      }
+    };
+
+    fetchStyles();
+  }, []);
+
+  // Group styles by category
+  const stylesByCategory = styles.reduce((acc, style) => {
+    if (!acc[style.category]) {
+      acc[style.category] = [];
+    }
+    acc[style.category].push(style);
+    return acc;
+  }, {} as Record<string, StyleItem[]>);
+
+  const categories = Object.keys(stylesByCategory);
 
   const selectedQualityData = QUALITY_OPTIONS.find(q => q.id === quality);
   const totalCredits = (selectedQualityData?.credits || 4) * batchSize;
@@ -89,7 +126,7 @@ export function MobileVisualStyles({ onBack }: MobileVisualStylesProps) {
     if (selectedStyles.length === 0) return basePrompt;
 
     const stylePrompts = selectedStyles
-      .map(id => STYLE_PRESETS.find(s => s.id === id)?.prompt)
+      .map(id => styles.find(s => s.id === id)?.prompt)
       .filter(Boolean)
       .join(", ");
 
@@ -451,23 +488,100 @@ export function MobileVisualStyles({ onBack }: MobileVisualStylesProps) {
 
         {/* Style Presets */}
         <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Style Presets</p>
-          <div className="flex flex-wrap gap-2">
-            {STYLE_PRESETS.map((style) => (
-              <button
-                key={style.id}
-                onClick={() => toggleStyle(style.id)}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
-                  selectedStyles.includes(style.id)
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-foreground border border-border hover:border-primary/50"
-                )}
-              >
-                {style.name}
-              </button>
-            ))}
-          </div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Styles</p>
+          
+          {isLoadingStyles ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
+            </div>
+          ) : (
+            <>
+              {/* Category Tabs */}
+              <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
+                {categories.map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => setActiveCategory(category)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all",
+                      activeCategory === category
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-foreground border border-border"
+                    )}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+
+              {/* Style Grid */}
+              {activeCategory && stylesByCategory[activeCategory] && (
+                <div className="grid grid-cols-3 gap-2">
+                  {stylesByCategory[activeCategory].map((style) => (
+                    <button
+                      key={style.id}
+                      onClick={() => toggleStyle(style.id)}
+                      className={cn(
+                        "relative rounded-xl overflow-hidden border-2 transition-all aspect-square",
+                        selectedStyles.includes(style.id)
+                          ? "border-primary ring-2 ring-primary/30"
+                          : "border-transparent"
+                      )}
+                    >
+                      {style.preview_image ? (
+                        <img
+                          src={style.preview_image}
+                          alt={style.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-secondary flex items-center justify-center">
+                          <Palette className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                      )}
+                      {/* Overlay with name */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-2">
+                        <span className="text-white text-[10px] font-medium leading-tight line-clamp-2">
+                          {style.name}
+                        </span>
+                        {style.hot && (
+                          <Flame className="absolute top-1.5 right-1.5 w-3.5 h-3.5 text-orange-400" />
+                        )}
+                      </div>
+                      {/* Selection checkmark */}
+                      {selectedStyles.includes(style.id) && (
+                        <div className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                          <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Selected styles summary */}
+              {selectedStyles.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {selectedStyles.map((styleId) => {
+                    const style = styles.find(s => s.id === styleId);
+                    return style ? (
+                      <span
+                        key={styleId}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/15 text-primary text-[10px] font-medium"
+                      >
+                        {style.name}
+                        <button onClick={() => toggleStyle(styleId)} className="hover:text-primary/70">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* Unlimited Mode Toggle */}
