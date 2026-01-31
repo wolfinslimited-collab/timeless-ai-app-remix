@@ -150,7 +150,8 @@ class _PricingScreenState extends State<PricingScreen>
     if (!creditsProvider.hasActiveSubscription) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('A premium subscription is required to purchase credits'),
+          content:
+              Text('A premium subscription is required to purchase credits'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -233,32 +234,33 @@ class _PricingScreenState extends State<PricingScreen>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppTheme.secondary,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.toll,
-                              size: 18,
-                              color: Theme.of(context).colorScheme.onSurface),
-                          const SizedBox(width: 6),
-                          Text(
-                            credits.hasActiveSubscription
-                                ? '∞'
-                                : '${credits.credits}',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                    if (!credits.hasActiveSubscription)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppTheme.secondary,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.toll,
+                                size: 18,
+                                color: Theme.of(context).colorScheme.onSurface),
+                            const SizedBox(width: 6),
+                            Text(
+                              credits.hasActiveSubscription
+                                  ? '∞'
+                                  : '${credits.credits}',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
                     if (credits.hasActiveSubscription) ...[
                       const SizedBox(width: 8),
                       Container(
@@ -486,22 +488,42 @@ class _PricingScreenState extends State<PricingScreen>
                         final plan = plans[index];
                         // Check if this is the user's current plan
                         // Match by plan.id (e.g., "premium-monthly") or plan.name (e.g., "Premium")
-                        final userPlan = creditsProvider.currentPlan?.toLowerCase() ?? '';
-                        final isCurrentPlan = creditsProvider.hasActiveSubscription && (
-                            userPlan == plan.id.toLowerCase() ||
-                            userPlan == plan.name.toLowerCase() ||
-                            plan.id.toLowerCase().startsWith(userPlan)
-                        );
+                        final userPlan =
+                            creditsProvider.currentPlan?.toLowerCase() ?? '';
+                        final isCurrentPlan =
+                            creditsProvider.hasActiveSubscription &&
+                                (userPlan == plan.id.toLowerCase() ||
+                                    userPlan == plan.name.toLowerCase() ||
+                                    plan.id.toLowerCase().startsWith(userPlan));
                         return SingleChildScrollView(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Padding(
                             padding: const EdgeInsets.only(bottom: 24),
-                            child: _SubscriptionPlanCard(
-                              plan: plan,
-                              iconData: _getIconData(plan.icon),
-                              isPurchasing: iapProvider.isPurchasing,
-                              isCurrentPlan: isCurrentPlan,
-                              onPurchase: () => _handleSubscriptionPurchase(plan),
+                            child: Column(
+                              children: [
+                                _SubscriptionPlanCard(
+                                  plan: plan,
+                                  iconData: _getIconData(plan.icon),
+                                  isPurchasing: iapProvider.isPurchasing,
+                                  isCurrentPlan: isCurrentPlan,
+                                  onPurchase: () =>
+                                      _handleSubscriptionPurchase(plan),
+                                ),
+
+                                // Footer text
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                                  child: Text(
+                                    Platform.isIOS
+                                        ? 'Payment will be charged to your Apple ID account. Subscription automatically renews unless auto-renew is turned off at least 24-hours before the end of the current period.'
+                                        : 'Payment will be charged to your Google Play account. Subscription automatically renews unless cancelled.',
+                                    style: const TextStyle(
+                                        color: AppTheme.muted, fontSize: 11),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         );
@@ -534,18 +556,6 @@ class _PricingScreenState extends State<PricingScreen>
           ),
           const SizedBox(height: 8),
         ],
-
-        // Footer text
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          child: Text(
-            Platform.isIOS
-                ? 'Payment will be charged to your Apple ID account. Subscription automatically renews unless auto-renew is turned off at least 24-hours before the end of the current period.'
-                : 'Payment will be charged to your Google Play account. Subscription automatically renews unless cancelled.',
-            style: const TextStyle(color: AppTheme.muted, fontSize: 11),
-            textAlign: TextAlign.center,
-          ),
-        ),
       ],
     );
   }
@@ -711,7 +721,7 @@ class _SubscriptionPlanCard extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         Container(
-          margin: const EdgeInsets.only(bottom: 16, top: isCurrentPlan ? 12 : 0),
+          margin: EdgeInsets.only(bottom: 16, top: isCurrentPlan ? 12 : 0),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             gradient: isHighlighted && !isCurrentPlan
@@ -734,259 +744,270 @@ class _SubscriptionPlanCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-          // Header row
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: isHighlighted
-                      ? const LinearGradient(
-                          colors: [AppTheme.primary, Color(0xFFEC4899)])
-                      : null,
-                  color: isHighlighted ? null : AppTheme.secondary,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  iconData,
-                  color: isHighlighted ? Colors.white : AppTheme.primary,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '\$${plan.price.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          '/${plan.period == 'Monthly' ? 'mo' : 'yr'}',
-                          style: const TextStyle(
-                              color: AppTheme.muted, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          plan.name,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (plan.popular) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [AppTheme.primary, Color(0xFFEC4899)],
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Text(
-                              'Popular',
-                              style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                        if (plan.bestValue && !plan.popular) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Text(
-                              'Best Value',
-                              style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    // Text(
-                    //   plan.period,
-                    //   style:
-                    //       const TextStyle(color: AppTheme.muted, fontSize: 13),
-                    // ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Credits badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppTheme.secondary,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: Text(
-                '${plan.credits.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')} credits',
-                style: TextStyle(
-                  color: AppTheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Features
-          ...plan.features.map((feature) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: feature.included
-                            ? Colors.green.withOpacity(0.2)
-                            : Colors.red.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        feature.included ? Icons.check : Icons.close,
-                        size: 12,
-                        color: feature.included ? Colors.green : Colors.red,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        feature.text,
-                        style: TextStyle(
-                          color: feature.included ? null : AppTheme.muted,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                    if (feature.badge != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          feature.badge!,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: AppTheme.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              )),
-          const SizedBox(height: 20),
-
-          // Subscribe button
-          SizedBox(
-            width: double.infinity,
-            child: isCurrentPlan
-                ? Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.green.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.check,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Your Current Plan',
-                          style: TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : Container(
+              // Header row
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       gradient: isHighlighted
                           ? const LinearGradient(
                               colors: [AppTheme.primary, Color(0xFFEC4899)])
                           : null,
+                      color: isHighlighted ? null : AppTheme.secondary,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: ElevatedButton(
-                      onPressed: isPurchasing ? null : onPurchase,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            isHighlighted ? Colors.transparent : AppTheme.secondary,
-                        foregroundColor: isHighlighted ? Colors.white : null,
-                        shadowColor: Colors.transparent,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: isHighlighted
-                              ? BorderSide.none
-                              : BorderSide(color: AppTheme.border),
-                        ),
-                      ),
-                      child: isPurchasing
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
-                            )
-                          : Text(
-                              'Upgrade to ${plan.name}',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
+                    child: Icon(
+                      iconData,
+                      color: isHighlighted ? Colors.white : AppTheme.primary,
+                      size: 24,
                     ),
                   ),
-          ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '\$${plan.price.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              '/${plan.period == 'Monthly' ? 'mo' : 'yr'}',
+                              style: const TextStyle(
+                                  color: AppTheme.muted, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            Text(
+                              plan.name,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (plan.popular) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      AppTheme.primary,
+                                      Color(0xFFEC4899)
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Text(
+                                  'Popular',
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                            if (plan.bestValue && !plan.popular) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFFF59E0B),
+                                      Color(0xFFF97316)
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Text(
+                                  'Best Value',
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        // Text(
+                        //   plan.period,
+                        //   style:
+                        //       const TextStyle(color: AppTheme.muted, fontSize: 13),
+                        // ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Credits badge
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(
+                    '${plan.credits.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')} credits',
+                    style: TextStyle(
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Features
+              ...plan.features.map((feature) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: feature.included
+                                ? Colors.green.withOpacity(0.2)
+                                : Colors.red.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            feature.included ? Icons.check : Icons.close,
+                            size: 12,
+                            color: feature.included ? Colors.green : Colors.red,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            feature.text,
+                            style: TextStyle(
+                              color: feature.included ? null : AppTheme.muted,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        if (feature.badge != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primary.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              feature.badge!,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppTheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  )),
+              const SizedBox(height: 20),
+
+              // Subscribe button
+              SizedBox(
+                width: double.infinity,
+                child: isCurrentPlan
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                          border:
+                              Border.all(color: Colors.green.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.check,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Your Current Plan',
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Container(
+                        decoration: BoxDecoration(
+                          gradient: isHighlighted
+                              ? const LinearGradient(
+                                  colors: [AppTheme.primary, Color(0xFFEC4899)])
+                              : null,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ElevatedButton(
+                          onPressed: isPurchasing ? null : onPurchase,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isHighlighted
+                                ? Colors.transparent
+                                : AppTheme.secondary,
+                            foregroundColor:
+                                isHighlighted ? Colors.white : null,
+                            shadowColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: isHighlighted
+                                  ? BorderSide.none
+                                  : BorderSide(color: AppTheme.border),
+                            ),
+                          ),
+                          child: isPurchasing
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white),
+                                )
+                              : Text(
+                                  'Upgrade to ${plan.name}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15),
+                                ),
+                        ),
+                      ),
+              ),
             ],
           ),
         ),
@@ -998,7 +1019,8 @@ class _SubscriptionPlanCard extends StatelessWidget {
             right: 0,
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                 decoration: BoxDecoration(
                   color: Colors.green,
                   borderRadius: BorderRadius.circular(20),
