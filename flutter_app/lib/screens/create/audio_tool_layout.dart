@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
 import '../../core/theme.dart';
 import '../../providers/credits_provider.dart';
 import '../../providers/download_provider.dart';
@@ -51,8 +52,10 @@ class _AudioToolLayoutState extends State<AudioToolLayout> {
   String? _inputAudioName;
   String? _outputUrl;
   bool _isProcessing = false;
+  bool _isPolling = false;
   bool _isInputPlaying = false;
   bool _isOutputPlaying = false;
+  String? _processingStatus;
 
   double _duration = 30;
   double _tempo = 1.0;
@@ -159,12 +162,20 @@ class _AudioToolLayoutState extends State<AudioToolLayout> {
     setState(() {
       _isProcessing = true;
       _outputUrl = null;
+      _processingStatus = 'Starting...';
     });
 
     try {
-      final response = await _supabase.functions.invoke(
-        'music-tools',
-        body: {
+      final supabaseUrl =
+          _supabase.rest.url.replaceAll('/rest/v1', '');
+      final response = await http.post(
+        Uri.parse('$supabaseUrl/functions/v1/music-tools'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${session.accessToken}',
+          'apikey': _supabase.rest.headers['apikey'] ?? '',
+        },
+        body: jsonEncode({
           'tool': widget.toolId,
           'audioUrl': _inputAudioUrl,
           'prompt':
@@ -172,28 +183,39 @@ class _AudioToolLayoutState extends State<AudioToolLayout> {
           'duration': _duration.toInt(),
           if (widget.showTempo) 'tempo': _tempo,
           if (widget.showPitch) 'pitch': _pitch.toInt(),
-        },
+        }),
       );
 
-      final result = response.data;
+      final result = jsonDecode(response.body);
 
-      if (result['error'] != null) {
-        throw Exception(result['error']);
+      if (response.statusCode != 200) {
+        throw Exception(result['error'] ?? 'Processing failed');
       }
 
-      if (result['status'] == 'processing') {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content:
-                  Text('Audio is being processed! Check Library for results.'),
-            ),
-          );
-        }
+      // Handle background processing with polling
+      if (result['status'] == 'processing' && result['taskId'] != null) {
+        setState(() => _processingStatus = 'Processing audio...');
+        await _pollForCompletion(
+          taskId: result['taskId'] as String,
+          endpoint: result['endpoint'] as String?,
+          generationId: result['generationId'] as String?,
+        );
+        creditsProvider.refresh();
       } else if (result['outputUrl'] != null) {
         setState(() {
           _outputUrl = result['outputUrl'];
+          _isProcessing = false;
+          _processingStatus = null;
         });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Processing complete!')),
+          );
+        }
+        creditsProvider.refresh();
+      } else {
+        // No async polling needed, just complete
+        setState(() => _isProcessing = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Processing complete!')),
@@ -205,12 +227,92 @@ class _AudioToolLayoutState extends State<AudioToolLayout> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Processing failed: $e')),
         );
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
+
+  Future<void> _pollForCompletion({
+    required String taskId,
+    String? endpoint,
+    String? generationId,
+  }) async {
+    if (_isPolling) return;
+    _isPolling = true;
+
+    const maxAttempts = 120;
+    const pollInterval = Duration(seconds: 3);
+
+    try {
+      final session = _supabase.auth.currentSession;
+      if (session == null) throw Exception('Not authenticated');
+
+      final supabaseUrl =
+          _supabase.rest.url.replaceAll('/rest/v1', '');
+
+      for (int attempt = 0; attempt < maxAttempts; attempt++) {
+        await Future.delayed(pollInterval);
+        if (!mounted) return;
+
+        try {
+          final response = await http.post(
+            Uri.parse('$supabaseUrl/functions/v1/check-generation'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ${session.accessToken}',
+              'apikey': _supabase.rest.headers['apikey'] ?? '',
+            },
+            body: jsonEncode({
+              'taskId': taskId,
+              'endpoint': endpoint,
+              'generationId': generationId,
+            }),
+          );
+
+          final result = jsonDecode(response.body);
+          final status = result['status'] as String?;
+
+          if (status == 'completed') {
+            final outputUrl = result['output_url'] as String?;
+            if (outputUrl != null && mounted) {
+              setState(() {
+                _outputUrl = outputUrl;
+                _isProcessing = false;
+                _processingStatus = null;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Processing complete!')),
+              );
+            }
+            return;
+          } else if (status == 'failed') {
+            throw Exception(result['error'] ?? 'Processing failed');
+          }
+
+          // Update progress indicator
+          final progress = result['progress'];
+          if (progress != null && mounted) {
+            setState(() {
+              _processingStatus = 'Processing... ${(progress * 100).toInt()}%';
+            });
+          }
+        } catch (e) {
+          debugPrint('Polling error: $e');
+          // Continue polling on error
+        }
+      }
+
+      // Max attempts reached
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Processing is taking longer than expected. Check Library for results.')),
+        );
+        setState(() => _isProcessing = false);
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-        });
+      _isPolling = false;
+      if (mounted && _isProcessing) {
+        setState(() => _isProcessing = false);
       }
     }
   }
@@ -631,9 +733,16 @@ class _AudioToolLayoutState extends State<AudioToolLayout> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Processing audio...',
+                            _processingStatus ?? 'Processing audio...',
                             style: TextStyle(color: AppTheme.muted),
                           ),
+                          if (_isPolling) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'This may take a few minutes...',
+                              style: TextStyle(color: AppTheme.muted, fontSize: 12),
+                            ),
+                          ],
                         ],
                       ),
                     )
