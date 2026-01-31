@@ -474,25 +474,33 @@ class _PricingScreenState extends State<PricingScreen>
                     style: TextStyle(color: AppTheme.muted),
                   ),
                 )
-              : PageView.builder(
-                  controller: _plansPageController,
-                  onPageChanged: (index) {
-                    setState(() => _plansPageIndex = index);
-                  },
-                  itemCount: plans.length,
-                  itemBuilder: (context, index) {
-                    final plan = plans[index];
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 24),
-                        child: _SubscriptionPlanCard(
-                          plan: plan,
-                          iconData: _getIconData(plan.icon),
-                          isPurchasing: iapProvider.isPurchasing,
-                          onPurchase: () => _handleSubscriptionPurchase(plan),
-                        ),
-                      ),
+              : Consumer<CreditsProvider>(
+                  builder: (context, creditsProvider, child) {
+                    return PageView.builder(
+                      controller: _plansPageController,
+                      onPageChanged: (index) {
+                        setState(() => _plansPageIndex = index);
+                      },
+                      itemCount: plans.length,
+                      itemBuilder: (context, index) {
+                        final plan = plans[index];
+                        // Check if this is the user's current plan
+                        final isCurrentPlan = creditsProvider.hasActiveSubscription &&
+                            creditsProvider.currentPlan?.toLowerCase() == plan.name.toLowerCase();
+                        return SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 24),
+                            child: _SubscriptionPlanCard(
+                              plan: plan,
+                              iconData: _getIconData(plan.icon),
+                              isPurchasing: iapProvider.isPurchasing,
+                              isCurrentPlan: isCurrentPlan,
+                              onPurchase: () => _handleSubscriptionPurchase(plan),
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
                 ),
@@ -679,12 +687,14 @@ class _SubscriptionPlanCard extends StatelessWidget {
   final SubscriptionPlan plan;
   final IconData iconData;
   final bool isPurchasing;
+  final bool isCurrentPlan;
   final VoidCallback onPurchase;
 
   const _SubscriptionPlanCard({
     required this.plan,
     required this.iconData,
     required this.isPurchasing,
+    required this.isCurrentPlan,
     required this.onPurchase,
   });
 
@@ -893,43 +903,79 @@ class _SubscriptionPlanCard extends StatelessWidget {
           // Subscribe button
           SizedBox(
             width: double.infinity,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: isHighlighted
-                    ? const LinearGradient(
-                        colors: [AppTheme.primary, Color(0xFFEC4899)])
-                    : null,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ElevatedButton(
-                onPressed: isPurchasing ? null : onPurchase,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      isHighlighted ? Colors.transparent : AppTheme.secondary,
-                  foregroundColor: isHighlighted ? Colors.white : null,
-                  shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: isHighlighted
-                        ? BorderSide.none
-                        : BorderSide(color: AppTheme.border),
-                  ),
-                ),
-                child: isPurchasing
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Text(
-                        'Subscribe',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 15),
+            child: isCurrentPlan
+                ? Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.green.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.check,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Your Current Plan',
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Container(
+                    decoration: BoxDecoration(
+                      gradient: isHighlighted
+                          ? const LinearGradient(
+                              colors: [AppTheme.primary, Color(0xFFEC4899)])
+                          : null,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ElevatedButton(
+                      onPressed: isPurchasing ? null : onPurchase,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            isHighlighted ? Colors.transparent : AppTheme.secondary,
+                        foregroundColor: isHighlighted ? Colors.white : null,
+                        shadowColor: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: isHighlighted
+                              ? BorderSide.none
+                              : BorderSide(color: AppTheme.border),
+                        ),
                       ),
-              ),
-            ),
+                      child: isPurchasing
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : Text(
+                              'Upgrade to ${plan.name}',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                    ),
+                  ),
           ),
         ],
       ),

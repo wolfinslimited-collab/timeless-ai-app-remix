@@ -523,7 +523,7 @@ class ProfileScreen extends StatelessWidget {
                           ],
                         ),
                         GestureDetector(
-                          onTap: () => context.push('/subscription'),
+                          onTap: () => context.push('/pricing'),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
@@ -552,7 +552,7 @@ class ProfileScreen extends StatelessWidget {
                   _ProfileMenuItem(
                     icon: Icons.workspace_premium_outlined,
                     label: 'Subscription',
-                    onTap: () => context.push('/subscription'),
+                    onTap: () => context.push('/pricing'),
                   ),
                   const SizedBox(height: 8),
                   _ProfileMenuItem(
