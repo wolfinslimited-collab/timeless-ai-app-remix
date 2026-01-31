@@ -11,6 +11,7 @@ export type Screen =
   | "video" 
   | "cinema" 
   | "audio"
+  | "visual-styles"
   | "apps"
   | "auth" 
   | "subscription"
@@ -30,7 +31,7 @@ interface MobileNavProps {
 }
 
 export function MobileNav({ currentScreen, onNavigate }: MobileNavProps) {
-  const isCreateActive = ["create", "image", "video", "cinema", "audio"].includes(currentScreen);
+  const isCreateActive = ["create", "image", "video", "cinema", "audio", "visual-styles"].includes(currentScreen);
   const isProfileActive = ["profile", "library", "subscription", "downloads", "favorites"].includes(currentScreen);
 
   return (
