@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../core/theme.dart';
 
 /// Model logo configuration
 class LogoConfig {
-  final String? logoPath;
+  final String? assetPath; // Local asset path
+  final String? networkUrl; // Network URL for logo
   final bool isSvg;
   final bool invert;
   final String? textLogo;
@@ -12,8 +14,9 @@ class LogoConfig {
   final Color bgColor;
 
   const LogoConfig({
-    this.logoPath,
-    this.isSvg = true,
+    this.assetPath,
+    this.networkUrl,
+    this.isSvg = false,
     this.invert = false,
     this.textLogo,
     this.gradientColors,
@@ -24,8 +27,9 @@ class LogoConfig {
 // Model configurations with actual logos and brand colors
 final Map<String, LogoConfig> _modelConfigs = {
   // === IMAGE MODELS ===
+  
   // Nano Banana (Lovable AI)
-  'nano-banana': LogoConfig(
+  'nano-banana': const LogoConfig(
     textLogo: '🍌',
     gradientColors: [Colors.amber, Colors.yellow],
   ),
@@ -33,212 +37,301 @@ final Map<String, LogoConfig> _modelConfigs = {
     textLogo: '🍌',
     gradientColors: [Colors.amber.shade700, Colors.orange],
   ),
+  'kie-nano-banana': const LogoConfig(
+    textLogo: '🍌',
+    gradientColors: [Colors.amber, Colors.yellow],
+  ),
 
   // FLUX models (Black Forest Labs)
-  'flux-1.1-pro': LogoConfig(
-    textLogo: 'F',
-    gradientColors: [Colors.deepPurple, Colors.purple],
+  'flux-1.1-pro': const LogoConfig(
+    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
+    bgColor: Color(0xFF000000),
   ),
-  'flux-pro': LogoConfig(
-    textLogo: 'F',
-    gradientColors: [Colors.deepPurple, Colors.purple],
+  'flux-pro': const LogoConfig(
+    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
+    bgColor: Color(0xFF000000),
   ),
-  'flux-schnell': LogoConfig(
-    textLogo: 'F',
-    gradientColors: [Colors.purple, Colors.purpleAccent],
+  'flux-schnell': const LogoConfig(
+    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
+    bgColor: Color(0xFF000000),
   ),
-  'flux-realism': LogoConfig(
-    textLogo: 'F',
-    gradientColors: [Colors.deepPurple.shade700, Colors.purple],
+  'flux-pro-ultra': const LogoConfig(
+    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
+    bgColor: Color(0xFF000000),
   ),
-
-  // Ideogram
-  'ideogram-v2': LogoConfig(
-    textLogo: 'I',
-    gradientColors: [Colors.pink, Colors.pinkAccent],
+  'kie-flux': const LogoConfig(
+    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
+    bgColor: Color(0xFF000000),
   ),
-  'ideogram-v3': LogoConfig(
-    textLogo: 'I',
-    gradientColors: [Colors.pink.shade600, Colors.pink],
+  'kie-flux2-pro': const LogoConfig(
+    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
+    bgColor: Color(0xFF000000),
+  ),
+  'kie-flux-kontext': const LogoConfig(
+    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
+    bgColor: Color(0xFF000000),
   ),
 
   // Midjourney
-  'midjourney-v6': LogoConfig(
-    textLogo: 'Mj',
-    gradientColors: [Colors.blue, Colors.cyan],
+  'midjourney': const LogoConfig(
+    assetPath: 'assets/logos/midjourney.png',
+    bgColor: Color(0xFF000000),
   ),
-  'midjourney': LogoConfig(
-    textLogo: 'Mj',
-    gradientColors: [Colors.blue, Colors.cyan],
+  'kie-midjourney': const LogoConfig(
+    assetPath: 'assets/logos/midjourney.png',
+    bgColor: Color(0xFF000000),
+  ),
+
+  // Ideogram
+  'ideogram-v2': const LogoConfig(
+    networkUrl: 'https://ideogram.ai/apple-touch-icon.png',
+    bgColor: Color(0xFF1A1A2E),
+  ),
+  'ideogram-v3': const LogoConfig(
+    networkUrl: 'https://ideogram.ai/apple-touch-icon.png',
+    bgColor: Color(0xFF1A1A2E),
+  ),
+  'kie-ideogram': const LogoConfig(
+    networkUrl: 'https://ideogram.ai/apple-touch-icon.png',
+    bgColor: Color(0xFF1A1A2E),
   ),
 
   // Recraft
-  'recraft-v3': LogoConfig(
-    textLogo: 'R',
-    gradientColors: [Colors.teal, Colors.green],
+  'recraft-v3': const LogoConfig(
+    networkUrl: 'https://www.recraft.ai/images/icon-256x256.png',
+    bgColor: Color(0xFF000000),
   ),
 
   // Stable Diffusion
-  'sd-ultra': LogoConfig(
-    textLogo: 'SD',
-    gradientColors: [Colors.orange, Colors.deepOrange],
+  'sd-ultra': const LogoConfig(
+    assetPath: 'assets/logos/stable-diffusion.png',
+    bgColor: Color(0xFF5C2D91),
   ),
-  'sd-3.5': LogoConfig(
-    textLogo: 'SD',
-    gradientColors: [Colors.orange, Colors.amber],
+  'sd-3.5': const LogoConfig(
+    assetPath: 'assets/logos/stable-diffusion.png',
+    bgColor: Color(0xFF5C2D91),
+  ),
+  'stable-diffusion-3': const LogoConfig(
+    assetPath: 'assets/logos/stable-diffusion.png',
+    bgColor: Color(0xFF5C2D91),
   ),
 
   // Imagen (Google) - use Gemini logo
   'imagen-4': const LogoConfig(
-    logoPath: 'assets/logos/gemini.svg',
+    assetPath: 'assets/logos/google-gemini.svg',
     isSvg: true,
-    invert: false,
+    bgColor: Color(0xFF1A237E),
+  ),
+  'kie-imagen-4': const LogoConfig(
+    assetPath: 'assets/logos/google-gemini.svg',
+    isSvg: true,
     bgColor: Color(0xFF1A237E),
   ),
 
   // Seedream
-  'seedream-3': LogoConfig(
+  'seedream': const LogoConfig(
     textLogo: 'S',
-    gradientColors: [Colors.lime, Colors.green],
+    gradientColors: [Color(0xFF00C853), Color(0xFF1DE9B6)],
+  ),
+  'kie-seedream': const LogoConfig(
+    textLogo: 'S',
+    gradientColors: [Color(0xFF00C853), Color(0xFF1DE9B6)],
   ),
 
   // Kling Image
-  'kling-image': LogoConfig(
-    textLogo: 'K',
-    gradientColors: [Colors.lightBlue, Colors.blue],
+  'kling-image': const LogoConfig(
+    assetPath: 'assets/logos/kling.png',
+    bgColor: Color(0xFF000000),
+  ),
+  'kie-kling-image': const LogoConfig(
+    assetPath: 'assets/logos/kling.png',
+    bgColor: Color(0xFF000000),
   ),
 
   // Grok Image
   'grok-image': const LogoConfig(
-    logoPath: 'assets/logos/x-logo.svg',
+    assetPath: 'assets/logos/x-logo.svg',
+    isSvg: true,
+    invert: true,
+    bgColor: AppTheme.secondary,
+  ),
+  'kie-grok-imagine': const LogoConfig(
+    assetPath: 'assets/logos/x-logo.svg',
     isSvg: true,
     invert: true,
     bgColor: AppTheme.secondary,
   ),
 
-  // GPT-Image
+  // GPT-Image / OpenAI
   'gpt-image': const LogoConfig(
-    logoPath: 'assets/logos/openai.svg',
+    assetPath: 'assets/logos/openai.svg',
     isSvg: true,
     invert: true,
-    bgColor: AppTheme.secondary,
+    bgColor: Color(0xFF10A37F),
+  ),
+  'gpt-image-1.5': const LogoConfig(
+    assetPath: 'assets/logos/openai.svg',
+    isSvg: true,
+    invert: true,
+    bgColor: Color(0xFF10A37F),
+  ),
+  'kie-4o-image': const LogoConfig(
+    assetPath: 'assets/logos/openai.svg',
+    isSvg: true,
+    invert: true,
+    bgColor: Color(0xFF10A37F),
   ),
 
   // Qwen
-  'qwen-vl': LogoConfig(
-    textLogo: 'Q',
-    gradientColors: [Colors.deepOrange, Colors.orange],
+  'qwen-vl': const LogoConfig(
+    textLogo: '通',
+    gradientColors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+  ),
+  'kie-qwen-image': const LogoConfig(
+    textLogo: '通',
+    gradientColors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
   ),
 
   // === VIDEO MODELS ===
+  
   // Kling (Kuaishou)
-  'kling-2.6': LogoConfig(
-    textLogo: 'K',
-    gradientColors: [Colors.lightBlue, Colors.blue],
+  'kling': const LogoConfig(
+    assetPath: 'assets/logos/kling.png',
+    bgColor: Color(0xFF000000),
   ),
-  'kling-2.1': LogoConfig(
-    textLogo: 'K',
-    gradientColors: [Colors.lightBlue, Colors.blue],
+  'kling-2.6': const LogoConfig(
+    assetPath: 'assets/logos/kling.png',
+    bgColor: Color(0xFF000000),
   ),
-  'kling-1.6': LogoConfig(
-    textLogo: 'K',
-    gradientColors: [Colors.lightBlue.shade300, Colors.blue.shade300],
+  'kling-2.1': const LogoConfig(
+    assetPath: 'assets/logos/kling.png',
+    bgColor: Color(0xFF000000),
+  ),
+  'kie-kling': const LogoConfig(
+    assetPath: 'assets/logos/kling.png',
+    bgColor: Color(0xFF000000),
   ),
 
   // Wan (Alibaba)
-  'wan-2.6': LogoConfig(
-    textLogo: 'W',
-    gradientColors: [Colors.orange, Colors.deepOrange],
+  'wan': const LogoConfig(
+    networkUrl: 'https://wanx.aliyun.com/favicon.ico',
+    bgColor: Color(0xFFFF6A00),
   ),
-  'wan-2.1': LogoConfig(
-    textLogo: 'W',
-    gradientColors: [Colors.orange, Colors.deepOrange],
+  'wan-2.6': const LogoConfig(
+    networkUrl: 'https://wanx.aliyun.com/favicon.ico',
+    bgColor: Color(0xFFFF6A00),
+  ),
+  'kie-wan': const LogoConfig(
+    networkUrl: 'https://wanx.aliyun.com/favicon.ico',
+    bgColor: Color(0xFFFF6A00),
   ),
 
   // Veo (Google)
   'veo-3': const LogoConfig(
-    logoPath: 'assets/logos/gemini.svg',
+    assetPath: 'assets/logos/google-gemini.svg',
     isSvg: true,
-    invert: false,
     bgColor: Color(0xFF1A237E),
   ),
   'veo-3-fast': const LogoConfig(
-    logoPath: 'assets/logos/gemini.svg',
+    assetPath: 'assets/logos/google-gemini.svg',
     isSvg: true,
-    invert: false,
+    bgColor: Color(0xFF1A237E),
+  ),
+  'kie-veo': const LogoConfig(
+    assetPath: 'assets/logos/google-gemini.svg',
+    isSvg: true,
     bgColor: Color(0xFF1A237E),
   ),
 
   // Sora (OpenAI)
   'sora': const LogoConfig(
-    logoPath: 'assets/logos/openai.svg',
+    assetPath: 'assets/logos/openai.svg',
     isSvg: true,
     invert: true,
-    bgColor: AppTheme.secondary,
+    bgColor: Color(0xFF10A37F),
   ),
   'sora-2': const LogoConfig(
-    logoPath: 'assets/logos/openai.svg',
+    assetPath: 'assets/logos/openai.svg',
     isSvg: true,
     invert: true,
-    bgColor: AppTheme.secondary,
+    bgColor: Color(0xFF10A37F),
+  ),
+  'kie-sora': const LogoConfig(
+    assetPath: 'assets/logos/openai.svg',
+    isSvg: true,
+    invert: true,
+    bgColor: Color(0xFF10A37F),
   ),
 
   // Luma
-  'luma': LogoConfig(
-    textLogo: 'L',
-    gradientColors: [Colors.purple, Colors.deepPurple],
+  'luma': const LogoConfig(
+    assetPath: 'assets/logos/luma.png',
+    bgColor: Color(0xFF4A1D96),
   ),
-  'luma-ray-2': LogoConfig(
-    textLogo: 'L',
-    gradientColors: [Colors.purple.shade700, Colors.deepPurple.shade700],
+  'luma-ray-2': const LogoConfig(
+    assetPath: 'assets/logos/luma.png',
+    bgColor: Color(0xFF4A1D96),
   ),
 
   // Hailuo (MiniMax)
-  'hailuo-02': LogoConfig(
-    textLogo: 'H',
-    gradientColors: [Colors.cyan, Colors.teal],
+  'hailuo': const LogoConfig(
+    assetPath: 'assets/logos/hailuo.png',
+    bgColor: Color(0xFF00A8E8),
   ),
-  'hailuo': LogoConfig(
-    textLogo: 'H',
-    gradientColors: [Colors.cyan, Colors.teal],
+  'hailuo-02': const LogoConfig(
+    assetPath: 'assets/logos/hailuo.png',
+    bgColor: Color(0xFF00A8E8),
+  ),
+  'kie-hailuo': const LogoConfig(
+    assetPath: 'assets/logos/hailuo.png',
+    bgColor: Color(0xFF00A8E8),
   ),
 
   // Runway
-  'runway': LogoConfig(
-    textLogo: 'R',
-    gradientColors: [Colors.green, Colors.teal],
+  'runway': const LogoConfig(
+    assetPath: 'assets/logos/runway.png',
+    bgColor: Color(0xFF000000),
   ),
-  'runway-gen4': LogoConfig(
-    textLogo: 'R',
-    gradientColors: [Colors.green.shade700, Colors.teal.shade700],
+  'runway-gen4': const LogoConfig(
+    assetPath: 'assets/logos/runway.png',
+    bgColor: Color(0xFF000000),
+  ),
+  'kie-runway': const LogoConfig(
+    assetPath: 'assets/logos/runway.png',
+    bgColor: Color(0xFF000000),
   ),
 
   // Seedance
-  'seedance-1.5': LogoConfig(
-    textLogo: 'S',
-    gradientColors: [Colors.lime, Colors.green],
+  'seedance': const LogoConfig(
+    textLogo: 'SD',
+    gradientColors: [Color(0xFF00E676), Color(0xFF00C853)],
+  ),
+  'seedance-1.5': const LogoConfig(
+    textLogo: 'SD',
+    gradientColors: [Color(0xFF00E676), Color(0xFF00C853)],
   ),
 
   // Hunyuan (Tencent)
-  'hunyuan-1.5': LogoConfig(
-    textLogo: '混',
-    gradientColors: [Colors.blue.shade700, Colors.indigo],
+  'hunyuan': const LogoConfig(
+    assetPath: 'assets/logos/hunyuan.png',
+    bgColor: Color(0xFF12B7F5),
   ),
-  'hunyuan': LogoConfig(
-    textLogo: '混',
-    gradientColors: [Colors.blue.shade700, Colors.indigo],
+  'hunyuan-1.5': const LogoConfig(
+    assetPath: 'assets/logos/hunyuan.png',
+    bgColor: Color(0xFF12B7F5),
   ),
 
   // === CHAT MODELS ===
+  
   // Grok/xAI
   'grok-3': const LogoConfig(
-    logoPath: 'assets/logos/x-logo.svg',
+    assetPath: 'assets/logos/x-logo.svg',
     isSvg: true,
     invert: true,
     bgColor: AppTheme.secondary,
   ),
   'grok-3-mini': const LogoConfig(
-    logoPath: 'assets/logos/x-logo.svg',
+    assetPath: 'assets/logos/x-logo.svg',
     isSvg: true,
     invert: true,
     bgColor: AppTheme.secondary,
@@ -246,67 +339,60 @@ final Map<String, LogoConfig> _modelConfigs = {
 
   // ChatGPT/OpenAI
   'chatgpt-5.2': const LogoConfig(
-    logoPath: 'assets/logos/openai.svg',
+    assetPath: 'assets/logos/openai.svg',
     isSvg: true,
     invert: true,
-    bgColor: AppTheme.secondary,
+    bgColor: Color(0xFF10A37F),
   ),
   'chatgpt-5': const LogoConfig(
-    logoPath: 'assets/logos/openai.svg',
+    assetPath: 'assets/logos/openai.svg',
     isSvg: true,
     invert: true,
-    bgColor: AppTheme.secondary,
+    bgColor: Color(0xFF10A37F),
   ),
   'chatgpt-5-mini': const LogoConfig(
-    logoPath: 'assets/logos/openai.svg',
+    assetPath: 'assets/logos/openai.svg',
     isSvg: true,
     invert: true,
-    bgColor: AppTheme.secondary,
+    bgColor: Color(0xFF10A37F),
   ),
 
   // Gemini (Google)
   'gemini-3-pro': const LogoConfig(
-    logoPath: 'assets/logos/gemini.svg',
+    assetPath: 'assets/logos/gemini.svg',
     isSvg: true,
-    invert: false,
     bgColor: AppTheme.secondary,
   ),
   'gemini-3-flash': const LogoConfig(
-    logoPath: 'assets/logos/gemini.svg',
+    assetPath: 'assets/logos/gemini.svg',
     isSvg: true,
-    invert: false,
     bgColor: AppTheme.secondary,
   ),
   'gemini-2.5-pro': const LogoConfig(
-    logoPath: 'assets/logos/gemini.svg',
+    assetPath: 'assets/logos/gemini.svg',
     isSvg: true,
-    invert: false,
     bgColor: AppTheme.secondary,
   ),
 
   // DeepSeek
   'deepseek-r1': const LogoConfig(
-    logoPath: 'assets/logos/deepseek.png',
-    isSvg: false,
-    invert: false,
+    assetPath: 'assets/logos/deepseek.png',
     bgColor: Color(0xFF1A365D),
   ),
   'deepseek-v3': const LogoConfig(
-    logoPath: 'assets/logos/deepseek.png',
-    isSvg: false,
-    invert: false,
+    assetPath: 'assets/logos/deepseek.png',
     bgColor: Color(0xFF1A365D),
   ),
 
   // Llama (Meta)
   'llama-3.3': const LogoConfig(
-    logoPath: 'assets/logos/meta-llama.svg',
+    assetPath: 'assets/logos/meta-llama.svg',
     isSvg: true,
     invert: true,
     bgColor: AppTheme.secondary,
   ),
   'llama-3.3-large': const LogoConfig(
-    logoPath: 'assets/logos/meta-llama.svg',
+    assetPath: 'assets/logos/meta-llama.svg',
     isSvg: true,
     invert: true,
     bgColor: AppTheme.secondary,
@@ -329,9 +415,10 @@ class ModelBrandLogo extends StatelessWidget {
       return _modelConfigs[id];
     }
     // Partial match for model families
+    final lowerCaseId = id.toLowerCase();
     for (final key in _modelConfigs.keys) {
-      if (id.toLowerCase().contains(key.toLowerCase()) ||
-          key.toLowerCase().contains(id.toLowerCase())) {
+      if (lowerCaseId.contains(key.toLowerCase()) ||
+          key.toLowerCase().contains(lowerCaseId)) {
         return _modelConfigs[key];
       }
     }
@@ -342,6 +429,7 @@ class ModelBrandLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     final config = _findConfig(modelId);
     final iconSize = size * 0.55;
+    final borderRadius = size / 3;
 
     // Fallback for unknown models
     if (config == null) {
@@ -354,7 +442,7 @@ class ModelBrandLogo extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(size / 3),
+          borderRadius: BorderRadius.circular(borderRadius),
         ),
         child: Center(
           child: Text(
@@ -369,19 +457,43 @@ class ModelBrandLogo extends StatelessWidget {
       );
     }
 
-    // If we have an actual logo file
-    if (config.logoPath != null) {
+    // Network image logo
+    if (config.networkUrl != null) {
       return Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
           color: config.bgColor,
-          borderRadius: BorderRadius.circular(size / 3),
+          borderRadius: BorderRadius.circular(borderRadius),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Center(
+          child: CachedNetworkImage(
+            imageUrl: config.networkUrl!,
+            width: iconSize,
+            height: iconSize,
+            fit: BoxFit.contain,
+            fadeInDuration: const Duration(milliseconds: 100),
+            placeholder: (context, url) => _buildTextFallback(config, iconSize),
+            errorWidget: (context, url, error) => _buildTextFallback(config, iconSize),
+          ),
+        ),
+      );
+    }
+
+    // Local asset logo
+    if (config.assetPath != null) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: config.bgColor,
+          borderRadius: BorderRadius.circular(borderRadius),
         ),
         child: Center(
           child: config.isSvg
               ? SvgPicture.asset(
-                  config.logoPath!,
+                  config.assetPath!,
                   width: iconSize,
                   height: iconSize,
                   colorFilter: config.invert
@@ -392,10 +504,12 @@ class ModelBrandLogo extends StatelessWidget {
                       : null,
                 )
               : Image.asset(
-                  config.logoPath!,
+                  config.assetPath!,
                   width: iconSize,
                   height: iconSize,
                   fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) =>
+                      _buildTextFallback(config, iconSize),
                 ),
         ),
       );
@@ -414,19 +528,30 @@ class ModelBrandLogo extends StatelessWidget {
               )
             : null,
         color: config.gradientColors == null ? config.bgColor : null,
-        borderRadius: BorderRadius.circular(size / 3),
+        borderRadius: BorderRadius.circular(borderRadius),
       ),
       child: Center(
         child: Text(
           config.textLogo ?? 'AI',
           style: TextStyle(
             color: Colors.white,
-            fontSize: config.textLogo != null && config.textLogo!.length > 1
-                ? size * 0.28
+            fontSize: config.textLogo != null && config.textLogo!.length > 2
+                ? size * 0.25
                 : size * 0.35,
             fontWeight: FontWeight.bold,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTextFallback(LogoConfig config, double iconSize) {
+    return Text(
+      config.textLogo ?? 'AI',
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: iconSize * 0.6,
+        fontWeight: FontWeight.bold,
       ),
     );
   }
