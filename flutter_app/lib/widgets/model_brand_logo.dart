@@ -59,7 +59,15 @@ final Map<String, LogoConfig> _modelConfigs = {
     networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
     bgColor: Color(0xFF000000),
   ),
-  'kie-flux': const LogoConfig(
+  'kie-flux-pro': const LogoConfig(
+    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
+    bgColor: Color(0xFF000000),
+  ),
+  'kie-flux-dev': const LogoConfig(
+    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
+    bgColor: Color(0xFF000000),
+  ),
+  'kie-flux-schnell': const LogoConfig(
     networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
     bgColor: Color(0xFF000000),
   ),
@@ -67,7 +75,11 @@ final Map<String, LogoConfig> _modelConfigs = {
     networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
     bgColor: Color(0xFF000000),
   ),
-  'kie-flux-kontext': const LogoConfig(
+  'kie-flux-kontext-pro': const LogoConfig(
+    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
+    bgColor: Color(0xFF000000),
+  ),
+  'kie-flux-kontext-max': const LogoConfig(
     networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
     bgColor: Color(0xFF000000),
   ),
@@ -91,7 +103,7 @@ final Map<String, LogoConfig> _modelConfigs = {
     networkUrl: 'https://ideogram.ai/apple-touch-icon.png',
     bgColor: Color(0xFF1A1A2E),
   ),
-  'kie-ideogram': const LogoConfig(
+  'kie-ideogram-v3': const LogoConfig(
     networkUrl: 'https://ideogram.ai/apple-touch-icon.png',
     bgColor: Color(0xFF1A1A2E),
   ),
@@ -133,7 +145,7 @@ final Map<String, LogoConfig> _modelConfigs = {
     textLogo: 'S',
     gradientColors: [Color(0xFF00C853), Color(0xFF1DE9B6)],
   ),
-  'kie-seedream': const LogoConfig(
+  'kie-seedream-4': const LogoConfig(
     textLogo: 'S',
     gradientColors: [Color(0xFF00C853), Color(0xFF1DE9B6)],
   ),
@@ -148,7 +160,7 @@ final Map<String, LogoConfig> _modelConfigs = {
     bgColor: Color(0xFF000000),
   ),
 
-  // Grok Image
+  // Grok Image (xAI)
   'grok-image': const LogoConfig(
     assetPath: 'assets/logos/x-logo.svg',
     isSvg: true,
@@ -182,7 +194,7 @@ final Map<String, LogoConfig> _modelConfigs = {
     bgColor: Color(0xFF10A37F),
   ),
 
-  // Qwen
+  // Qwen (Alibaba)
   'qwen-vl': const LogoConfig(
     textLogo: '通',
     gradientColors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
@@ -194,6 +206,72 @@ final Map<String, LogoConfig> _modelConfigs = {
 
   // === VIDEO MODELS ===
   
+  // Runway
+  'runway': const LogoConfig(
+    assetPath: 'assets/logos/runway.png',
+    bgColor: Color(0xFF000000),
+  ),
+  'runway-gen4': const LogoConfig(
+    assetPath: 'assets/logos/runway.png',
+    bgColor: Color(0xFF000000),
+  ),
+  'kie-runway': const LogoConfig(
+    assetPath: 'assets/logos/runway.png',
+    bgColor: Color(0xFF000000),
+  ),
+  'kie-runway-i2v': const LogoConfig(
+    assetPath: 'assets/logos/runway.png',
+    bgColor: Color(0xFF000000),
+  ),
+
+  // Sora (OpenAI)
+  'sora': const LogoConfig(
+    assetPath: 'assets/logos/openai.svg',
+    isSvg: true,
+    invert: true,
+    bgColor: Color(0xFF10A37F),
+  ),
+  'sora-2': const LogoConfig(
+    assetPath: 'assets/logos/openai.svg',
+    isSvg: true,
+    invert: true,
+    bgColor: Color(0xFF10A37F),
+  ),
+  'kie-sora2': const LogoConfig(
+    assetPath: 'assets/logos/openai.svg',
+    isSvg: true,
+    invert: true,
+    bgColor: Color(0xFF10A37F),
+  ),
+  'kie-sora2-pro': const LogoConfig(
+    assetPath: 'assets/logos/openai.svg',
+    isSvg: true,
+    invert: true,
+    bgColor: Color(0xFF10A37F),
+  ),
+
+  // Veo (Google)
+  'veo-3': const LogoConfig(
+    assetPath: 'assets/logos/google-gemini.svg',
+    isSvg: true,
+    bgColor: Color(0xFF1A237E),
+  ),
+  'veo-3-fast': const LogoConfig(
+    assetPath: 'assets/logos/google-gemini.svg',
+    isSvg: true,
+    bgColor: Color(0xFF1A237E),
+  ),
+  'kie-veo31': const LogoConfig(
+    assetPath: 'assets/logos/google-gemini.svg',
+    isSvg: true,
+    bgColor: Color(0xFF1A237E),
+  ),
+  'kie-veo31-fast': const LogoConfig(
+    assetPath: 'assets/logos/google-gemini.svg',
+    isSvg: true,
+    bgColor: Color(0xFF1A237E),
+  ),
+
   // Kling (Kuaishou)
   'kling': const LogoConfig(
     assetPath: 'assets/logos/kling.png',
@@ -212,67 +290,6 @@ final Map<String, LogoConfig> _modelConfigs = {
     bgColor: Color(0xFF000000),
   ),
 
-  // Wan (Alibaba)
-  'wan': const LogoConfig(
-    networkUrl: 'https://wanx.aliyun.com/favicon.ico',
-    bgColor: Color(0xFFFF6A00),
-  ),
-  'wan-2.6': const LogoConfig(
-    networkUrl: 'https://wanx.aliyun.com/favicon.ico',
-    bgColor: Color(0xFFFF6A00),
-  ),
-  'kie-wan': const LogoConfig(
-    networkUrl: 'https://wanx.aliyun.com/favicon.ico',
-    bgColor: Color(0xFFFF6A00),
-  ),
-
-  // Veo (Google)
-  'veo-3': const LogoConfig(
-    assetPath: 'assets/logos/google-gemini.svg',
-    isSvg: true,
-    bgColor: Color(0xFF1A237E),
-  ),
-  'veo-3-fast': const LogoConfig(
-    assetPath: 'assets/logos/google-gemini.svg',
-    isSvg: true,
-    bgColor: Color(0xFF1A237E),
-  ),
-  'kie-veo': const LogoConfig(
-    assetPath: 'assets/logos/google-gemini.svg',
-    isSvg: true,
-    bgColor: Color(0xFF1A237E),
-  ),
-
-  // Sora (OpenAI)
-  'sora': const LogoConfig(
-    assetPath: 'assets/logos/openai.svg',
-    isSvg: true,
-    invert: true,
-    bgColor: Color(0xFF10A37F),
-  ),
-  'sora-2': const LogoConfig(
-    assetPath: 'assets/logos/openai.svg',
-    isSvg: true,
-    invert: true,
-    bgColor: Color(0xFF10A37F),
-  ),
-  'kie-sora': const LogoConfig(
-    assetPath: 'assets/logos/openai.svg',
-    isSvg: true,
-    invert: true,
-    bgColor: Color(0xFF10A37F),
-  ),
-
-  // Luma
-  'luma': const LogoConfig(
-    assetPath: 'assets/logos/luma.png',
-    bgColor: Color(0xFF4A1D96),
-  ),
-  'luma-ray-2': const LogoConfig(
-    assetPath: 'assets/logos/luma.png',
-    bgColor: Color(0xFF4A1D96),
-  ),
-
   // Hailuo (MiniMax)
   'hailuo': const LogoConfig(
     assetPath: 'assets/logos/hailuo.png',
@@ -287,18 +304,18 @@ final Map<String, LogoConfig> _modelConfigs = {
     bgColor: Color(0xFF00A8E8),
   ),
 
-  // Runway
-  'runway': const LogoConfig(
-    assetPath: 'assets/logos/runway.png',
-    bgColor: Color(0xFF000000),
+  // Wan (Alibaba)
+  'wan': const LogoConfig(
+    networkUrl: 'https://wanx.aliyun.com/favicon.ico',
+    bgColor: Color(0xFFFF6A00),
   ),
-  'runway-gen4': const LogoConfig(
-    assetPath: 'assets/logos/runway.png',
-    bgColor: Color(0xFF000000),
+  'wan-2.6': const LogoConfig(
+    networkUrl: 'https://wanx.aliyun.com/favicon.ico',
+    bgColor: Color(0xFFFF6A00),
   ),
-  'kie-runway': const LogoConfig(
-    assetPath: 'assets/logos/runway.png',
-    bgColor: Color(0xFF000000),
+  'kie-wan': const LogoConfig(
+    networkUrl: 'https://wanx.aliyun.com/favicon.ico',
+    bgColor: Color(0xFFFF6A00),
   ),
 
   // Seedance
@@ -309,6 +326,16 @@ final Map<String, LogoConfig> _modelConfigs = {
   'seedance-1.5': const LogoConfig(
     textLogo: 'SD',
     gradientColors: [Color(0xFF00E676), Color(0xFF00C853)],
+  ),
+
+  // Luma
+  'luma': const LogoConfig(
+    assetPath: 'assets/logos/luma.png',
+    bgColor: Color(0xFF4A1D96),
+  ),
+  'luma-ray-2': const LogoConfig(
+    assetPath: 'assets/logos/luma.png',
+    bgColor: Color(0xFF4A1D96),
   ),
 
   // Hunyuan (Tencent)
