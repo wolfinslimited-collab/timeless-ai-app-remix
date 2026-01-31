@@ -153,7 +153,8 @@ final appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'shots',
-                  builder: (context, state) => const tools_shots.ShotsToolScreen(),
+                  builder: (context, state) =>
+                      const tools_shots.ShotsToolScreen(),
                 ),
                 GoRoute(
                   path: 'inpainting',
@@ -177,7 +178,8 @@ final appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'background-remove',
-                  builder: (context, state) => const BackgroundRemoveToolScreen(),
+                  builder: (context, state) =>
+                      const BackgroundRemoveToolScreen(),
                 ),
               ],
             ),

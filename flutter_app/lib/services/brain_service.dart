@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 
@@ -238,7 +239,8 @@ class BrainService {
           'work_schedule': workSchedule,
           'sleep_goal_hours': sleepGoalHours,
           'focus_goals': focusGoals,
-          'baseline_start_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          'baseline_start_date':
+              DateFormat('yyyy-MM-dd').format(DateTime.now()),
         },
       });
 
@@ -366,18 +368,21 @@ class BrainService {
     }
   }
 
+  /// Check subscription the same way as the rest of the app (profiles.subscription_status).
   Future<bool> checkSubscription() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return false;
 
     try {
-      final response = await _supabase.functions.invoke('brain-ai', body: {
-        'action': 'checkSubscription',
-      });
+      final response = await _supabase
+          .from('profiles')
+          .select('subscription_status')
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-      return response.data?['hasActiveSubscription'] == true;
+      return response != null && response['subscription_status'] == 'active';
     } catch (e) {
-      print('Error checking subscription: $e');
+      debugPrint('BrainService checkSubscription: $e');
       return false;
     }
   }

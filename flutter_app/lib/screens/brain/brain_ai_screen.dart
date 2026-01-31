@@ -482,12 +482,36 @@ class _BrainAIScreenState extends State<BrainAIScreen>
 
   Widget _buildGamesTab() {
     final games = [
-      {'name': 'Memory Match', 'description': 'Test your memory', 'icon': Icons.grid_view},
-      {'name': 'Speed Math', 'description': 'Quick calculations', 'icon': Icons.calculate},
-      {'name': 'Pattern Recognition', 'description': 'Find the pattern', 'icon': Icons.search},
-      {'name': 'Word Puzzle', 'description': 'Vocabulary challenge', 'icon': Icons.text_fields},
-      {'name': 'Reaction Test', 'description': 'Test your reflexes', 'icon': Icons.flash_on},
-      {'name': 'Focus Timer', 'description': 'Deep work session', 'icon': Icons.timer},
+      {
+        'name': 'Memory Match',
+        'description': 'Test your memory',
+        'icon': Icons.grid_view
+      },
+      {
+        'name': 'Speed Math',
+        'description': 'Quick calculations',
+        'icon': Icons.calculate
+      },
+      {
+        'name': 'Pattern Recognition',
+        'description': 'Find the pattern',
+        'icon': Icons.search
+      },
+      {
+        'name': 'Word Puzzle',
+        'description': 'Vocabulary challenge',
+        'icon': Icons.text_fields
+      },
+      {
+        'name': 'Reaction Test',
+        'description': 'Test your reflexes',
+        'icon': Icons.flash_on
+      },
+      {
+        'name': 'Focus Timer',
+        'description': 'Deep work session',
+        'icon': Icons.timer
+      },
     ];
 
     return ListView(
@@ -499,34 +523,35 @@ class _BrainAIScreenState extends State<BrainAIScreen>
         ),
         const SizedBox(height: 12),
         ...games.map((game) => Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: AppTheme.secondary,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.border),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(12),
-            leading: Container(
-              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: AppTheme.card,
+                color: AppTheme.secondary,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.border),
               ),
-              child: Icon(game['icon'] as IconData, color: AppTheme.muted),
-            ),
-            title: Text(
-              game['name'] as String,
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
-            subtitle: Text(
-              game['description'] as String,
-              style: const TextStyle(color: AppTheme.muted, fontSize: 13),
-            ),
-            trailing: const Icon(Icons.chevron_right, color: AppTheme.muted),
-            onTap: () => _launchGame(game['name'] as String),
-          ),
-        )),
+              child: ListTile(
+                contentPadding: const EdgeInsets.all(12),
+                leading: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.card,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(game['icon'] as IconData, color: AppTheme.muted),
+                ),
+                title: Text(
+                  game['name'] as String,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                subtitle: Text(
+                  game['description'] as String,
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 13),
+                ),
+                trailing:
+                    const Icon(Icons.chevron_right, color: AppTheme.muted),
+                onTap: () => _launchGame(game['name'] as String),
+              ),
+            )),
       ],
     );
   }
@@ -658,7 +683,7 @@ class _BrainAIScreenState extends State<BrainAIScreen>
 
   void _launchGame(String gameName) {
     Widget? gameScreen;
-    
+
     switch (gameName) {
       case 'Memory Match':
         gameScreen = const MemoryMatchGameScreen();
@@ -672,7 +697,7 @@ class _BrainAIScreenState extends State<BrainAIScreen>
         );
         return;
     }
-    
+
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => gameScreen!),
