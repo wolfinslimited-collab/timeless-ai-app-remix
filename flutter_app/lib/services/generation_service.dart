@@ -13,23 +13,50 @@ class GenerationService {
     required String type,
     String? aspectRatio,
     String? quality,
-    String? imageUrl,
+    String? referenceImageUrl,
+    List<String>? referenceImageUrls,
+    String? imageUrl, // For video I2V mode
     String? endImageUrl,
     bool background = false,
   }) async {
     debugPrint('🎨 GenerationService.generate: type=$type, model=$model, prompt=${prompt.substring(0, prompt.length > 50 ? 50 : prompt.length)}...');
     
-    final body = {
+    final body = <String, dynamic>{
       'prompt': prompt,
       'model': model,
       'type': type,
       'stream': false,
       'background': background,
-      if (aspectRatio != null) 'aspectRatio': aspectRatio,
-      if (quality != null) 'quality': quality,
-      if (imageUrl != null) 'imageUrl': imageUrl,
-      if (endImageUrl != null) 'endImageUrl': endImageUrl,
     };
+    
+    // Add aspect ratio
+    if (aspectRatio != null) {
+      body['aspectRatio'] = aspectRatio;
+    }
+    
+    // Add quality - no mapping needed, API accepts 1024/2K/4K directly for images
+    if (quality != null) {
+      body['quality'] = quality;
+    }
+    
+    // For image generation, use referenceImageUrl(s) - web app naming convention
+    if (type == 'image') {
+      if (referenceImageUrls != null && referenceImageUrls.isNotEmpty) {
+        body['referenceImageUrls'] = referenceImageUrls;
+        body['referenceImageUrl'] = referenceImageUrls.first;
+      } else if (referenceImageUrl != null) {
+        body['referenceImageUrl'] = referenceImageUrl;
+      }
+    } else if (type == 'video') {
+      // For video, use imageUrl (I2V mode)
+      if (imageUrl != null) {
+        body['imageUrl'] = imageUrl;
+      }
+    }
+    
+    if (endImageUrl != null) {
+      body['endImageUrl'] = endImageUrl;
+    }
     
     debugPrint('🎨 Request body: $body');
     
