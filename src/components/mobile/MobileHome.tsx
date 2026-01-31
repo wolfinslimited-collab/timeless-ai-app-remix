@@ -44,6 +44,7 @@ const titleToVideoUrl: Record<string, string> = {
   'Skin Enhancer': 'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/faefb479-30b2-4b61-a1b8-49b7bfb4b35a-SkinEnhancer-ezgif.com-resize-video.mp4',
   'Upscale': 'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/02e516fd-e889-49fe-af14-043fc2c79521-Upscale-ezgif.com-resize-video.mp4',
   'Style Transfer': 'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/d49d2f58-acca-48f6-b890-2cf2443c4bba-style-transfer-preview-ezgif.com-resize-video.mp4',
+  'Visual Styles': 'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/d49d2f58-acca-48f6-b890-2cf2443c4bba-style-transfer-preview-ezgif.com-resize-video.mp4',
 };
 
 interface FeaturedItem {
@@ -62,7 +63,7 @@ const FALLBACK_FEATURED_ITEMS: FeaturedItem[] = [
   { id: '2', title: 'Video Upscale', description: 'Enhance video quality up to 4K resolution', tag: 'Popular', videoUrl: titleToVideoUrl['Video Upscale'], displayOrder: 2, linkUrl: '/create?app=video-upscale' },
   { id: '3', title: 'Draw to Video', description: 'Transform sketches into animated videos', tag: 'New', videoUrl: titleToVideoUrl['Draw to Video'], displayOrder: 3, linkUrl: '/create?app=draw-to-video' },
   { id: '4', title: 'Music Studio', description: 'AI-powered music creation and remixing', tag: 'Hot', videoUrl: titleToVideoUrl['Music Studio'], displayOrder: 4, linkUrl: '/create?type=music' },
-  { id: '5', title: 'Visual Styles', description: 'Ultra-realistic fashion visuals', tag: 'New', videoUrl: titleToVideoUrl['Style Transfer'], displayOrder: 5, linkUrl: '/create?type=image' },
+  { id: '5', title: 'Visual Styles', description: 'Ultra-realistic fashion visuals', tag: 'New', videoUrl: titleToVideoUrl['Visual Styles'], displayOrder: 5, linkUrl: '/create?type=image' },
 ];
 
 interface MobileHomeProps {
@@ -183,7 +184,7 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
       onNavigate("audio");
     } else if (linkUrl.includes('/create?app=video-upscale') || linkUrl.includes('/create?app=draw-to-video')) {
       onNavigate("video");
-    } else if (linkUrl.includes('/create/image/')) {
+    } else if (linkUrl.includes('/create?type=image') || linkUrl.includes('/create/image')) {
       onNavigate("image");
     } else {
       onNavigate("apps");
