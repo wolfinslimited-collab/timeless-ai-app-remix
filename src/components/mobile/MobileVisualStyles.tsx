@@ -44,7 +44,7 @@ const QUALITY_OPTIONS = [
   { id: "4K", label: "Ultra", description: "4096px", credits: 10 },
 ];
 
-const BATCH_SIZES = [1, 2, 4, 9];
+const BATCH_SIZES = [1, 2, 3, 4];
 
 export function MobileVisualStyles({ onBack }: MobileVisualStylesProps) {
   const [prompt, setPrompt] = useState("");
