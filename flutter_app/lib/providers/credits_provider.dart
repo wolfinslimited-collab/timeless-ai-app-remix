@@ -11,10 +11,12 @@ class CreditsProvider extends ChangeNotifier {
 
   int _credits = 0;
   bool _hasActiveSubscription = false;
+  String? _currentPlan; // The user's current plan name (e.g., "Basic", "Premium", "Pro")
   bool _isLoading = true;
 
   int get credits => _credits;
   bool get hasActiveSubscription => _hasActiveSubscription;
+  String? get currentPlan => _currentPlan;
   bool get isLoading => _isLoading;
   bool get isUnlimited => _hasActiveSubscription;
 
@@ -41,6 +43,7 @@ class CreditsProvider extends ChangeNotifier {
   void _clearCredits() {
     _credits = 0;
     _hasActiveSubscription = false;
+    _currentPlan = null;
     _isLoading = false;
     notifyListeners();
   }
@@ -58,21 +61,24 @@ class CreditsProvider extends ChangeNotifier {
     try {
       final response = await _supabase
           .from('profiles')
-          .select('credits, subscription_status')
+          .select('credits, subscription_status, plan')
           .eq('user_id', user.id)
           .maybeSingle();
 
       if (response != null) {
         _credits = response['credits'] as int? ?? 0;
         _hasActiveSubscription = response['subscription_status'] == 'active';
+        _currentPlan = response['plan'] as String?;
       } else {
         _credits = 0;
         _hasActiveSubscription = false;
+        _currentPlan = null;
       }
     } catch (e) {
       debugPrint('Error fetching credits: $e');
       _credits = 0;
       _hasActiveSubscription = false;
+      _currentPlan = null;
     } finally {
       _isLoading = false;
       notifyListeners();
