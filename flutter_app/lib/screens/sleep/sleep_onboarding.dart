@@ -31,10 +31,30 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
   List<String> _sleepGoals = [];
 
   static const List<Map<String, dynamic>> workSchedules = [
-    {'value': 'regular', 'label': 'Regular (9-5)', 'description': 'Consistent daytime hours', 'icon': Icons.access_time},
-    {'value': 'shift', 'label': 'Shift Work', 'description': 'Rotating or night shifts', 'icon': Icons.nightlight_round},
-    {'value': 'flexible', 'label': 'Flexible', 'description': 'Variable daily schedule', 'icon': Icons.trending_up},
-    {'value': 'remote', 'label': 'Remote', 'description': 'Work from home', 'icon': Icons.home},
+    {
+      'value': 'regular',
+      'label': 'Regular (9-5)',
+      'description': 'Consistent daytime hours',
+      'icon': Icons.access_time
+    },
+    {
+      'value': 'shift',
+      'label': 'Shift Work',
+      'description': 'Rotating or night shifts',
+      'icon': Icons.nightlight_round
+    },
+    {
+      'value': 'flexible',
+      'label': 'Flexible',
+      'description': 'Variable daily schedule',
+      'icon': Icons.trending_up
+    },
+    {
+      'value': 'remote',
+      'label': 'Remote',
+      'description': 'Work from home',
+      'icon': Icons.home
+    },
   ];
 
   static const List<String> sleepIssueOptions = [
@@ -100,7 +120,7 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
       gender: _gender,
       workSchedule: _workSchedule,
       sleepGoalHours: _sleepGoalHours,
-      chronotype: 'intermediate',
+      // chronotype: 'intermediate',
       sleepIssues: _sleepIssues,
     );
 
@@ -111,7 +131,8 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to create profile. Please try again.')),
+          const SnackBar(
+              content: Text('Failed to create profile. Please try again.')),
         );
       }
     }
@@ -172,8 +193,12 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Step $_step of $_totalSteps', style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
-                    Text('${progress.round()}%', style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+                    Text('Step $_step of $_totalSteps',
+                        style: const TextStyle(
+                            color: AppTheme.muted, fontSize: 12)),
+                    Text('${progress.round()}%',
+                        style: const TextStyle(
+                            color: AppTheme.muted, fontSize: 12)),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -212,7 +237,9 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
                   flex: _step > 1 ? 1 : 2,
                   child: _step < _totalSteps
                       ? ElevatedButton(
-                          onPressed: _validateStep() ? () => setState(() => _step++) : null,
+                          onPressed: _validateStep()
+                              ? () => setState(() => _step++)
+                              : null,
                           child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -228,7 +255,8 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -268,7 +296,8 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
             },
           ),
           const SizedBox(height: 8),
-          const Text('Age affects sleep needs and recommendations', style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+          const Text('Age affects sleep needs and recommendations',
+              style: TextStyle(color: AppTheme.muted, fontSize: 12)),
           const SizedBox(height: 24),
           const Text('Gender'),
           const SizedBox(height: 8),
@@ -296,7 +325,9 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             child: Material(
-              color: isSelected ? Colors.indigo.withOpacity(0.1) : AppTheme.secondary,
+              color: isSelected
+                  ? Colors.indigo.withOpacity(0.1)
+                  : AppTheme.secondary,
               borderRadius: BorderRadius.circular(12),
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
@@ -318,15 +349,20 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
                           color: AppTheme.card,
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(schedule['icon'] as IconData, color: AppTheme.muted),
+                        child: Icon(schedule['icon'] as IconData,
+                            color: AppTheme.muted),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(schedule['label'] as String, style: const TextStyle(fontWeight: FontWeight.w500)),
-                            Text(schedule['description'] as String, style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+                            Text(schedule['label'] as String,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w500)),
+                            Text(schedule['description'] as String,
+                                style: const TextStyle(
+                                    color: AppTheme.muted, fontSize: 12)),
                           ],
                         ),
                       ),
@@ -364,7 +400,8 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
               ),
               Text(
                 '${_sleepGoalHours.toStringAsFixed(1)}h',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
             ],
           ),
@@ -377,7 +414,8 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.nightlight_round, size: 16, color: Colors.indigo),
+                        Icon(Icons.nightlight_round,
+                            size: 16, color: Colors.indigo),
                         const SizedBox(width: 4),
                         const Text('Bedtime Goal'),
                       ],
@@ -390,7 +428,8 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
                           initialTime: const TimeOfDay(hour: 23, minute: 0),
                         );
                         if (time != null) {
-                          setState(() => _bedGoalTime = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}');
+                          setState(() => _bedGoalTime =
+                              '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}');
                         }
                       },
                       child: Container(
@@ -399,7 +438,8 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
                           color: AppTheme.secondary,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(_bedGoalTime, style: const TextStyle(fontSize: 18)),
+                        child: Text(_bedGoalTime,
+                            style: const TextStyle(fontSize: 18)),
                       ),
                     ),
                   ],
@@ -425,7 +465,8 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
                           initialTime: const TimeOfDay(hour: 7, minute: 0),
                         );
                         if (time != null) {
-                          setState(() => _wakeGoalTime = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}');
+                          setState(() => _wakeGoalTime =
+                              '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}');
                         }
                       },
                       child: Container(
@@ -434,7 +475,8 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
                           color: AppTheme.secondary,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(_wakeGoalTime, style: const TextStyle(fontSize: 18)),
+                        child: Text(_wakeGoalTime,
+                            style: const TextStyle(fontSize: 18)),
                       ),
                     ),
                   ],
@@ -454,7 +496,8 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('What do you want to achieve?', style: TextStyle(color: AppTheme.muted)),
+          const Text('What do you want to achieve?',
+              style: TextStyle(color: AppTheme.muted)),
           const SizedBox(height: 16),
           Wrap(
             spacing: 8,
@@ -476,7 +519,8 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
             }).toList(),
           ),
           const SizedBox(height: 24),
-          const Text('Any sleep issues? (optional)', style: TextStyle(color: AppTheme.muted)),
+          const Text('Any sleep issues? (optional)',
+              style: TextStyle(color: AppTheme.muted)),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
@@ -508,19 +552,40 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildLifestyleRow('Caffeine Intake', Icons.coffee, _caffeineIntake, ['none', 'low', 'moderate', 'high'], (v) => setState(() => _caffeineIntake = v)),
+          _buildLifestyleRow(
+              'Caffeine Intake',
+              Icons.coffee,
+              _caffeineIntake,
+              ['none', 'low', 'moderate', 'high'],
+              (v) => setState(() => _caffeineIntake = v)),
           const SizedBox(height: 16),
-          _buildLifestyleRow('Exercise Frequency', Icons.fitness_center, _exerciseFrequency, ['none', 'light', 'moderate', 'intense'], (v) => setState(() => _exerciseFrequency = v)),
+          _buildLifestyleRow(
+              'Exercise Frequency',
+              Icons.fitness_center,
+              _exerciseFrequency,
+              ['none', 'light', 'moderate', 'intense'],
+              (v) => setState(() => _exerciseFrequency = v)),
           const SizedBox(height: 16),
-          _buildLifestyleRow('Screen Time Before Bed', Icons.phone_android, _screenTime, ['none', 'low', 'moderate', 'high'], (v) => setState(() => _screenTime = v)),
+          _buildLifestyleRow(
+              'Screen Time Before Bed',
+              Icons.phone_android,
+              _screenTime,
+              ['none', 'low', 'moderate', 'high'],
+              (v) => setState(() => _screenTime = v)),
           const SizedBox(height: 16),
-          _buildLifestyleRow('Stress Level', Icons.psychology, _stressLevel, ['low', 'moderate', 'high', 'very_high'], (v) => setState(() => _stressLevel = v)),
+          _buildLifestyleRow(
+              'Stress Level',
+              Icons.psychology,
+              _stressLevel,
+              ['low', 'moderate', 'high', 'very_high'],
+              (v) => setState(() => _stressLevel = v)),
         ],
       ),
     );
   }
 
-  Widget _buildStepContainer({required IconData icon, required String title, required Widget child}) {
+  Widget _buildStepContainer(
+      {required IconData icon, required String title, required Widget child}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -554,7 +619,9 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: isSelected ? Colors.indigo.withOpacity(0.1) : AppTheme.secondary,
+            color: isSelected
+                ? Colors.indigo.withOpacity(0.1)
+                : AppTheme.secondary,
             border: Border.all(
               color: isSelected ? Colors.indigo : Colors.transparent,
               width: 2,
@@ -573,7 +640,8 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
     );
   }
 
-  Widget _buildLifestyleRow(String label, IconData icon, String value, List<String> options, Function(String) onChanged) {
+  Widget _buildLifestyleRow(String label, IconData icon, String value,
+      List<String> options, Function(String) onChanged) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -595,7 +663,9 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
                   margin: const EdgeInsets.only(right: 4),
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   decoration: BoxDecoration(
-                    color: isSelected ? Colors.indigo.withOpacity(0.1) : AppTheme.secondary,
+                    color: isSelected
+                        ? Colors.indigo.withOpacity(0.1)
+                        : AppTheme.secondary,
                     border: Border.all(
                       color: isSelected ? Colors.indigo : Colors.transparent,
                       width: 2,
@@ -607,7 +677,8 @@ class _SleepOnboardingState extends State<SleepOnboarding> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 10,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
                 ),
