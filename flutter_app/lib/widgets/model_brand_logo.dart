@@ -24,59 +24,39 @@ class LogoConfig {
 final Map<String, LogoConfig> _modelConfigs = {
   // === IMAGE MODELS ===
   
-  // Nano Banana (Lovable AI)
-  'nano-banana': const LogoConfig(textLogo: '🍌'),
-  'nano-banana-pro': const LogoConfig(textLogo: '🍌'),
-  'kie-nano-banana': const LogoConfig(textLogo: '🍌'),
+  // Nano Banana (Lovable AI) - custom banana icon
+  'nano-banana': const LogoConfig(assetPath: 'assets/logos/nano-banana.png'),
+  'nano-banana-pro': const LogoConfig(assetPath: 'assets/logos/nano-banana.png'),
+  'kie-nano-banana': const LogoConfig(assetPath: 'assets/logos/nano-banana.png'),
 
-  // FLUX models (Black Forest Labs) - white logo on black
-  'flux-1.1-pro': const LogoConfig(
-    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
-  ),
-  'flux-pro': const LogoConfig(
-    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
-  ),
-  'flux-schnell': const LogoConfig(
-    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
-  ),
-  'flux-pro-ultra': const LogoConfig(
-    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
-  ),
-  'kie-flux-pro': const LogoConfig(
-    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
-  ),
-  'kie-flux-dev': const LogoConfig(
-    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
-  ),
-  'kie-flux-schnell': const LogoConfig(
-    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
-  ),
-  'kie-flux2-pro': const LogoConfig(
-    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
-  ),
-  'kie-flux-kontext-pro': const LogoConfig(
-    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
-  ),
-  'kie-flux-kontext-max': const LogoConfig(
-    networkUrl: 'https://framerusercontent.com/images/7a42qYSI6HQz0AhJF4xpJNRBU.png',
-  ),
+  // FLUX models (Black Forest Labs) - flux svg logo
+  'flux-1.1-pro': const LogoConfig(assetPath: 'assets/logos/flux.svg', isSvg: true),
+  'flux-pro': const LogoConfig(assetPath: 'assets/logos/flux.svg', isSvg: true),
+  'flux-schnell': const LogoConfig(assetPath: 'assets/logos/flux.svg', isSvg: true),
+  'flux-pro-ultra': const LogoConfig(assetPath: 'assets/logos/flux.svg', isSvg: true),
+  'kie-flux-pro': const LogoConfig(assetPath: 'assets/logos/flux.svg', isSvg: true),
+  'kie-flux-dev': const LogoConfig(assetPath: 'assets/logos/flux.svg', isSvg: true),
+  'kie-flux-schnell': const LogoConfig(assetPath: 'assets/logos/flux.svg', isSvg: true),
+  'kie-flux2-pro': const LogoConfig(assetPath: 'assets/logos/flux.svg', isSvg: true),
+  'kie-flux-kontext-pro': const LogoConfig(assetPath: 'assets/logos/flux.svg', isSvg: true),
+  'kie-flux-kontext-max': const LogoConfig(assetPath: 'assets/logos/flux.svg', isSvg: true),
 
-  // Midjourney - white sail logo
-  'midjourney': const LogoConfig(assetPath: 'assets/logos/midjourney.png'),
-  'kie-midjourney': const LogoConfig(assetPath: 'assets/logos/midjourney.png'),
+  // Midjourney - sailboat logo
+  'midjourney': const LogoConfig(assetPath: 'assets/logos/midjourney.webp'),
+  'kie-midjourney': const LogoConfig(assetPath: 'assets/logos/midjourney.webp'),
 
-  // Ideogram
-  'ideogram-v2': const LogoConfig(textLogo: 'i'),
-  'ideogram-v3': const LogoConfig(textLogo: 'i'),
-  'kie-ideogram-v3': const LogoConfig(textLogo: 'i'),
+  // Ideogram - custom icon
+  'ideogram-v2': const LogoConfig(assetPath: 'assets/logos/ideogram.png'),
+  'ideogram-v3': const LogoConfig(assetPath: 'assets/logos/ideogram.png'),
+  'kie-ideogram-v3': const LogoConfig(assetPath: 'assets/logos/ideogram.png'),
 
-  // Recraft
-  'recraft-v3': const LogoConfig(textLogo: 'R'),
+  // Recraft - custom icon
+  'recraft-v3': const LogoConfig(assetPath: 'assets/logos/recraft.png'),
 
-  // Stable Diffusion
-  'sd-ultra': const LogoConfig(textLogo: 'SD'),
-  'sd-3.5': const LogoConfig(textLogo: 'SD'),
-  'stable-diffusion-3': const LogoConfig(textLogo: 'SD'),
+  // Stable Diffusion - custom S. logo
+  'sd-ultra': const LogoConfig(assetPath: 'assets/logos/stability.png'),
+  'sd-3.5': const LogoConfig(assetPath: 'assets/logos/stability.png'),
+  'stable-diffusion-3': const LogoConfig(assetPath: 'assets/logos/stability.png'),
 
   // Imagen (Google)
   'imagen-4': const LogoConfig(assetPath: 'assets/logos/google-gemini.svg', isSvg: true),
