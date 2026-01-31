@@ -148,6 +148,21 @@ class VideoCreateScreen extends StatefulWidget {
   State<VideoCreateScreen> createState() => _VideoCreateScreenState();
 }
 
+// Helper class for option items with descriptions
+class _VideoOptionItem {
+  final String id;
+  final String name;
+  final String description;
+  final String? badge;
+  
+  const _VideoOptionItem({
+    required this.id,
+    required this.name,
+    this.description = '',
+    this.badge,
+  });
+}
+
 class _VideoCreateScreenState extends State<VideoCreateScreen> {
   late String _selectedToolId;
   
@@ -162,6 +177,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
   bool _isUploadingStart = false;
   bool _isUploadingEnd = false;
   String? _generatedVideoUrl;
+  String? _generationError;
+  bool _isWaitingForResult = false;
   VideoPlayerController? _videoController;
 
   @override
@@ -272,22 +289,41 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
       return;
     }
 
+    // Start waiting state immediately
+    setState(() {
+      _isWaitingForResult = true;
+      _generationError = null;
+      _generatedVideoUrl = null;
+      _videoController?.dispose();
+      _videoController = null;
+    });
+
     final generationProvider = context.read<GenerationProvider>();
 
-    final result = await generationProvider.generate(
-      prompt: _promptController.text.trim(),
-      model: _selectedModel,
-      type: 'video',
-      aspectRatio: _selectedAspectRatio,
-      quality: _selectedQuality,
-      background: true,
-    );
+    try {
+      final result = await generationProvider.generate(
+        prompt: _promptController.text.trim(),
+        model: _selectedModel,
+        type: 'video',
+        aspectRatio: _selectedAspectRatio,
+        quality: _selectedQuality,
+        background: true,
+      );
 
-    if (result != null) {
-      _showSnackBar(
-          'Video generation started. Check your library for the result.');
-      creditsProvider.refresh();
-      _pollForCompletion(result.id);
+      if (result != null) {
+        creditsProvider.refresh();
+        _pollForCompletion(result.id);
+      } else {
+        setState(() {
+          _isWaitingForResult = false;
+          _generationError = generationProvider.error ?? 'Failed to start video generation';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isWaitingForResult = false;
+        _generationError = e.toString();
+      });
     }
   }
 
@@ -307,6 +343,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
       if (generation?.isCompleted == true && generation?.outputUrl != null) {
         setState(() {
           _generatedVideoUrl = generation!.outputUrl;
+          _isWaitingForResult = false;
+          _generationError = null;
         });
         _initializeVideoPlayer(generation!.outputUrl!);
 
@@ -317,9 +355,10 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
       }
 
       if (generation?.isFailed == true) {
-        if (mounted) {
-          _showSnackBar('Video generation failed');
-        }
+        setState(() {
+          _isWaitingForResult = false;
+          _generationError = 'Video generation failed. Please try again.';
+        });
         return;
       }
 
@@ -327,6 +366,12 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
       if (attempts < maxAttempts) {
         await Future.delayed(const Duration(seconds: 5));
         await poll();
+      } else {
+        // Timeout
+        setState(() {
+          _isWaitingForResult = false;
+          _generationError = 'Generation timed out. Check your library for the result.';
+        });
       }
     }
 
@@ -791,6 +836,9 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
   }
 
   Widget _buildCreateContent() {
+    final provider = context.watch<GenerationProvider>();
+    final isGenerating = provider.isGenerating || _isWaitingForResult;
+    
     return Column(
       children: [
         // Preview Area
@@ -802,100 +850,7 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppTheme.border),
             ),
-            child: Consumer<GenerationProvider>(
-              builder: (context, provider, child) {
-                if (provider.isGenerating) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text('Generating video...',
-                            style: TextStyle(color: AppTheme.muted)),
-                        SizedBox(height: 8),
-                        Text(
-                          'This may take a few minutes',
-                          style: TextStyle(color: AppTheme.muted, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                if (_videoController != null &&
-                    _videoController!.value.isInitialized) {
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        AspectRatio(
-                          aspectRatio: _videoController!.value.aspectRatio,
-                          child: VideoPlayer(_videoController!),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _videoController!.value.isPlaying
-                                  ? _videoController!.pause()
-                                  : _videoController!.play();
-                            });
-                          },
-                          child: _videoController!.value.isPlaying
-                              ? null
-                              : const Icon(Icons.play_circle_fill,
-                                  size: 64, color: Colors.white70),
-                        ),
-                        // Save/Share buttons
-                        if (_generatedVideoUrl != null)
-                          Positioned(
-                            bottom: 12,
-                            right: 12,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _buildVideoActionButton(
-                                  Icons.download,
-                                  'Save',
-                                  _saveGeneratedVideo,
-                                  isPrimary: true,
-                                ),
-                                const SizedBox(width: 8),
-                                _buildVideoActionButton(
-                                  Icons.share,
-                                  'Share',
-                                  _shareGeneratedVideo,
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                }
-
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.videocam_off_outlined,
-                          size: 48, color: AppTheme.muted),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'No videos yet',
-                        style: TextStyle(color: Colors.white, fontSize: 16),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Generate your first video below',
-                        style: TextStyle(color: AppTheme.muted, fontSize: 14),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+            child: _buildPreviewContent(isGenerating),
           ),
         ),
 
@@ -936,26 +891,56 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Options row
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildOptionChip(Icons.dashboard_outlined, 'Templates',
-                        _showTemplatesSelector),
-                    const SizedBox(width: 8),
-                    _buildOptionChip(Icons.timer_outlined,
-                        '${_selectedDuration}s', _showDurationSelector),
-                    const SizedBox(width: 8),
-                    _buildOptionChip(Icons.aspect_ratio, _selectedAspectRatio,
-                        _showAspectRatioSelector),
-                    const SizedBox(width: 8),
-                    _buildOptionChip(Icons.high_quality, _selectedQuality,
-                        _showQualitySelector),
-                    const SizedBox(width: 8),
-                    _buildSoundToggle(),
-                  ],
-                ),
+              // Compact Options Row with Popups
+              Row(
+                children: [
+                  _buildOptionPopup(
+                    label: 'Templates',
+                    value: 'Templates',
+                    icon: Icons.dashboard_outlined,
+                    items: videoTemplates.map((t) => _VideoOptionItem(
+                      id: t['prompt']!,
+                      name: t['label']!,
+                      description: t['prompt']!,
+                    )).toList(),
+                    onSelected: (prompt) {
+                      _promptController.text = prompt;
+                    },
+                    showValue: false,
+                  ),
+                  const SizedBox(width: 6),
+                  _buildOptionPopup(
+                    label: 'Duration',
+                    value: '${_selectedDuration}s',
+                    icon: Icons.timer_outlined,
+                    items: _getDurationOptions(),
+                    onSelected: (val) {
+                      setState(() => _selectedDuration = int.parse(val.replaceAll('s', '')));
+                    },
+                  ),
+                  const SizedBox(width: 6),
+                  _buildOptionPopup(
+                    label: 'Ratio',
+                    value: _selectedAspectRatio,
+                    icon: Icons.aspect_ratio,
+                    items: _getAspectRatioOptions(),
+                    onSelected: (val) {
+                      setState(() => _selectedAspectRatio = val);
+                    },
+                  ),
+                  const SizedBox(width: 6),
+                  _buildOptionPopup(
+                    label: 'Quality',
+                    value: _selectedQuality,
+                    icon: Icons.high_quality,
+                    items: _getQualityOptions(),
+                    onSelected: (val) {
+                      setState(() => _selectedQuality = val);
+                    },
+                  ),
+                  const SizedBox(width: 6),
+                  _buildSoundToggle(),
+                ],
               ),
               const SizedBox(height: 12),
 
@@ -1016,68 +1001,74 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // Generate button
+                  // Generate button - uses local isWaitingForResult state
                   Expanded(
-                    child: Consumer<GenerationProvider>(
-                      builder: (context, provider, child) {
+                    child: Builder(
+                      builder: (context) {
+                        final provider = context.watch<GenerationProvider>();
+                        final isGenerating = provider.isGenerating || _isWaitingForResult;
+                        
                         return GestureDetector(
-                          onTap: provider.isGenerating ? null : _handleGenerate,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: provider.isGenerating
-                                    ? [AppTheme.muted, AppTheme.muted]
-                                    : [AppTheme.primary, AppTheme.accent],
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                if (provider.isGenerating)
-                                  const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                else
-                                  const Icon(Icons.auto_awesome,
-                                      size: 18, color: Colors.white),
-                                const SizedBox(width: 8),
-                                Text(
-                                  provider.isGenerating
-                                      ? 'Generating...'
-                                      : 'Generate',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                          onTap: isGenerating ? null : _handleGenerate,
+                          child: Opacity(
+                            opacity: isGenerating ? 0.7 : 1.0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: isGenerating
+                                      ? [AppTheme.muted, AppTheme.muted]
+                                      : [AppTheme.primary, AppTheme.accent],
                                 ),
-                                if (!provider.isGenerating) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      '$_selectedModelCredits',
-                                      style: const TextStyle(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (isGenerating)
+                                    const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
                                         color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    )
+                                  else
+                                    const Icon(Icons.auto_awesome,
+                                        size: 18, color: Colors.white),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    isGenerating
+                                        ? 'Generating...'
+                                        : 'Generate',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  if (!isGenerating) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        '$_selectedModelCredits',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
                         );
@@ -1090,6 +1081,322 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPreviewContent(bool isGenerating) {
+    // Show loading state
+    if (isGenerating) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 80,
+                  height: 80,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 4,
+                    color: AppTheme.primary.withOpacity(0.3),
+                  ),
+                ),
+                SizedBox(
+                  width: 80,
+                  height: 80,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 4,
+                    color: AppTheme.primary,
+                    value: null,
+                  ),
+                ),
+                const Icon(Icons.auto_awesome, size: 32, color: AppTheme.primary),
+              ],
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Generating your video...',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'This may take a few minutes',
+              style: TextStyle(color: AppTheme.muted, fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Show error state
+    if (_generationError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(50),
+              ),
+              child: const Icon(Icons.error_outline, size: 40, color: Colors.redAccent),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Generation failed',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                _generationError!,
+                style: const TextStyle(color: AppTheme.muted, fontSize: 13),
+                textAlign: TextAlign.center,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(height: 20),
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _generationError = null;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppTheme.border),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.refresh, size: 16, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text(
+                      'Try Again',
+                      style: TextStyle(color: Colors.white, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Show video player if we have a video
+    if (_videoController != null && _videoController!.value.isInitialized) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            AspectRatio(
+              aspectRatio: _videoController!.value.aspectRatio,
+              child: VideoPlayer(_videoController!),
+            ),
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _videoController!.value.isPlaying
+                      ? _videoController!.pause()
+                      : _videoController!.play();
+                });
+              },
+              child: _videoController!.value.isPlaying
+                  ? null
+                  : const Icon(Icons.play_circle_fill,
+                      size: 64, color: Colors.white70),
+            ),
+            // Save/Share buttons
+            if (_generatedVideoUrl != null)
+              Positioned(
+                bottom: 12,
+                right: 12,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildVideoActionButton(
+                      Icons.download,
+                      'Save',
+                      _saveGeneratedVideo,
+                      isPrimary: true,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildVideoActionButton(
+                      Icons.share,
+                      'Share',
+                      _shareGeneratedVideo,
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    // Empty state
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.videocam_off_outlined,
+              size: 48, color: AppTheme.muted),
+          const SizedBox(height: 16),
+          const Text(
+            'No videos yet',
+            style: TextStyle(color: Colors.white, fontSize: 16),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Generate your first video below',
+            style: TextStyle(color: AppTheme.muted, fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<_VideoOptionItem> _getDurationOptions() {
+    return VideoModels.durations.map((d) => _VideoOptionItem(
+      id: '${d}s',
+      name: '${d} seconds',
+      description: d <= 3 ? 'Quick clip' : d <= 5 ? 'Short video' : d <= 7 ? 'Standard length' : 'Extended video',
+    )).toList();
+  }
+
+  List<_VideoOptionItem> _getAspectRatioOptions() {
+    return VideoModels.aspectRatios.map((r) => _VideoOptionItem(
+      id: r,
+      name: r,
+      description: _getAspectDescription(r),
+    )).toList();
+  }
+
+  String _getAspectDescription(String ratio) {
+    switch (ratio) {
+      case '16:9': return 'Landscape, YouTube';
+      case '9:16': return 'Portrait, TikTok/Reels';
+      case '1:1': return 'Square, Instagram';
+      case '4:3': return 'Classic TV format';
+      case '3:4': return 'Portrait photos';
+      case '21:9': return 'Ultra-wide cinematic';
+      default: return '';
+    }
+  }
+
+  List<_VideoOptionItem> _getQualityOptions() {
+    return VideoModels.qualities.map((q) => _VideoOptionItem(
+      id: q,
+      name: q,
+      description: q == '480p' ? 'Fast, lower quality' : q == '720p' ? 'Balanced HD' : 'Best quality, slower',
+      badge: q == '1080p' ? 'HD' : null,
+    )).toList();
+  }
+
+  Widget _buildOptionPopup({
+    required String label,
+    required String value,
+    required IconData icon,
+    required List<_VideoOptionItem> items,
+    required Function(String) onSelected,
+    bool showValue = true,
+  }) {
+    return PopupMenuButton<String>(
+      onSelected: onSelected,
+      offset: const Offset(0, -200),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: AppTheme.card,
+      itemBuilder: (context) => items.map((item) => PopupMenuItem<String>(
+        value: item.id,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Text(
+                  item.name,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: item.id == value ? FontWeight.w600 : FontWeight.normal,
+                    color: item.id == value ? AppTheme.primary : Colors.white,
+                  ),
+                ),
+                if (item.badge != null) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      item.badge!,
+                      style: const TextStyle(
+                        fontSize: 9,
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            if (item.description.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  item.description,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppTheme.muted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+        ),
+      )).toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.secondary,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: AppTheme.muted),
+            const SizedBox(width: 4),
+            Text(
+              showValue ? value : label,
+              style: const TextStyle(fontSize: 12, color: Colors.white),
+            ),
+            const SizedBox(width: 2),
+            const Icon(Icons.keyboard_arrow_down, size: 14, color: AppTheme.muted),
+          ],
+        ),
+      ),
     );
   }
 
