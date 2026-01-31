@@ -600,114 +600,131 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.card,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Style Presets',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  if (_selectedStyles.isNotEmpty)
-                    TextButton(
-                      onPressed: () {
-                        setState(() => _selectedStyles.clear());
-                        setSheetState(() {});
-                      },
-                      child: const Text('Clear All'),
+        builder: (ctx, setSheetState) => DraggableScrollableSheet(
+          initialChildSize: 0.5,
+          minChildSize: 0.3,
+          maxChildSize: 0.7,
+          expand: false,
+          builder: (_, scrollController) => Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle bar
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.muted.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Combine multiple styles for unique results',
-                style: TextStyle(color: AppTheme.muted, fontSize: 13),
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: ImageModels.stylePresets.map((style) {
-                  final styleId = style['id'] as String;
-                  final isSelected = _selectedStyles.contains(styleId);
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        if (isSelected) {
-                          _selectedStyles.remove(styleId);
-                        } else {
-                          _selectedStyles.add(styleId);
-                        }
-                      });
-                      setSheetState(() {});
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppTheme.primary.withOpacity(0.2)
-                            : AppTheme.secondary,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected ? AppTheme.primary : AppTheme.border,
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Style Presets',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    if (_selectedStyles.isNotEmpty)
+                      GestureDetector(
+                        onTap: () {
+                          setState(() => _selectedStyles.clear());
+                          setSheetState(() {});
+                        },
+                        child: const Text(
+                          'Clear',
+                          style: TextStyle(color: AppTheme.primary, fontSize: 13),
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _getStyleIcon(style['icon'] as String),
-                            size: 16,
-                            color: isSelected ? AppTheme.primary : AppTheme.muted,
-                          ),
-                          const SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                style['name'] as String,
-                                style: TextStyle(
-                                  color: isSelected ? AppTheme.primary : AppTheme.foreground,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              Text(
-                                style['description'] as String,
-                                style: const TextStyle(
-                                  color: AppTheme.muted,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text(_selectedStyles.isEmpty
-                      ? 'Done'
-                      : 'Apply ${_selectedStyles.length} Style${_selectedStyles.length > 1 ? 's' : ''}'),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 2),
+                const Text(
+                  'Combine multiple styles',
+                  style: TextStyle(color: AppTheme.muted, fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: scrollController,
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: ImageModels.stylePresets.map((style) {
+                        final styleId = style['id'] as String;
+                        final isSelected = _selectedStyles.contains(styleId);
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (isSelected) {
+                                _selectedStyles.remove(styleId);
+                              } else {
+                                _selectedStyles.add(styleId);
+                              }
+                            });
+                            setSheetState(() {});
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppTheme.primary.withOpacity(0.2)
+                                  : AppTheme.secondary,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isSelected ? AppTheme.primary : AppTheme.border,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _getStyleIcon(style['icon'] as String),
+                                  size: 14,
+                                  color: isSelected ? AppTheme.primary : AppTheme.muted,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  style['name'] as String,
+                                  style: TextStyle(
+                                    color: isSelected ? AppTheme.primary : AppTheme.foreground,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text(
+                      _selectedStyles.isEmpty
+                          ? 'Done'
+                          : 'Apply ${_selectedStyles.length} Style${_selectedStyles.length > 1 ? 's' : ''}',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
