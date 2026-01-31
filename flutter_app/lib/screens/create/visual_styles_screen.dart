@@ -242,7 +242,7 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
             backgroundColor: AppTheme.primary,
           ),
         );
-        creditsProvider.refreshCredits();
+        creditsProvider.refresh();
       }
     } catch (e) {
       if (mounted) {
@@ -261,9 +261,11 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
   }
 
   void _showAddCreditsDialog() {
-    showDialog(
+    final creditsProvider = context.read<CreditsProvider>();
+    showAddCreditsDialog(
       context: context,
-      builder: (context) => const AddCreditsDialog(),
+      currentCredits: creditsProvider.credits,
+      requiredCredits: _totalCredits,
     );
   }
 
