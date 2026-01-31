@@ -244,24 +244,30 @@ export function MobileVisualStyles({ onBack }: MobileVisualStylesProps) {
     setGeneratedImages([]);
 
     try {
+      // Get selected style names and prompts for API
+      const selectedStyleData = selectedStyles
+        .map(id => styles.find(s => s.id === id))
+        .filter(Boolean);
+      const styleName = selectedStyleData.map(s => s!.name).join(", ") || undefined;
+      const stylePrompt = selectedStyleData.map(s => s!.prompt).filter(Boolean).join(", ") || undefined;
+
       // Generate multiple images if batch size > 1
       const promises = Array.from({ length: batchSize }, async () => {
-        const { data, error } = await supabase.functions.invoke("generate", {
+        const { data, error } = await supabase.functions.invoke("trending-generate", {
           body: {
-            prompt: finalPrompt,
-            type: "image",
-            model: "nano-banana-pro",
+            prompt: prompt.trim() || undefined,
             aspectRatio,
             quality,
-            stream: false,
-            background: unlimited, // Use background queue if unlimited mode
-            ...(referenceImage && { imageUrl: referenceImage }),
+            enhance: unlimited, // Use enhance mode if unlimited toggle is on
+            ...(referenceImage && { referenceImageUrl: referenceImage }),
             ...(selectedCharacter !== "none" && { characterId: selectedCharacter }),
+            ...(styleName && { styleName }),
+            ...(stylePrompt && { stylePrompt }),
           },
         });
 
         if (error) throw error;
-        return data?.output_url || data?.result?.output_url;
+        return data?.output_url || data?.outputUrl || data?.result?.output_url;
       });
 
       const results = await Promise.all(promises);
