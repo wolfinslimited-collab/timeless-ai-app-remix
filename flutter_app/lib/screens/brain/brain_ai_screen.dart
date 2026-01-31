@@ -25,6 +25,8 @@ class _BrainAIScreenState extends State<BrainAIScreen>
   List<BrainMoodLog> _recentMoodLogs = [];
   bool _isLoading = true;
   bool _hasActiveSubscription = false;
+  bool _showWelcome = false;
+  bool _showOnboarding = false;
 
   @override
   void initState() {
@@ -51,8 +53,11 @@ class _BrainAIScreenState extends State<BrainAIScreen>
 
     final profile = await _brainService.getProfile();
     if (profile == null) {
-      // No profile - show onboarding
-      setState(() => _isLoading = false);
+      // No profile - show welcome first
+      setState(() {
+        _showWelcome = true;
+        _isLoading = false;
+      });
       return;
     }
 
@@ -69,9 +74,115 @@ class _BrainAIScreenState extends State<BrainAIScreen>
     });
   }
 
+  void _startOnboarding() {
+    setState(() {
+      _showWelcome = false;
+      _showOnboarding = true;
+    });
+  }
+
   void _handleOnboardingComplete(BrainProfile profile) {
-    setState(() => _profile = profile);
+    setState(() {
+      _profile = profile;
+      _showOnboarding = false;
+    });
     _loadData();
+  }
+
+  Widget _buildWelcome() {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Brain AI')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppTheme.secondary,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Icon(
+                Icons.psychology,
+                size: 80,
+                color: AppTheme.muted,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Welcome to Brain AI',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Track your cognitive wellness, monitor focus and stress, and get personalized insights.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.muted),
+            ),
+            const SizedBox(height: 32),
+            _buildFeatureItem(
+              Icons.track_changes,
+              'Focus Tracking',
+              'Monitor your attention span and concentration',
+            ),
+            _buildFeatureItem(
+              Icons.favorite,
+              'Mood Stability',
+              'Track emotional balance throughout the day',
+            ),
+            _buildFeatureItem(
+              Icons.games,
+              'Brain Games',
+              'Exercise your mind with cognitive challenges',
+            ),
+            _buildFeatureItem(
+              Icons.insights,
+              'AI Insights',
+              'Get personalized recommendations for improvement',
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _startOnboarding,
+                child: const Text('Get Started'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureItem(IconData icon, String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.secondary,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: AppTheme.muted),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  description,
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -87,9 +198,19 @@ class _BrainAIScreenState extends State<BrainAIScreen>
       return _buildSubscriptionGate();
     }
 
-    // Show onboarding if no profile
-    if (_profile == null) {
+    // Show welcome screen first
+    if (_showWelcome) {
+      return _buildWelcome();
+    }
+
+    // Show onboarding if started
+    if (_showOnboarding) {
       return BrainOnboarding(onComplete: _handleOnboardingComplete);
+    }
+
+    // Show onboarding if no profile (fallback)
+    if (_profile == null) {
+      return _buildWelcome();
     }
 
     return Scaffold(
