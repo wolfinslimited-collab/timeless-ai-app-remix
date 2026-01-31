@@ -22,6 +22,13 @@ interface StyleItem {
   display_order: number;
 }
 
+interface CharacterItem {
+  id: string;
+  name: string;
+  thumbnail_url: string | null;
+  status: string;
+}
+
 const ASPECT_RATIOS = [
   { id: "1:1", label: "1:1", description: "Square" },
   { id: "16:9", label: "16:9", description: "Landscape" },
@@ -38,13 +45,6 @@ const QUALITY_OPTIONS = [
 ];
 
 const BATCH_SIZES = [1, 2, 4, 9];
-
-// Mock characters - in production, fetch from user's trained characters
-const CHARACTERS = [
-  { id: "none", name: "None", avatar: null },
-  { id: "char-1", name: "Character 1", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=1" },
-  { id: "char-2", name: "Character 2", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=2" },
-];
 
 export function MobileVisualStyles({ onBack }: MobileVisualStylesProps) {
   const [prompt, setPrompt] = useState("");
@@ -66,6 +66,8 @@ export function MobileVisualStyles({ onBack }: MobileVisualStylesProps) {
   const [styles, setStyles] = useState<StyleItem[]>([]);
   const [isLoadingStyles, setIsLoadingStyles] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [characters, setCharacters] = useState<CharacterItem[]>([]);
+  const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
@@ -98,6 +100,37 @@ export function MobileVisualStyles({ onBack }: MobileVisualStylesProps) {
 
     fetchStyles();
   }, []);
+
+  // Fetch user's trained characters
+  useEffect(() => {
+    const fetchCharacters = async () => {
+      if (!user) {
+        setIsLoadingCharacters(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("characters")
+          .select("id, name, thumbnail_url, status")
+          .eq("user_id", user.id)
+          .eq("status", "ready")
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        setCharacters(data || []);
+      } catch (error) {
+        console.error("Error fetching characters:", error);
+      } finally {
+        setIsLoadingCharacters(false);
+      }
+    };
+
+    fetchCharacters();
+  }, [user]);
+
+  // Get selected character data
+  const selectedCharacterData = characters.find(c => c.id === selectedCharacter);
 
   // Group styles by category
   const stylesByCategory = styles.reduce((acc, style) => {
@@ -388,33 +421,63 @@ export function MobileVisualStyles({ onBack }: MobileVisualStylesProps) {
               onClick={() => setShowCharacterDropdown(!showCharacterDropdown)}
               className="w-full flex items-center justify-between p-3 rounded-xl bg-secondary border border-border"
             >
-              <div className="text-left">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Character</p>
-                <p className="text-sm font-medium text-foreground">
-                  {CHARACTERS.find(c => c.id === selectedCharacter)?.name}
-                </p>
+              <div className="flex items-center gap-2">
+                {selectedCharacterData?.thumbnail_url ? (
+                  <img src={selectedCharacterData.thumbnail_url} className="w-6 h-6 rounded-full object-cover" alt={selectedCharacterData.name} />
+                ) : (
+                  <User className="w-5 h-5 text-muted-foreground" />
+                )}
+                <div className="text-left">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Character</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {selectedCharacter === "none" ? "None" : selectedCharacterData?.name || "None"}
+                  </p>
+                </div>
               </div>
               <ChevronDown className="w-4 h-4 text-muted-foreground" />
             </button>
             {showCharacterDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden">
-                {CHARACTERS.map((char) => (
-                  <button
-                    key={char.id}
-                    onClick={() => { setSelectedCharacter(char.id); setShowCharacterDropdown(false); }}
-                    className={cn(
-                      "w-full px-3 py-2 text-left hover:bg-secondary transition-colors flex items-center gap-2",
-                      selectedCharacter === char.id && "bg-primary/10"
-                    )}
-                  >
-                    {char.avatar ? (
-                      <img src={char.avatar} className="w-6 h-6 rounded-full" alt={char.name} />
-                    ) : (
-                      <User className="w-6 h-6 text-muted-foreground" />
-                    )}
-                    <span className="text-sm font-medium text-foreground">{char.name}</span>
-                  </button>
-                ))}
+              <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden max-h-48 overflow-y-auto">
+                {/* None option */}
+                <button
+                  onClick={() => { setSelectedCharacter("none"); setShowCharacterDropdown(false); }}
+                  className={cn(
+                    "w-full px-3 py-2 text-left hover:bg-secondary transition-colors flex items-center gap-2",
+                    selectedCharacter === "none" && "bg-primary/10"
+                  )}
+                >
+                  <User className="w-6 h-6 text-muted-foreground" />
+                  <span className="text-sm font-medium text-foreground">None</span>
+                </button>
+
+                {isLoadingCharacters ? (
+                  <div className="px-3 py-2 flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Loading...</span>
+                  </div>
+                ) : characters.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-muted-foreground">
+                    No trained characters yet
+                  </div>
+                ) : (
+                  characters.map((char) => (
+                    <button
+                      key={char.id}
+                      onClick={() => { setSelectedCharacter(char.id); setShowCharacterDropdown(false); }}
+                      className={cn(
+                        "w-full px-3 py-2 text-left hover:bg-secondary transition-colors flex items-center gap-2",
+                        selectedCharacter === char.id && "bg-primary/10"
+                      )}
+                    >
+                      {char.thumbnail_url ? (
+                        <img src={char.thumbnail_url} className="w-6 h-6 rounded-full object-cover" alt={char.name} />
+                      ) : (
+                        <User className="w-6 h-6 text-muted-foreground" />
+                      )}
+                      <span className="text-sm font-medium text-foreground">{char.name}</span>
+                    </button>
+                  ))
+                )}
               </div>
             )}
           </div>
