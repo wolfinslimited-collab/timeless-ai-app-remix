@@ -485,8 +485,13 @@ class _PricingScreenState extends State<PricingScreen>
                       itemBuilder: (context, index) {
                         final plan = plans[index];
                         // Check if this is the user's current plan
-                        final isCurrentPlan = creditsProvider.hasActiveSubscription &&
-                            creditsProvider.currentPlan?.toLowerCase() == plan.name.toLowerCase();
+                        // Match by plan.id (e.g., "premium-monthly") or plan.name (e.g., "Premium")
+                        final userPlan = creditsProvider.currentPlan?.toLowerCase() ?? '';
+                        final isCurrentPlan = creditsProvider.hasActiveSubscription && (
+                            userPlan == plan.id.toLowerCase() ||
+                            userPlan == plan.name.toLowerCase() ||
+                            plan.id.toLowerCase().startsWith(userPlan)
+                        );
                         return SingleChildScrollView(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Padding(
@@ -702,28 +707,33 @@ class _SubscriptionPlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isHighlighted = plan.popular || plan.bestValue;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: isHighlighted
-            ? LinearGradient(
-                colors: [
-                  AppTheme.primary.withOpacity(0.2),
-                  const Color(0xFFEC4899).withOpacity(0.2),
-                ],
-              )
-            : null,
-        color: isHighlighted ? null : AppTheme.card,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isHighlighted ? AppTheme.primary : AppTheme.border,
-          width: isHighlighted ? 2 : 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(bottom: 16, top: isCurrentPlan ? 12 : 0),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: isHighlighted && !isCurrentPlan
+                ? LinearGradient(
+                    colors: [
+                      AppTheme.primary.withOpacity(0.2),
+                      const Color(0xFFEC4899).withOpacity(0.2),
+                    ],
+                  )
+                : null,
+            color: isHighlighted && !isCurrentPlan ? null : AppTheme.card,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isCurrentPlan
+                  ? Colors.green
+                  : (isHighlighted ? AppTheme.primary : AppTheme.border),
+              width: isCurrentPlan ? 2 : (isHighlighted ? 2 : 1),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           // Header row
           Row(
             children: [
@@ -977,8 +987,34 @@ class _SubscriptionPlanCard extends StatelessWidget {
                     ),
                   ),
           ),
-        ],
-      ),
+            ],
+          ),
+        ),
+        // "Current Plan" badge at the top
+        if (isCurrentPlan)
+          Positioned(
+            top: -2,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'Current Plan',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
