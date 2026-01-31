@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme.dart';
 import '../../providers/generation_provider.dart';
 import '../../providers/credits_provider.dart';
@@ -138,6 +139,8 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
             _selectedStyle = styles.first;
             _loadingStyles = false;
           });
+          // Pre-cache style images for faster modal loading
+          _preCacheStyleImages(styles);
         } else {
           setState(() {
             _trendStyles = [_defaultStyle];
@@ -151,6 +154,19 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
           _trendStyles = [_defaultStyle];
           _loadingStyles = false;
         });
+      }
+    }
+  }
+
+  /// Pre-cache style preview images for faster loading in modal
+  void _preCacheStyleImages(List<TrendStyle> styles) {
+    for (final style in styles) {
+      if (style.previewImage != null && style.previewImage!.isNotEmpty) {
+        // Use CachedNetworkImageProvider to pre-cache
+        precacheImage(
+          CachedNetworkImageProvider(style.previewImage!),
+          context,
+        );
       }
     }
   }
@@ -556,11 +572,25 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
                                       child: Stack(
                                         fit: StackFit.expand,
                                         children: [
-                                          // Preview image
+                                          // Preview image with CachedNetworkImage for speed
                                           style.previewImage != null
-                                              ? SmartMediaImage(
+                                              ? CachedNetworkImage(
                                                   imageUrl: style.previewImage!,
                                                   fit: BoxFit.cover,
+                                                  width: double.infinity,
+                                                  height: double.infinity,
+                                                  fadeInDuration: const Duration(milliseconds: 150),
+                                                  fadeOutDuration: const Duration(milliseconds: 150),
+                                                  placeholder: (context, url) => Container(
+                                                    color: AppTheme.secondary,
+                                                    child: Center(
+                                                      child: _ShimmerBox(),
+                                                    ),
+                                                  ),
+                                                  errorWidget: (context, url, error) => Container(
+                                                    color: AppTheme.secondary,
+                                                    child: const Icon(Icons.palette, size: 32, color: AppTheme.muted),
+                                                  ),
                                                 )
                                               : Container(
                                                   color: AppTheme.secondary,
@@ -1250,6 +1280,58 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Shimmer loading placeholder for style images
+class _ShimmerBox extends StatefulWidget {
+  @override
+  State<_ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<_ShimmerBox> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    )..repeat();
+    _animation = Tween<double>(begin: -1.0, end: 2.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment(_animation.value - 1, 0),
+              end: Alignment(_animation.value, 0),
+              colors: [
+                AppTheme.secondary,
+                AppTheme.muted.withOpacity(0.15),
+                AppTheme.secondary,
+              ],
+              stops: const [0.0, 0.5, 1.0],
+            ),
+          ),
+        );
+      },
     );
   }
 }
