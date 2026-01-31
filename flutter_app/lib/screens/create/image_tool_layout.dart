@@ -77,6 +77,7 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
   String? _outputImageUrl;
   bool _isUploading = false;
   bool _isProcessing = false;
+  double _uploadProgress = 0.0; // Upload progress 0.0 - 1.0
 
   // Form state
   String _prompt = '';
@@ -141,7 +142,10 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
         return;
       }
 
+      // Start uploading immediately - show uploading state first
       setState(() {
+        _isUploading = true;
+        _uploadProgress = 0.0;
         _inputImageFile = file;
         _outputImageUrl = null;
       });
@@ -150,6 +154,11 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
       await _uploadImage(file);
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isUploading = false;
+          _uploadProgress = 0.0;
+          _inputImageFile = null;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to pick image: $e'),
@@ -163,6 +172,11 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
   Future<void> _uploadImage(File file) async {
     final user = _supabase.auth.currentUser;
     if (user == null) {
+      setState(() {
+        _isUploading = false;
+        _uploadProgress = 0.0;
+        _inputImageFile = null;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please sign in to use this tool'),
@@ -172,33 +186,59 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
       return;
     }
 
-    setState(() => _isUploading = true);
-
     try {
       final fileExt = path.extension(file.path).replaceFirst('.', '');
       final fileName =
           '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$fileExt';
 
+      final fileBytes = await file.readAsBytes();
+      final totalBytes = fileBytes.length;
+
+      // Simulate progress for better UX (Supabase doesn't provide upload progress)
+      // We'll update progress in chunks while uploading
+      final progressTimer = Stream.periodic(
+        const Duration(milliseconds: 100),
+        (i) => i,
+      ).take(20).listen((_) {
+        if (mounted && _isUploading && _uploadProgress < 0.9) {
+          setState(() {
+            _uploadProgress = (_uploadProgress + 0.04).clamp(0.0, 0.9);
+          });
+        }
+      });
+
       await _supabase.storage.from('generation-inputs').upload(fileName, file);
+
+      progressTimer.cancel();
 
       final publicUrl =
           _supabase.storage.from('generation-inputs').getPublicUrl(fileName);
 
-      setState(() {
-        _inputImageUrl = publicUrl;
-      });
+      if (mounted) {
+        setState(() {
+          _uploadProgress = 1.0;
+          _inputImageUrl = publicUrl;
+        });
+        // Small delay to show 100% before hiding progress
+        await Future.delayed(const Duration(milliseconds: 200));
+        if (mounted) {
+          setState(() => _isUploading = false);
+        }
+      }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isUploading = false;
+          _uploadProgress = 0.0;
+          _inputImageFile = null;
+          _inputImageUrl = null;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Upload failed: $e'),
             backgroundColor: Colors.red,
           ),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isUploading = false);
       }
     }
   }
@@ -354,6 +394,8 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
       _inputImageUrl = null;
       _inputImageFile = null;
       _outputImageUrl = null;
+      _isUploading = false;
+      _uploadProgress = 0.0;
       _prompt = '';
       _intensity = 50;
       _scale = 2;
@@ -589,21 +631,39 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
             },
           ),
 
-        // Upload indicator
+        // Upload indicator with progress bar
         if (_isUploading)
           Container(
-            color: Colors.black.withOpacity(0.5),
-            child: const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(color: Colors.white),
-                  SizedBox(height: 12),
-                  Text(
-                    'Uploading...',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ],
+            color: Colors.black.withOpacity(0.7),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: Colors.white),
+                    const SizedBox(height: 16),
+                    // Progress bar
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: _uploadProgress,
+                        backgroundColor: Colors.white.withOpacity(0.2),
+                        valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                        minHeight: 6,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Uploading... ${(_uploadProgress * 100).toInt()}%',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
