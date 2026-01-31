@@ -105,6 +105,8 @@ class _HomeScreenState extends State<HomeScreen> {
             'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/02e516fd-e889-49fe-af14-043fc2c79521-Upscale-ezgif.com-resize-video.mp4',
         'Style Transfer':
             'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/d49d2f58-acca-48f6-b890-2cf2443c4bba-style-transfer-preview-ezgif.com-resize-video.mp4',
+        'Visual Styles':
+            'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/d49d2f58-acca-48f6-b890-2cf2443c4bba-style-transfer-preview-ezgif.com-resize-video.mp4',
       };
 
       // Manual mapping of titles to routes (toolbox screen + selected tool via ?tool=)
@@ -118,6 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'Angle': '/create/image?tool=angle',
         'Skin Enhancer': '/create/image?tool=skin-enhancer',
         'Style Transfer': '/create/image?tool=style-transfer',
+        'Visual Styles': '/create/image',
         'Remove Background': '/create/image?tool=background-remove',
         'Background Remove': '/create/image?tool=background-remove',
         // Video tools -> VideoCreateScreen with tool selected
@@ -134,28 +137,91 @@ class _HomeScreenState extends State<HomeScreen> {
           .order('display_order', ascending: true);
 
       if (mounted) {
-        setState(() {
-          _featuredItems = (response as List).map((item) {
-            // Override video_url and link_url based on title if mapping exists
-            final title = item['title'] as String? ?? '';
-            if (titleToVideoUrl.containsKey(title)) {
-              item['video_url'] = titleToVideoUrl[title]!;
-            }
-            if (titleToRoute.containsKey(title)) {
-              item['link_url'] = titleToRoute[title]!;
-            }
-            return FeaturedItem.fromJson(item);
-          }).toList();
-          _loadingFeatured = false;
-        });
+        final items = response as List;
+        if (items.isNotEmpty) {
+          setState(() {
+            _featuredItems = items.map((item) {
+              // Override video_url and link_url based on title if mapping exists
+              final title = item['title'] as String? ?? '';
+              if (titleToVideoUrl.containsKey(title)) {
+                item['video_url'] = titleToVideoUrl[title]!;
+              }
+              if (titleToRoute.containsKey(title)) {
+                item['link_url'] = titleToRoute[title]!;
+              }
+              return FeaturedItem.fromJson(item);
+            }).toList();
+            _loadingFeatured = false;
+          });
+        } else {
+          // Use fallback items if no data from DB
+          setState(() {
+            _featuredItems = _getFallbackItems();
+            _loadingFeatured = false;
+          });
+        }
       }
     } catch (e) {
+      // Use fallback items on error (matching web)
       if (mounted) {
         setState(() {
+          _featuredItems = _getFallbackItems();
           _loadingFeatured = false;
         });
       }
     }
+  }
+
+  // Fallback featured items matching web exactly
+  List<FeaturedItem> _getFallbackItems() {
+    const baseUrl = 'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless';
+    return [
+      FeaturedItem(
+        id: '1',
+        title: 'Cinema Studio',
+        description: 'Professional cinematic video creation with AI',
+        tag: 'Featured',
+        videoUrl: '$baseUrl/47f98df2-8f0d-4cf0-a32f-f582f3c0f90f-video11080.1080.mp4',
+        displayOrder: 1,
+        linkUrl: '/cinema',
+      ),
+      FeaturedItem(
+        id: '2',
+        title: 'Video Upscale',
+        description: 'Enhance video quality up to 4K resolution',
+        tag: 'Popular',
+        videoUrl: '$baseUrl/25bd0bda-0068-47e9-a2c3-c51330245765-video21080.1080 - RESIZE - Videobolt.net.mp4',
+        displayOrder: 2,
+        linkUrl: '/create/video?tool=video-upscale',
+      ),
+      FeaturedItem(
+        id: '3',
+        title: 'Draw to Video',
+        description: 'Transform sketches into animated videos',
+        tag: 'New',
+        videoUrl: '$baseUrl/559a3bef-5733-4be4-b79b-324924945429-video31080.1080 - RESIZE - Videobolt.net.mp4',
+        displayOrder: 3,
+        linkUrl: '/create/video?tool=draw-to-video',
+      ),
+      FeaturedItem(
+        id: '4',
+        title: 'Music Studio',
+        description: 'AI-powered music creation and remixing',
+        tag: 'Hot',
+        videoUrl: '$baseUrl/33ee7581-6b7d-4d50-87d0-98acd87a53f3-video41080.1080 - RESIZE - Videobolt.net.mp4',
+        displayOrder: 4,
+        linkUrl: '/create/audio',
+      ),
+      FeaturedItem(
+        id: '5',
+        title: 'Visual Styles',
+        description: 'Ultra-realistic fashion visuals with AI',
+        tag: 'New',
+        videoUrl: '$baseUrl/d49d2f58-acca-48f6-b890-2cf2443c4bba-style-transfer-preview-ezgif.com-resize-video.mp4',
+        displayOrder: 5,
+        linkUrl: '/create/image',
+      ),
+    ];
   }
 
   Future<void> _loadRecentGenerations() async {
