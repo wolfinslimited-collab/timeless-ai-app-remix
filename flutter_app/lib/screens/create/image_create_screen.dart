@@ -584,6 +584,231 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
     );
   }
 
+  String _getAspectDescription(String ratio) {
+    switch (ratio) {
+      case '1:1': return 'Square, social posts';
+      case '16:9': return 'Landscape, videos';
+      case '9:16': return 'Portrait, stories';
+      case '4:3': return 'Classic photo';
+      case '3:4': return 'Portrait photo';
+      case '21:9': return 'Ultra wide, cinematic';
+      default: return '';
+    }
+  }
+
+  void _showStylesSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Style Presets',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  if (_selectedStyles.isNotEmpty)
+                    TextButton(
+                      onPressed: () {
+                        setState(() => _selectedStyles.clear());
+                        setSheetState(() {});
+                      },
+                      child: const Text('Clear All'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Combine multiple styles for unique results',
+                style: TextStyle(color: AppTheme.muted, fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: ImageModels.stylePresets.map((style) {
+                  final styleId = style['id'] as String;
+                  final isSelected = _selectedStyles.contains(styleId);
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedStyles.remove(styleId);
+                        } else {
+                          _selectedStyles.add(styleId);
+                        }
+                      });
+                      setSheetState(() {});
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.primary.withOpacity(0.2)
+                            : AppTheme.secondary,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected ? AppTheme.primary : AppTheme.border,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _getStyleIcon(style['icon'] as String),
+                            size: 16,
+                            color: isSelected ? AppTheme.primary : AppTheme.muted,
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                style['name'] as String,
+                                style: TextStyle(
+                                  color: isSelected ? AppTheme.primary : AppTheme.foreground,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                style['description'] as String,
+                                style: const TextStyle(
+                                  color: AppTheme.muted,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(_selectedStyles.isEmpty
+                      ? 'Done'
+                      : 'Apply ${_selectedStyles.length} Style${_selectedStyles.length > 1 ? 's' : ''}'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionPopup({
+    required String label,
+    required String value,
+    required IconData icon,
+    required List<_OptionItem> items,
+    required Function(String) onSelected,
+  }) {
+    return PopupMenuButton<String>(
+      onSelected: onSelected,
+      offset: const Offset(0, -10),
+      position: PopupMenuPosition.over,
+      color: AppTheme.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      itemBuilder: (context) => items.map((item) {
+        final isSelected = item.id == value;
+        return PopupMenuItem<String>(
+          value: item.id,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.name,
+                        style: TextStyle(
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          color: isSelected ? AppTheme.primary : AppTheme.foreground,
+                        ),
+                      ),
+                      if (item.description.isNotEmpty)
+                        Text(
+                          item.description,
+                          style: const TextStyle(
+                            color: AppTheme.muted,
+                            fontSize: 11,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (item.badge != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppTheme.primary.withOpacity(0.2)
+                          : AppTheme.secondary,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      item.badge!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isSelected ? AppTheme.primary : AppTheme.muted,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                if (isSelected)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Icon(Icons.check, size: 16, color: AppTheme.primary),
+                  ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.secondary,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: AppTheme.muted),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.expand_more, size: 14, color: AppTheme.muted),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showFullScreenImage() {
     if (_generatedImageUrl == null) return;
 
@@ -951,171 +1176,129 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Quality and Aspect Ratio Row
+              // Compact Options Row (Quality, Aspect Ratio, Styles toggle)
               Row(
                 children: [
-                  // Quality selector
-                  Expanded(
+                  // Quality Popup
+                  _buildOptionPopup(
+                    label: ImageModels.qualityOptions[_selectedQuality]?['name'] ?? _selectedQuality,
+                    value: _selectedQuality,
+                    icon: Icons.high_quality_outlined,
+                    items: _availableQualityOptions.map((q) {
+                      final data = ImageModels.qualityOptions[q];
+                      return _OptionItem(
+                        id: q,
+                        name: data?['name'] ?? q,
+                        description: data?['description'] ?? '',
+                        badge: q,
+                      );
+                    }).toList(),
+                    onSelected: (id) => setState(() => _selectedQuality = id),
+                  ),
+                  const SizedBox(width: 8),
+                  // Aspect Ratio Popup
+                  _buildOptionPopup(
+                    label: _selectedAspectRatio,
+                    value: _selectedAspectRatio,
+                    icon: Icons.aspect_ratio,
+                    items: ImageModels.aspectRatios.map((r) => _OptionItem(
+                      id: r,
+                      name: r,
+                      description: _getAspectDescription(r),
+                    )).toList(),
+                    onSelected: (id) => setState(() => _selectedAspectRatio = id),
+                  ),
+                  const Spacer(),
+                  // Styles toggle button
+                  GestureDetector(
+                    onTap: _showStylesSheet,
                     child: Container(
-                      height: 40,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _availableQualityOptions.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (context, index) {
-                          final quality = _availableQualityOptions[index];
-                          final qualityData =
-                              ImageModels.qualityOptions[quality];
-                          final isSelected = quality == _selectedQuality;
-                          return GestureDetector(
-                            onTap: () =>
-                                setState(() => _selectedQuality = quality),
-                            child: Container(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppTheme.primary.withOpacity(0.2)
-                                    : AppTheme.secondary,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? AppTheme.primary
-                                      : AppTheme.border,
-                                ),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                qualityData?['name'] ?? quality,
-                                style: TextStyle(
-                                  color: isSelected
-                                      ? AppTheme.primary
-                                      : AppTheme.mutedForeground,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _selectedStyles.isNotEmpty
+                            ? AppTheme.primary.withOpacity(0.2)
+                            : AppTheme.secondary,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _selectedStyles.isNotEmpty
+                              ? AppTheme.primary
+                              : AppTheme.border,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.style_outlined,
+                            size: 16,
+                            color: _selectedStyles.isNotEmpty
+                                ? AppTheme.primary
+                                : AppTheme.muted,
+                          ),
+                          if (_selectedStyles.isNotEmpty) ...[
+                            const SizedBox(width: 4),
+                            Text(
+                              '${_selectedStyles.length}',
+                              style: const TextStyle(
+                                color: AppTheme.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Aspect Ratio Dropdown
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.secondary,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.border),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedAspectRatio,
-                        dropdownColor: AppTheme.card,
-                        items: ImageModels.aspectRatios.map((ratio) {
-                          return DropdownMenuItem(
-                            value: ratio,
-                            child: Text(ratio,
-                                style: const TextStyle(fontSize: 12)),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() => _selectedAspectRatio = value);
-                          }
-                        },
+                          ],
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-
-              // Style Presets (multiple selection)
-              SizedBox(
-                height: 36,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: ImageModels.stylePresets.length + 1,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      // Clear all styles option
-                      final hasNoStyles = _selectedStyles.isEmpty;
-                      return GestureDetector(
-                        onTap: () => setState(() => _selectedStyles.clear()),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: hasNoStyles
-                                ? AppTheme.primary
-                                : AppTheme.secondary,
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            'None',
-                            style: TextStyle(
-                              color: hasNoStyles
-                                  ? Colors.white
-                                  : AppTheme.mutedForeground,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
+              // Selected styles chips (if any)
+              if (_selectedStyles.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: _selectedStyles.map((styleId) {
+                      final style = ImageModels.stylePresets.firstWhere(
+                        (s) => s['id'] == styleId,
+                        orElse: () => {'name': styleId, 'icon': 'style'},
                       );
-                    }
-
-                    final style = ImageModels.stylePresets[index - 1];
-                    final styleId = style['id'] as String;
-                    final isSelected = _selectedStyles.contains(styleId);
-                    return GestureDetector(
-                      onTap: () => setState(() {
-                        // Toggle style selection (multiple allowed)
-                        if (isSelected) {
-                          _selectedStyles.remove(styleId);
-                        } else {
-                          _selectedStyles.add(styleId);
-                        }
-                      }),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppTheme.primary
-                              : AppTheme.secondary,
-                          borderRadius: BorderRadius.circular(18),
+                          color: AppTheme.primary.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.primary.withOpacity(0.3)),
                         ),
-                        alignment: Alignment.center,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               _getStyleIcon(style['icon'] as String),
-                              size: 14,
-                              color: isSelected
-                                  ? Colors.white
-                                  : AppTheme.mutedForeground,
+                              size: 12,
+                              color: AppTheme.primary,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               style['name'] as String,
-                              style: TextStyle(
-                                color: isSelected
-                                    ? Colors.white
-                                    : AppTheme.mutedForeground,
-                                fontSize: 12,
+                              style: const TextStyle(
+                                color: AppTheme.primary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
                               ),
+                            ),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: () => setState(() => _selectedStyles.remove(styleId)),
+                              child: const Icon(Icons.close, size: 12, color: AppTheme.primary),
                             ),
                           ],
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    }).toList(),
+                  ),
                 ),
-              ),
               const SizedBox(height: 16),
 
               // Prompt Input with Reference Image Button
@@ -1664,4 +1847,19 @@ class _InlineImageToolContentState extends State<_InlineImageToolContent> {
         return Icons.auto_awesome;
     }
   }
+}
+
+/// Helper class for popup menu items
+class _OptionItem {
+  final String id;
+  final String name;
+  final String description;
+  final String? badge;
+
+  const _OptionItem({
+    required this.id,
+    required this.name,
+    this.description = '',
+    this.badge,
+  });
 }
