@@ -13,6 +13,7 @@ import '../../providers/generation_provider.dart';
 import '../../providers/credits_provider.dart';
 import '../../providers/download_provider.dart';
 import '../../models/download_model.dart';
+import '../../models/generation_model.dart';
 import '../../widgets/common/smart_media_image.dart';
 import '../../widgets/add_credits_dialog.dart';
 import '../../widgets/tool_selector.dart';
@@ -328,53 +329,83 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
   }
 
   Future<void> _pollForCompletion(String generationId) async {
-    const maxAttempts = 60;
+    const maxAttempts = 60; // 5 minutes max (60 attempts * 5 seconds)
     var attempts = 0;
+
+    debugPrint('🎬 Starting poll for generation: $generationId');
 
     Future<void> poll() async {
       if (!mounted) return;
 
-      final provider = context.read<GenerationProvider>();
-      await provider.loadGenerations();
+      try {
+        final provider = context.read<GenerationProvider>();
+        await provider.loadGenerations();
 
-      final generation =
-          provider.generations.where((g) => g.id == generationId).firstOrNull;
+        // First try to find by ID
+        var generation = provider.generations.where((g) => g.id == generationId).firstOrNull;
+        
+        // If not found by ID, try to find by taskId (fallback)
+        generation ??= provider.generations.where((g) => g.taskId == generationId).firstOrNull;
+        
+        // Also check for the most recent pending video if nothing found
+        generation ??= provider.generations
+            .where((g) => g.type == GenerationType.video && g.isPending)
+            .firstOrNull;
 
-      if (generation?.isCompleted == true && generation?.outputUrl != null) {
-        setState(() {
-          _generatedVideoUrl = generation!.outputUrl;
-          _isWaitingForResult = false;
-          _generationError = null;
-        });
-        _initializeVideoPlayer(generation!.outputUrl!);
+        debugPrint('🎬 Poll attempt ${attempts + 1}: found=${generation != null}, status=${generation?.status}, id=${generation?.id}');
 
-        if (mounted) {
-          _showSnackBar('Video ready!');
+        if (generation?.isCompleted == true && generation?.outputUrl != null) {
+          debugPrint('🎬 Generation completed! URL: ${generation!.outputUrl}');
+          setState(() {
+            _generatedVideoUrl = generation!.outputUrl;
+            _isWaitingForResult = false;
+            _generationError = null;
+          });
+          _initializeVideoPlayer(generation.outputUrl!);
+
+          if (mounted) {
+            _showSnackBar('🎉 Video ready!');
+          }
+          return;
         }
-        return;
-      }
 
-      if (generation?.isFailed == true) {
-        setState(() {
-          _isWaitingForResult = false;
-          _generationError = 'Video generation failed. Please try again.';
-        });
-        return;
-      }
+        if (generation?.isFailed == true) {
+          debugPrint('🎬 Generation failed');
+          setState(() {
+            _isWaitingForResult = false;
+            _generationError = 'Video generation failed. Please try again.';
+          });
+          return;
+        }
 
-      attempts++;
-      if (attempts < maxAttempts) {
-        await Future.delayed(const Duration(seconds: 5));
-        await poll();
-      } else {
-        // Timeout
-        setState(() {
-          _isWaitingForResult = false;
-          _generationError = 'Generation timed out. Check your library for the result.';
-        });
+        attempts++;
+        if (attempts < maxAttempts) {
+          await Future.delayed(const Duration(seconds: 5));
+          await poll();
+        } else {
+          // Timeout
+          debugPrint('🎬 Generation timed out after $attempts attempts');
+          setState(() {
+            _isWaitingForResult = false;
+            _generationError = 'Generation timed out. Check your library for the result.';
+          });
+        }
+      } catch (e) {
+        debugPrint('🎬 Poll error: $e');
+        attempts++;
+        if (attempts < maxAttempts) {
+          await Future.delayed(const Duration(seconds: 5));
+          await poll();
+        } else {
+          setState(() {
+            _isWaitingForResult = false;
+            _generationError = 'Error checking generation status: $e';
+          });
+        }
       }
     }
 
+    // Initial delay before first poll
     await Future.delayed(const Duration(seconds: 5));
     await poll();
   }

@@ -1116,8 +1116,8 @@ serve(async (req) => {
       try {
         const { requestId } = await submitToFal(endpoint, falInput, FAL_API_KEY);
         
-        // Save as pending for background check
-        await supabase.from("generations").insert({
+        // Save as pending for background check and get the generation ID
+        const { data: generation, error: insertError } = await supabase.from("generations").insert({
           user_id: userId,
           prompt: prompt,
           type: type,
@@ -1128,13 +1128,18 @@ serve(async (req) => {
           aspect_ratio: aspectRatio,
           quality: quality,
           credits_used: creditCost,
-        });
+        }).select('id').single();
+
+        if (insertError) {
+          console.error("Failed to save generation:", insertError.message);
+        }
 
         return new Response(
           JSON.stringify({
             success: true,
             message: "Video generation started",
             taskId: requestId,
+            generationId: generation?.id,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );

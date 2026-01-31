@@ -98,21 +98,22 @@ class GenerationProvider extends ChangeNotifier {
       }
 
       // Handle video generation response
-      // API returns: { success: true, message: "Video generation started", taskId: "..." }
+      // API returns: { success: true, message: "Video generation started", taskId: "...", generationId: "..." }
       if (type == 'video') {
         final taskId = result['taskId'] as String?;
         final generationId = result['generationId'] as String?;
         
         // For background video generation, return a pending generation
-        if (background || taskId != null) {
+        if (taskId != null) {
           _isGenerating = false;
           notifyListeners();
           
           // Reload to get the pending generation from DB
           await loadGenerations();
           
+          // Return generation with the actual DB ID for proper polling
           return Generation(
-            id: generationId ?? taskId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+            id: generationId ?? taskId,
             prompt: prompt,
             model: model,
             type: GenerationType.video,
