@@ -331,10 +331,7 @@ class _LoginScreenState extends State<LoginScreen>
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () {
-                            // TODO: Implement forgot password
-                            // _showComingSoon('Password reset');
-                          },
+                          onPressed: () => context.go('/forgot-password'),
                           child: const Text(
                             'Forgot password?',
                             style: TextStyle(fontSize: 14),
