@@ -10,6 +10,7 @@ import { MobileImageCreate } from "@/components/mobile/MobileImageCreate";
 import { MobileVideoCreate } from "@/components/mobile/MobileVideoCreate";
 import { MobileCinemaStudio } from "@/components/mobile/MobileCinemaStudio";
 import { MobileAudioCreate } from "@/components/mobile/MobileAudioCreate";
+import { MobileVisualStyles } from "@/components/mobile/MobileVisualStyles";
 import { MobileApps } from "@/components/mobile/MobileApps";
 import { MobileChat } from "@/components/mobile/MobileChat";
 import { MobileLibrary } from "@/components/mobile/MobileLibrary";
@@ -108,6 +109,8 @@ export default function MobilePreview() {
         return <MobileCinemaStudio onBack={() => setCurrentScreen("create")} />;
       case "audio":
         return <MobileAudioCreate onBack={() => setCurrentScreen("create")} />;
+      case "visual-styles":
+        return <MobileVisualStyles onBack={() => setCurrentScreen("create")} />;
       case "apps":
         return <MobileApps onBack={() => setCurrentScreen("create")} onNavigate={setCurrentScreen} />;
       case "chat":
