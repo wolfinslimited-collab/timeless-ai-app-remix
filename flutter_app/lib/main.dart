@@ -16,6 +16,7 @@ import 'providers/generation_provider.dart';
 import 'providers/iap_provider.dart';
 import 'providers/download_provider.dart';
 import 'providers/favorites_provider.dart';
+import 'providers/home_provider.dart';
 import 'services/tiktok_service.dart';
 import 'services/facebook_service.dart';
 import 'services/audio_player_service.dart';
@@ -92,6 +93,7 @@ class TimelessAIApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DownloadProvider()),
         ChangeNotifierProvider(create: (_) => FavoritesProvider()),
         ChangeNotifierProvider(create: (_) => AudioPlayerService()),
+        ChangeNotifierProvider(create: (_) => HomeProvider()),
       ],
       child: const _IAPWiredApp(),
     );
