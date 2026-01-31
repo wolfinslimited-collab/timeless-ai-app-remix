@@ -3,9 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import '../core/config.dart';
 
-// Edge functions are deployed to Lovable Cloud project
-const String _edgeFunctionsUrl = 'https://hpuqeabtgwbwcnklxolt.supabase.co/functions/v1';
+// Edge functions are deployed to the primary Supabase project (same as auth/data)
+const String _edgeFunctionsUrl = '${AppConfig.supabaseUrl}/functions/v1';
 
 class BrainInsight {
   final String type;
