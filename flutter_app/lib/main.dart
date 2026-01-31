@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:http/http.dart' as http;
 
 import 'core/config.dart';
 import 'core/theme.dart';
@@ -23,6 +24,22 @@ import 'services/push_notification_service.dart';
 // Global navigator key for showing snackbars from anywhere
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
+/// Custom HTTP client with longer timeout for Supabase operations
+class TimeoutHttpClient extends http.BaseClient {
+  final http.Client _inner = http.Client();
+  final Duration timeout;
+
+  TimeoutHttpClient({this.timeout = const Duration(seconds: 60)});
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    return _inner.send(request).timeout(timeout);
+  }
+
+  @override
+  void close() => _inner.close();
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -40,9 +57,14 @@ void main() async {
   // Set up background message handler before any other Firebase Messaging calls
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
+  // Initialize Supabase with custom HTTP client for longer timeouts
   await Supabase.initialize(
     url: AppConfig.supabaseUrl,
     anonKey: AppConfig.supabaseAnonKey,
+    httpClient: TimeoutHttpClient(timeout: const Duration(seconds: 90)),
+    authOptions: const FlutterAuthClientOptions(
+      autoRefreshToken: true,
+    ),
   );
 
   // Initialize analytics SDKs for attribution tracking
