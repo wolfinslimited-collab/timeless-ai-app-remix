@@ -1,4 +1,4 @@
-import { Image, Video, Music, Clapperboard, Grid3X3, ChevronRight } from "lucide-react";
+import { Image, Video, Music, Clapperboard, Grid3X3, ChevronRight, Paintbrush } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Screen } from "./MobileNav";
 
@@ -13,12 +13,20 @@ export function MobileCreate({ onNavigate }: MobileCreateProps) {
       <p className="text-muted-foreground text-sm mb-6">What would you like to create?</p>
 
       <div className="space-y-4">
-        {/* Shots Tool Card (Featured) - matching Flutter */}
+        {/* Visual Styles Card (Featured) */}
+        <CreateOption 
+          icon={Paintbrush} 
+          title="Visual Styles" 
+          description="Ultra-realistic fashion visuals with AI styling"
+          badge="NEW"
+          onClick={() => onNavigate("image")}
+        />
+
+        {/* Shots Tool Card - matching Flutter */}
         <CreateOption 
           icon={Grid3X3} 
           title="Shots" 
           description="Upload 1 image → Get 9 cinematic angles"
-          badge="NEW"
           onClick={() => onNavigate("image")}
         />
 
