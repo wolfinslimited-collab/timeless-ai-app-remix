@@ -3,13 +3,14 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../core/theme.dart';
 
-/// Model logo configuration - simplified for white icons on black background
+/// Model logo configuration - supports both white icons and original colors
 class LogoConfig {
   final String? assetPath; // Local asset path
   final String? networkUrl; // Network URL for logo
   final bool isSvg;
   final String? textLogo;
   final IconData? iconData; // Material icon fallback
+  final bool useOriginalColor; // If true, don't apply white color filter
 
   const LogoConfig({
     this.assetPath,
@@ -17,6 +18,7 @@ class LogoConfig {
     this.isSvg = false,
     this.textLogo,
     this.iconData,
+    this.useOriginalColor = false,
   });
 }
 
@@ -85,11 +87,32 @@ final Map<String, LogoConfig> _modelConfigs = {
 
   // === VIDEO MODELS ===
   
-  // Runway
+  // Wan (Alibaba) - original purple color
+  'wan': const LogoConfig(assetPath: 'assets/logos/wan.png', useOriginalColor: true),
+  'wan-2.6': const LogoConfig(assetPath: 'assets/logos/wan.png', useOriginalColor: true),
+  'wan-2.1': const LogoConfig(assetPath: 'assets/logos/wan.png', useOriginalColor: true),
+  'kie-wan': const LogoConfig(assetPath: 'assets/logos/wan.png', useOriginalColor: true),
+
+  // Hunyuan (Tencent) - original blue color
+  'hunyuan': const LogoConfig(assetPath: 'assets/logos/hunyuan.png', useOriginalColor: true),
+  'hunyuan-1.5': const LogoConfig(assetPath: 'assets/logos/hunyuan.png', useOriginalColor: true),
+  'kie-hunyuan': const LogoConfig(assetPath: 'assets/logos/hunyuan.png', useOriginalColor: true),
+
+  // Runway - original color (white logo)
   'runway': const LogoConfig(assetPath: 'assets/logos/runway.png'),
   'runway-gen4': const LogoConfig(assetPath: 'assets/logos/runway.png'),
   'kie-runway': const LogoConfig(assetPath: 'assets/logos/runway.png'),
   'kie-runway-i2v': const LogoConfig(assetPath: 'assets/logos/runway.png'),
+
+  // Seedance - original blue color
+  'seedance': const LogoConfig(assetPath: 'assets/logos/seedance.webp', useOriginalColor: true),
+  'seedance-1.5': const LogoConfig(assetPath: 'assets/logos/seedance.webp', useOriginalColor: true),
+  'kie-seedance': const LogoConfig(assetPath: 'assets/logos/seedance.webp', useOriginalColor: true),
+
+  // Luma - original gradient color
+  'luma': const LogoConfig(assetPath: 'assets/logos/luma.png', useOriginalColor: true),
+  'luma-ray-2': const LogoConfig(assetPath: 'assets/logos/luma.png', useOriginalColor: true),
+  'kie-luma': const LogoConfig(assetPath: 'assets/logos/luma.png', useOriginalColor: true),
 
   // Sora (OpenAI)
   'sora': const LogoConfig(assetPath: 'assets/logos/openai.svg', isSvg: true),
@@ -113,23 +136,6 @@ final Map<String, LogoConfig> _modelConfigs = {
   'hailuo': const LogoConfig(assetPath: 'assets/logos/hailuo.png'),
   'hailuo-02': const LogoConfig(assetPath: 'assets/logos/hailuo.png'),
   'kie-hailuo': const LogoConfig(assetPath: 'assets/logos/hailuo.png'),
-
-  // Wan (Alibaba)
-  'wan': const LogoConfig(textLogo: 'W'),
-  'wan-2.6': const LogoConfig(textLogo: 'W'),
-  'kie-wan': const LogoConfig(textLogo: 'W'),
-
-  // Seedance
-  'seedance': const LogoConfig(textLogo: 'SD'),
-  'seedance-1.5': const LogoConfig(textLogo: 'SD'),
-
-  // Luma
-  'luma': const LogoConfig(assetPath: 'assets/logos/luma.png'),
-  'luma-ray-2': const LogoConfig(assetPath: 'assets/logos/luma.png'),
-
-  // Hunyuan (Tencent)
-  'hunyuan': const LogoConfig(assetPath: 'assets/logos/hunyuan.png'),
-  'hunyuan-1.5': const LogoConfig(assetPath: 'assets/logos/hunyuan.png'),
 
   // === CHAT MODELS ===
   
@@ -236,7 +242,7 @@ class ModelBrandLogo extends StatelessWidget {
       );
     }
 
-    // Local asset logo - white on black
+    // Local asset logo - conditional color filter
     if (config.assetPath != null) {
       return Container(
         width: size,
@@ -245,31 +251,40 @@ class ModelBrandLogo extends StatelessWidget {
           color: bgColor,
           borderRadius: BorderRadius.circular(borderRadius),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Center(
           child: config.isSvg
               ? SvgPicture.asset(
                   config.assetPath!,
                   width: iconSize,
                   height: iconSize,
-                  colorFilter: const ColorFilter.mode(
-                    Colors.white,
-                    BlendMode.srcIn,
-                  ),
+                  colorFilter: config.useOriginalColor
+                      ? null
+                      : const ColorFilter.mode(Colors.white, BlendMode.srcIn),
                 )
-              : ColorFiltered(
-                  colorFilter: const ColorFilter.mode(
-                    Colors.white,
-                    BlendMode.srcIn,
-                  ),
-                  child: Image.asset(
-                    config.assetPath!,
-                    width: iconSize,
-                    height: iconSize,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) =>
-                        _buildTextFallback(config, iconSize),
-                  ),
-                ),
+              : config.useOriginalColor
+                  ? Image.asset(
+                      config.assetPath!,
+                      width: iconSize,
+                      height: iconSize,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) =>
+                          _buildTextFallback(config, iconSize),
+                    )
+                  : ColorFiltered(
+                      colorFilter: const ColorFilter.mode(
+                        Colors.white,
+                        BlendMode.srcIn,
+                      ),
+                      child: Image.asset(
+                        config.assetPath!,
+                        width: iconSize,
+                        height: iconSize,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) =>
+                            _buildTextFallback(config, iconSize),
+                      ),
+                    ),
         ),
       );
     }
