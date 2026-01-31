@@ -394,14 +394,17 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Visual Styles Banner
+              // Trending Visual Styles Banner
               GestureDetector(
                 onTap: () => context.go('/create/visual-styles'),
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFF472B6), Color(0xFFA855F7)],
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFFDB2777).withOpacity(0.85),
+                        const Color(0xFF9333EA).withOpacity(0.85),
+                      ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -413,10 +416,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.brush, color: Colors.white, size: 24),
+                        child: const Icon(Icons.auto_awesome, color: Colors.white, size: 24),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -426,7 +429,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Row(
                               children: [
                                 const Text(
-                                  'Visual Styles',
+                                  'Trending',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
@@ -437,11 +440,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.3),
+                                    color: Colors.white.withOpacity(0.2),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: const Text(
-                                    'NEW',
+                                    'HOT',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 10,
@@ -453,7 +456,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             const SizedBox(height: 4),
                             const Text(
-                              'Ultra-realistic fashion visuals with AI styling',
+                              'Visual Styles · Ultra-realistic fashion & portrait visuals',
                               style: TextStyle(
                                 color: Colors.white70,
                                 fontSize: 12,
@@ -462,7 +465,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
-                      const Icon(Icons.chevron_right, color: Colors.white),
+                      const Icon(Icons.chevron_right, color: Colors.white70),
                     ],
                   ),
                 ),
