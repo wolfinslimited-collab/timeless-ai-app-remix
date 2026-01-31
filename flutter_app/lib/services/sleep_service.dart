@@ -84,41 +84,44 @@ class SleepLog {
   }
 }
 
+/// SleepProfile matches web schema exactly (see SleepOnboarding.tsx)
 class SleepProfile {
   final String id;
   final String userId;
   final int age;
   final String gender;
-  final String? occupation;
   final String workSchedule;
   final double sleepGoalHours;
   final String? wakeGoalTime;
   final String? bedGoalTime;
-  final String chronotype;
+  final String caffeineIntake;
+  final String exerciseFrequency;
+  final String screenTimeBeforeBed;
+  final String sleepEnvironment;
+  final String stressLevel;
   final List<String> sleepIssues;
   final List<String> sleepGoals;
-  final bool enableBedtimeReminder;
-  final String? bedtimeReminderTime;
-  final bool enableSleepSounds;
   final String createdAt;
+  final String updatedAt;
 
   SleepProfile({
     required this.id,
     required this.userId,
     required this.age,
     required this.gender,
-    this.occupation,
     required this.workSchedule,
     required this.sleepGoalHours,
     this.wakeGoalTime,
     this.bedGoalTime,
-    required this.chronotype,
+    this.caffeineIntake = 'moderate',
+    this.exerciseFrequency = 'moderate',
+    this.screenTimeBeforeBed = 'moderate',
+    this.sleepEnvironment = 'good',
+    this.stressLevel = 'moderate',
     this.sleepIssues = const [],
     this.sleepGoals = const [],
-    this.enableBedtimeReminder = false,
-    this.bedtimeReminderTime,
-    this.enableSleepSounds = true,
     required this.createdAt,
+    required this.updatedAt,
   });
 
   factory SleepProfile.fromJson(Map<String, dynamic> json) {
@@ -127,18 +130,19 @@ class SleepProfile {
       userId: json['user_id'] ?? '',
       age: json['age'] ?? 25,
       gender: json['gender'] ?? 'other',
-      occupation: json['occupation'],
       workSchedule: json['work_schedule'] ?? 'regular',
       sleepGoalHours: (json['sleep_goal_hours'] ?? 8.0).toDouble(),
       wakeGoalTime: json['wake_goal_time'],
       bedGoalTime: json['bed_goal_time'],
-      chronotype: json['chronotype'] ?? 'intermediate',
+      caffeineIntake: json['caffeine_intake'] ?? 'moderate',
+      exerciseFrequency: json['exercise_frequency'] ?? 'moderate',
+      screenTimeBeforeBed: json['screen_time_before_bed'] ?? 'moderate',
+      sleepEnvironment: json['sleep_environment'] ?? 'good',
+      stressLevel: json['stress_level'] ?? 'moderate',
       sleepIssues: List<String>.from(json['sleep_issues'] ?? []),
       sleepGoals: List<String>.from(json['sleep_goals'] ?? []),
-      enableBedtimeReminder: json['enable_bedtime_reminder'] ?? false,
-      bedtimeReminderTime: json['bedtime_reminder_time'],
-      enableSleepSounds: json['enable_sleep_sounds'] ?? true,
       createdAt: json['created_at'] ?? '',
+      updatedAt: json['updated_at'] ?? '',
     );
   }
 }
@@ -209,16 +213,19 @@ class SleepService {
     }
   }
 
-  /// Create sleep profile using direct database call (like web SleepOnboarding.tsx)
+  /// Create sleep profile using direct database call (matches web SleepOnboarding.tsx exactly)
   Future<SleepProfile?> createProfile({
     required int age,
     required String gender,
-    String? occupation,
     required String workSchedule,
     required double sleepGoalHours,
     String? wakeGoalTime,
     String? bedGoalTime,
-    String chronotype = 'intermediate',
+    String caffeineIntake = 'moderate',
+    String exerciseFrequency = 'moderate',
+    String screenTimeBeforeBed = 'moderate',
+    String sleepEnvironment = 'good',
+    String stressLevel = 'moderate',
     List<String> sleepIssues = const [],
     List<String> sleepGoals = const [],
   }) async {
@@ -232,12 +239,15 @@ class SleepService {
             'user_id': user.id,
             'age': age,
             'gender': gender,
-            'occupation': occupation,
             'work_schedule': workSchedule,
             'sleep_goal_hours': sleepGoalHours,
             'wake_goal_time': wakeGoalTime,
             'bed_goal_time': bedGoalTime,
-            'chronotype': chronotype,
+            'caffeine_intake': caffeineIntake,
+            'exercise_frequency': exerciseFrequency,
+            'screen_time_before_bed': screenTimeBeforeBed,
+            'sleep_environment': sleepEnvironment,
+            'stress_level': stressLevel,
             'sleep_issues': sleepIssues,
             'sleep_goals': sleepGoals,
           })
