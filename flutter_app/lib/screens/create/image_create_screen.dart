@@ -188,7 +188,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
     }
 
     if (stylePrompts.isEmpty) return basePrompt;
-    return basePrompt.isEmpty 
+    return basePrompt.isEmpty
         ? stylePrompts.join(', ')
         : '$basePrompt, ${stylePrompts.join(', ')}';
   }
@@ -447,7 +447,8 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
   Future<void> _handleGenerate() async {
     if (_promptController.text.trim().isEmpty && _selectedStyles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a prompt or select a style')),
+        const SnackBar(
+            content: Text('Please enter a prompt or select a style')),
       );
       return;
     }
@@ -466,7 +467,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
     });
 
     final generationProvider = context.read<GenerationProvider>();
-    
+
     try {
       // Use referenceImageUrls for image generation (correct API parameter name)
       final result = await generationProvider.generate(
@@ -475,8 +476,10 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
         type: 'image',
         aspectRatio: _selectedAspectRatio,
         quality: _selectedQuality,
-        referenceImageUrls: _referenceImageUrls.isNotEmpty ? _referenceImageUrls : null,
-        referenceImageUrl: _referenceImageUrls.isNotEmpty ? _referenceImageUrls.first : null,
+        referenceImageUrls:
+            _referenceImageUrls.isNotEmpty ? _referenceImageUrls : null,
+        referenceImageUrl:
+            _referenceImageUrls.isNotEmpty ? _referenceImageUrls.first : null,
       );
 
       // Check for errors from the provider
@@ -485,7 +488,9 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
           setState(() => _isWaitingForResult = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(generationProvider.error!.replaceAll('Exception:', '').trim()),
+              content: Text(generationProvider.error!
+                  .replaceAll('Exception:', '')
+                  .trim()),
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 4),
             ),
@@ -511,7 +516,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
           setState(() {
             _isLoadingImage = false;
           });
-          
+
           // Success feedback
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -541,7 +546,8 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
         setState(() => _isWaitingForResult = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString().replaceAll('Exception:', '').trim()}'),
+            content: Text(
+                'Error: ${e.toString().replaceAll('Exception:', '').trim()}'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
           ),
@@ -586,125 +592,193 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
 
   String _getAspectDescription(String ratio) {
     switch (ratio) {
-      case '1:1': return 'Square, social posts';
-      case '16:9': return 'Landscape, videos';
-      case '9:16': return 'Portrait, stories';
-      case '4:3': return 'Classic photo';
-      case '3:4': return 'Portrait photo';
-      case '21:9': return 'Ultra wide, cinematic';
-      default: return '';
+      case '1:1':
+        return 'Square, social posts';
+      case '16:9':
+        return 'Landscape, videos';
+      case '9:16':
+        return 'Portrait, stories';
+      case '4:3':
+        return 'Classic photo';
+      case '3:4':
+        return 'Portrait photo';
+      case '21:9':
+        return 'Ultra wide, cinematic';
+      default:
+        return '';
     }
   }
 
   void _showStylesSheet() {
+    final maxHeight = MediaQuery.of(context).size.height * 0.75;
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppTheme.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: const EdgeInsets.all(20),
+        builder: (ctx, setSheetState) => ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Style Presets',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  if (_selectedStyles.isNotEmpty)
-                    TextButton(
-                      onPressed: () {
-                        setState(() => _selectedStyles.clear());
-                        setSheetState(() {});
-                      },
-                      child: const Text('Clear All'),
+              // Fixed header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Style Presets',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        if (_selectedStyles.isNotEmpty)
+                          TextButton(
+                            onPressed: () {
+                              setState(() => _selectedStyles.clear());
+                              setSheetState(() {});
+                            },
+                            child: const Text('Clear All'),
+                          ),
+                      ],
                     ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Combine multiple styles for unique results',
-                style: TextStyle(color: AppTheme.muted, fontSize: 13),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Combine multiple styles for unique results',
+                      style: TextStyle(color: AppTheme.muted, fontSize: 13),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: ImageModels.stylePresets.map((style) {
-                  final styleId = style['id'] as String;
-                  final isSelected = _selectedStyles.contains(styleId);
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        if (isSelected) {
-                          _selectedStyles.remove(styleId);
-                        } else {
-                          _selectedStyles.add(styleId);
-                        }
-                      });
-                      setSheetState(() {});
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppTheme.primary.withOpacity(0.2)
-                            : AppTheme.secondary,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected ? AppTheme.primary : AppTheme.border,
+              // Scrollable style list
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: ImageModels.stylePresets.map((style) {
+                      final styleId = style['id'] as String;
+                      final isSelected = _selectedStyles.contains(styleId);
+                      return SizedBox(
+                        width: (MediaQuery.of(ctx).size.width - 52) / 2,
+                        height: 110,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              setState(() {
+                                if (isSelected) {
+                                  _selectedStyles.remove(styleId);
+                                } else {
+                                  _selectedStyles.add(styleId);
+                                }
+                              });
+                              setSheetState(() {});
+                            },
+                            borderRadius: BorderRadius.circular(14),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppTheme.primary.withOpacity(0.15)
+                                    : AppTheme.secondary,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? AppTheme.primary
+                                      : AppTheme.border,
+                                  width: isSelected ? 1.5 : 1,
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? AppTheme.primary
+                                                  .withOpacity(0.2)
+                                              : AppTheme.foreground
+                                                  .withOpacity(0.06),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        child: Icon(
+                                          _getStyleIcon(
+                                              style['icon'] as String),
+                                          size: 20,
+                                          color: isSelected
+                                              ? AppTheme.primary
+                                              : AppTheme.muted,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          style['name'] as String,
+                                          style: TextStyle(
+                                            color: isSelected
+                                                ? AppTheme.primary
+                                                : AppTheme.foreground,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (isSelected)
+                                        Icon(Icons.check_circle,
+                                            size: 18, color: AppTheme.primary),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    style['description'] as String,
+                                    style: const TextStyle(
+                                      color: AppTheme.muted,
+                                      fontSize: 11,
+                                      height: 1.3,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _getStyleIcon(style['icon'] as String),
-                            size: 16,
-                            color: isSelected ? AppTheme.primary : AppTheme.muted,
-                          ),
-                          const SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                style['name'] as String,
-                                style: TextStyle(
-                                  color: isSelected ? AppTheme.primary : AppTheme.foreground,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              Text(
-                                style['description'] as String,
-                                style: const TextStyle(
-                                  color: AppTheme.muted,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
+                      );
+                    }).toList(),
+                  ),
+                ),
               ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text(_selectedStyles.isEmpty
-                      ? 'Done'
-                      : 'Apply ${_selectedStyles.length} Style${_selectedStyles.length > 1 ? 's' : ''}'),
+              // Fixed bottom button
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                    20, 16, 20, 16 + MediaQuery.of(ctx).padding.bottom),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text(_selectedStyles.isEmpty
+                        ? 'Done'
+                        : 'Apply ${_selectedStyles.length} Style${_selectedStyles.length > 1 ? 's' : ''}'),
+                  ),
                 ),
               ),
             ],
@@ -742,8 +816,11 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                       Text(
                         item.name,
                         style: TextStyle(
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                          color: isSelected ? AppTheme.primary : AppTheme.foreground,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.w500,
+                          color: isSelected
+                              ? AppTheme.primary
+                              : AppTheme.foreground,
                         ),
                       ),
                       if (item.description.isNotEmpty)
@@ -759,7 +836,8 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                 ),
                 if (item.badge != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? AppTheme.primary.withOpacity(0.2)
@@ -775,11 +853,11 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                       ),
                     ),
                   ),
-                if (isSelected)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8),
-                    child: Icon(Icons.check, size: 16, color: AppTheme.primary),
-                  ),
+                // if (isSelected)
+                //   Padding(
+                //     padding: const EdgeInsets.only(left: 8),
+                //     child: Icon(Icons.check, size: 16, color: AppTheme.primary),
+                //   ),
               ],
             ),
           ),
@@ -946,7 +1024,9 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
             child: Consumer<GenerationProvider>(
               builder: (context, provider, child) {
                 // Show error state if generation failed
-                if (provider.error != null && !provider.isGenerating && !_isWaitingForResult) {
+                if (provider.error != null &&
+                    !provider.isGenerating &&
+                    !_isWaitingForResult) {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
@@ -959,7 +1039,8 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                               color: Colors.red.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(50),
                             ),
-                            child: const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                            child: const Icon(Icons.error_outline,
+                                size: 48, color: Colors.red),
                           ),
                           const SizedBox(height: 16),
                           const Text(
@@ -973,7 +1054,8 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                           const SizedBox(height: 8),
                           Text(
                             provider.error!.replaceAll('Exception:', '').trim(),
-                            style: const TextStyle(color: AppTheme.muted, fontSize: 13),
+                            style: const TextStyle(
+                                color: AppTheme.muted, fontSize: 13),
                             textAlign: TextAlign.center,
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,
@@ -992,7 +1074,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                     ),
                   );
                 }
-                
+
                 // Show shimmer while generating OR waiting for result
                 if (provider.isGenerating || _isWaitingForResult) {
                   return Center(
@@ -1181,7 +1263,9 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                 children: [
                   // Quality Popup
                   _buildOptionPopup(
-                    label: ImageModels.qualityOptions[_selectedQuality]?['name'] ?? _selectedQuality,
+                    label: ImageModels.qualityOptions[_selectedQuality]
+                            ?['name'] ??
+                        _selectedQuality,
                     value: _selectedQuality,
                     icon: Icons.high_quality_outlined,
                     items: _availableQualityOptions.map((q) {
@@ -1201,19 +1285,23 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                     label: _selectedAspectRatio,
                     value: _selectedAspectRatio,
                     icon: Icons.aspect_ratio,
-                    items: ImageModels.aspectRatios.map((r) => _OptionItem(
-                      id: r,
-                      name: r,
-                      description: _getAspectDescription(r),
-                    )).toList(),
-                    onSelected: (id) => setState(() => _selectedAspectRatio = id),
+                    items: ImageModels.aspectRatios
+                        .map((r) => _OptionItem(
+                              id: r,
+                              name: r,
+                              description: _getAspectDescription(r),
+                            ))
+                        .toList(),
+                    onSelected: (id) =>
+                        setState(() => _selectedAspectRatio = id),
                   ),
                   const Spacer(),
                   // Styles toggle button
                   GestureDetector(
                     onTap: _showStylesSheet,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: _selectedStyles.isNotEmpty
                             ? AppTheme.primary.withOpacity(0.2)
@@ -1252,53 +1340,64 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                   ),
                 ],
               ),
-              // Selected styles chips (if any)
-              if (_selectedStyles.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: _selectedStyles.map((styleId) {
-                      final style = ImageModels.stylePresets.firstWhere(
-                        (s) => s['id'] == styleId,
-                        orElse: () => {'name': styleId, 'icon': 'style'},
-                      );
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppTheme.primary.withOpacity(0.3)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _getStyleIcon(style['icon'] as String),
-                              size: 12,
-                              color: AppTheme.primary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              style['name'] as String,
-                              style: const TextStyle(
-                                color: AppTheme.primary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            GestureDetector(
-                              onTap: () => setState(() => _selectedStyles.remove(styleId)),
-                              child: const Icon(Icons.close, size: 12, color: AppTheme.primary),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
+              // Selected styles chips (if any) - horizontal scroll, start from left
+              // if (_selectedStyles.isNotEmpty)
+              //   Padding(
+              //     padding: const EdgeInsets.only(top: 12),
+              //     child: SingleChildScrollView(
+              //       scrollDirection: Axis.horizontal,
+              //       clipBehavior: Clip.none,
+              //       child: Row(
+              //         mainAxisSize: MainAxisSize.min,
+              //         mainAxisAlignment: MainAxisAlignment.start,
+              //         children: _selectedStyles.map((styleId) {
+              //           final style = ImageModels.stylePresets.firstWhere(
+              //             (s) => s['id'] == styleId,
+              //             orElse: () => {'name': styleId, 'icon': 'style'},
+              //           );
+              //           return Padding(
+              //             padding: const EdgeInsets.only(right: 8),
+              //             child: Container(
+              //               padding: const EdgeInsets.symmetric(
+              //                   horizontal: 8, vertical: 4),
+              //               decoration: BoxDecoration(
+              //                 color: AppTheme.primary.withOpacity(0.2),
+              //                 borderRadius: BorderRadius.circular(12),
+              //                 border: Border.all(
+              //                     color: AppTheme.primary.withOpacity(0.3)),
+              //               ),
+              //               child: Row(
+              //                 mainAxisSize: MainAxisSize.min,
+              //                 children: [
+              //                   Icon(
+              //                     _getStyleIcon(style['icon'] as String),
+              //                     size: 12,
+              //                     color: AppTheme.primary,
+              //                   ),
+              //                   const SizedBox(width: 4),
+              //                   Text(
+              //                     style['name'] as String,
+              //                     style: const TextStyle(
+              //                       color: AppTheme.primary,
+              //                       fontSize: 11,
+              //                       fontWeight: FontWeight.w500,
+              //                     ),
+              //                   ),
+              //                   const SizedBox(width: 4),
+              //                   GestureDetector(
+              //                     onTap: () => setState(
+              //                         () => _selectedStyles.remove(styleId)),
+              //                     child: const Icon(Icons.close,
+              //                         size: 12, color: AppTheme.primary),
+              //                   ),
+              //                 ],
+              //               ),
+              //             ),
+              //           );
+              //         }).toList(),
+              //       ),
+              //     ),
+              //   ),
               const SizedBox(height: 16),
 
               // Prompt Input with Reference Image Button
@@ -1359,7 +1458,8 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                   const SizedBox(width: 12),
                   Consumer<GenerationProvider>(
                     builder: (context, provider, child) {
-                      final isGenerating = provider.isGenerating || _isWaitingForResult;
+                      final isGenerating =
+                          provider.isGenerating || _isWaitingForResult;
                       return GestureDetector(
                         onTap: isGenerating ? null : _handleGenerate,
                         child: Container(
