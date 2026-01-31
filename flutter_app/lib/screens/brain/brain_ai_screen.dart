@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
 import '../../services/brain_service.dart';
+import 'brain_onboarding.dart';
 import 'games/memory_match_game.dart';
 import 'games/speed_math_game.dart';
+import 'games/reaction_time_game.dart';
+import 'games/n_back_game.dart';
 
 class BrainAIScreen extends StatefulWidget {
   const BrainAIScreen({super.key});
@@ -21,7 +24,6 @@ class _BrainAIScreenState extends State<BrainAIScreen>
   List<BrainMetrics> _weeklyMetrics = [];
   List<BrainMoodLog> _recentMoodLogs = [];
   bool _isLoading = true;
-  bool _showOnboarding = false;
   bool _hasActiveSubscription = false;
 
   @override
@@ -49,10 +51,8 @@ class _BrainAIScreenState extends State<BrainAIScreen>
 
     final profile = await _brainService.getProfile();
     if (profile == null) {
-      setState(() {
-        _showOnboarding = true;
-        _isLoading = false;
-      });
+      // No profile - show onboarding
+      setState(() => _isLoading = false);
       return;
     }
 
@@ -69,6 +69,11 @@ class _BrainAIScreenState extends State<BrainAIScreen>
     });
   }
 
+  void _handleOnboardingComplete(BrainProfile profile) {
+    setState(() => _profile = profile);
+    _loadData();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -82,8 +87,9 @@ class _BrainAIScreenState extends State<BrainAIScreen>
       return _buildSubscriptionGate();
     }
 
-    if (_showOnboarding) {
-      return _buildOnboarding();
+    // Show onboarding if no profile
+    if (_profile == null) {
+      return BrainOnboarding(onComplete: _handleOnboardingComplete);
     }
 
     return Scaffold(
@@ -176,100 +182,6 @@ class _BrainAIScreenState extends State<BrainAIScreen>
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildOnboarding() {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Brain AI Setup')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppTheme.secondary,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Icon(
-                Icons.psychology,
-                size: 80,
-                color: AppTheme.muted,
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Welcome to Brain AI',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Track your cognitive wellness, monitor focus and stress, and get personalized insights.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppTheme.muted),
-            ),
-            const SizedBox(height: 32),
-            _buildFeatureItem(
-              Icons.track_changes,
-              'Focus Tracking',
-              'Monitor your attention span and concentration',
-            ),
-            _buildFeatureItem(
-              Icons.favorite,
-              'Mood Stability',
-              'Track emotional balance throughout the day',
-            ),
-            _buildFeatureItem(
-              Icons.games,
-              'Brain Games',
-              'Exercise your mind with cognitive challenges',
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _startOnboarding,
-                child: const Text('Get Started'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFeatureItem(IconData icon, String title, String description) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: AppTheme.primary),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                Text(
-                  description,
-                  style: const TextStyle(color: AppTheme.muted, fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -371,28 +283,14 @@ class _BrainAIScreenState extends State<BrainAIScreen>
             crossAxisSpacing: 12,
             childAspectRatio: 1.4,
             children: [
-              _buildScoreCard(
-                'Focus',
-                _todayMetrics?.focusScore,
-                Icons.center_focus_strong,
-              ),
+              _buildScoreCard('Focus', _todayMetrics?.focusScore, Icons.center_focus_strong),
               _buildScoreCard(
                 'Stress Load',
-                _todayMetrics?.stressLoad != null
-                    ? 100 - _todayMetrics!.stressLoad!
-                    : null,
+                _todayMetrics?.stressLoad != null ? 100 - _todayMetrics!.stressLoad! : null,
                 Icons.flash_on,
               ),
-              _buildScoreCard(
-                'Mood',
-                _todayMetrics?.moodStability,
-                Icons.favorite,
-              ),
-              _buildScoreCard(
-                'Reaction',
-                _todayMetrics?.reactionSpeed,
-                Icons.speed,
-              ),
+              _buildScoreCard('Mood', _todayMetrics?.moodStability, Icons.favorite),
+              _buildScoreCard('Reaction', _todayMetrics?.reactionSpeed, Icons.speed),
             ],
           ),
           const SizedBox(height: 24),
@@ -420,21 +318,13 @@ class _BrainAIScreenState extends State<BrainAIScreen>
   Widget _buildMetricStat(String value, String label) {
     return Column(
       children: [
-        Text(
-          value,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        Text(label,
-            style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
       ],
     );
   }
 
-  Widget _buildScoreCard(
-    String title,
-    int? score,
-    IconData icon,
-  ) {
+  Widget _buildScoreCard(String title, int? score, IconData icon) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -449,17 +339,11 @@ class _BrainAIScreenState extends State<BrainAIScreen>
             children: [
               Icon(icon, color: AppTheme.muted, size: 20),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(color: AppTheme.muted, fontSize: 13),
-              ),
+              Text(title, style: const TextStyle(color: AppTheme.muted, fontSize: 13)),
             ],
           ),
           const Spacer(),
-          Text(
-            '${score ?? '--'}',
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-          ),
+          Text('${score ?? '--'}', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -472,86 +356,56 @@ class _BrainAIScreenState extends State<BrainAIScreen>
       child: ListTile(
         leading: Icon(Icons.lightbulb_outline, color: AppTheme.muted),
         title: Text(insight.title),
-        subtitle: Text(
-          insight.description,
-          style: const TextStyle(fontSize: 13),
-        ),
+        subtitle: Text(insight.description, style: const TextStyle(fontSize: 13)),
       ),
     );
   }
 
   Widget _buildGamesTab() {
     final games = [
-      {
-        'name': 'Memory Match',
-        'description': 'Test your memory',
-        'icon': Icons.grid_view
-      },
-      {
-        'name': 'Speed Math',
-        'description': 'Quick calculations',
-        'icon': Icons.calculate
-      },
-      {
-        'name': 'Pattern Recognition',
-        'description': 'Find the pattern',
-        'icon': Icons.search
-      },
-      {
-        'name': 'Word Puzzle',
-        'description': 'Vocabulary challenge',
-        'icon': Icons.text_fields
-      },
-      {
-        'name': 'Reaction Test',
-        'description': 'Test your reflexes',
-        'icon': Icons.flash_on
-      },
-      {
-        'name': 'Focus Timer',
-        'description': 'Deep work session',
-        'icon': Icons.timer
-      },
+      {'name': 'Reaction Time', 'description': 'Test your reflexes', 'icon': Icons.flash_on, 'color': Colors.amber},
+      {'name': 'Memory Match', 'description': 'Match pairs of cards', 'icon': Icons.grid_view, 'color': Colors.purple},
+      {'name': 'N-Back', 'description': 'Working memory test', 'icon': Icons.psychology, 'color': Colors.cyan},
+      {'name': 'Speed Math', 'description': 'Quick calculations', 'icon': Icons.calculate, 'color': Colors.green},
     ];
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const Text(
-          'Brain Games',
+          'Brain Training Games',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
         ...games.map((game) => Container(
-              margin: const EdgeInsets.only(bottom: 12),
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: AppTheme.secondary,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.all(12),
+            leading: Container(
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppTheme.secondary,
+                color: (game['color'] as Color).withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.border),
               ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.all(12),
-                leading: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.card,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(game['icon'] as IconData, color: AppTheme.muted),
-                ),
-                title: Text(
-                  game['name'] as String,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-                subtitle: Text(
-                  game['description'] as String,
-                  style: const TextStyle(color: AppTheme.muted, fontSize: 13),
-                ),
-                trailing:
-                    const Icon(Icons.chevron_right, color: AppTheme.muted),
-                onTap: () => _launchGame(game['name'] as String),
-              ),
-            )),
+              child: Icon(game['icon'] as IconData, color: game['color'] as Color),
+            ),
+            title: Text(
+              game['name'] as String,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+            subtitle: Text(
+              game['description'] as String,
+              style: const TextStyle(color: AppTheme.muted, fontSize: 13),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: AppTheme.muted),
+            onTap: () => _launchGame(game['name'] as String),
+          ),
+        )),
       ],
     );
   }
@@ -566,10 +420,7 @@ class _BrainAIScreenState extends State<BrainAIScreen>
             children: [
               Icon(Icons.show_chart, size: 64, color: AppTheme.muted),
               SizedBox(height: 16),
-              Text(
-                'Track your progress over time',
-                style: TextStyle(color: AppTheme.muted),
-              ),
+              Text('Track your progress over time', style: TextStyle(color: AppTheme.muted)),
             ],
           ),
         ),
@@ -579,26 +430,19 @@ class _BrainAIScreenState extends State<BrainAIScreen>
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
-          'Weekly Performance',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
+        const Text('Weekly Performance', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
         ..._weeklyMetrics.map((m) => Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                title: Text(m.metricDate),
-                subtitle: Text(
-                    'Focus: ${m.focusScore ?? '--'} | Stress: ${m.stressLoad ?? '--'}'),
-                trailing: Text(
-                  '${m.brainPerformanceScore ?? '--'}',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            )),
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            title: Text(m.metricDate),
+            subtitle: Text('Focus: ${m.focusScore ?? '--'} | Stress: ${m.stressLoad ?? '--'}'),
+            trailing: Text(
+              '${m.brainPerformanceScore ?? '--'}',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+          ),
+        )),
       ],
     );
   }
@@ -615,10 +459,7 @@ class _BrainAIScreenState extends State<BrainAIScreen>
             children: [
               Icon(Icons.lightbulb_outline, size: 64, color: AppTheme.muted),
               SizedBox(height: 16),
-              Text(
-                'Insights will appear as you track',
-                style: TextStyle(color: AppTheme.muted),
-              ),
+              Text('Insights will appear as you track', style: TextStyle(color: AppTheme.muted)),
             ],
           ),
         ),
@@ -630,24 +471,6 @@ class _BrainAIScreenState extends State<BrainAIScreen>
       itemCount: allInsights.length,
       itemBuilder: (context, index) => _buildInsightCard(allInsights[index]),
     );
-  }
-
-  void _startOnboarding() async {
-    final profile = await _brainService.createProfile(
-      age: 25,
-      gender: 'other',
-      workSchedule: 'regular',
-      sleepGoalHours: 8.0,
-      focusGoals: ['improve_focus', 'reduce_stress'],
-    );
-
-    if (profile != null) {
-      setState(() {
-        _profile = profile;
-        _showOnboarding = false;
-      });
-      _loadData();
-    }
   }
 
   void _refreshMetrics() async {
@@ -691,6 +514,38 @@ class _BrainAIScreenState extends State<BrainAIScreen>
       case 'Speed Math':
         gameScreen = const SpeedMathGameScreen();
         break;
+      case 'Reaction Time':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ReactionTimeGame(
+              onComplete: (result) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Score: ${result['score']} points!')),
+                );
+              },
+              onClose: () => Navigator.pop(context),
+            ),
+          ),
+        );
+        return;
+      case 'N-Back':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => NBackGame(
+              onComplete: (result) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Accuracy: ${result['accuracy']}%!')),
+                );
+              },
+              onClose: () => Navigator.pop(context),
+            ),
+          ),
+        );
+        return;
       default:
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('$gameName coming soon!')),
@@ -734,10 +589,7 @@ class _MoodCheckInFormState extends State<_MoodCheckInForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Mood Check-In',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
+          const Text('Mood Check-In', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 24),
           _buildSlider('Mood', _mood, (v) => setState(() => _mood = v)),
           _buildSlider('Energy', _energy, (v) => setState(() => _energy = v)),
