@@ -1,11 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../core/config.dart';
-
-// Edge functions are deployed to the primary Supabase project (same as auth/data)
-const String _edgeFunctionsUrl = '${AppConfig.supabaseUrl}/functions/v1';
+import 'package:intl/intl.dart';
 
 class SleepLog {
   final String id;
@@ -97,8 +92,11 @@ class SleepProfile {
   final String? occupation;
   final String workSchedule;
   final double sleepGoalHours;
+  final String? wakeGoalTime;
+  final String? bedGoalTime;
   final String chronotype;
   final List<String> sleepIssues;
+  final List<String> sleepGoals;
   final bool enableBedtimeReminder;
   final String? bedtimeReminderTime;
   final bool enableSleepSounds;
@@ -112,8 +110,11 @@ class SleepProfile {
     this.occupation,
     required this.workSchedule,
     required this.sleepGoalHours,
+    this.wakeGoalTime,
+    this.bedGoalTime,
     required this.chronotype,
     this.sleepIssues = const [],
+    this.sleepGoals = const [],
     this.enableBedtimeReminder = false,
     this.bedtimeReminderTime,
     this.enableSleepSounds = true,
@@ -129,8 +130,11 @@ class SleepProfile {
       occupation: json['occupation'],
       workSchedule: json['work_schedule'] ?? 'regular',
       sleepGoalHours: (json['sleep_goal_hours'] ?? 8.0).toDouble(),
+      wakeGoalTime: json['wake_goal_time'],
+      bedGoalTime: json['bed_goal_time'],
       chronotype: json['chronotype'] ?? 'intermediate',
       sleepIssues: List<String>.from(json['sleep_issues'] ?? []),
+      sleepGoals: List<String>.from(json['sleep_goals'] ?? []),
       enableBedtimeReminder: json['enable_bedtime_reminder'] ?? false,
       bedtimeReminderTime: json['bedtime_reminder_time'],
       enableSleepSounds: json['enable_sleep_sounds'] ?? true,
@@ -183,42 +187,20 @@ class SleepAnalysis {
 class SleepService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  Map<String, String> _getHeaders() {
-    final session = _supabase.auth.currentSession;
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ${session?.accessToken ?? ''}',
-    };
-  }
-
-  Future<dynamic> _callEdgeFunction(Map<String, dynamic> body) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_edgeFunctionsUrl/sleep-ai'),
-        headers: _getHeaders(),
-        body: jsonEncode(body),
-      );
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        debugPrint('Sleep AI edge function error: ${response.statusCode} - ${response.body}');
-        return null;
-      }
-    } catch (e) {
-      debugPrint('Sleep AI edge function exception: $e');
-      return null;
-    }
-  }
-
+  /// Get user's sleep profile using direct database call (like web)
   Future<SleepProfile?> getProfile() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return null;
 
     try {
-      final data = await _callEdgeFunction({'action': 'getProfile'});
-      if (data != null && data['profile'] != null) {
-        return SleepProfile.fromJson(data['profile']);
+      final response = await _supabase
+          .from('sleep_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      if (response != null) {
+        return SleepProfile.fromJson(response);
       }
       return null;
     } catch (e) {
@@ -227,64 +209,71 @@ class SleepService {
     }
   }
 
+  /// Create sleep profile using direct database call (like web SleepOnboarding.tsx)
   Future<SleepProfile?> createProfile({
     required int age,
     required String gender,
     String? occupation,
     required String workSchedule,
     required double sleepGoalHours,
-    required String chronotype,
+    String? wakeGoalTime,
+    String? bedGoalTime,
+    String chronotype = 'intermediate',
     List<String> sleepIssues = const [],
+    List<String> sleepGoals = const [],
   }) async {
     final user = _supabase.auth.currentUser;
     if (user == null) return null;
 
     try {
-      final data = await _callEdgeFunction({
-        'action': 'createProfile',
-        'data': {
-          'age': age,
-          'gender': gender,
-          'occupation': occupation,
-          'work_schedule': workSchedule,
-          'sleep_goal_hours': sleepGoalHours,
-          'chronotype': chronotype,
-          'sleep_issues': sleepIssues,
-        },
-      });
+      final response = await _supabase
+          .from('sleep_profiles')
+          .insert({
+            'user_id': user.id,
+            'age': age,
+            'gender': gender,
+            'occupation': occupation,
+            'work_schedule': workSchedule,
+            'sleep_goal_hours': sleepGoalHours,
+            'wake_goal_time': wakeGoalTime,
+            'bed_goal_time': bedGoalTime,
+            'chronotype': chronotype,
+            'sleep_issues': sleepIssues,
+            'sleep_goals': sleepGoals,
+          })
+          .select()
+          .single();
 
-      if (data != null && data['profile'] != null) {
-        return SleepProfile.fromJson(data['profile']);
-      }
-      return null;
+      return SleepProfile.fromJson(response);
     } catch (e) {
       debugPrint('Error creating sleep profile: $e');
       return null;
     }
   }
 
+  /// Get sleep logs using direct database call
   Future<List<SleepLog>> getSleepLogs({int limit = 30}) async {
     final user = _supabase.auth.currentUser;
     if (user == null) return [];
 
     try {
-      final data = await _callEdgeFunction({
-        'action': 'getLogs',
-        'limit': limit,
-      });
+      final response = await _supabase
+          .from('sleep_logs')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('sleep_date', ascending: false)
+          .limit(limit);
 
-      if (data != null && data['logs'] != null) {
-        return (data['logs'] as List)
-            .map((log) => SleepLog.fromJson(log))
-            .toList();
-      }
-      return [];
+      return (response as List)
+          .map((log) => SleepLog.fromJson(log))
+          .toList();
     } catch (e) {
       debugPrint('Error getting sleep logs: $e');
       return [];
     }
   }
 
+  /// Log sleep using direct database call (like web)
   Future<SleepLog?> logSleep({
     required String sleepDate,
     String? bedTime,
@@ -305,45 +294,86 @@ class SleepService {
     if (user == null) return null;
 
     try {
-      final data = await _callEdgeFunction({
-        'action': 'logSleep',
-        'data': {
-          'sleep_date': sleepDate,
-          'bed_time': bedTime,
-          'wake_time': wakeTime,
-          'sleep_duration_hours': sleepDurationHours,
-          'sleep_quality': sleepQuality,
-          'deep_sleep_percent': deepSleepPercent,
-          'rem_sleep_percent': remSleepPercent,
-          'light_sleep_percent': lightSleepPercent,
-          'awakenings': awakenings,
-          'sleep_latency_minutes': sleepLatencyMinutes,
-          'mood_on_wake': moodOnWake,
-          'energy_level': energyLevel,
-          'notes': notes,
-          'factors': factors,
-        },
-      });
+      // Check if a log already exists for this date
+      final existing = await _supabase
+          .from('sleep_logs')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('sleep_date', sleepDate)
+          .maybeSingle();
 
-      if (data != null && data['log'] != null) {
-        return SleepLog.fromJson(data['log']);
+      Map<String, dynamic> response;
+
+      if (existing != null) {
+        // Update existing log
+        response = await _supabase
+            .from('sleep_logs')
+            .update({
+              'bed_time': bedTime,
+              'wake_time': wakeTime,
+              'sleep_duration_hours': sleepDurationHours,
+              'sleep_quality': sleepQuality,
+              'deep_sleep_percent': deepSleepPercent,
+              'rem_sleep_percent': remSleepPercent,
+              'light_sleep_percent': lightSleepPercent,
+              'awakenings': awakenings,
+              'sleep_latency_minutes': sleepLatencyMinutes,
+              'mood_on_wake': moodOnWake,
+              'energy_level': energyLevel,
+              'notes': notes,
+              'factors': factors,
+            })
+            .eq('id', existing['id'])
+            .select()
+            .single();
+      } else {
+        // Insert new log
+        response = await _supabase
+            .from('sleep_logs')
+            .insert({
+              'user_id': user.id,
+              'sleep_date': sleepDate,
+              'bed_time': bedTime,
+              'wake_time': wakeTime,
+              'sleep_duration_hours': sleepDurationHours,
+              'sleep_quality': sleepQuality,
+              'deep_sleep_percent': deepSleepPercent,
+              'rem_sleep_percent': remSleepPercent,
+              'light_sleep_percent': lightSleepPercent,
+              'awakenings': awakenings,
+              'sleep_latency_minutes': sleepLatencyMinutes,
+              'mood_on_wake': moodOnWake,
+              'energy_level': energyLevel,
+              'notes': notes,
+              'factors': factors,
+            })
+            .select()
+            .single();
       }
-      return null;
+
+      return SleepLog.fromJson(response);
     } catch (e) {
       debugPrint('Error logging sleep: $e');
       return null;
     }
   }
 
+  /// Get latest sleep analysis using direct database call
   Future<SleepAnalysis?> getAnalysis() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return null;
 
     try {
-      final data = await _callEdgeFunction({'action': 'getAnalysis'});
+      final response = await _supabase
+          .from('sleep_analyses')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
 
-      if (data != null && data['analysis'] != null) {
-        return SleepAnalysis.fromJson(data['analysis']);
+      if (response != null) {
+        return SleepAnalysis.fromJson(response);
       }
       return null;
     } catch (e) {
@@ -352,19 +382,28 @@ class SleepService {
     }
   }
 
+  /// Generate AI insights (this one still uses edge function for AI processing)
   Future<Map<String, dynamic>?> generateAIInsights() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return null;
 
     try {
-      final data = await _callEdgeFunction({'action': 'generateInsights'});
-      return data;
+      final response = await _supabase.functions.invoke(
+        'sleep-ai',
+        body: {'action': 'generateInsights'},
+      );
+
+      if (response.status == 200) {
+        return response.data as Map<String, dynamic>?;
+      }
+      return null;
     } catch (e) {
       debugPrint('Error generating AI insights: $e');
       return null;
     }
   }
 
+  /// Calculate streak - consecutive days meeting sleep goal
   int calculateStreak(List<SleepLog> logs, double goalHours) {
     if (logs.isEmpty) return 0;
 
@@ -394,5 +433,24 @@ class SleepService {
     }
 
     return streak;
+  }
+
+  /// Check subscription status
+  Future<bool> checkSubscription() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return false;
+
+    try {
+      final response = await _supabase
+          .from('profiles')
+          .select('subscription_status')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      return response != null && response['subscription_status'] == 'active';
+    } catch (e) {
+      debugPrint('SleepService checkSubscription: $e');
+      return false;
+    }
   }
 }
