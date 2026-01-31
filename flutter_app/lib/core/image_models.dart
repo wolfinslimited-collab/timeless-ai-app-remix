@@ -18,7 +18,7 @@ class ImageModels {
     'kie-kling-image': 4,
     'kie-qwen-image': 4,
     'kie-seedream-4': 4,
-
+    
     // HQ tier (Fal.ai / Lovable)
     'flux-1.1-pro': 5,
     'nano-banana': 4,
@@ -329,8 +329,7 @@ class ImageModels {
       'name': 'Oil Painting',
       'description': 'Classic oil painting style',
       'icon': 'palette',
-      'prompt':
-          'oil painting, textured brushstrokes, classical art, masterpiece',
+      'prompt': 'oil painting, textured brushstrokes, classical art, masterpiece',
     },
   ];
 }
