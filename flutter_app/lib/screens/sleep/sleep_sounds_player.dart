@@ -278,15 +278,15 @@ class _SleepSoundsPlayerState extends State<SleepSoundsPlayer> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Icon(Icons.music_note, color: Colors.indigo),
-            const SizedBox(width: 8),
-            const Text('Sleep Sounds'),
-          ],
-        ),
-      ),
+      // appBar: AppBar(
+      //   title: Row(
+      //     children: [
+      //       Icon(Icons.music_note, color: Colors.indigo),
+      //       const SizedBox(width: 8),
+      //       const Text('Sleep Sounds'),
+      //     ],
+      //   ),
+      // ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -315,7 +315,8 @@ class _SleepSoundsPlayerState extends State<SleepSoundsPlayer> {
                       ],
                     ),
                     selected: isSelected,
-                    onSelected: (_) => setState(() => _selectedCategory = category.id),
+                    onSelected: (_) =>
+                        setState(() => _selectedCategory = category.id),
                     backgroundColor: AppTheme.secondary,
                     selectedColor: Colors.indigo.withOpacity(0.2),
                   ),
@@ -337,9 +338,7 @@ class _SleepSoundsPlayerState extends State<SleepSoundsPlayer> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _isPlaying
-            ? Colors.indigo.withOpacity(0.1)
-            : AppTheme.secondary,
+        color: _isPlaying ? Colors.indigo.withOpacity(0.1) : AppTheme.secondary,
         border: Border.all(
           color: _isPlaying ? Colors.indigo.withOpacity(0.3) : AppTheme.border,
         ),
@@ -351,7 +350,9 @@ class _SleepSoundsPlayerState extends State<SleepSoundsPlayer> {
             children: [
               // Play/Pause Button
               GestureDetector(
-                onTap: _currentSound != null ? () => _playSound(_currentSound!) : null,
+                onTap: _currentSound != null
+                    ? () => _playSound(_currentSound!)
+                    : null,
                 child: Container(
                   width: 56,
                   height: 56,
@@ -395,14 +396,16 @@ class _SleepSoundsPlayerState extends State<SleepSoundsPlayer> {
                         if (_isPlaying) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.indigo.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Text(
                               'Playing',
-                              style: TextStyle(fontSize: 10, color: Colors.indigo),
+                              style:
+                                  TextStyle(fontSize: 10, color: Colors.indigo),
                             ),
                           ),
                         ],
@@ -410,7 +413,8 @@ class _SleepSoundsPlayerState extends State<SleepSoundsPlayer> {
                     ),
                     Text(
                       _currentSound!.description,
-                      style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+                      style:
+                          const TextStyle(color: AppTheme.muted, fontSize: 12),
                     ),
                     if (_timeRemaining != null)
                       Row(
@@ -419,7 +423,8 @@ class _SleepSoundsPlayerState extends State<SleepSoundsPlayer> {
                           const SizedBox(width: 4),
                           Text(
                             '${_formatTime(_timeRemaining!)} remaining',
-                            style: const TextStyle(color: Colors.amber, fontSize: 11),
+                            style: const TextStyle(
+                                color: Colors.amber, fontSize: 11),
                           ),
                         ],
                       ),
@@ -475,11 +480,13 @@ class _SleepSoundsPlayerState extends State<SleepSoundsPlayer> {
             children: [
               Icon(Icons.timer, size: 18, color: Colors.amber),
               const SizedBox(width: 8),
-              const Text('Sleep Timer', style: TextStyle(fontWeight: FontWeight.w500)),
+              const Text('Sleep Timer',
+                  style: TextStyle(fontWeight: FontWeight.w500)),
             ],
           ),
           const SizedBox(height: 8),
-          const Text('Auto-stop playback after', style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+          const Text('Auto-stop playback after',
+              style: TextStyle(color: AppTheme.muted, fontSize: 12)),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
@@ -507,7 +514,9 @@ class _SleepSoundsPlayerState extends State<SleepSoundsPlayer> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: isCurrentSound ? Colors.indigo.withOpacity(0.1) : AppTheme.secondary,
+        color: isCurrentSound
+            ? Colors.indigo.withOpacity(0.1)
+            : AppTheme.secondary,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -536,10 +545,12 @@ class _SleepSoundsPlayerState extends State<SleepSoundsPlayer> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(sound.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+                      Text(sound.name,
+                          style: const TextStyle(fontWeight: FontWeight.w500)),
                       Text(
                         sound.description,
-                        style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+                        style: const TextStyle(
+                            color: AppTheme.muted, fontSize: 12),
                       ),
                     ],
                   ),
