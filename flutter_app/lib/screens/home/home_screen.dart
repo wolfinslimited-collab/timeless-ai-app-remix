@@ -18,7 +18,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
+class _HomeScreenState extends State<HomeScreen>
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
@@ -32,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     // Load featured items via provider (only loads if not already cached)
     final homeProvider = context.read<HomeProvider>();
     homeProvider.loadFeaturedItems();
-    
+
     // Load recent generations
     final generationProvider = context.read<GenerationProvider>();
     generationProvider.loadGenerations(limit: 4);
@@ -41,12 +42,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   Future<void> _handleRefresh() async {
     final homeProvider = context.read<HomeProvider>();
     final generationProvider = context.read<GenerationProvider>();
-    
+
     await Future.wait([
       homeProvider.refresh(),
       generationProvider.loadGenerations(limit: 4),
     ]);
-    
+
     if (mounted) {
       context.read<CreditsProvider>().refresh();
     }
@@ -55,98 +56,176 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
-    
+
     return Consumer<HomeProvider>(
       builder: (context, homeProvider, child) {
         return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Timeless AI',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          CreditBadge(
-            onTap: () => context.go('/pricing'),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _handleRefresh,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header with subtitle
-              const Text(
-                'Create anything with AI',
-                style: TextStyle(
-                  color: AppTheme.muted,
-                  fontSize: 14,
-                ),
+          appBar: AppBar(
+            title: const Text(
+              'Timeless AI',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            actions: [
+              CreditBadge(
+                onTap: () => context.go('/pricing'),
               ),
-              const SizedBox(height: 24),
-
-              // Quick Actions - 4 column grid
-              const Text(
-                'Quick Actions',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined),
+                onPressed: () {},
               ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+              const SizedBox(width: 8),
+            ],
+          ),
+          body: RefreshIndicator(
+            onRefresh: _handleRefresh,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _QuickAction(
-                    icon: Icons.image,
-                    label: 'Image',
-                    color: const Color(0xFF3B82F6),
-                    onTap: () => context.go('/create/image'),
+                  // Header with subtitle
+                  const Text(
+                    'Create anything with AI',
+                    style: TextStyle(
+                      color: AppTheme.muted,
+                      fontSize: 14,
+                    ),
                   ),
-                  _QuickAction(
-                    icon: Icons.videocam,
-                    label: 'Video',
-                    color: AppTheme.primary,
-                    onTap: () => context.go('/create/video'),
-                  ),
-                  _QuickAction(
-                    icon: Icons.music_note,
-                    label: 'Music',
-                    color: const Color(0xFFEC4899),
-                    onTap: () => context.go('/create/audio'),
-                  ),
-                  _QuickAction(
-                    icon: Icons.movie_creation,
-                    label: 'Cinema',
-                    color: const Color(0xFFF59E0B),
-                    onTap: () => context.go('/cinema'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-              // Pro Banner
-              Consumer<CreditsProvider>(
-                builder: (context, credits, child) {
-                  if (credits.hasActiveSubscription) {
-                    return const SizedBox.shrink();
-                  }
-                  return GestureDetector(
-                    onTap: () => context.push('/upgrade-wizard', extra: true),
+                  // Quick Actions - 4 column grid
+                  const Text(
+                    'Quick Actions',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _QuickAction(
+                        icon: Icons.image,
+                        label: 'Image',
+                        color: const Color(0xFF3B82F6),
+                        onTap: () => context.go('/create/image'),
+                      ),
+                      _QuickAction(
+                        icon: Icons.videocam,
+                        label: 'Video',
+                        color: AppTheme.primary,
+                        onTap: () => context.go('/create/video'),
+                      ),
+                      _QuickAction(
+                        icon: Icons.music_note,
+                        label: 'Music',
+                        color: const Color(0xFFEC4899),
+                        onTap: () => context.go('/create/audio'),
+                      ),
+                      _QuickAction(
+                        icon: Icons.movie_creation,
+                        label: 'Cinema',
+                        color: const Color(0xFFF59E0B),
+                        onTap: () => context.go('/cinema'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Pro Banner
+                  Consumer<CreditsProvider>(
+                    builder: (context, credits, child) {
+                      if (credits.hasActiveSubscription) {
+                        return const SizedBox.shrink();
+                      }
+                      return GestureDetector(
+                        onTap: () =>
+                            context.push('/upgrade-wizard', extra: true),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [AppTheme.primary, Color(0xFFEC4899)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Icon(Icons.all_inclusive,
+                                    color: Colors.white, size: 20),
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Upgrade to Pro',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Unlimited generations & more',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right,
+                                  color: Colors.white),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Trending Section
+                  const Text(
+                    'Trending',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _TrendingGrid(
+                    items: homeProvider.featuredItems,
+                    isLoading:
+                        homeProvider.isLoading && !homeProvider.hasLoaded,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Trending Visual Styles Banner
+                  GestureDetector(
+                    onTap: () => context.go('/create/visual-styles'),
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppTheme.primary, Color(0xFFEC4899)],
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFFDB2777).withOpacity(0.85),
+                            const Color(0xFF9333EA).withOpacity(0.85),
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -155,30 +234,52 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       child: Row(
                         children: [
                           Container(
-                            width: 40,
-                            height: 40,
+                            width: 48,
+                            height: 48,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(20),
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.all_inclusive,
-                                color: Colors.white, size: 20),
+                            child: const Icon(Icons.auto_awesome,
+                                color: Colors.white, size: 24),
                           ),
                           const SizedBox(width: 12),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Upgrade to Pro',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
+                                Row(
+                                  children: [
+                                    const Text(
+                                      'Trending',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Text(
+                                        'HOT',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                Text(
-                                  'Unlimited generations & more',
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Visual Styles · Ultra-realistic fashion & portrait visuals',
                                   style: TextStyle(
                                     color: Colors.white70,
                                     fontSize: 12,
@@ -187,122 +288,29 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                               ],
                             ),
                           ),
-                          const Icon(Icons.chevron_right, color: Colors.white),
+                          const Icon(Icons.chevron_right,
+                              color: Colors.white70),
                         ],
                       ),
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
+                  ),
+                  const SizedBox(height: 24),
 
-              // Trending Section
-              const Text(
-                'Trending',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              _TrendingGrid(
-                items: homeProvider.featuredItems,
-                isLoading: homeProvider.isLoading && !homeProvider.hasLoaded,
-              ),
-              const SizedBox(height: 24),
-
-              // Trending Visual Styles Banner
-              GestureDetector(
-                onTap: () => context.go('/create/visual-styles'),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFFDB2777).withOpacity(0.85),
-                        const Color(0xFF9333EA).withOpacity(0.85),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+                  // Apps Section
+                  const Text(
+                    'Apps',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
-                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.auto_awesome, color: Colors.white, size: 24),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Text(
-                                  'Trending',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Text(
-                                    'HOT',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Visual Styles · Ultra-realistic fashion & portrait visuals',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.chevron_right, color: Colors.white70),
-                    ],
-                  ),
-                ),
+                  const SizedBox(height: 12),
+                  const _AppsSection(),
+                ],
               ),
-              const SizedBox(height: 24),
-
-              // Apps Section
-              const Text(
-                'Apps',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const _AppsSection(),
-            ],
+            ),
           ),
-        ),
-      );
+        );
       },
     );
   }
