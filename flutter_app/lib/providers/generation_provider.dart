@@ -43,7 +43,9 @@ class GenerationProvider extends ChangeNotifier {
     required String type,
     String? aspectRatio,
     String? quality,
-    String? imageUrl,
+    String? referenceImageUrl,
+    List<String>? referenceImageUrls,
+    String? imageUrl, // For video I2V mode
     String? endImageUrl,
     bool background = false,
   }) async {
@@ -59,6 +61,8 @@ class GenerationProvider extends ChangeNotifier {
         type: type,
         aspectRatio: aspectRatio,
         quality: quality,
+        referenceImageUrl: referenceImageUrl,
+        referenceImageUrls: referenceImageUrls,
         imageUrl: imageUrl,
         endImageUrl: endImageUrl,
         background: background,

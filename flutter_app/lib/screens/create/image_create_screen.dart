@@ -448,22 +448,39 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
       return;
     }
 
-    // Clear previous result
+    // Clear previous result and any error state
     setState(() {
       _generatedImageUrl = null;
       _generatedGenerationId = null;
     });
 
     final generationProvider = context.read<GenerationProvider>();
+    
+    // Use referenceImageUrls for image generation (correct API parameter name)
     final result = await generationProvider.generate(
       prompt: _finalPrompt,
       model: _selectedModel,
       type: 'image',
       aspectRatio: _selectedAspectRatio,
       quality: _selectedQuality,
-      imageUrl:
-          _referenceImageUrls.isNotEmpty ? _referenceImageUrls.first : null,
+      referenceImageUrls: _referenceImageUrls.isNotEmpty ? _referenceImageUrls : null,
+      referenceImageUrl: _referenceImageUrls.isNotEmpty ? _referenceImageUrls.first : null,
     );
+
+    // Check for errors from the provider
+    if (generationProvider.error != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(generationProvider.error!.replaceAll('Exception:', '').trim()),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        generationProvider.clearError();
+      }
+      return;
+    }
 
     if (result != null && result.outputUrl != null) {
       // Show shimmer while image loads
@@ -480,9 +497,29 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
         setState(() {
           _isLoadingImage = false;
         });
+        
+        // Success feedback
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Image generated successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
       }
 
       creditsProvider.refresh();
+    } else if (result == null) {
+      // Generation returned null without setting an error - show generic message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Generation failed. Please try again.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -656,16 +693,98 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
             ),
             child: Consumer<GenerationProvider>(
               builder: (context, provider, child) {
-                // Show shimmer while generating or loading image
+                // Show error state if generation failed
+                if (provider.error != null && !provider.isGenerating) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(50),
+                            ),
+                            child: const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Generation Failed',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            provider.error!.replaceAll('Exception:', '').trim(),
+                            style: const TextStyle(color: AppTheme.muted, fontSize: 13),
+                            textAlign: TextAlign.center,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 16),
+                          TextButton.icon(
+                            onPressed: () => provider.clearError(),
+                            icon: const Icon(Icons.refresh, size: 18),
+                            label: const Text('Try Again'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppTheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                
+                // Show shimmer while generating
                 if (provider.isGenerating) {
-                  return const Center(
+                  return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text('Generating...',
-                            style: TextStyle(color: AppTheme.muted)),
+                        // Animated gradient ring
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            SizedBox(
+                              width: 60,
+                              height: 60,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  AppTheme.primary.withOpacity(0.3),
+                                ),
+                              ),
+                            ),
+                            const Icon(
+                              Icons.auto_awesome,
+                              color: AppTheme.primary,
+                              size: 28,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Generating your image...',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'This may take 10-30 seconds',
+                          style: TextStyle(
+                            color: AppTheme.muted,
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   );
