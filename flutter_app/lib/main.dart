@@ -22,7 +22,8 @@ import 'services/audio_player_service.dart';
 import 'services/push_notification_service.dart';
 
 // Global navigator key for showing snackbars from anywhere
-final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 
 /// Custom HTTP client with longer timeout for Supabase operations
 class TimeoutHttpClient extends http.BaseClient {
@@ -123,11 +124,12 @@ class _IAPWiredAppState extends State<_IAPWiredApp> {
     iapProvider.onPurchaseComplete = () {
       debugPrint('[App] IAP purchase complete - refreshing credits');
       creditsProvider.refresh();
-      
+
       // Show success toast using global key
       scaffoldMessengerKey.currentState?.showSnackBar(
         const SnackBar(
-          content: Text('🎉 Purchase successful! Your account has been upgraded.'),
+          content:
+              Text('🎉 Purchase successful! Your account has been upgraded.'),
           backgroundColor: Colors.green,
           duration: Duration(seconds: 3),
         ),
@@ -138,7 +140,7 @@ class _IAPWiredAppState extends State<_IAPWiredApp> {
     iapProvider.onRestoreComplete = () {
       debugPrint('[App] IAP restore complete - refreshing credits');
       creditsProvider.refresh();
-      
+
       scaffoldMessengerKey.currentState?.showSnackBar(
         const SnackBar(
           content: Text('✅ Purchases restored successfully!'),
