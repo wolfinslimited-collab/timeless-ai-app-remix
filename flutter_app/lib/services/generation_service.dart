@@ -1,12 +1,45 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http/http.dart' as http;
 import '../models/generation_model.dart';
+import '../core/config.dart';
 
 class GenerationService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  /// Generate image or video
+  /// Ensure session is valid before making API calls
+  /// Returns true if session is valid, throws if session expired and can't refresh
+  Future<void> _ensureValidSession() async {
+    final session = _supabase.auth.currentSession;
+    if (session == null) {
+      throw Exception('Not authenticated. Please sign in again.');
+    }
+    
+    // Check if token is expired or about to expire (within 60 seconds)
+    final expiresAt = session.expiresAt;
+    if (expiresAt != null) {
+      final expiryTime = DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000);
+      final now = DateTime.now();
+      if (expiryTime.isBefore(now.add(const Duration(seconds: 60)))) {
+        debugPrint('🔄 Token expiring soon, refreshing session...');
+        try {
+          await _supabase.auth.refreshSession();
+          debugPrint('✅ Session refreshed successfully');
+        } catch (e) {
+          debugPrint('❌ Session refresh failed: $e');
+          // If refresh fails, throw a user-friendly error
+          if (e.toString().contains('timed out') || e.toString().contains('SocketException')) {
+            throw Exception('Network error. Please check your connection and try again.');
+          }
+          throw Exception('Session expired. Please sign in again.');
+        }
+      }
+    }
+  }
+
+  /// Generate image or video using direct HTTP call for better error handling
   Future<Map<String, dynamic>> generate({
     required String prompt,
     required String model,
@@ -20,6 +53,9 @@ class GenerationService {
     bool background = false,
   }) async {
     debugPrint('🎨 GenerationService.generate: type=$type, model=$model, prompt=${prompt.substring(0, prompt.length > 50 ? 50 : prompt.length)}...');
+    
+    // Ensure we have a valid session before making the API call
+    await _ensureValidSession();
     
     final body = <String, dynamic>{
       'prompt': prompt,
@@ -60,21 +96,48 @@ class GenerationService {
     
     debugPrint('🎨 Request body: $body');
     
-    final response = await _supabase.functions.invoke(
-      'generate',
-      body: body,
-    );
+    // Use direct HTTP call for better timeout and error handling
+    try {
+      final accessToken = _supabase.auth.currentSession?.accessToken;
+      if (accessToken == null) {
+        throw Exception('Not authenticated. Please sign in again.');
+      }
+      
+      final response = await http.post(
+        Uri.parse('${AppConfig.supabaseUrl}/functions/v1/generate'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $accessToken',
+          'apikey': AppConfig.supabaseAnonKey,
+        },
+        body: jsonEncode(body),
+      ).timeout(
+        const Duration(seconds: 120),
+        onTimeout: () {
+          throw TimeoutException('Generation request timed out. Please try again.');
+        },
+      );
 
-    debugPrint('🎨 Response status: ${response.status}');
-    debugPrint('🎨 Response data: ${response.data}');
+      debugPrint('🎨 Response status: ${response.statusCode}');
+      debugPrint('🎨 Response body: ${response.body}');
 
-    if (response.status != 200) {
-      final error = response.data is Map ? (response.data['error'] ?? 'Generation failed') : 'Generation failed';
-      debugPrint('🎨 Generation error: $error');
-      throw Exception(error);
+      if (response.statusCode != 200) {
+        final errorData = jsonDecode(response.body) as Map<String, dynamic>?;
+        final error = errorData?['error'] ?? errorData?['message'] ?? 'Generation failed (${response.statusCode})';
+        debugPrint('🎨 Generation error: $error');
+        throw Exception(error);
+      }
+
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } on TimeoutException catch (e) {
+      debugPrint('🎨 Timeout error: $e');
+      throw Exception('Generation timed out. Please try again.');
+    } catch (e) {
+      if (e.toString().contains('SocketException') || e.toString().contains('timed out')) {
+        throw Exception('Network error. Please check your connection and try again.');
+      }
+      rethrow;
     }
-
-    return response.data as Map<String, dynamic>;
   }
 
   /// Check generation status (for async generations)
