@@ -1,5 +1,10 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/intl.dart';
+
+// Edge functions are deployed to Lovable Cloud project
+const String _edgeFunctionsUrl = 'https://hpuqeabtgwbwcnklxolt.supabase.co/functions/v1';
 
 class SleepLog {
   final String id;
@@ -110,7 +115,7 @@ class SleepProfile {
     this.sleepIssues = const [],
     this.enableBedtimeReminder = false,
     this.bedtimeReminderTime,
-    this.enableSleepSounds = false,
+    this.enableSleepSounds = true,
     required this.createdAt,
   });
 
@@ -127,7 +132,7 @@ class SleepProfile {
       sleepIssues: List<String>.from(json['sleep_issues'] ?? []),
       enableBedtimeReminder: json['enable_bedtime_reminder'] ?? false,
       bedtimeReminderTime: json['bedtime_reminder_time'],
-      enableSleepSounds: json['enable_sleep_sounds'] ?? false,
+      enableSleepSounds: json['enable_sleep_sounds'] ?? true,
       createdAt: json['created_at'] ?? '',
     );
   }
@@ -140,7 +145,7 @@ class SleepAnalysis {
   final int? efficiencyScore;
   final double? avgSleepDuration;
   final double? avgSleepQuality;
-  final List<dynamic> insights;
+  final dynamic insights;
   final List<String> recommendations;
   final String? analysisSummary;
   final String createdAt;
@@ -177,21 +182,46 @@ class SleepAnalysis {
 class SleepService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  Map<String, String> _getHeaders() {
+    final session = _supabase.auth.currentSession;
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ${session?.accessToken ?? ''}',
+    };
+  }
+
+  Future<dynamic> _callEdgeFunction(Map<String, dynamic> body) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_edgeFunctionsUrl/sleep-ai'),
+        headers: _getHeaders(),
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        debugPrint('Sleep AI edge function error: ${response.statusCode} - ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Sleep AI edge function exception: $e');
+      return null;
+    }
+  }
+
   Future<SleepProfile?> getProfile() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return null;
 
     try {
-      final response = await _supabase.functions.invoke('sleep-ai', body: {
-        'action': 'getProfile',
-      });
-
-      if (response.data != null && response.data['profile'] != null) {
-        return SleepProfile.fromJson(response.data['profile']);
+      final data = await _callEdgeFunction({'action': 'getProfile'});
+      if (data != null && data['profile'] != null) {
+        return SleepProfile.fromJson(data['profile']);
       }
       return null;
     } catch (e) {
-      print('Error getting sleep profile: $e');
+      debugPrint('Error getting sleep profile: $e');
       return null;
     }
   }
@@ -209,7 +239,7 @@ class SleepService {
     if (user == null) return null;
 
     try {
-      final response = await _supabase.functions.invoke('sleep-ai', body: {
+      final data = await _callEdgeFunction({
         'action': 'createProfile',
         'data': {
           'age': age,
@@ -222,12 +252,12 @@ class SleepService {
         },
       });
 
-      if (response.data != null && response.data['profile'] != null) {
-        return SleepProfile.fromJson(response.data['profile']);
+      if (data != null && data['profile'] != null) {
+        return SleepProfile.fromJson(data['profile']);
       }
       return null;
     } catch (e) {
-      print('Error creating sleep profile: $e');
+      debugPrint('Error creating sleep profile: $e');
       return null;
     }
   }
@@ -237,19 +267,19 @@ class SleepService {
     if (user == null) return [];
 
     try {
-      final response = await _supabase.functions.invoke('sleep-ai', body: {
+      final data = await _callEdgeFunction({
         'action': 'getLogs',
         'limit': limit,
       });
 
-      if (response.data != null && response.data['logs'] != null) {
-        return (response.data['logs'] as List)
+      if (data != null && data['logs'] != null) {
+        return (data['logs'] as List)
             .map((log) => SleepLog.fromJson(log))
             .toList();
       }
       return [];
     } catch (e) {
-      print('Error getting sleep logs: $e');
+      debugPrint('Error getting sleep logs: $e');
       return [];
     }
   }
@@ -274,7 +304,7 @@ class SleepService {
     if (user == null) return null;
 
     try {
-      final response = await _supabase.functions.invoke('sleep-ai', body: {
+      final data = await _callEdgeFunction({
         'action': 'logSleep',
         'data': {
           'sleep_date': sleepDate,
@@ -294,12 +324,12 @@ class SleepService {
         },
       });
 
-      if (response.data != null && response.data['log'] != null) {
-        return SleepLog.fromJson(response.data['log']);
+      if (data != null && data['log'] != null) {
+        return SleepLog.fromJson(data['log']);
       }
       return null;
     } catch (e) {
-      print('Error logging sleep: $e');
+      debugPrint('Error logging sleep: $e');
       return null;
     }
   }
@@ -309,16 +339,14 @@ class SleepService {
     if (user == null) return null;
 
     try {
-      final response = await _supabase.functions.invoke('sleep-ai', body: {
-        'action': 'getAnalysis',
-      });
+      final data = await _callEdgeFunction({'action': 'getAnalysis'});
 
-      if (response.data != null && response.data['analysis'] != null) {
-        return SleepAnalysis.fromJson(response.data['analysis']);
+      if (data != null && data['analysis'] != null) {
+        return SleepAnalysis.fromJson(data['analysis']);
       }
       return null;
     } catch (e) {
-      print('Error getting sleep analysis: $e');
+      debugPrint('Error getting sleep analysis: $e');
       return null;
     }
   }
@@ -328,13 +356,10 @@ class SleepService {
     if (user == null) return null;
 
     try {
-      final response = await _supabase.functions.invoke('sleep-ai', body: {
-        'action': 'generateInsights',
-      });
-
-      return response.data;
+      final data = await _callEdgeFunction({'action': 'generateInsights'});
+      return data;
     } catch (e) {
-      print('Error generating AI insights: $e');
+      debugPrint('Error generating AI insights: $e');
       return null;
     }
   }
