@@ -42,8 +42,9 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
   String _selectedModel = 'nano-banana';
   String _selectedAspectRatio = '1:1';
   String _selectedQuality = '1024';
-  String? _selectedStyle;
+  List<String> _selectedStyles = []; // Multiple style selection
   String? _generatedImageUrl;
+  bool _isWaitingForResult = false; // Track when waiting for API response
   String? _generatedGenerationId;
   bool _isLoadingImage = false;
 
@@ -170,17 +171,26 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
   }
 
   String get _finalPrompt {
-    if (_selectedStyle == null) return _promptController.text.trim();
+    final basePrompt = _promptController.text.trim();
+    if (_selectedStyles.isEmpty) return basePrompt;
 
-    final stylePreset = ImageModels.stylePresets.firstWhere(
-      (s) => s['id'] == _selectedStyle,
-      orElse: () => {},
-    );
+    // Collect all style prompts
+    final stylePrompts = <String>[];
+    for (final styleId in _selectedStyles) {
+      final stylePreset = ImageModels.stylePresets.firstWhere(
+        (s) => s['id'] == styleId,
+        orElse: () => {},
+      );
+      final stylePrompt = stylePreset['prompt'] as String?;
+      if (stylePrompt != null) {
+        stylePrompts.add(stylePrompt);
+      }
+    }
 
-    final stylePrompt = stylePreset['prompt'] as String?;
-    if (stylePrompt == null) return _promptController.text.trim();
-
-    return '${_promptController.text.trim()}, $stylePrompt';
+    if (stylePrompts.isEmpty) return basePrompt;
+    return basePrompt.isEmpty 
+        ? stylePrompts.join(', ')
+        : '$basePrompt, ${stylePrompts.join(', ')}';
   }
 
   Future<void> _pickReferenceImage(int index) async {
@@ -435,9 +445,9 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
   }
 
   Future<void> _handleGenerate() async {
-    if (_promptController.text.trim().isEmpty) {
+    if (_promptController.text.trim().isEmpty && _selectedStyles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a prompt')),
+        const SnackBar(content: Text('Please enter a prompt or select a style')),
       );
       return;
     }
@@ -448,75 +458,92 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
       return;
     }
 
-    // Clear previous result and any error state
+    // Clear previous result and set waiting state
     setState(() {
       _generatedImageUrl = null;
       _generatedGenerationId = null;
+      _isWaitingForResult = true;
     });
 
     final generationProvider = context.read<GenerationProvider>();
     
-    // Use referenceImageUrls for image generation (correct API parameter name)
-    final result = await generationProvider.generate(
-      prompt: _finalPrompt,
-      model: _selectedModel,
-      type: 'image',
-      aspectRatio: _selectedAspectRatio,
-      quality: _selectedQuality,
-      referenceImageUrls: _referenceImageUrls.isNotEmpty ? _referenceImageUrls : null,
-      referenceImageUrl: _referenceImageUrls.isNotEmpty ? _referenceImageUrls.first : null,
-    );
+    try {
+      // Use referenceImageUrls for image generation (correct API parameter name)
+      final result = await generationProvider.generate(
+        prompt: _finalPrompt,
+        model: _selectedModel,
+        type: 'image',
+        aspectRatio: _selectedAspectRatio,
+        quality: _selectedQuality,
+        referenceImageUrls: _referenceImageUrls.isNotEmpty ? _referenceImageUrls : null,
+        referenceImageUrl: _referenceImageUrls.isNotEmpty ? _referenceImageUrls.first : null,
+      );
 
-    // Check for errors from the provider
-    if (generationProvider.error != null) {
+      // Check for errors from the provider
+      if (generationProvider.error != null) {
+        if (mounted) {
+          setState(() => _isWaitingForResult = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(generationProvider.error!.replaceAll('Exception:', '').trim()),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+          generationProvider.clearError();
+        }
+        return;
+      }
+
+      if (result != null && result.outputUrl != null) {
+        // Show shimmer while image loads
+        setState(() {
+          _isLoadingImage = true;
+          _isWaitingForResult = false;
+          _generatedImageUrl = result.outputUrl;
+          _generatedGenerationId = result.id;
+        });
+
+        // Short delay to show shimmer effect, image loads in background
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        if (mounted) {
+          setState(() {
+            _isLoadingImage = false;
+          });
+          
+          // Success feedback
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Image generated successfully!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+
+        creditsProvider.refresh();
+      } else if (result == null) {
+        // Generation returned null without setting an error - show generic message
+        if (mounted) {
+          setState(() => _isWaitingForResult = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Generation failed. Please try again.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
       if (mounted) {
+        setState(() => _isWaitingForResult = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(generationProvider.error!.replaceAll('Exception:', '').trim()),
+            content: Text('Error: ${e.toString().replaceAll('Exception:', '').trim()}'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
-          ),
-        );
-        generationProvider.clearError();
-      }
-      return;
-    }
-
-    if (result != null && result.outputUrl != null) {
-      // Show shimmer while image loads
-      setState(() {
-        _isLoadingImage = true;
-        _generatedImageUrl = result.outputUrl;
-        _generatedGenerationId = result.id;
-      });
-
-      // Short delay to show shimmer effect, image loads in background
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      if (mounted) {
-        setState(() {
-          _isLoadingImage = false;
-        });
-        
-        // Success feedback
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Image generated successfully!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-
-      creditsProvider.refresh();
-    } else if (result == null) {
-      // Generation returned null without setting an error - show generic message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Generation failed. Please try again.'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 3),
           ),
         );
       }
@@ -694,7 +721,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
             child: Consumer<GenerationProvider>(
               builder: (context, provider, child) {
                 // Show error state if generation failed
-                if (provider.error != null && !provider.isGenerating) {
+                if (provider.error != null && !provider.isGenerating && !_isWaitingForResult) {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
@@ -741,8 +768,8 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                   );
                 }
                 
-                // Show shimmer while generating
-                if (provider.isGenerating) {
+                // Show shimmer while generating OR waiting for result
+                if (provider.isGenerating || _isWaitingForResult) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1006,7 +1033,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Style Presets
+              // Style Presets (multiple selection)
               SizedBox(
                 height: 36,
                 child: ListView.separated(
@@ -1015,14 +1042,14 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (context, index) {
                     if (index == 0) {
-                      // No style option
-                      final isSelected = _selectedStyle == null;
+                      // Clear all styles option
+                      final hasNoStyles = _selectedStyles.isEmpty;
                       return GestureDetector(
-                        onTap: () => setState(() => _selectedStyle = null),
+                        onTap: () => setState(() => _selectedStyles.clear()),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           decoration: BoxDecoration(
-                            color: isSelected
+                            color: hasNoStyles
                                 ? AppTheme.primary
                                 : AppTheme.secondary,
                             borderRadius: BorderRadius.circular(18),
@@ -1031,7 +1058,7 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                           child: Text(
                             'None',
                             style: TextStyle(
-                              color: isSelected
+                              color: hasNoStyles
                                   ? Colors.white
                                   : AppTheme.mutedForeground,
                               fontSize: 12,
@@ -1042,10 +1069,17 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                     }
 
                     final style = ImageModels.stylePresets[index - 1];
-                    final isSelected = _selectedStyle == style['id'];
+                    final styleId = style['id'] as String;
+                    final isSelected = _selectedStyles.contains(styleId);
                     return GestureDetector(
-                      onTap: () => setState(
-                          () => _selectedStyle = style['id'] as String),
+                      onTap: () => setState(() {
+                        // Toggle style selection (multiple allowed)
+                        if (isSelected) {
+                          _selectedStyles.remove(styleId);
+                        } else {
+                          _selectedStyles.add(styleId);
+                        }
+                      }),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
@@ -1142,18 +1176,19 @@ class _ImageCreateScreenState extends State<ImageCreateScreen> {
                   const SizedBox(width: 12),
                   Consumer<GenerationProvider>(
                     builder: (context, provider, child) {
+                      final isGenerating = provider.isGenerating || _isWaitingForResult;
                       return GestureDetector(
-                        onTap: provider.isGenerating ? null : _handleGenerate,
+                        onTap: isGenerating ? null : _handleGenerate,
                         child: Container(
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            color: provider.isGenerating
+                            color: isGenerating
                                 ? AppTheme.muted
                                 : AppTheme.primary,
                             borderRadius: BorderRadius.circular(24),
                           ),
-                          child: provider.isGenerating
+                          child: isGenerating
                               ? const Padding(
                                   padding: EdgeInsets.all(12),
                                   child: CircularProgressIndicator(
