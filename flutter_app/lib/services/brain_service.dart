@@ -1,6 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+
+// Edge functions are deployed to Lovable Cloud project
+const String _edgeFunctionsUrl = 'https://hpuqeabtgwbwcnklxolt.supabase.co/functions/v1';
 
 class BrainInsight {
   final String type;
@@ -199,21 +204,46 @@ class BrainMoodLog {
 class BrainService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  Map<String, String> _getHeaders() {
+    final session = _supabase.auth.currentSession;
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ${session?.accessToken ?? ''}',
+    };
+  }
+
+  Future<dynamic> _callEdgeFunction(Map<String, dynamic> body) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_edgeFunctionsUrl/brain-ai'),
+        headers: _getHeaders(),
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        debugPrint('Brain AI edge function error: ${response.statusCode} - ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Brain AI edge function exception: $e');
+      return null;
+    }
+  }
+
   Future<BrainProfile?> getProfile() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return null;
 
     try {
-      final response = await _supabase.functions.invoke('brain-ai', body: {
-        'action': 'getProfile',
-      });
-
-      if (response.data != null && response.data['profile'] != null) {
-        return BrainProfile.fromJson(response.data['profile']);
+      final data = await _callEdgeFunction({'action': 'getProfile'});
+      if (data != null && data['profile'] != null) {
+        return BrainProfile.fromJson(data['profile']);
       }
       return null;
     } catch (e) {
-      print('Error getting brain profile: $e');
+      debugPrint('Error getting brain profile: $e');
       return null;
     }
   }
@@ -230,7 +260,7 @@ class BrainService {
     if (user == null) return null;
 
     try {
-      final response = await _supabase.functions.invoke('brain-ai', body: {
+      final data = await _callEdgeFunction({
         'action': 'createProfile',
         'data': {
           'age': age,
@@ -239,17 +269,16 @@ class BrainService {
           'work_schedule': workSchedule,
           'sleep_goal_hours': sleepGoalHours,
           'focus_goals': focusGoals,
-          'baseline_start_date':
-              DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          'baseline_start_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
         },
       });
 
-      if (response.data != null && response.data['profile'] != null) {
-        return BrainProfile.fromJson(response.data['profile']);
+      if (data != null && data['profile'] != null) {
+        return BrainProfile.fromJson(data['profile']);
       }
       return null;
     } catch (e) {
-      print('Error creating brain profile: $e');
+      debugPrint('Error creating brain profile: $e');
       return null;
     }
   }
@@ -260,17 +289,17 @@ class BrainService {
 
     try {
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final response = await _supabase.functions.invoke('brain-ai', body: {
+      final data = await _callEdgeFunction({
         'action': 'getMetrics',
         'date': today,
       });
 
-      if (response.data != null && response.data['metrics'] != null) {
-        return BrainMetrics.fromJson(response.data['metrics']);
+      if (data != null && data['metrics'] != null) {
+        return BrainMetrics.fromJson(data['metrics']);
       }
       return null;
     } catch (e) {
-      print('Error getting today metrics: $e');
+      debugPrint('Error getting today metrics: $e');
       return null;
     }
   }
@@ -280,18 +309,16 @@ class BrainService {
     if (user == null) return [];
 
     try {
-      final response = await _supabase.functions.invoke('brain-ai', body: {
-        'action': 'getWeeklyMetrics',
-      });
+      final data = await _callEdgeFunction({'action': 'getWeeklyMetrics'});
 
-      if (response.data != null && response.data['metrics'] != null) {
-        return (response.data['metrics'] as List)
+      if (data != null && data['metrics'] != null) {
+        return (data['metrics'] as List)
             .map((m) => BrainMetrics.fromJson(m))
             .toList();
       }
       return [];
     } catch (e) {
-      print('Error getting weekly metrics: $e');
+      debugPrint('Error getting weekly metrics: $e');
       return [];
     }
   }
@@ -301,19 +328,19 @@ class BrainService {
     if (user == null) return [];
 
     try {
-      final response = await _supabase.functions.invoke('brain-ai', body: {
+      final data = await _callEdgeFunction({
         'action': 'getMoodLogs',
         'limit': limit,
       });
 
-      if (response.data != null && response.data['logs'] != null) {
-        return (response.data['logs'] as List)
+      if (data != null && data['logs'] != null) {
+        return (data['logs'] as List)
             .map((l) => BrainMoodLog.fromJson(l))
             .toList();
       }
       return [];
     } catch (e) {
-      print('Error getting mood logs: $e');
+      debugPrint('Error getting mood logs: $e');
       return [];
     }
   }
@@ -330,7 +357,7 @@ class BrainService {
     if (user == null) return false;
 
     try {
-      final response = await _supabase.functions.invoke('brain-ai', body: {
+      final data = await _callEdgeFunction({
         'action': 'logMood',
         'data': {
           'mood_score': moodScore,
@@ -342,9 +369,9 @@ class BrainService {
         },
       });
 
-      return response.data != null && response.data['success'] == true;
+      return data != null && data['success'] == true;
     } catch (e) {
-      print('Error logging mood: $e');
+      debugPrint('Error logging mood: $e');
       return false;
     }
   }
@@ -354,21 +381,19 @@ class BrainService {
     if (user == null) return null;
 
     try {
-      final response = await _supabase.functions.invoke('brain-ai', body: {
-        'action': 'refreshMetrics',
-      });
+      final data = await _callEdgeFunction({'action': 'refreshMetrics'});
 
-      if (response.data != null && response.data['metrics'] != null) {
-        return BrainMetrics.fromJson(response.data['metrics']);
+      if (data != null && data['metrics'] != null) {
+        return BrainMetrics.fromJson(data['metrics']);
       }
       return null;
     } catch (e) {
-      print('Error refreshing metrics: $e');
+      debugPrint('Error refreshing metrics: $e');
       return null;
     }
   }
 
-  /// Check subscription the same way as the rest of the app (profiles.subscription_status).
+  /// Check subscription using the primary Supabase project
   Future<bool> checkSubscription() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return false;
