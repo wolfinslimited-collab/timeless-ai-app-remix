@@ -11,6 +11,48 @@ import '../../providers/credits_provider.dart';
 import '../../widgets/add_credits_dialog.dart';
 import '../../widgets/common/smart_media_image.dart';
 
+// Trending style model matching web
+class TrendStyle {
+  final String id;
+  final String name;
+  final String prompt;
+  final String category;
+  final bool hot;
+  final String? previewImage;
+
+  const TrendStyle({
+    required this.id,
+    required this.name,
+    required this.prompt,
+    required this.category,
+    this.hot = false,
+    this.previewImage,
+  });
+
+  factory TrendStyle.fromJson(Map<String, dynamic> json) {
+    return TrendStyle(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      prompt: json['prompt'] as String,
+      category: json['category'] as String? ?? 'All',
+      hot: json['hot'] as bool? ?? false,
+      previewImage: json['preview_image'] as String?,
+    );
+  }
+}
+
+// Default fallback style
+const _defaultStyle = TrendStyle(
+  id: 'general',
+  name: 'General',
+  prompt: 'A professional high-quality photograph of the person, natural lighting, confident pose, clean background',
+  category: 'All',
+  previewImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=500&fit=crop',
+);
+
+// Style categories matching web
+const _styleCategories = ['All', 'New', 'TikTok Core', 'Instagram Aesthetics', 'Camera Presets', 'Beauty', 'Mood', 'Surreal', 'Fashion'];
+
 class VisualStylesScreen extends StatefulWidget {
   const VisualStylesScreen({super.key});
 
@@ -20,6 +62,7 @@ class VisualStylesScreen extends StatefulWidget {
 
 class _VisualStylesScreenState extends State<VisualStylesScreen> {
   final _promptController = TextEditingController();
+  final _styleSearchController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -28,7 +71,10 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
   String _selectedCharacter = 'none';
   int _batchSize = 1;
   bool _unlimitedMode = false;
-  List<String> _selectedStyles = [];
+  TrendStyle _selectedStyle = _defaultStyle;
+  List<TrendStyle> _trendStyles = [_defaultStyle];
+  bool _loadingStyles = true;
+  String _selectedCategory = 'All';
   String? _referenceImageUrl;
   File? _referenceImageFile;
   bool _isUploadingRef = false;
@@ -50,20 +96,7 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
     {'id': '4K', 'label': 'Ultra', 'description': '4096px', 'credits': 10},
   ];
 
-  static const List<Map<String, String>> _stylePresets = [
-    {'id': 'cinematic', 'name': 'Cinematic', 'prompt': 'cinematic lighting, film grain, dramatic shadows, movie still'},
-    {'id': 'portrait', 'name': 'Portrait', 'prompt': 'professional portrait, soft lighting, shallow depth of field'},
-    {'id': 'anime', 'name': 'Anime', 'prompt': 'anime style, cel shading, vibrant colors, Japanese animation'},
-    {'id': 'cyberpunk', 'name': 'Cyberpunk', 'prompt': 'cyberpunk aesthetic, neon lights, futuristic, dystopian cityscape'},
-    {'id': 'fantasy', 'name': 'Fantasy', 'prompt': 'fantasy art, magical atmosphere, ethereal lighting'},
-    {'id': 'oil-painting', 'name': 'Oil Painting', 'prompt': 'oil painting style, visible brushstrokes, classical art technique'},
-    {'id': 'watercolor', 'name': 'Watercolor', 'prompt': 'watercolor painting, soft edges, flowing colors'},
-    {'id': 'minimalist', 'name': 'Minimalist', 'prompt': 'minimalist design, clean lines, simple composition'},
-    {'id': 'vintage', 'name': 'Vintage', 'prompt': 'vintage photography, retro aesthetic, film grain, faded colors'},
-    {'id': 'neon', 'name': 'Neon', 'prompt': 'neon glow, vibrant colors, dark background, synthwave'},
-  ];
-
-  static const List<int> _batchSizes = [1, 2, 4, 9];
+  static const List<int> _batchSizes = [1, 2, 3, 4];
 
   // Mock characters - in production, fetch from user's trained characters
   static const List<Map<String, String?>> _characters = [
@@ -73,9 +106,53 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _fetchStyles();
+  }
+
+  @override
   void dispose() {
     _promptController.dispose();
+    _styleSearchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchStyles() async {
+    try {
+      setState(() => _loadingStyles = true);
+
+      final response = await _supabase
+          .from('trending_styles')
+          .select('id, name, prompt, category, hot, preview_image, display_order')
+          .eq('is_active', true)
+          .order('display_order', ascending: true)
+          .limit(100);
+
+      if (mounted) {
+        final items = response as List;
+        if (items.isNotEmpty) {
+          final styles = items.map((s) => TrendStyle.fromJson(s)).toList();
+          setState(() {
+            _trendStyles = styles;
+            _selectedStyle = styles.first;
+            _loadingStyles = false;
+          });
+        } else {
+          setState(() {
+            _trendStyles = [_defaultStyle];
+            _loadingStyles = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _trendStyles = [_defaultStyle];
+          _loadingStyles = false;
+        });
+      }
+    }
   }
 
   int get _selectedQualityCredits {
@@ -90,27 +167,23 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
 
   String get _finalPrompt {
     final basePrompt = _promptController.text.trim();
-    if (_selectedStyles.isEmpty) return basePrompt;
+    final stylePrompt = _selectedStyle.prompt;
 
-    final stylePrompts = _selectedStyles
-        .map((id) => _stylePresets.firstWhere(
-              (s) => s['id'] == id,
-              orElse: () => {},
-            )['prompt'])
-        .where((p) => p != null)
-        .join(', ');
-
-    return basePrompt.isEmpty ? stylePrompts : '$basePrompt, $stylePrompts';
+    if (basePrompt.isEmpty) {
+      return 'Create a stunning photo in ${_selectedStyle.name} style, $stylePrompt';
+    }
+    return '$basePrompt, $stylePrompt';
   }
 
-  void _toggleStyle(String styleId) {
-    setState(() {
-      if (_selectedStyles.contains(styleId)) {
-        _selectedStyles.remove(styleId);
-      } else {
-        _selectedStyles.add(styleId);
-      }
-    });
+  List<TrendStyle> get _filteredStyles {
+    final search = _styleSearchController.text.toLowerCase().trim();
+    return _trendStyles.where((style) {
+      final matchesCategory = _selectedCategory == 'All' || style.category == _selectedCategory;
+      final matchesSearch = search.isEmpty ||
+          style.name.toLowerCase().contains(search) ||
+          style.category.toLowerCase().contains(search);
+      return matchesCategory && matchesSearch;
+    }).toList();
   }
 
   Future<void> _pickReferenceImage() async {
@@ -193,13 +266,6 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
   Future<void> _handleGenerate() async {
     FocusScope.of(context).unfocus();
 
-    if (_finalPrompt.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a prompt or select a style')),
-      );
-      return;
-    }
-
     final creditsProvider = context.read<CreditsProvider>();
     if ((creditsProvider.credits ?? 0) < _totalCredits) {
       _showAddCreditsDialog();
@@ -216,7 +282,7 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
     try {
       // Generate multiple images if batch size > 1
       final List<String> results = [];
-      
+
       for (int i = 0; i < _batchSize; i++) {
         final result = await generationProvider.generate(
           prompt: _finalPrompt,
@@ -294,42 +360,302 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
             ),
             const SizedBox(height: 16),
             ...options.map((option) => ListTile(
-              onTap: () {
-                onSelected(option['id'] as String);
-                Navigator.pop(context);
-              },
-              selected: selectedId == option['id'],
-              selectedTileColor: AppTheme.primary.withOpacity(0.1),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              title: Text(
-                option['label'] ?? option['name'] ?? option['id'],
-                style: TextStyle(
-                  fontWeight: selectedId == option['id'] ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-              subtitle: option['description'] != null
-                  ? Text(option['description'], style: const TextStyle(color: AppTheme.muted))
-                  : null,
-              trailing: showCredits && option['credits'] != null
-                  ? Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '${option['credits']} credits',
-                        style: const TextStyle(
-                          color: AppTheme.primary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    )
-                  : null,
-            )),
+                  onTap: () {
+                    onSelected(option['id'] as String);
+                    Navigator.pop(context);
+                  },
+                  selected: selectedId == option['id'],
+                  selectedTileColor: AppTheme.primary.withOpacity(0.1),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  title: Text(
+                    option['label'] ?? option['name'] ?? option['id'],
+                    style: TextStyle(
+                      fontWeight: selectedId == option['id'] ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  subtitle: option['description'] != null
+                      ? Text(option['description'], style: const TextStyle(color: AppTheme.muted))
+                      : null,
+                  trailing: showCredits && option['credits'] != null
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${option['credits']} credits',
+                            style: const TextStyle(
+                              color: AppTheme.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        )
+                      : null,
+                )),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showStylesBottomSheet() {
+    _styleSearchController.clear();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.card,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final filteredStyles = _trendStyles.where((style) {
+            final search = _styleSearchController.text.toLowerCase().trim();
+            final matchesCategory = _selectedCategory == 'All' || style.category == _selectedCategory;
+            final matchesSearch = search.isEmpty ||
+                style.name.toLowerCase().contains(search) ||
+                style.category.toLowerCase().contains(search);
+            return matchesCategory && matchesSearch;
+          }).toList();
+
+          return DraggableScrollableSheet(
+            initialChildSize: 0.85,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            expand: false,
+            builder: (context, scrollController) => Column(
+              children: [
+                // Handle bar
+                Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.muted.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+
+                // Header with title and search
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Visual Styles',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppTheme.secondary,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: TextField(
+                            controller: _styleSearchController,
+                            onChanged: (_) => setSheetState(() {}),
+                            style: const TextStyle(fontSize: 14),
+                            decoration: const InputDecoration(
+                              hintText: 'Search styles...',
+                              hintStyle: TextStyle(color: AppTheme.muted),
+                              prefixIcon: Icon(Icons.search, size: 20, color: AppTheme.muted),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Category chips
+                SizedBox(
+                  height: 40,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: _styleCategories.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final category = _styleCategories[index];
+                      final isSelected = _selectedCategory == category;
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() => _selectedCategory = category);
+                          setSheetState(() {});
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppTheme.primary : AppTheme.secondary,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            category,
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : AppTheme.muted,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Styles grid
+                Expanded(
+                  child: _loadingStyles
+                      ? const Center(child: CircularProgressIndicator())
+                      : filteredStyles.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.palette_outlined, size: 48, color: AppTheme.muted.withOpacity(0.5)),
+                                  const SizedBox(height: 12),
+                                  const Text('No styles found', style: TextStyle(color: AppTheme.muted)),
+                                ],
+                              ),
+                            )
+                          : GridView.builder(
+                              controller: scrollController,
+                              padding: const EdgeInsets.all(20),
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                mainAxisSpacing: 12,
+                                crossAxisSpacing: 12,
+                                childAspectRatio: 0.75,
+                              ),
+                              itemCount: filteredStyles.length,
+                              itemBuilder: (context, index) {
+                                final style = filteredStyles[index];
+                                final isSelected = _selectedStyle.id == style.id;
+                                return GestureDetector(
+                                  onTap: () {
+                                    setState(() => _selectedStyle = style);
+                                    Navigator.pop(context);
+                                  },
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: isSelected ? AppTheme.primary : Colors.transparent,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          // Preview image
+                                          style.previewImage != null
+                                              ? SmartMediaImage(
+                                                  imageUrl: style.previewImage!,
+                                                  fit: BoxFit.cover,
+                                                )
+                                              : Container(
+                                                  color: AppTheme.secondary,
+                                                  child: const Icon(Icons.palette, size: 32, color: AppTheme.muted),
+                                                ),
+
+                                          // Gradient overlay
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: [
+                                                  Colors.transparent,
+                                                  Colors.black.withOpacity(0.7),
+                                                ],
+                                                stops: const [0.5, 1.0],
+                                              ),
+                                            ),
+                                          ),
+
+                                          // Style name
+                                          Positioned(
+                                            left: 12,
+                                            right: 12,
+                                            bottom: 12,
+                                            child: Text(
+                                              style.name.toUpperCase(),
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                                letterSpacing: 0.5,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+
+                                          // Hot badge
+                                          if (style.hot)
+                                            Positioned(
+                                              top: 8,
+                                              left: 8,
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.red,
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: const [
+                                                    Icon(Icons.local_fire_department, size: 12, color: Colors.white),
+                                                    SizedBox(width: 2),
+                                                    Text(
+                                                      'HOT',
+                                                      style: TextStyle(
+                                                        color: Colors.white,
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 9,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+
+                                          // Selection check
+                                          if (isSelected)
+                                            Positioned(
+                                              top: 8,
+                                              right: 8,
+                                              child: Container(
+                                                width: 24,
+                                                height: 24,
+                                                decoration: const BoxDecoration(
+                                                  color: AppTheme.primary,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(Icons.check, size: 16, color: Colors.white),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -442,8 +768,8 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
                     _buildReferenceImageSection(),
                     const SizedBox(height: 20),
 
-                    // Style Presets
-                    _buildStylePresetsSection(),
+                    // Selected Style Display
+                    _buildSelectedStyleSection(),
                     const SizedBox(height: 20),
 
                     // Unlimited Mode Toggle
@@ -726,12 +1052,12 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
     );
   }
 
-  Widget _buildStylePresetsSection() {
+  Widget _buildSelectedStyleSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'STYLE PRESETS',
+          'SELECTED STYLE',
           style: TextStyle(
             color: AppTheme.muted,
             fontSize: 10,
@@ -740,33 +1066,95 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _stylePresets.map((style) {
-            final isSelected = _selectedStyles.contains(style['id']);
-            return GestureDetector(
-              onTap: () => _toggleStyle(style['id']!),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.primary : AppTheme.secondary,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected ? AppTheme.primary : AppTheme.border,
+        GestureDetector(
+          onTap: _showStylesBottomSheet,
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppTheme.secondary,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.border),
+            ),
+            child: Row(
+              children: [
+                // Style preview image
+                ClipRRect(
+                  borderRadius: const BorderRadius.horizontal(left: Radius.circular(15)),
+                  child: SizedBox(
+                    width: 80,
+                    height: 80,
+                    child: _selectedStyle.previewImage != null
+                        ? SmartMediaImage(
+                            imageUrl: _selectedStyle.previewImage!,
+                            fit: BoxFit.cover,
+                          )
+                        : Container(
+                            color: AppTheme.muted.withOpacity(0.2),
+                            child: const Icon(Icons.palette, size: 32, color: AppTheme.muted),
+                          ),
                   ),
                 ),
-                child: Text(
-                  style['name']!,
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : AppTheme.foreground,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              _selectedStyle.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (_selectedStyle.hot) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.local_fire_department, size: 10, color: Colors.white),
+                                  SizedBox(width: 2),
+                                  Text(
+                                    'HOT',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 8,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tap to change style',
+                        style: TextStyle(
+                          color: AppTheme.muted,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            );
-          }).toList(),
+                const Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: Icon(Icons.chevron_right, color: AppTheme.muted),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
@@ -841,16 +1229,12 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
           ),
           const SizedBox(width: 12),
           GestureDetector(
-            onTap: _isGenerating || (_promptController.text.trim().isEmpty && _selectedStyles.isEmpty)
-                ? null
-                : _handleGenerate,
+            onTap: _isGenerating ? null : _handleGenerate,
             child: Container(
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: _isGenerating || (_promptController.text.trim().isEmpty && _selectedStyles.isEmpty)
-                    ? AppTheme.primary.withOpacity(0.5)
-                    : AppTheme.primary,
+                color: _isGenerating ? AppTheme.primary.withOpacity(0.5) : AppTheme.primary,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: _isGenerating
