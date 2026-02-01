@@ -107,20 +107,122 @@ class ChatService {
     }
   }
 
-  /// Get all conversations
+  /// Get all conversations for current user
   Future<List<Conversation>> getConversations() async {
-    logger.info('Fetching conversations', 'SUPABASE');
-    
-    final response = await _supabase
-        .from('conversations')
-        .select()
-        .order('updated_at', ascending: false);
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      logger.warning('Cannot fetch conversations: not authenticated', 'SUPABASE');
+      return [];
+    }
 
-    logger.success('Fetched ${(response as List).length} conversations', 'SUPABASE');
+    logger.info('Fetching conversations for user: ${user.id}', 'SUPABASE');
     
-    return (response)
-        .map((json) => Conversation.fromJson(json))
-        .toList();
+    try {
+      final response = await _supabase
+          .from('conversations')
+          .select()
+          .eq('user_id', user.id)
+          .order('updated_at', ascending: false);
+
+      logger.success('Fetched ${(response as List).length} conversations', 'SUPABASE');
+      
+      return (response)
+          .map((json) => Conversation.fromJson(json))
+          .toList();
+    } catch (e) {
+      logger.error('Error fetching conversations: $e', 'SUPABASE');
+      return [];
+    }
+  }
+
+  /// Get all folders for current user
+  Future<List<Map<String, dynamic>>> getFolders() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      logger.warning('Cannot fetch folders: not authenticated', 'SUPABASE');
+      return [];
+    }
+
+    logger.info('Fetching folders for user: ${user.id}', 'SUPABASE');
+    
+    try {
+      final response = await _supabase
+          .from('chat_folders')
+          .select()
+          .eq('user_id', user.id)
+          .order('name');
+
+      logger.success('Fetched ${(response as List).length} folders', 'SUPABASE');
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      logger.error('Error fetching folders: $e', 'SUPABASE');
+      return [];
+    }
+  }
+
+  /// Create a new folder
+  Future<Map<String, dynamic>?> createFolder({
+    required String name,
+    String color = '#6366f1',
+  }) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+
+    logger.info('Creating folder: $name', 'SUPABASE');
+
+    try {
+      final response = await _supabase
+          .from('chat_folders')
+          .insert({
+            'user_id': user.id,
+            'name': name,
+            'color': color,
+          })
+          .select()
+          .single();
+
+      logger.success('Created folder: ${response['id']}', 'SUPABASE');
+      return response;
+    } catch (e) {
+      logger.error('Error creating folder: $e', 'SUPABASE');
+      return null;
+    }
+  }
+
+  /// Delete a folder
+  Future<bool> deleteFolder(String id) async {
+    logger.info('Deleting folder: $id', 'SUPABASE');
+    try {
+      // First, move all conversations out of the folder
+      await _supabase
+          .from('conversations')
+          .update({'folder_id': null})
+          .eq('folder_id', id);
+      
+      // Then delete the folder
+      await _supabase.from('chat_folders').delete().eq('id', id);
+      logger.success('Deleted folder: $id', 'SUPABASE');
+      return true;
+    } catch (e) {
+      logger.error('Error deleting folder: $e', 'SUPABASE');
+      return false;
+    }
+  }
+
+  /// Move conversation to folder
+  Future<bool> moveToFolder(String conversationId, String? folderId) async {
+    logger.info('Moving conversation $conversationId to folder: $folderId', 'SUPABASE');
+    try {
+      await _supabase
+          .from('conversations')
+          .update({'folder_id': folderId})
+          .eq('id', conversationId);
+      logger.success('Moved conversation to folder', 'SUPABASE');
+      return true;
+    } catch (e) {
+      logger.error('Error moving to folder: $e', 'SUPABASE');
+      return false;
+    }
   }
 
   /// Create a new conversation
