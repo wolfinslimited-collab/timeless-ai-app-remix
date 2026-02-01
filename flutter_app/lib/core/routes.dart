@@ -78,6 +78,7 @@ final appRouter = GoRouter(
         state.matchedLocation == '/forgot-password' ||
         state.matchedLocation == '/reset-password';
     final isSplashRoute = state.matchedLocation == '/splash';
+    // ignore: unused_local_variable
     final isWizardRoute = state.matchedLocation == '/upgrade-wizard';
 
     // Allow splash screen to handle its own navigation

@@ -79,20 +79,20 @@ class _CharacterScreenState extends State<CharacterScreen> {
       for (final image in images) {
         final file = File(image.path);
         final uploaded =
-            await _service.uploadCharacterImage(characterId!, file);
+            await _service.uploadCharacterImage(characterId, file);
 
         if (uploaded != null) {
           setState(() => _uploadedImages.add(uploaded));
 
           // Set first image as thumbnail
           if (_uploadedImages.length == 1) {
-            await _service.setThumbnail(characterId!, uploaded.imageUrl);
+            await _service.setThumbnail(characterId, uploaded.imageUrl);
           }
         }
       }
 
       // Update image count
-      await _service.updateImageCount(characterId!, _uploadedImages.length);
+      await _service.updateImageCount(characterId, _uploadedImages.length);
 
       _showSnackBar('${images.length} image(s) uploaded');
     } catch (e) {
@@ -821,10 +821,8 @@ class _CharacterScreenState extends State<CharacterScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[
-            Icon(icon, size: 12, color: Colors.white),
-            const SizedBox(width: 4),
-          ],
+          Icon(icon, size: 12, color: Colors.white),
+          const SizedBox(width: 4),
           Text(
             label,
             style: const TextStyle(

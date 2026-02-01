@@ -1238,6 +1238,7 @@ class _AudioCreateScreenState extends State<AudioCreateScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildToolCard({
     required IconData icon,
     required String title,
@@ -1435,14 +1436,17 @@ class _InlineAudioToolContent extends StatefulWidget {
   final bool showIntensity;
   final bool showDuration;
 
+  // ignore: unused_element
   const _InlineAudioToolContent({
-    super.key,
     required this.toolId,
     required this.toolName,
     required this.toolDescription,
     required this.creditCost,
+    // ignore: unused_element_parameter
     this.showPrompt = false,
+    // ignore: unused_element_parameter
     this.showIntensity = false,
+    // ignore: unused_element_parameter
     this.showDuration = false,
   });
 
@@ -1502,8 +1506,9 @@ class _InlineAudioToolContentState extends State<_InlineAudioToolContent> {
 
     try {
       final options = <String, dynamic>{};
-      if (widget.showPrompt && _promptController.text.isNotEmpty)
+      if (widget.showPrompt && _promptController.text.isNotEmpty) {
         options['prompt'] = _promptController.text;
+      }
       if (widget.showIntensity) options['intensity'] = _intensity.round();
       if (widget.showDuration) options['duration'] = _duration;
 
