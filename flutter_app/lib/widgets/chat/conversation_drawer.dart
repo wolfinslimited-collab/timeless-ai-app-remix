@@ -132,34 +132,42 @@ class _ConversationDrawerState extends State<ConversationDrawer> {
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
+    
+    setState(() => _isLoading = true);
+    
     try {
       final user = _supabase.auth.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        debugPrint('ConversationDrawer: User not authenticated');
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
 
-      final results = await Future.wait([
-        _chatService.getConversations(),
-        _supabase
-            .from('chat_folders')
-            .select()
-            .eq('user_id', user.id)
-            .order('name'),
-      ] as List<Future<dynamic>>);
-      final convsResult = results[0];
-      final foldersResult = results[1];
+      debugPrint('ConversationDrawer: Loading data for user ${user.id}');
+
+      // Fetch conversations and folders in parallel
+      final conversationsFuture = _chatService.getConversations();
+      final foldersFuture = _chatService.getFolders();
+
+      final results = await Future.wait([conversationsFuture, foldersFuture]);
+      
+      final conversations = results[0] as List<Conversation>;
+      final foldersData = results[1] as List<Map<String, dynamic>>;
+
+      debugPrint('ConversationDrawer: Loaded ${conversations.length} conversations, ${foldersData.length} folders');
 
       if (mounted) {
         setState(() {
-          // Show ALL conversations, not just for current model
-          _conversations = (convsResult as List<Conversation>);
-          _folders = (foldersResult as List<dynamic>)
-              .map((f) => ChatFolder.fromJson(f))
-              .toList();
+          _conversations = conversations;
+          _folders = foldersData.map((f) => ChatFolder.fromJson(f)).toList();
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('ConversationDrawer: Error loading data: $e');
+      debugPrint('Stack: $stack');
       if (mounted) setState(() => _isLoading = false);
-      debugPrint('Error loading data: $e');
     }
   }
 
@@ -194,9 +202,7 @@ class _ConversationDrawerState extends State<ConversationDrawer> {
 
   Future<void> _togglePin(Conversation conv) async {
     try {
-      await _supabase
-          .from('conversations')
-          .update({'pinned': !conv.pinned}).eq('id', conv.id);
+      await _chatService.togglePin(conv.id, !conv.pinned);
       await _loadData();
     } catch (e) {
       debugPrint('Error toggling pin: $e');
@@ -205,10 +211,16 @@ class _ConversationDrawerState extends State<ConversationDrawer> {
 
   Future<void> _moveToFolder(Conversation conv, String? folderId) async {
     try {
-      await _supabase
-          .from('conversations')
-          .update({'folder_id': folderId}).eq('id', conv.id);
-      await _loadData();
+      final success = await _chatService.moveToFolder(conv.id, folderId);
+      if (success) {
+        await _loadData();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to move conversation')),
+          );
+        }
+      }
     } catch (e) {
       debugPrint('Error moving to folder: $e');
     }
@@ -240,6 +252,7 @@ class _ConversationDrawerState extends State<ConversationDrawer> {
             border: OutlineInputBorder(),
           ),
           autofocus: true,
+          onSubmitted: (value) => Navigator.pop(context, value.trim()),
         ),
         actions: [
           TextButton(
@@ -256,16 +269,63 @@ class _ConversationDrawerState extends State<ConversationDrawer> {
 
     if (result != null && result.isNotEmpty) {
       try {
-        final user = _supabase.auth.currentUser;
-        if (user == null) return;
-        await _supabase.from('chat_folders').insert({
-          'user_id': user.id,
-          'name': result,
-          'color': '#6366f1',
-        });
-        await _loadData();
+        final folder = await _chatService.createFolder(name: result);
+        if (folder != null) {
+          await _loadData();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Created folder: $result')),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Failed to create folder')),
+            );
+          }
+        }
       } catch (e) {
         debugPrint('Error creating folder: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _deleteFolder(String folderId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.card,
+        title: const Text('Delete Folder'),
+        content: const Text('Conversations in this folder will be moved to unfiled. Continue?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final success = await _chatService.deleteFolder(folderId);
+      if (success) {
+        await _loadData();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to delete folder')),
+          );
+        }
       }
     }
   }
@@ -411,6 +471,7 @@ class _ConversationDrawerState extends State<ConversationDrawer> {
                                     onTogglePin: _togglePin,
                                     allFolders: _folders,
                                     onMoveToFolder: _moveToFolder,
+                                    onDeleteFolder: _deleteFolder,
                                   )),
 
                               // Pinned
@@ -539,6 +600,7 @@ class _FolderSection extends StatelessWidget {
   final Function(Conversation) onTogglePin;
   final List<ChatFolder> allFolders;
   final Function(Conversation, String?) onMoveToFolder;
+  final Function(String)? onDeleteFolder;
 
   const _FolderSection({
     required this.folder,
@@ -551,7 +613,58 @@ class _FolderSection extends StatelessWidget {
     required this.onTogglePin,
     required this.allFolders,
     required this.onMoveToFolder,
+    this.onDeleteFolder,
   });
+
+  void _showFolderContextMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTheme.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(Icons.folder, color: folder.color, size: 24),
+                  const SizedBox(width: 12),
+                  Text(
+                    folder.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('Delete Folder', style: TextStyle(color: Colors.red)),
+              subtitle: const Text('Conversations will be moved to unfiled'),
+              onTap: () {
+                Navigator.pop(context);
+                onDeleteFolder?.call(folder.id);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -560,6 +673,7 @@ class _FolderSection extends StatelessWidget {
       children: [
         InkWell(
           onTap: onToggle,
+          onLongPress: () => _showFolderContextMenu(context),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
@@ -593,6 +707,11 @@ class _FolderSection extends StatelessWidget {
                     '${conversations.length}',
                     style: const TextStyle(fontSize: 11, color: AppTheme.muted),
                   ),
+                ),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: () => _showFolderContextMenu(context),
+                  child: const Icon(Icons.more_horiz, size: 18, color: AppTheme.muted),
                 ),
               ],
             ),
