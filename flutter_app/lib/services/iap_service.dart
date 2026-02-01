@@ -317,7 +317,7 @@ class IAPService {
           'productId': purchase.productID,
           'purchaseToken':
               googlePurchase.verificationData.serverVerificationData,
-          'packageName': 'com.timelessai.app',
+          'packageName': 'com.wolfine.app',
         };
       }
 
