@@ -28,7 +28,7 @@ class NativeAuthService {
   // This should match the Web Client ID from Google Cloud Console
   // The Android Client ID is automatically used based on SHA-1 fingerprint
   static const String _googleWebClientId =
-      'YOUR_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com';
+      '1012149210327-7dgq6ib94d4btrvi1tntm5jhmj4l69cb.apps.googleusercontent.com';
 
   /// Generate a secure random nonce for OAuth
   String _generateNonce([int length = 32]) {
