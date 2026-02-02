@@ -23,21 +23,21 @@ const FALLBACK_PRODUCT_MAPPINGS: Record<string, ProductMapping> = {
   // === CURRENT iOS Product IDs (from App Store Connect) ===
   "com.timeless.premium.monthly": { plan: "premium", credits: 0, type: "subscription" },
   "com.timeless.premium.yearly": { plan: "premium", credits: 0, type: "subscription" },
-  "credits_1500_ios": { plan: "free", credits: 1500, type: "consumable" },
-  
+  credits_1500_ios: { plan: "free", credits: 1500, type: "consumable" },
+
   // === LEGACY iOS Product IDs (for pending transactions cleanup) ===
-  "basic_weekly": { plan: "premium", credits: 0, type: "subscription" },
-  "basic_monthly": { plan: "premium", credits: 0, type: "subscription" },
-  "basic_monthly_renew": { plan: "premium", credits: 0, type: "subscription" },
-  "basic_yearly": { plan: "premium", credits: 0, type: "subscription" },
-  "timeless_premium_monthly": { plan: "premium", credits: 500, type: "subscription" },
-  "timeless_premium_yearly": { plan: "premium", credits: 5000, type: "subscription" },
-  "timeless_premium_plus_monthly": { plan: "premium_plus", credits: 1000, type: "subscription" },
-  "timeless_premium_plus_yearly": { plan: "premium_plus", credits: 7500, type: "subscription" },
-  "timeless_credits_350": { plan: "free", credits: 350, type: "consumable" },
-  "timeless_credits_700": { plan: "free", credits: 700, type: "consumable" },
-  "timeless_credits_1400": { plan: "free", credits: 1400, type: "consumable" },
-  
+  basic_weekly: { plan: "premium", credits: 0, type: "subscription" },
+  basic_monthly: { plan: "premium", credits: 0, type: "subscription" },
+  basic_monthly_renew: { plan: "premium", credits: 0, type: "subscription" },
+  basic_yearly: { plan: "premium", credits: 0, type: "subscription" },
+  timeless_premium_monthly: { plan: "premium", credits: 500, type: "subscription" },
+  timeless_premium_yearly: { plan: "premium", credits: 5000, type: "subscription" },
+  timeless_premium_plus_monthly: { plan: "premium_plus", credits: 1000, type: "subscription" },
+  timeless_premium_plus_yearly: { plan: "premium_plus", credits: 7500, type: "subscription" },
+  timeless_credits_350: { plan: "free", credits: 350, type: "consumable" },
+  timeless_credits_700: { plan: "free", credits: 700, type: "consumable" },
+  timeless_credits_1400: { plan: "free", credits: 1400, type: "consumable" },
+
   // === Android Product IDs ===
   "timeless.premium.monthly": { plan: "premium", credits: 500, type: "subscription" },
   "timeless.premium.yearly": { plan: "premium", credits: 5000, type: "subscription" },
@@ -46,7 +46,7 @@ const FALLBACK_PRODUCT_MAPPINGS: Record<string, ProductMapping> = {
   "timeless.credits.350": { plan: "free", credits: 350, type: "consumable" },
   "timeless.credits.700": { plan: "free", credits: 700, type: "consumable" },
   "timeless.credits.1400": { plan: "free", credits: 1400, type: "consumable" },
-  "credits_1500_android": { plan: "free", credits: 1500, type: "consumable" },
+  credits_1500_android: { plan: "free", credits: 1500, type: "consumable" },
 };
 
 // Fetch product mappings dynamically from database, ALWAYS including fallback mappings
@@ -107,10 +107,10 @@ async function getProductMappings(supabase: any, platform: "ios" | "android"): P
       logStep("Credit packages loaded from database", { count: packages.length });
     }
 
-    logStep("Product mappings ready", { 
-      platform, 
+    logStep("Product mappings ready", {
+      platform,
       totalCount: Object.keys(mappings).length,
-      hasFallback: true 
+      hasFallback: true,
     });
   } catch (error) {
     logStep("Error loading product mappings (using fallback only)", { error: String(error) });
