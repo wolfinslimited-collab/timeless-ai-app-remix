@@ -8,7 +8,7 @@ import { CountryPickerField } from "./CountryPicker";
 import logo from "@/assets/logo.png";
 
 interface MobileAuthProps {
-  onSuccess: () => void;
+  onSuccess: (hasActiveSubscription: boolean) => void;
 }
 
 type AuthView = "welcome" | "signin" | "signup" | "verification" | "forgot-password" | "reset-sent";
@@ -46,6 +46,24 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
     }, 200);
   };
 
+  const checkSubscriptionStatus = async (): Promise<boolean> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+      
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("subscription_status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      return profile?.subscription_status === 'active';
+    } catch (error) {
+      console.error("Error checking subscription:", error);
+      return false;
+    }
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
@@ -73,7 +91,8 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
           title: "Welcome back!",
           description: "You're now logged in",
         });
-        onSuccess();
+        const hasSubscription = await checkSubscriptionStatus();
+        onSuccess(hasSubscription);
       }
     } finally {
       setIsLoading(false);
@@ -207,7 +226,8 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
             ? "You were referred by a friend - make your first creation to unlock bonus credits!"
             : "Your account is ready. Start creating!",
         });
-        onSuccess();
+        // New users don't have subscription yet
+        onSuccess(false);
       }
     } catch (error: any) {
       setVerificationCode("");

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { MobileNav, type Screen } from "@/components/mobile/MobileNav";
@@ -34,8 +34,32 @@ export default function MobilePreview() {
   const [showSplash, setShowSplash] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showPostAuthSubscription, setShowPostAuthSubscription] = useState(false);
+  const [hasCheckedInitialAuth, setHasCheckedInitialAuth] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const { credits, hasActiveSubscription, loading: creditsLoading, refetch } = useCredits();
+
+  // Track if this is the first time user is detected (for OAuth redirects)
+  const initialCheckDoneRef = useRef(false);
+
+  // Handle OAuth redirects - check subscription status when user is detected after splash
+  useEffect(() => {
+    // Only run once when:
+    // 1. Splash is complete
+    // 2. Auth loading is done
+    // 3. User exists (logged in via OAuth or session)
+    // 4. Credits loading is done (so we have subscription status)
+    // 5. Haven't done the initial check yet
+    if (!showSplash && !authLoading && user && !creditsLoading && !initialCheckDoneRef.current) {
+      initialCheckDoneRef.current = true;
+      
+      // If user came back from OAuth and doesn't have subscription, show onboarding
+      // But only if we're not already showing onboarding or subscription page
+      if (!hasActiveSubscription && !showOnboarding && !showPostAuthSubscription) {
+        setShowOnboarding(true);
+      }
+      setHasCheckedInitialAuth(true);
+    }
+  }, [showSplash, authLoading, user, creditsLoading, hasActiveSubscription, showOnboarding, showPostAuthSubscription]);
 
   // Show auth screen if not logged in (after splash)
   const showAuth = !authLoading && !user && !showSplash;
@@ -44,18 +68,15 @@ export default function MobilePreview() {
     setShowSplash(false);
   };
 
-  // Handle successful authentication
-  const handleAuthSuccess = () => {
-    // After auth, check if user is premium
-    // If not premium, show onboarding wizard
-    // We'll check hasActiveSubscription after a brief delay to ensure credits are loaded
-    setTimeout(() => {
-      if (!hasActiveSubscription) {
-        setShowOnboarding(true);
-      } else {
-        setCurrentScreen("home");
-      }
-    }, 500);
+  // Handle successful authentication - receives subscription status from auth
+  const handleAuthSuccess = (hasActiveSubscription: boolean) => {
+    if (hasActiveSubscription) {
+      // Premium user - go directly to home
+      setCurrentScreen("home");
+    } else {
+      // Non-premium user - show onboarding wizard
+      setShowOnboarding(true);
+    }
   };
 
   // Handle onboarding complete or skip -> go to subscription
