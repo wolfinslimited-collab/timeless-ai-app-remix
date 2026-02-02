@@ -33,13 +33,14 @@ export default function MobilePreview() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("home");
   const [showSplash, setShowSplash] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showPostAuthSubscription, setShowPostAuthSubscription] = useState(false);
   const [hasCheckedInitialAuth, setHasCheckedInitialAuth] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const { credits, hasActiveSubscription, loading: creditsLoading, refetch } = useCredits();
 
   // Track if this is the first time user is detected (for OAuth redirects)
   const initialCheckDoneRef = useRef(false);
+  // Track if user came from onboarding to handle back navigation correctly
+  const cameFromOnboardingRef = useRef(false);
 
   // Handle OAuth redirects - check subscription status when user is detected after splash
   useEffect(() => {
@@ -53,13 +54,12 @@ export default function MobilePreview() {
       initialCheckDoneRef.current = true;
       
       // If user came back from OAuth and doesn't have subscription, show onboarding
-      // But only if we're not already showing onboarding or subscription page
-      if (!hasActiveSubscription && !showOnboarding && !showPostAuthSubscription) {
+      if (!hasActiveSubscription && !showOnboarding && currentScreen !== "subscription") {
         setShowOnboarding(true);
       }
       setHasCheckedInitialAuth(true);
     }
-  }, [showSplash, authLoading, user, creditsLoading, hasActiveSubscription, showOnboarding, showPostAuthSubscription]);
+  }, [showSplash, authLoading, user, creditsLoading, hasActiveSubscription, showOnboarding, currentScreen]);
 
   // Show auth screen if not logged in (after splash)
   const showAuth = !authLoading && !user && !showSplash;
@@ -79,21 +79,27 @@ export default function MobilePreview() {
     }
   };
 
-  // Handle onboarding complete or skip -> go to subscription
+  // Handle onboarding complete or skip -> go to pricing/subscription
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
-    setShowPostAuthSubscription(true);
+    cameFromOnboardingRef.current = true;
+    setCurrentScreen("subscription");
   };
 
   const handleOnboardingSkip = () => {
     setShowOnboarding(false);
-    setShowPostAuthSubscription(true);
+    cameFromOnboardingRef.current = true;
+    setCurrentScreen("subscription");
   };
 
-  // Handle back from post-auth subscription -> go to home
+  // Handle back from subscription - go to home if from onboarding, otherwise profile
   const handleSubscriptionBack = () => {
-    setShowPostAuthSubscription(false);
-    setCurrentScreen("home");
+    if (cameFromOnboardingRef.current) {
+      cameFromOnboardingRef.current = false;
+      setCurrentScreen("home");
+    } else {
+      setCurrentScreen("profile");
+    }
   };
 
   const renderScreen = () => {
@@ -110,11 +116,6 @@ export default function MobilePreview() {
           onSkip={handleOnboardingSkip}
         />
       );
-    }
-
-    // Show subscription page after onboarding
-    if (showPostAuthSubscription) {
-      return <MobileSubscription onBack={handleSubscriptionBack} />;
     }
 
     switch (currentScreen) {
@@ -141,7 +142,7 @@ export default function MobilePreview() {
       case "profile":
         return <MobileProfile onNavigate={setCurrentScreen} />;
       case "subscription":
-        return <MobileSubscription onBack={() => setCurrentScreen("profile")} />;
+        return <MobileSubscription onBack={handleSubscriptionBack} />;
       case "downloads":
         return <MobileDownloads onBack={() => setCurrentScreen("profile")} />;
       case "favorites":
@@ -166,7 +167,7 @@ export default function MobilePreview() {
   };
 
   // Determine if bottom nav should be hidden
-  const hideNav = showAuth || showSplash || showOnboarding || showPostAuthSubscription;
+  const hideNav = showAuth || showSplash || showOnboarding || currentScreen === "subscription";
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
