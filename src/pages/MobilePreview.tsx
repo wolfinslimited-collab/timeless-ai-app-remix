@@ -15,7 +15,7 @@ import { MobileApps } from "@/components/mobile/MobileApps";
 import { MobileChat } from "@/components/mobile/MobileChat";
 import { MobileLibrary } from "@/components/mobile/MobileLibrary";
 import { MobileProfile } from "@/components/mobile/MobileProfile";
-import { MobileSubscription } from "@/components/mobile/MobileSubscription";
+import { MobilePricing } from "@/components/mobile/MobilePricing";
 import { MobileDownloads } from "@/components/mobile/MobileDownloads";
 import { MobileFavorites } from "@/components/mobile/MobileFavorites";
 import { MobileUpgradeWizard } from "@/components/mobile/MobileUpgradeWizard";
@@ -142,7 +142,7 @@ export default function MobilePreview() {
       case "profile":
         return <MobileProfile onNavigate={setCurrentScreen} />;
       case "subscription":
-        return <MobileSubscription onBack={handleSubscriptionBack} />;
+        return <MobilePricing onBack={handleSubscriptionBack} />;
       case "downloads":
         return <MobileDownloads onBack={() => setCurrentScreen("profile")} />;
       case "favorites":
