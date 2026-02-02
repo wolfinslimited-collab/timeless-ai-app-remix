@@ -17,44 +17,58 @@ interface ProductMapping {
   type: "subscription" | "consumable";
 }
 
-// Legacy fallback mappings ONLY for clearing old pending transactions
-// These are kept minimal - primary source is the database
-const LEGACY_PRODUCT_MAPPINGS: Record<string, ProductMapping> = {
-  // Legacy iOS IDs (for pending transaction cleanup only)
-  "basic_weekly": { plan: "premium", credits: 0, type: "subscription" },
-  "basic_monthly": { plan: "premium", credits: 0, type: "subscription" },
-  "basic_monthly_renew": { plan: "premium", credits: 0, type: "subscription" },
-  "basic_yearly": { plan: "premium", credits: 0, type: "subscription" },
-  "timeless_premium_monthly": { plan: "premium", credits: 500, type: "subscription" },
-  "timeless_premium_yearly": { plan: "premium", credits: 5000, type: "subscription" },
-  "timeless_credits_350": { plan: "free", credits: 350, type: "consumable" },
-  "timeless_credits_700": { plan: "free", credits: 700, type: "consumable" },
-  "timeless_credits_1400": { plan: "free", credits: 1400, type: "consumable" },
+// Hardcoded fallback product mappings (used when database tables don't exist)
+// IMPORTANT: Include ALL product IDs that may exist in pending transactions
+const FALLBACK_PRODUCT_MAPPINGS: Record<string, ProductMapping> = {
+  // === CURRENT iOS Product IDs (from App Store Connect) ===
+  "com.timeless.premium.monthly": { plan: "premium", credits: 0, type: "subscription" },
+  "com.timeless.premium.yearly": { plan: "premium", credits: 0, type: "subscription" },
+  credits_1500_ios: { plan: "free", credits: 1500, type: "consumable" },
+
+  // === LEGACY iOS Product IDs (for pending transactions cleanup) ===
+  basic_weekly: { plan: "premium", credits: 0, type: "subscription" },
+  basic_monthly: { plan: "premium", credits: 0, type: "subscription" },
+  basic_monthly_renew: { plan: "premium", credits: 0, type: "subscription" },
+  basic_yearly: { plan: "premium", credits: 0, type: "subscription" },
+  timeless_premium_monthly: { plan: "premium", credits: 500, type: "subscription" },
+  timeless_premium_yearly: { plan: "premium", credits: 5000, type: "subscription" },
+  timeless_premium_plus_monthly: { plan: "premium_plus", credits: 1000, type: "subscription" },
+  timeless_premium_plus_yearly: { plan: "premium_plus", credits: 7500, type: "subscription" },
+  timeless_credits_350: { plan: "free", credits: 350, type: "consumable" },
+  timeless_credits_700: { plan: "free", credits: 700, type: "consumable" },
+  timeless_credits_1400: { plan: "free", credits: 1400, type: "consumable" },
+
+  // === Android Product IDs ===
+  "timeless.premium.monthly": { plan: "premium", credits: 500, type: "subscription" },
+  "timeless.premium.yearly": { plan: "premium", credits: 5000, type: "subscription" },
+  "timeless.premium_plus.monthly": { plan: "premium_plus", credits: 1000, type: "subscription" },
+  "timeless.premium_plus.yearly": { plan: "premium_plus", credits: 7500, type: "subscription" },
+  "timeless.credits.350": { plan: "free", credits: 350, type: "consumable" },
+  "timeless.credits.700": { plan: "free", credits: 700, type: "consumable" },
+  "timeless.credits.1400": { plan: "free", credits: 1400, type: "consumable" },
+  credits_1500_android: { plan: "free", credits: 1500, type: "consumable" },
 };
 
-// Fetch product mappings from database based on platform
-// iOS uses apple_product_id, Android uses android_product_id
+// Fetch product mappings dynamically from database, ALWAYS including fallback mappings
 async function getProductMappings(supabase: any, platform: "ios" | "android"): Promise<Record<string, ProductMapping>> {
-  // Start with legacy mappings for backwards compatibility
-  const mappings: Record<string, ProductMapping> = { ...LEGACY_PRODUCT_MAPPINGS };
-  
-  // Determine which column to use based on platform
+  // ALWAYS start with fallback mappings to ensure legacy product IDs are recognized
+  const mappings: Record<string, ProductMapping> = { ...FALLBACK_PRODUCT_MAPPINGS };
   const productIdColumn = platform === "ios" ? "apple_product_id" : "android_product_id";
-  logStep("Fetching product mappings", { platform, column: productIdColumn });
 
   try {
-    // Fetch subscription plans from database
+    // Try to fetch subscription plans from database (will override fallback if found)
     const { data: plans, error: plansError } = await supabase
       .from("subscription_plans")
       .select(`id, name, credits, ${productIdColumn}`)
       .eq("is_active", true);
 
     if (plansError) {
-      logStep("Error fetching subscription_plans", { error: plansError.message });
+      logStep("Error fetching subscription plans (using fallback only)", { error: plansError.message });
+      // Continue with fallback mappings, don't return early
     } else if (plans && plans.length > 0) {
       for (const plan of plans) {
         const productId = plan[productIdColumn];
-        if (productId && productId.trim() !== "") {
+        if (productId) {
           const planName = plan.name.toLowerCase().includes("plus")
             ? "premium_plus"
             : plan.name.toLowerCase().includes("premium")
@@ -65,46 +79,42 @@ async function getProductMappings(supabase: any, platform: "ios" | "android"): P
             credits: plan.credits || 0,
             type: "subscription",
           };
-          logStep("Added subscription mapping", { productId, plan: planName, credits: plan.credits });
         }
       }
-      logStep("Subscription plans loaded", { count: plans.length, platform });
-    } else {
-      logStep("No subscription plans found in database");
+      logStep("Subscription plans loaded from database", { count: plans.length });
     }
 
-    // Fetch credit packages from database
+    // Try to fetch credit packages from database (will override fallback if found)
     const { data: packages, error: packagesError } = await supabase
       .from("credit_packages")
       .select(`id, name, credits, ${productIdColumn}`)
       .eq("is_active", true);
 
     if (packagesError) {
-      logStep("Error fetching credit_packages", { error: packagesError.message });
+      logStep("Error fetching credit packages (using fallback only)", { error: packagesError.message });
+      // Continue with fallback mappings, don't return early
     } else if (packages && packages.length > 0) {
       for (const pkg of packages) {
         const productId = pkg[productIdColumn];
-        if (productId && productId.trim() !== "") {
+        if (productId) {
           mappings[productId] = {
             plan: "free",
             credits: pkg.credits || 0,
             type: "consumable",
           };
-          logStep("Added credit package mapping", { productId, credits: pkg.credits });
         }
       }
-      logStep("Credit packages loaded", { count: packages.length, platform });
-    } else {
-      logStep("No credit packages found in database");
+      logStep("Credit packages loaded from database", { count: packages.length });
     }
 
     logStep("Product mappings ready", {
       platform,
-      totalMappings: Object.keys(mappings).length,
-      mappingKeys: Object.keys(mappings),
+      totalCount: Object.keys(mappings).length,
+      hasFallback: true,
     });
   } catch (error) {
-    logStep("Error loading product mappings", { error: String(error) });
+    logStep("Error loading product mappings (using fallback only)", { error: String(error) });
+    // mappings already contains fallback, so just continue
   }
 
   return mappings;
