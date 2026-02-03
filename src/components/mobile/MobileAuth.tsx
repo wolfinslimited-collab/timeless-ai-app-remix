@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Mail, Lock, Loader2, Eye, EyeOff, ArrowLeft, User, Gift } from "lucide-react";
+import { Mail, Lock, Loader2, Eye, EyeOff, ArrowLeft, User, Gift, Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
@@ -8,13 +8,13 @@ import { CountryPickerField } from "./CountryPicker";
 import logo from "@/assets/logo.png";
 
 interface MobileAuthProps {
-  onSuccess: () => void;
+  onSuccess: (hasActiveSubscription: boolean) => void;
 }
 
-type AuthView = "welcome" | "signin" | "signup" | "verification" | "forgot-password" | "reset-sent";
+type AuthView = "signin" | "signup" | "verification" | "forgot-password" | "reset-sent";
 
 export function MobileAuth({ onSuccess }: MobileAuthProps) {
-  const [view, setView] = useState<AuthView>("welcome");
+  const [view, setView] = useState<AuthView>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -27,6 +27,7 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
   const [isOAuthLoading, setIsOAuthLoading] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const [resendCountdown, setResendCountdown] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const { signIn } = useAuth();
   const { toast } = useToast();
 
@@ -40,40 +41,53 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
 
   const changeView = (newView: AuthView) => {
     setIsAnimating(true);
+    setError(null);
     setTimeout(() => {
       setView(newView);
       setTimeout(() => setIsAnimating(false), 50);
     }, 200);
   };
 
+  const checkSubscriptionStatus = async (): Promise<boolean> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+      
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("subscription_status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      return profile?.subscription_status === 'active';
+    } catch (error) {
+      console.error("Error checking subscription:", error);
+      return false;
+    }
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please fill in all fields",
-      });
+      setError("Please fill in all fields");
       return;
     }
 
     setIsLoading(true);
     setLoadingText("Signing in...");
+    setError(null);
     try {
       const { error } = await signIn(email, password);
 
       if (error) {
-        toast({
-          variant: "destructive",
-          title: "Login failed",
-          description: error.message,
-        });
+        setError(error.message);
       } else {
         toast({
           title: "Welcome back!",
           description: "You're now logged in",
         });
-        onSuccess();
+        const hasSubscription = await checkSubscriptionStatus();
+        onSuccess(hasSubscription);
       }
     } finally {
       setIsLoading(false);
@@ -84,28 +98,20 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
   const handleSendVerification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password || !fullName) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please fill in all required fields",
-      });
+      setError("Please fill in all required fields");
       return;
     }
 
     if (password.length < 6) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Password must be at least 6 characters",
-      });
+      setError("Password must be at least 6 characters");
       return;
     }
 
     setIsLoading(true);
     setLoadingText("Sending verification code...");
+    setError(null);
 
     try {
-      // Call the send-verification edge function on the primary backend
       const response = await fetch(
         "https://ifesxveahsbjhmrhkhhy.supabase.co/functions/v1/send-verification",
         {
@@ -125,13 +131,11 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
 
       const data = await response.json();
 
-      // Handle non-OK responses
       if (!response.ok) {
         const errorMessage = data?.error || data?.message || "Failed to send verification code.";
         throw new Error(errorMessage);
       }
       
-      // Handle API-level errors returned in the response
       if (data?.error) {
         throw new Error(data.error);
       }
@@ -144,11 +148,7 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
       });
     } catch (error: any) {
       console.error("Sign up error:", error);
-      toast({
-        variant: "destructive",
-        title: "Sign up failed",
-        description: error.message || "Failed to send verification code. Please try again.",
-      });
+      setError(error.message || "Failed to send verification code. Please try again.");
     } finally {
       setIsLoading(false);
       setLoadingText("");
@@ -157,19 +157,15 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
 
   const handleVerifyCode = async () => {
     if (verificationCode.length !== 4) {
-      toast({
-        variant: "destructive",
-        title: "Invalid code",
-        description: "Please enter the complete 4-digit code.",
-      });
+      setError("Please enter the complete 4-digit code");
       return;
     }
 
     setIsLoading(true);
     setLoadingText("Verifying...");
+    setError(null);
 
     try {
-      // Call verify-code with direct fetch
       const response = await fetch(
         "https://ifesxveahsbjhmrhkhhy.supabase.co/functions/v1/verify-code",
         {
@@ -191,7 +187,6 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
       }
       if (data?.error) throw new Error(data.error);
 
-      // Sign in after verification
       const { error: signInError } = await signIn(email, password);
       
       if (signInError) {
@@ -207,15 +202,11 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
             ? "You were referred by a friend - make your first creation to unlock bonus credits!"
             : "Your account is ready. Start creating!",
         });
-        onSuccess();
+        onSuccess(false);
       }
     } catch (error: any) {
       setVerificationCode("");
-      toast({
-        variant: "destructive",
-        title: "Verification failed",
-        description: error.message || "The code you entered is incorrect",
-      });
+      setError(error.message || "The code you entered is incorrect");
     } finally {
       setIsLoading(false);
       setLoadingText("");
@@ -227,9 +218,9 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
 
     setIsLoading(true);
     setLoadingText("Resending code...");
+    setError(null);
 
     try {
-      // Call send-verification with direct fetch
       const response = await fetch(
         "https://ifesxveahsbjhmrhkhhy.supabase.co/functions/v1/send-verification",
         {
@@ -261,11 +252,7 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
         description: "Please check your email for the new verification code.",
       });
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Failed to resend",
-        description: error.message || "Please try again in a moment.",
-      });
+      setError(error.message || "Please try again in a moment.");
     } finally {
       setIsLoading(false);
       setLoadingText("");
@@ -275,16 +262,13 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please enter your email",
-      });
+      setError("Please enter your email");
       return;
     }
 
     setIsLoading(true);
     setLoadingText("Sending reset link...");
+    setError(null);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
@@ -292,11 +276,7 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
     setLoadingText("");
 
     if (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      });
+      setError(error.message);
     } else {
       changeView("reset-sent");
     }
@@ -329,18 +309,42 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
     }
   };
 
+  // Error display component matching Flutter
+  const renderError = () => {
+    if (!error) return null;
+    return (
+      <div className="flex items-start gap-2 p-3 mb-4 rounded-xl bg-destructive/10 border border-destructive/30">
+        <div className="flex-shrink-0 mt-0.5">
+          <svg className="w-5 h-5 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <p className="flex-1 text-sm text-destructive">{error}</p>
+        <button 
+          onClick={() => setError(null)}
+          className="flex-shrink-0 text-destructive/70 hover:text-destructive"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    );
+  };
+
+  // OAuth buttons matching Flutter style
   const renderOAuthButtons = () => (
     <div className="space-y-3">
       <button
         type="button"
         onClick={() => handleOAuthSignIn("google")}
         disabled={isOAuthLoading !== null || isLoading}
-        className="w-full flex items-center justify-center gap-3 bg-card/80 border border-border/30 rounded-xl py-3.5 text-foreground font-medium transition-all active:scale-[0.98] disabled:opacity-50"
+        className="w-full h-[52px] flex items-center justify-center gap-3 bg-card border border-border/20 rounded-xl text-foreground font-medium transition-all hover:bg-card/80 active:scale-[0.98] disabled:opacity-50"
       >
         {isOAuthLoading === "google" ? (
           <>
             <Loader2 className="h-5 w-5 animate-spin" />
-            Signing in...
+            <span>Signing in...</span>
           </>
         ) : (
           <>
@@ -350,7 +354,7 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            Continue with Google
+            <span>Continue with Google</span>
           </>
         )}
       </button>
@@ -359,219 +363,274 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
         type="button"
         onClick={() => handleOAuthSignIn("apple")}
         disabled={isOAuthLoading !== null || isLoading}
-        className="w-full flex items-center justify-center gap-3 bg-card/80 border border-border/30 rounded-xl py-3.5 text-foreground font-medium transition-all active:scale-[0.98] disabled:opacity-50"
+        className="w-full h-[52px] flex items-center justify-center gap-3 bg-card border border-border/20 rounded-xl text-foreground font-medium transition-all hover:bg-card/80 active:scale-[0.98] disabled:opacity-50"
       >
         {isOAuthLoading === "apple" ? (
           <>
             <Loader2 className="h-5 w-5 animate-spin" />
-            Signing in...
+            <span>Signing in...</span>
           </>
         ) : (
           <>
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
             </svg>
-            Continue with Apple
+            <span>Continue with Apple</span>
           </>
         )}
       </button>
     </div>
   );
 
+  // Divider matching Flutter
   const renderDivider = () => (
-    <div className="relative my-5">
-      <div className="absolute inset-0 flex items-center">
-        <div className="w-full border-t border-border/30" />
-      </div>
-      <div className="relative flex justify-center text-xs uppercase">
-        <span className="bg-background px-3 text-muted-foreground">Or continue with email</span>
-      </div>
+    <div className="flex items-center gap-4 my-6">
+      <div className="flex-1 h-px bg-muted-foreground/30" />
+      <span className="text-xs text-muted-foreground/70">Or continue with email</span>
+      <div className="flex-1 h-px bg-muted-foreground/30" />
     </div>
   );
 
+  // Input field styling matching Flutter
+  const inputClassName = "w-full h-12 bg-card border border-border/20 rounded-xl px-4 pl-12 text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary transition-all disabled:opacity-50";
+
   const renderSignIn = () => (
-    <form onSubmit={handleSignIn} className="space-y-4">
-      <div className="relative">
-        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
-          disabled={isLoading}
-          className="w-full bg-card/80 border border-border/30 rounded-xl px-12 py-3 text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all disabled:opacity-50"
-        />
+    <div className="flex flex-col min-h-full">
+      {/* Logo & Title - Matching Flutter */}
+      <div className="text-center pt-8 pb-6">
+        <div className="inline-flex items-center justify-center p-4 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 mb-6">
+          <img src={logo} alt="Timeless" className="h-16 w-16 object-contain" />
+        </div>
+        <h1 className="text-[32px] font-bold text-foreground">Welcome Back</h1>
+        <p className="text-base text-muted-foreground mt-2">Sign in to continue creating</p>
       </div>
 
-      <div className="relative">
-        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-        <input
-          type={showPassword ? "text" : "password"}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
-          disabled={isLoading}
-          className="w-full bg-card/80 border border-border/30 rounded-xl px-12 py-3 text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all disabled:opacity-50"
-        />
+      {/* OAuth Buttons */}
+      {renderOAuthButtons()}
+      
+      {/* Divider */}
+      {renderDivider()}
+
+      {/* Error */}
+      {renderError()}
+
+      {/* Form */}
+      <form onSubmit={handleSignIn} className="space-y-4">
+        {/* Email */}
+        <div className="relative">
+          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email"
+            disabled={isLoading}
+            className={inputClassName}
+          />
+        </div>
+
+        {/* Password */}
+        <div className="relative">
+          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <input
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            disabled={isLoading}
+            className={inputClassName}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+          >
+            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+          </button>
+        </div>
+
+        {/* Forgot password */}
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => changeView("forgot-password")}
+            className="text-sm text-primary font-medium"
+          >
+            Forgot password?
+          </button>
+        </div>
+
+        {/* Sign In Button - Gradient with shadow like Flutter */}
         <button
-          type="button"
-          onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+          type="submit"
+          disabled={isLoading}
+          className="w-full h-14 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98] shadow-lg shadow-primary/30"
         >
-          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+          {isLoading ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              {loadingText}
+            </>
+          ) : "Sign In"}
         </button>
-      </div>
 
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => changeView("forgot-password")}
-          className="text-sm text-primary"
-        >
-          Forgot password?
-        </button>
-      </div>
-
-      <button
-        type="submit"
-        disabled={isLoading}
-        className="w-full bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]"
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="w-5 h-5 animate-spin" />
-            {loadingText}
-          </>
-        ) : "Sign In"}
-      </button>
-
-      <button
-        type="button"
-        onClick={() => changeView("welcome")}
-        className="w-full flex items-center justify-center gap-2 text-muted-foreground py-2"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </button>
-
-      <p className="text-center text-sm text-muted-foreground">
-        Don't have an account?{" "}
-        <button type="button" onClick={() => changeView("signup")} className="text-primary font-medium">
-          Sign up
-        </button>
-      </p>
-    </form>
+        {/* Sign up link */}
+        <div className="text-center pt-4">
+          <span className="text-muted-foreground">Don't have an account? </span>
+          <button 
+            type="button" 
+            onClick={() => changeView("signup")} 
+            className="text-primary font-semibold"
+          >
+            Sign Up
+          </button>
+        </div>
+      </form>
+    </div>
   );
 
   const renderSignUp = () => (
-    <form onSubmit={handleSendVerification} className="space-y-3">
-      {/* Full Name */}
-      <div className="relative">
-        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-        <input
-          type="text"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          placeholder="Full Name"
-          disabled={isLoading}
-          className="w-full bg-card/80 border border-border/30 rounded-xl px-12 py-3 text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all disabled:opacity-50"
-        />
+    <div className="flex flex-col min-h-full">
+      {/* Logo & Title - Matching Flutter Signup */}
+      <div className="text-center pt-4 pb-4">
+        <div className="inline-flex items-center justify-center p-4 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 mb-4">
+          <Sparkles className="h-12 w-12 text-primary" />
+        </div>
+        <h1 className="text-[32px] font-bold text-foreground">Create Account</h1>
+        <p className="text-base text-muted-foreground mt-2">Start creating with AI</p>
       </div>
 
-      {/* Email */}
-      <div className="relative">
-        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
-          disabled={isLoading}
-          className="w-full bg-card/80 border border-border/30 rounded-xl px-12 py-3 text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all disabled:opacity-50"
-        />
-      </div>
+      {/* Referral Banner */}
+      {referralCode && (
+        <div className="flex items-center gap-2 p-3 mb-4 rounded-xl bg-primary/10 border border-primary/30">
+          <Gift className="w-5 h-5 text-primary flex-shrink-0" />
+          <span className="text-sm text-primary">You were invited! Sign up to get bonus credits</span>
+        </div>
+      )}
 
-      {/* Password */}
-      <div className="relative">
-        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-        <input
-          type={showPassword ? "text" : "password"}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
+      {/* OAuth Buttons */}
+      {renderOAuthButtons()}
+      
+      {/* Divider */}
+      {renderDivider()}
+
+      {/* Error */}
+      {renderError()}
+
+      {/* Form */}
+      <form onSubmit={handleSendVerification} className="space-y-4">
+        {/* Full Name */}
+        <div className="relative">
+          <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <input
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="Full Name"
+            disabled={isLoading}
+            className={inputClassName}
+          />
+        </div>
+
+        {/* Email */}
+        <div className="relative">
+          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email"
+            disabled={isLoading}
+            className={inputClassName}
+          />
+        </div>
+
+        {/* Password */}
+        <div className="relative">
+          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <input
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            disabled={isLoading}
+            className={inputClassName}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+          >
+            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+          </button>
+        </div>
+
+        {/* Country */}
+        <CountryPickerField
+          value={country}
+          onChange={setCountry}
           disabled={isLoading}
-          className="w-full bg-card/80 border border-border/30 rounded-xl px-12 py-3 text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all disabled:opacity-50"
         />
+
+        {/* Referral Code */}
+        <div className="relative">
+          <Gift className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <input
+            type="text"
+            value={referralCode}
+            onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+            placeholder="Referral Code (optional)"
+            disabled={isLoading}
+            className={inputClassName}
+          />
+        </div>
+
+        {/* Create Account Button */}
         <button
-          type="button"
-          onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
-        >
-          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-        </button>
-      </div>
-
-      {/* Country */}
-      <CountryPickerField
-        value={country}
-        onChange={setCountry}
-        disabled={isLoading}
-      />
-
-      {/* Referral Code */}
-      <div className="relative">
-        <Gift className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-        <input
-          type="text"
-          value={referralCode}
-          onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-          placeholder="Referral Code (optional)"
+          type="submit"
           disabled={isLoading}
-          className="w-full bg-card/80 border border-border/30 rounded-xl px-12 py-3 text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all disabled:opacity-50"
-        />
-      </div>
-
-      <p className="text-xs text-center text-muted-foreground">
-        By signing up, you agree to our Terms of Service and Privacy Policy.
-      </p>
-
-      <button
-        type="submit"
-        disabled={isLoading}
-        className="w-full bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]"
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="w-5 h-5 animate-spin" />
-            {loadingText}
-          </>
-        ) : "Create Account"}
-      </button>
-
-      <p className="text-center text-sm text-muted-foreground">
-        Already have an account?{" "}
-        <button type="button" onClick={() => changeView("signin")} className="text-primary font-medium">
-          Sign in
+          className="w-full h-14 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98] shadow-lg shadow-primary/30"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              {loadingText}
+            </>
+          ) : "Create Account"}
         </button>
-      </p>
-    </form>
+
+        {/* Sign in link */}
+        <div className="text-center pt-2">
+          <span className="text-muted-foreground">Already have an account? </span>
+          <button 
+            type="button" 
+            onClick={() => changeView("signin")} 
+            className="text-primary font-semibold"
+          >
+            Sign In
+          </button>
+        </div>
+      </form>
+    </div>
   );
 
   const renderVerification = () => (
-    <div className="space-y-5">
-      <div className="text-center">
-        <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-          <Mail className="h-8 w-8 text-primary" />
+    <div className="flex flex-col min-h-full pt-8">
+      {/* Icon */}
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center justify-center p-5 rounded-full bg-primary/10 mb-6">
+          <Mail className="h-12 w-12 text-primary" />
         </div>
-        <h2 className="text-lg font-semibold text-foreground">Verify Your Email</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          We sent a 4-digit code to<br />
-          <span className="text-foreground font-medium">{email}</span>
-        </p>
+        <h1 className="text-[28px] font-bold text-foreground">Verify Your Email</h1>
+        <p className="text-base text-muted-foreground mt-3">We sent a 4-digit code to</p>
+        <p className="text-base font-semibold text-foreground mt-1">{email}</p>
       </div>
 
-      {/* OTP Input */}
-      <div className="flex justify-center gap-3">
+      {/* Error */}
+      {renderError()}
+
+      {/* OTP Input - matching Flutter style */}
+      <div className="flex justify-center gap-3 mb-6">
         {[0, 1, 2, 3].map((index) => (
           <input
             key={index}
@@ -584,7 +643,6 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
                 const newCode = verificationCode.split("");
                 newCode[index] = value;
                 setVerificationCode(newCode.join(""));
-                // Focus next input
                 const nextInput = document.getElementById(`otp-${index + 1}`);
                 if (nextInput) nextInput.focus();
               }
@@ -597,16 +655,16 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
             }}
             id={`otp-${index}`}
             disabled={isLoading}
-            className="w-14 h-16 text-center text-2xl font-bold bg-card/80 border border-border/30 rounded-xl text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all disabled:opacity-50"
+            className="w-14 h-16 text-center text-2xl font-bold bg-card border border-border/20 rounded-xl text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all disabled:opacity-50"
           />
         ))}
       </div>
 
       {/* Resend */}
-      <div className="text-center text-sm text-muted-foreground">
-        Didn't receive the code?{" "}
+      <div className="text-center text-sm text-muted-foreground mb-6">
+        <span>Didn't receive the code? </span>
         {resendCountdown > 0 ? (
-          <span>Resend in {resendCountdown}s</span>
+          <span className="text-muted-foreground">Resend in {resendCountdown}s</span>
         ) : (
           <button
             type="button"
@@ -619,11 +677,14 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
         )}
       </div>
 
+      <div className="flex-1" />
+
+      {/* Verify Button */}
       <button
         type="button"
         onClick={handleVerifyCode}
         disabled={isLoading || verificationCode.length !== 4}
-        className="w-full bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]"
+        className="w-full h-14 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98] shadow-lg shadow-primary/30"
       >
         {isLoading ? (
           <>
@@ -633,131 +694,104 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
         ) : "Verify & Create Account"}
       </button>
 
+      {/* Back button */}
       <button
         type="button"
         onClick={() => {
           changeView("signup");
           setVerificationCode("");
         }}
-        className="w-full flex items-center justify-center gap-2 text-muted-foreground py-2"
+        className="w-full flex items-center justify-center gap-2 text-muted-foreground py-4 mt-3"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to Sign Up
+        <span>Back to Sign Up</span>
       </button>
     </div>
   );
 
   const renderForgotPassword = () => (
-    <form onSubmit={handleForgotPassword} className="space-y-4">
-      <div className="text-center mb-4">
-        <h2 className="text-lg font-semibold text-foreground">Reset Password</h2>
-        <p className="text-sm text-muted-foreground">Enter your email to receive a reset link</p>
+    <div className="flex flex-col min-h-full pt-8">
+      {/* Icon */}
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center justify-center p-5 rounded-full bg-primary/10 mb-6">
+          <Lock className="h-12 w-12 text-primary" />
+        </div>
+        <h1 className="text-[28px] font-bold text-foreground">Reset Password</h1>
+        <p className="text-base text-muted-foreground mt-3">Enter your email to receive a reset link</p>
       </div>
 
-      <div className="relative">
-        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
+      {/* Error */}
+      {renderError()}
+
+      <form onSubmit={handleForgotPassword} className="space-y-4">
+        <div className="relative">
+          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email"
+            disabled={isLoading}
+            className={inputClassName}
+          />
+        </div>
+
+        <button
+          type="submit"
           disabled={isLoading}
-          className="w-full bg-card/80 border border-border/30 rounded-xl px-12 py-3 text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all disabled:opacity-50"
-        />
-      </div>
+          className="w-full h-14 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98] shadow-lg shadow-primary/30"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              {loadingText}
+            </>
+          ) : "Send Reset Link"}
+        </button>
 
-      <button
-        type="submit"
-        disabled={isLoading}
-        className="w-full bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]"
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="w-5 h-5 animate-spin" />
-            {loadingText}
-          </>
-        ) : "Send Reset Link"}
-      </button>
-
-      <button
-        type="button"
-        onClick={() => changeView("signin")}
-        className="w-full flex items-center justify-center gap-2 text-muted-foreground py-2"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to Sign In
-      </button>
-    </form>
-  );
-
-  const renderResetSent = () => (
-    <div className="text-center space-y-4">
-      <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-        <Mail className="h-8 w-8 text-primary" />
-      </div>
-      <div>
-        <h2 className="text-lg font-semibold text-foreground">Check Your Email</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          We've sent a reset link to<br />
-          <span className="text-foreground font-medium">{email}</span>
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => changeView("signin")}
-        className="w-full bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold py-3 rounded-xl transition-all active:scale-[0.98]"
-      >
-        Back to Sign In
-      </button>
+        <button
+          type="button"
+          onClick={() => changeView("signin")}
+          className="w-full flex items-center justify-center gap-2 text-muted-foreground py-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Sign In</span>
+        </button>
+      </form>
     </div>
   );
 
-  const renderWelcome = () => (
-    <div className="space-y-4">
-      {renderOAuthButtons()}
-      
-      <div className="relative my-5">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border/30" />
+  const renderResetSent = () => (
+    <div className="flex flex-col min-h-full pt-8">
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center justify-center p-5 rounded-full bg-primary/10 mb-6">
+          <Mail className="h-12 w-12 text-primary" />
         </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-3 text-muted-foreground">Or</span>
-        </div>
+        <h1 className="text-[28px] font-bold text-foreground">Check Your Email</h1>
+        <p className="text-base text-muted-foreground mt-3">
+          We've sent a reset link to
+        </p>
+        <p className="text-base font-semibold text-foreground mt-1">{email}</p>
       </div>
-      
+
+      <div className="flex-1" />
+
       <button
         type="button"
         onClick={() => changeView("signin")}
-        className="w-full flex items-center justify-center gap-3 bg-card/80 border border-border/30 rounded-xl py-3.5 text-foreground font-medium transition-all active:scale-[0.98]"
+        className="w-full h-14 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-semibold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-primary/30"
       >
-        <Mail className="h-5 w-5 text-muted-foreground" />
-        Continue with Email
+        Back to Sign In
       </button>
-      
-      <p className="text-center text-sm text-muted-foreground pt-4">
-        Don't have an account?{" "}
-        <button type="button" onClick={() => changeView("signup")} className="text-primary font-medium">
-          Sign up
-        </button>
-      </p>
     </div>
   );
 
   const renderContent = () => {
     switch (view) {
-      case "welcome":
-        return renderWelcome();
       case "signin":
         return renderSignIn();
       case "signup":
-        return (
-          <>
-            {renderOAuthButtons()}
-            {renderDivider()}
-            {renderSignUp()}
-          </>
-        );
+        return renderSignUp();
       case "verification":
         return renderVerification();
       case "forgot-password":
@@ -767,40 +801,11 @@ export function MobileAuth({ onSuccess }: MobileAuthProps) {
     }
   };
 
-  const getTitle = () => {
-    switch (view) {
-      case "welcome":
-        return "Welcome";
-      case "signin":
-        return "Sign in with email";
-      case "signup":
-        return "Create your account";
-      case "verification":
-        return "";
-      default:
-        return "";
-    }
-  };
-
   return (
-    <div className="h-full flex flex-col px-6 py-4 overflow-y-auto">
-      {/* Header */}
+    <div className="h-full flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
+      {/* Content with animation */}
       <div className={cn(
-        "text-center mb-4 transition-all duration-300",
-        isAnimating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
-      )}>
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 mb-2">
-          <img src={logo} alt="Timeless" className="h-9 w-9 object-contain" />
-        </div>
-        <h1 className="text-lg font-bold text-foreground">Timeless AI</h1>
-        {getTitle() && (
-          <p className="text-muted-foreground text-sm mt-0.5">{getTitle()}</p>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className={cn(
-        "flex-1 transition-all duration-300",
+        "flex-1 px-6 pb-6 overflow-y-auto transition-all duration-300",
         isAnimating ? "opacity-0 scale-95" : "opacity-100 scale-100"
       )}>
         {renderContent()}

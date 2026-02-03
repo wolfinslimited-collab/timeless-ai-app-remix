@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Image, Video, Music, Clapperboard, ChevronRight, Zap, Infinity, Bell, Play } from "lucide-react";
+import { Image, Video, Music, Clapperboard, ChevronRight, Zap, Infinity, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -72,18 +72,9 @@ interface MobileHomeProps {
   onRefreshCredits?: () => void;
 }
 
-interface Generation {
-  id: string;
-  type: string;
-  output_url: string | null;
-  thumbnail_url: string | null;
-  prompt: string;
-}
-
 export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHomeProps) {
   const { user } = useAuth();
   const { hasActiveSubscription } = useCredits();
-  const [recentGenerations, setRecentGenerations] = useState<Generation[]>([]);
   const [featuredItems, setFeaturedItems] = useState<FeaturedItem[]>([]);
   const [loadingFeatured, setLoadingFeatured] = useState(true);
   const [showUpgradeWizard, setShowUpgradeWizard] = useState(false);
@@ -102,12 +93,10 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
     setShowUpgradeWizard(false);
     onNavigate("subscription");
   };
+
   useEffect(() => {
-    if (user) {
-      fetchRecentGenerations();
-    }
     fetchFeaturedItems();
-  }, [user]);
+  }, []);
 
   const fetchFeaturedItems = async () => {
     try {
@@ -150,26 +139,9 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
     }
   };
 
-  const fetchRecentGenerations = async () => {
-    const { data } = await supabase
-      .from("generations")
-      .select("id, type, output_url, thumbnail_url, prompt")
-      .eq("user_id", user?.id)
-      .eq("status", "completed")
-      .order("created_at", { ascending: false })
-      .limit(4);
-
-    if (data) {
-      setRecentGenerations(data);
-    }
-  };
-
   const handleRefresh = useCallback(async () => {
     setLoadingFeatured(true);
-    await Promise.all([
-      fetchRecentGenerations(),
-      fetchFeaturedItems(),
-    ]);
+    await fetchFeaturedItems();
     onRefreshCredits?.();
   }, [onRefreshCredits]);
 
@@ -320,6 +292,35 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
           )}
         </div>
 
+        {/* Trending Visual Styles Banner - matching Flutter exactly */}
+        <button 
+          onClick={() => onNavigate("visual-styles")}
+          className="w-full mb-6 p-4 rounded-2xl"
+          style={{
+            background: 'linear-gradient(135deg, rgba(219, 39, 119, 0.85), rgba(147, 51, 234, 0.85))'
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/>
+              </svg>
+            </div>
+            <div className="flex-1 text-left">
+              <div className="flex items-center gap-2">
+                <span className="text-white font-bold text-base">Trending</span>
+                <span className="px-1.5 py-0.5 bg-white/20 rounded text-white text-[10px] font-bold">
+                  HOT
+                </span>
+              </div>
+              <p className="text-white/70 text-xs mt-0.5">
+                Visual Styles · Ultra-realistic fashion & portrait visuals
+              </p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-white/70 flex-shrink-0" />
+          </div>
+        </button>
+
         {/* Apps Section - matching Flutter exactly */}
         <div className="mb-6">
           <h2 className="text-foreground text-base font-semibold mb-3">Apps</h2>
@@ -342,71 +343,6 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
                 </span>
               </button>
             ))}
-          </div>
-        </div>
-
-        {/* Recent Creations - matching Flutter */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-foreground text-base font-semibold">Recent Creations</h2>
-            <button 
-              onClick={() => onNavigate("library")}
-              className="text-primary text-xs"
-            >
-              See all
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {recentGenerations.length > 0 ? (
-              recentGenerations.map((gen) => (
-                <div 
-                  key={gen.id}
-                  className="aspect-square rounded-xl bg-gradient-to-br from-violet-500/30 to-blue-500/30 overflow-hidden relative"
-                >
-                  {gen.output_url || gen.thumbnail_url ? (
-                    <>
-                      {gen.type === "video" ? (
-                        <video 
-                          src={gen.output_url || undefined}
-                          poster={gen.thumbnail_url || undefined}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <img 
-                          src={gen.output_url || gen.thumbnail_url || ""}
-                          alt={gen.prompt}
-                          className="w-full h-full object-cover"
-                        />
-                      )}
-                      {gen.type === "video" && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Play className="w-8 h-8 text-white/70" />
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      {gen.type === "video" ? (
-                        <Play className="w-8 h-8 text-muted-foreground" />
-                      ) : (
-                        <Image className="w-8 h-8 text-muted-foreground" />
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))
-            ) : (
-              <>
-                <div className="aspect-square rounded-xl bg-card border border-dashed border-border flex flex-col items-center justify-center">
-                  <Image className="w-8 h-8 text-muted-foreground mb-2" />
-                  <span className="text-muted-foreground text-xs">No images yet</span>
-                </div>
-                <div className="aspect-square rounded-xl bg-card border border-dashed border-border flex flex-col items-center justify-center">
-                  <Video className="w-8 h-8 text-muted-foreground mb-2" />
-                  <span className="text-muted-foreground text-xs">No videos yet</span>
-                </div>
-              </>
-            )}
           </div>
         </div>
       </div>

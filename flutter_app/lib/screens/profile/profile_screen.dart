@@ -303,11 +303,24 @@ class ProfileScreen extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () async {
-                  final router = GoRouter.of(context);
+                  // Capture references before dismissing the bottom sheet
+                  final navigator = Navigator.of(context);
                   final auth = context.read<AuthProvider>();
-                  Navigator.pop(context);
-                  await auth.signOut();
-                  router.go('/login');
+                  
+                  // Dismiss the bottom sheet first
+                  navigator.pop();
+                  
+                  // Then sign out
+                  try {
+                    await auth.signOut();
+                  } catch (e) {
+                    debugPrint('Sign out error: $e');
+                  }
+                  
+                  // Navigate to login - use the root navigator context
+                  if (context.mounted) {
+                    GoRouter.of(context).go('/login');
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red[400],

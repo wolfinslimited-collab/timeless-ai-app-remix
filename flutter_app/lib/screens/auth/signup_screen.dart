@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
@@ -394,11 +394,11 @@ class _SignupScreenState extends State<SignupScreen>
                           if (value.length == 1 && index < 3) {
                             FocusScope.of(context).nextFocus();
                           }
-                          // Build the full OTP
-                          String otp = '';
+                          // Build the full OTP (used for validation)
+                          final otpValue = StringBuffer();
                           for (int i = 0; i < 4; i++) {
                             if (i < _otpController.text.length) {
-                              otp += _otpController.text[i];
+                              otpValue.write(_otpController.text[i]);
                             }
                           }
                           // Update with single digit
