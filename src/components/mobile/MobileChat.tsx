@@ -375,12 +375,12 @@ export function MobileChat() {
                   className={cn(
                     "rounded-2xl px-4 py-2.5 max-w-[80%]",
                     message.role === "user"
-                      ? "bg-primary rounded-tr-sm"
+                      ? "bg-muted rounded-tr-sm"
                       : "bg-secondary rounded-tl-sm"
                   )}
                 >
                   {message.role === "user" ? (
-                    <p className="text-sm whitespace-pre-wrap text-primary-foreground">
+                    <p className="text-sm whitespace-pre-wrap text-foreground">
                       {message.content}
                     </p>
                   ) : (

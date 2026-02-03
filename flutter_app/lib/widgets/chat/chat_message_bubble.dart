@@ -55,7 +55,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: widget.isUser ? AppTheme.primary : AppTheme.secondary.withOpacity(0.5),
+                    color: widget.isUser ? AppTheme.muted : AppTheme.secondary.withOpacity(0.5),
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(widget.isUser ? 16 : 4),
                       topRight: Radius.circular(widget.isUser ? 4 : 16),
