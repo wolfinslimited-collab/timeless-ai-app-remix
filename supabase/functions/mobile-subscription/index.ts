@@ -368,7 +368,39 @@ async function verifyGoogleReceipt(
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
       });
 
-      const purchaseData = await verifyResponse.json();
+      // Check content type before parsing - Google may return HTML error pages
+      const contentType = verifyResponse.headers.get("content-type") || "";
+      const responseText = await verifyResponse.text();
+      
+      logStep("Google Products API raw response", { 
+        status: verifyResponse.status,
+        contentType,
+        responsePreview: responseText.substring(0, 200)
+      });
+
+      // Handle non-JSON responses (HTML error pages)
+      if (!contentType.includes("application/json")) {
+        logStep("Google Products API returned non-JSON response", {
+          status: verifyResponse.status,
+          contentType
+        });
+        return { 
+          isValid: false, 
+          error: `Google API error (HTTP ${verifyResponse.status}): Expected JSON but got ${contentType}. Product ID may not exist in Play Console or app not published.` 
+        };
+      }
+
+      let purchaseData;
+      try {
+        purchaseData = JSON.parse(responseText);
+      } catch (parseError) {
+        logStep("Failed to parse Google Products API response", { 
+          error: String(parseError),
+          responsePreview: responseText.substring(0, 200)
+        });
+        return { isValid: false, error: `Failed to parse Google response: ${String(parseError)}` };
+      }
+
       logStep("Google Products API response", { 
         status: verifyResponse.status,
         purchaseState: purchaseData.purchaseState,
