@@ -272,9 +272,28 @@ async function verifyGoogleReceipt(
       body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
     });
 
-    const tokenData = await tokenResponse.json();
-    logStep("Token response received", { 
+    // Check content type before parsing
+    const tokenContentType = tokenResponse.headers.get("content-type") || "";
+    const tokenResponseText = await tokenResponse.text();
+    
+    logStep("Token response raw", { 
       status: tokenResponse.status, 
+      contentType: tokenContentType,
+      responsePreview: tokenResponseText.substring(0, 200)
+    });
+
+    if (!tokenContentType.includes("application/json")) {
+      return { isValid: false, error: `OAuth token error: Expected JSON but got ${tokenContentType}` };
+    }
+
+    let tokenData;
+    try {
+      tokenData = JSON.parse(tokenResponseText);
+    } catch (parseError) {
+      return { isValid: false, error: `Failed to parse OAuth response: ${String(parseError)}` };
+    }
+
+    logStep("Token data parsed", { 
       has_access_token: !!tokenData.access_token,
       error: tokenData.error,
       error_description: tokenData.error_description
