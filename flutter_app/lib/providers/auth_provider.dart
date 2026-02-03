@@ -199,15 +199,18 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Sign in with Apple
-  /// Uses native Sign In with Apple on iOS, web-based OAuth on Android
+  /// Uses sign_in_with_apple package on both iOS (native) and Android (web-based)
+  /// Both platforms route through mobile-auth edge function for token verification
   Future<bool> signInWithApple() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      if (Platform.isIOS && _nativeAuthService.isNativeAppleAvailable) {
-        // iOS: Use native Sign In with Apple
+      if (_nativeAuthService.isNativeAppleAvailable) {
+        // iOS: Native Apple Sign-In
+        // Android: Web-based Apple Sign-In via sign_in_with_apple package
+        // Both send ID token to mobile-auth edge function
         final response = await _nativeAuthService.signInWithAppleNative();
         if (response?.user != null) {
           _user = response!.user;
@@ -215,14 +218,15 @@ class AuthProvider extends ChangeNotifier {
           _trackOAuthSignIn(response.user!, 'apple');
           return true;
         }
-        return false;
-      } else {
-        // Android/Other: Use web-based OAuth
-        final success =
-            await _nativeAuthService.signInWithOAuthWeb(OAuthProvider.apple);
         _isLoading = false;
         notifyListeners();
-        return success;
+        return false;
+      } else {
+        // Fallback for unsupported platforms
+        _error = 'Apple Sign-In is not supported on this platform';
+        _isLoading = false;
+        notifyListeners();
+        return false;
       }
     } catch (e) {
       _error = _parseAuthError(e);
