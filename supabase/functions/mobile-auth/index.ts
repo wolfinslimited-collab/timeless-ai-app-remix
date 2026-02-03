@@ -216,35 +216,57 @@ async function handleProviderAuth(
 
   logStep("Looking up user", { provider, sub, email });
 
-  // Find existing user by provider identity or email
-  const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-
-  if (listError) {
-    throw new Error(`Failed to list users: ${listError.message}`);
-  }
-
-  // Find user with matching provider identity
-  // deno-lint-ignore no-explicit-any
-  let existingUser = existingUsers.users.find(
-    (user: any) =>
-      // deno-lint-ignore no-explicit-any
-      user.identities?.some((identity: any) => identity.provider === provider && identity.id === sub) ||
-      // Also match by app_metadata provider_id
-      (user.app_metadata?.provider === provider && user.user_metadata?.provider_id === sub),
-  );
-
-  // Check by email if no identity match
-  if (!existingUser && email) {
-    // deno-lint-ignore no-explicit-any
-    existingUser = existingUsers.users.find((user: any) => user.email?.toLowerCase() === email.toLowerCase());
-  }
-
   let userId: string;
   let userEmail: string | undefined;
   let isNewUser = false;
+  // deno-lint-ignore no-explicit-any
+  let existingUser: any = null;
+
+  // First, try to find user by email directly (most reliable for OAuth)
+  if (email) {
+    logStep("Searching for user by email", { email });
+    
+    // Use listUsers with pagination to find by email
+    const { data: usersByEmail, error: emailError } = await supabaseAdmin.auth.admin.listUsers({
+      perPage: 1000,
+    });
+    
+    if (!emailError && usersByEmail?.users) {
+      // deno-lint-ignore no-explicit-any
+      existingUser = usersByEmail.users.find((user: any) => 
+        user.email?.toLowerCase() === email.toLowerCase()
+      );
+      
+      if (existingUser) {
+        logStep("Found user by email", { userId: existingUser.id, email: existingUser.email });
+      }
+    }
+  }
+
+  // If not found by email, try provider identity match
+  if (!existingUser) {
+    const { data: allUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+      perPage: 1000,
+    });
+
+    if (!listError && allUsers?.users) {
+      // deno-lint-ignore no-explicit-any
+      existingUser = allUsers.users.find((user: any) =>
+        // Match by provider identity
+        // deno-lint-ignore no-explicit-any
+        user.identities?.some((identity: any) => identity.provider === provider && identity.id === sub) ||
+        // Match by app_metadata provider_id
+        (user.app_metadata?.provider === provider && user.user_metadata?.provider_id === sub)
+      );
+      
+      if (existingUser) {
+        logStep("Found user by provider identity", { userId: existingUser.id });
+      }
+    }
+  }
 
   if (existingUser) {
-    logStep("Found existing user", { userId: existingUser.id });
+    logStep("Using existing user", { userId: existingUser.id, email: existingUser.email });
     userId = existingUser.id;
     userEmail = existingUser.email;
 
@@ -259,11 +281,13 @@ async function handleProviderAuth(
       });
     }
   } else {
-    // Create new user
-    logStep("Creating new user", { email, provider });
+    // Create new user - but first double-check email doesn't exist to avoid race conditions
+    logStep("No existing user found, creating new user", { email, provider });
+
+    const createEmail = email || `${provider}_${sub.substring(0, 20)}@placeholder.local`;
 
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email: email || `${provider}_${sub.substring(0, 20)}@placeholder.local`,
+      email: createEmail,
       email_confirm: true,
       user_metadata: {
         full_name: displayName,
@@ -278,13 +302,32 @@ async function handleProviderAuth(
     });
 
     if (createError) {
-      throw new Error(`Failed to create user: ${createError.message}`);
+      // If user already exists error, try to find and use that user
+      if (createError.message?.includes('already been registered') || createError.message?.includes('already exists')) {
+        logStep("User creation failed - email already exists, fetching existing user", { email: createEmail });
+        
+        // Fetch all users and find by email
+        const { data: retryUsers } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+        // deno-lint-ignore no-explicit-any
+        const foundUser = retryUsers?.users?.find((u: any) => u.email?.toLowerCase() === createEmail.toLowerCase());
+        
+        if (foundUser) {
+          logStep("Found existing user on retry", { userId: foundUser.id });
+          userId = foundUser.id;
+          userEmail = foundUser.email;
+          isNewUser = false;
+        } else {
+          throw new Error(`Failed to create or find user: ${createError.message}`);
+        }
+      } else {
+        throw new Error(`Failed to create user: ${createError.message}`);
+      }
+    } else {
+      userId = newUser.user.id;
+      userEmail = newUser.user.email;
+      isNewUser = true;
+      logStep("Created new user", { userId });
     }
-
-    userId = newUser.user.id;
-    userEmail = newUser.user.email;
-    isNewUser = true;
-    logStep("Created new user", { userId });
   }
 
   // Generate session using temporary password approach
