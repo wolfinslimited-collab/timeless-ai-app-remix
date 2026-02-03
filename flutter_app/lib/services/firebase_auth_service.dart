@@ -31,14 +31,19 @@ class FirebaseAuthService {
   static const String _iosClientId =
       '1012149210327-63jr6shcfn9pefhn1dmstgm58nqedr0i.apps.googleusercontent.com';
 
+  // Web Client ID from Firebase Console - required for Android to get ID token
+  static const String _webClientId =
+      '1012149210327-7dg02kf3k08bu0ksp41rhsntl5lpl4no.apps.googleusercontent.com';
+
   Future<AuthResponse?> signInWithGoogle() async {
     try {
       debugPrint('Starting Firebase Google Sign-In...');
 
       // Trigger the Google Sign-In flow
-      // iOS requires the iOS Client ID to be specified
+      // iOS requires the iOS Client ID, Android requires serverClientId to get ID token
       final GoogleSignIn googleSignIn = GoogleSignIn(
         clientId: Platform.isIOS ? _iosClientId : null,
+        serverClientId: Platform.isAndroid ? _webClientId : null,
         scopes: ['email', 'profile'],
       );
 
