@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { RotateCcw, ThumbsUp, ThumbsDown, Copy, MoreHorizontal, Check } from "lucide-react";
+import { RotateCcw, ThumbsUp, ThumbsDown, Copy, MoreHorizontal, Check, Share2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface MessageActionsProps {
@@ -17,6 +24,27 @@ export function MessageActions({ content, onRetry, onLike, onDislike }: MessageA
     await navigator.clipboard.writeText(content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "AI Response",
+          text: content,
+        });
+      } catch (error) {
+        // User cancelled or share failed - fallback to copy
+        if ((error as Error).name !== 'AbortError') {
+          await navigator.clipboard.writeText(content);
+          toast.success("Copied to clipboard");
+        }
+      }
+    } else {
+      // Fallback for browsers without Web Share API
+      await navigator.clipboard.writeText(content);
+      toast.success("Copied to clipboard");
+    }
   };
 
   const handleLike = () => {
@@ -92,12 +120,22 @@ export function MessageActions({ content, onRetry, onLike, onDislike }: MessageA
       </button>
 
       {/* More options */}
-      <button
-        className="p-1.5 rounded-md hover:bg-background/60 transition-colors group"
-        title="More options"
-      >
-        <MoreHorizontal className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="p-1.5 rounded-md hover:bg-background/60 transition-colors group"
+            title="More options"
+          >
+            <MoreHorizontal className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-[140px]">
+          <DropdownMenuItem onClick={handleShare} className="gap-2 cursor-pointer">
+            <Share2 className="w-4 h-4" />
+            Share
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
