@@ -51,124 +51,70 @@ const FALLBACK_PRODUCT_MAPPINGS: Record<string, ProductMapping> = {
 
 // Fetch product mappings dynamically from database, ALWAYS including fallback mappings
 async function getProductMappings(supabase: any, platform: "ios" | "android"): Promise<Record<string, ProductMapping>> {
-  logStep("=== getProductMappings START ===", { platform });
-  
   // ALWAYS start with fallback mappings to ensure legacy product IDs are recognized
   const mappings: Record<string, ProductMapping> = { ...FALLBACK_PRODUCT_MAPPINGS };
   const productIdColumn = platform === "ios" ? "apple_product_id" : "android_product_id";
-  
-  logStep("Using product ID column", { productIdColumn, fallbackMappingsCount: Object.keys(FALLBACK_PRODUCT_MAPPINGS).length });
 
   try {
     // Try to fetch subscription plans from database (will override fallback if found)
-    logStep("Fetching subscription_plans from database...");
     const { data: plans, error: plansError } = await supabase
       .from("subscription_plans")
       .select(`id, name, credits, ${productIdColumn}`)
       .eq("is_active", true);
 
     if (plansError) {
-      logStep("ERROR: Failed to fetch subscription_plans", { 
-        errorMessage: plansError.message, 
-        errorCode: plansError.code,
-        errorDetails: plansError.details,
-        errorHint: plansError.hint
-      });
-    } else {
-      logStep("subscription_plans query result", { 
-        rowCount: plans?.length || 0, 
-        rawData: JSON.stringify(plans)
-      });
-      
-      if (plans && plans.length > 0) {
-        for (const plan of plans) {
-          const productId = plan[productIdColumn];
-          logStep("Processing plan row", { 
-            planId: plan.id, 
-            planName: plan.name, 
-            credits: plan.credits,
-            productIdColumnValue: productId,
-            hasProductId: !!productId
-          });
-          
-          if (productId) {
-            const planName = plan.name.toLowerCase().includes("plus")
-              ? "premium_plus"
-              : plan.name.toLowerCase().includes("premium")
-                ? "premium"
-                : "free";
-            mappings[productId] = {
-              plan: planName,
-              credits: plan.credits || 0,
-              type: "subscription",
-            };
-            logStep("Added/updated subscription mapping", { productId, planName, credits: plan.credits || 0 });
-          } else {
-            logStep("SKIPPED plan - no product ID for platform", { planId: plan.id, planName: plan.name, platform });
-          }
+      logStep("Error fetching subscription plans (using fallback only)", { error: plansError.message });
+      // Continue with fallback mappings, don't return early
+    } else if (plans && plans.length > 0) {
+      for (const plan of plans) {
+        const productId = plan[productIdColumn];
+        if (productId) {
+          const planName = plan.name.toLowerCase().includes("plus")
+            ? "premium_plus"
+            : plan.name.toLowerCase().includes("premium")
+              ? "premium"
+              : "free";
+          mappings[productId] = {
+            plan: planName,
+            credits: plan.credits || 0,
+            type: "subscription",
+          };
         }
-      } else {
-        logStep("No active subscription_plans found in database");
       }
+      logStep("Subscription plans loaded from database", { count: plans.length });
     }
 
     // Try to fetch credit packages from database (will override fallback if found)
-    logStep("Fetching credit_packages from database...");
     const { data: packages, error: packagesError } = await supabase
       .from("credit_packages")
       .select(`id, name, credits, ${productIdColumn}`)
       .eq("is_active", true);
 
     if (packagesError) {
-      logStep("ERROR: Failed to fetch credit_packages", { 
-        errorMessage: packagesError.message, 
-        errorCode: packagesError.code,
-        errorDetails: packagesError.details,
-        errorHint: packagesError.hint
-      });
-    } else {
-      logStep("credit_packages query result", { 
-        rowCount: packages?.length || 0, 
-        rawData: JSON.stringify(packages)
-      });
-      
-      if (packages && packages.length > 0) {
-        for (const pkg of packages) {
-          const productId = pkg[productIdColumn];
-          logStep("Processing package row", { 
-            pkgId: pkg.id, 
-            pkgName: pkg.name, 
-            credits: pkg.credits,
-            productIdColumnValue: productId,
-            hasProductId: !!productId
-          });
-          
-          if (productId) {
-            mappings[productId] = {
-              plan: "free",
-              credits: pkg.credits || 0,
-              type: "consumable",
-            };
-            logStep("Added/updated consumable mapping", { productId, credits: pkg.credits || 0 });
-          } else {
-            logStep("SKIPPED package - no product ID for platform", { pkgId: pkg.id, pkgName: pkg.name, platform });
-          }
+      logStep("Error fetching credit packages (using fallback only)", { error: packagesError.message });
+      // Continue with fallback mappings, don't return early
+    } else if (packages && packages.length > 0) {
+      for (const pkg of packages) {
+        const productId = pkg[productIdColumn];
+        if (productId) {
+          mappings[productId] = {
+            plan: "free",
+            credits: pkg.credits || 0,
+            type: "consumable",
+          };
         }
-      } else {
-        logStep("No active credit_packages found in database");
       }
+      logStep("Credit packages loaded from database", { count: packages.length });
     }
 
-    logStep("=== getProductMappings COMPLETE ===", {
+    logStep("Product mappings ready", {
       platform,
-      totalMappings: Object.keys(mappings).length,
-      allMappingKeys: Object.keys(mappings)
+      totalCount: Object.keys(mappings).length,
+      hasFallback: true,
     });
   } catch (error) {
-    logStep("EXCEPTION in getProductMappings", { 
-      error: String(error), 
-      stack: error instanceof Error ? error.stack : undefined 
-    });
+    logStep("Error loading product mappings (using fallback only)", { error: String(error) });
+    // mappings already contains fallback, so just continue
   }
 
   return mappings;
@@ -354,115 +300,67 @@ async function verifyGoogleReceipt(
 }
 
 serve(async (req) => {
-  logStep("========== REQUEST RECEIVED ==========");
-  logStep("Request method", { method: req.method });
-  
   if (req.method === "OPTIONS") {
-    logStep("Handling CORS preflight request");
     return new Response(null, { headers: corsHeaders });
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  
-  logStep("Environment check", { 
-    hasSupabaseUrl: !!supabaseUrl, 
-    hasServiceKey: !!supabaseServiceKey,
-    supabaseUrlPrefix: supabaseUrl?.substring(0, 30) + "..."
-  });
-  
   const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     auth: { persistSession: false },
   });
 
   try {
-    logStep("Function execution started");
+    logStep("Function started");
 
     // Authenticate user
     const authHeader = req.headers.get("Authorization");
-    logStep("Auth header check", { hasAuthHeader: !!authHeader, headerLength: authHeader?.length });
-    
     if (!authHeader) throw new Error("No authorization header provided");
 
     const token = authHeader.replace("Bearer ", "");
-    logStep("Authenticating user with token", { tokenLength: token.length, tokenPrefix: token.substring(0, 20) + "..." });
-    
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    
-    if (userError) {
-      logStep("AUTH ERROR", { message: userError.message, status: userError.status });
-      throw new Error(`Authentication error: ${userError.message}`);
-    }
-    
+    if (userError) throw new Error(`Authentication error: ${userError.message}`);
     const user = userData.user;
     if (!user) throw new Error("User not authenticated");
-    
-    logStep("User authenticated successfully", { userId: user.id, email: user.email });
+    logStep("User authenticated", { userId: user.id });
 
     const body = await req.json();
-    logStep("Request body parsed", { 
-      action: body.action, 
-      platform: body.platform, 
-      productId: body.productId,
-      hasReceiptData: !!body.receiptData,
-      receiptDataLength: body.receiptData?.length,
-      hasPurchaseToken: !!body.purchaseToken,
-      packageName: body.packageName
-    });
-    
     const { action, platform, receiptData, productId, purchaseToken, packageName } = body;
 
+    logStep("Request received", { action, platform, productId });
+
     if (action === "verify") {
-      logStep("=== VERIFY ACTION START ===", { platform, productId });
-      
       // Fetch product mappings dynamically based on platform
       const PRODUCT_MAPPINGS = await getProductMappings(supabase, platform as "ios" | "android");
-      
-      logStep("Product mappings loaded for verification", { 
-        requestedProductId: productId,
-        isProductIdInMappings: !!PRODUCT_MAPPINGS[productId],
-        mappingForProductId: PRODUCT_MAPPINGS[productId] ? JSON.stringify(PRODUCT_MAPPINGS[productId]) : "NOT FOUND"
-      });
 
       // Verify and process purchase
       let verificationResult;
 
       if (platform === "ios") {
-        logStep("Starting iOS Apple receipt verification", { receiptDataLength: receiptData?.length });
         verificationResult = await verifyAppleReceipt(receiptData);
-        logStep("iOS verification result", { 
-          isValid: verificationResult.isValid, 
-          productId: verificationResult.productId,
-          error: verificationResult.error 
-        });
       } else if (platform === "android") {
-        logStep("Starting Android Google Play verification", { packageName, productId, hasPurchaseToken: !!purchaseToken });
-        
         if (!packageName || !purchaseToken) {
-          logStep("ERROR: Missing Android verification params", { hasPackageName: !!packageName, hasPurchaseToken: !!purchaseToken });
           throw new Error("Missing packageName or purchaseToken for Android verification");
         }
-        
         const productMapping = PRODUCT_MAPPINGS[productId];
         const isSubscription = productMapping?.type === "subscription";
-        
-        logStep("Android product type determined", { 
-          productId, 
-          foundMapping: !!productMapping, 
+
+        logStep("Android product type determined", {
+          productId,
+          foundMapping: !!productMapping,
           isSubscription,
-          mappingDetails: productMapping ? JSON.stringify(productMapping) : "NOT FOUND"
+          mappingDetails: productMapping ? JSON.stringify(productMapping) : "NOT FOUND",
         });
-        
+
         verificationResult = await verifyGoogleReceipt(packageName, productId, purchaseToken, isSubscription);
         verificationResult.productId = productId;
-        
-        logStep("Android verification result", { 
-          isValid: verificationResult.isValid, 
+
+        logStep("Android verification result", {
+          isValid: verificationResult.isValid,
           transactionId: verificationResult.transactionId,
-          error: verificationResult.error 
+          error: verificationResult.error,
         });
       } else {
-        logStep("ERROR: Invalid platform", { platform });
         throw new Error("Invalid platform. Use 'ios' or 'android'");
       }
 
@@ -482,37 +380,21 @@ serve(async (req) => {
 
       // Product ID from the receipt (Apple may return legacy IDs e.g. basic_weekly)
       let verifiedProductId = verificationResult.productId;
-      logStep("Looking up product mapping", { 
-        verifiedProductId, 
-        requestProductId: productId,
-        platform 
-      });
-      
       let productMapping = PRODUCT_MAPPINGS[verifiedProductId || ""];
-      logStep("Initial product mapping lookup", { 
-        verifiedProductId, 
-        found: !!productMapping,
-        mapping: productMapping ? JSON.stringify(productMapping) : "NOT FOUND"
-      });
 
       // iOS: Apple's receipt can contain legacy product IDs. If the receipt is valid but
       // the receipt's product_id is not in our mappings, use the productId from the request.
       if (!productMapping && platform === "ios" && productId && PRODUCT_MAPPINGS[productId]) {
-        logStep("Falling back to request productId (receipt had legacy/different ID)", {
+        logStep("Using request productId (receipt had legacy ID)", {
           receiptProductId: verifiedProductId,
           requestProductId: productId,
-          requestProductMapping: JSON.stringify(PRODUCT_MAPPINGS[productId])
         });
         productMapping = PRODUCT_MAPPINGS[productId];
         verifiedProductId = productId;
       }
 
       if (!productMapping) {
-        logStep("ERROR: Unknown product ID - no mapping found", { 
-          verifiedProductId,
-          requestProductId: productId,
-          availableMappingKeys: Object.keys(PRODUCT_MAPPINGS)
-        });
+        logStep("Unknown product ID", { productId: verifiedProductId });
         return new Response(
           JSON.stringify({
             success: false,
@@ -524,13 +406,6 @@ serve(async (req) => {
           },
         );
       }
-      
-      logStep("Product mapping found", { 
-        verifiedProductId, 
-        plan: productMapping.plan, 
-        credits: productMapping.credits, 
-        type: productMapping.type 
-      });
 
       // Get current profile
       const { data: profile, error: profileError } = await supabase
