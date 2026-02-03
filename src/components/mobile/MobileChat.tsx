@@ -408,75 +408,70 @@ export function MobileChat() {
         )}
       </div>
 
-      {/* Input Area - Matching Flutter */}
-      <div className="p-3 border-t border-border bg-card">
-        <div className="flex items-end gap-2">
-          {/* Image Button (Vision Models) */}
-          {supportsVision && (
-            <button className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-              <ImageIcon className="w-4 h-4 text-muted-foreground" />
-            </button>
-          )}
-          
-          {/* Web Search Toggle */}
-          <button 
-            onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-            className={cn(
-              "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 border transition-all",
-              webSearchEnabled 
-                ? "bg-primary/20 border-primary" 
-                : "bg-secondary border-transparent"
+      {/* Input Area - Compact redesign */}
+      <div className="px-3 py-2.5 border-t border-border bg-card">
+        <div className="flex items-center gap-1.5 bg-secondary rounded-full px-1.5 py-1 border border-border/40">
+          {/* Left action buttons - inline and compact */}
+          <div className="flex items-center gap-0.5 pl-1">
+            {supportsVision && (
+              <button className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-background/50 transition-colors">
+                <ImageIcon className="w-4 h-4 text-muted-foreground" />
+              </button>
             )}
-          >
-            <Globe className={cn(
-              "w-4 h-4",
-              webSearchEnabled ? "text-primary" : "text-muted-foreground"
-            )} />
-          </button>
-
-          {/* Voice Input Button */}
-          {voiceSupported && (
+            
             <button 
-              onClick={toggleListening}
-              disabled={isLoading}
+              onClick={() => setWebSearchEnabled(!webSearchEnabled)}
               className={cn(
-                "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 border transition-all",
-                isListening 
-                  ? "bg-red-500/20 border-red-500 animate-pulse" 
-                  : "bg-secondary border-transparent"
+                "w-7 h-7 rounded-full flex items-center justify-center transition-all",
+                webSearchEnabled 
+                  ? "bg-primary/20 text-primary" 
+                  : "hover:bg-background/50 text-muted-foreground"
               )}
             >
-              {isListening ? (
-                <MicOff className="w-4 h-4 text-red-500" />
-              ) : (
-                <Mic className="w-4 h-4 text-muted-foreground" />
-              )}
+              <Globe className="w-4 h-4" />
             </button>
-          )}
 
-          {/* Text Input */}
-          <div className="flex-1 bg-secondary rounded-2xl">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-              placeholder={isListening 
-                ? "Listening..." 
-                : webSearchEnabled 
-                  ? `Search the web...` 
-                  : `Write something creative...`}
-              className="w-full px-4 py-2.5 bg-transparent text-foreground text-sm placeholder:text-muted-foreground outline-none"
-              disabled={isLoading}
-            />
+            {voiceSupported && (
+              <button 
+                onClick={toggleListening}
+                disabled={isLoading}
+                className={cn(
+                  "w-7 h-7 rounded-full flex items-center justify-center transition-all",
+                  isListening 
+                    ? "bg-red-500/20 text-red-500 animate-pulse" 
+                    : "hover:bg-background/50 text-muted-foreground"
+                )}
+              >
+                {isListening ? (
+                  <MicOff className="w-4 h-4" />
+                ) : (
+                  <Mic className="w-4 h-4" />
+                )}
+              </button>
+            )}
           </div>
 
-          {/* Send Button */}
+          {/* Text Input - takes most space */}
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+            placeholder={isListening 
+              ? "Listening..." 
+              : webSearchEnabled 
+                ? "Search the web..." 
+                : "Message..."}
+            className="flex-1 min-w-0 px-2 py-1.5 bg-transparent text-foreground text-sm placeholder:text-muted-foreground outline-none"
+            disabled={isLoading}
+          />
+
+          {/* Send Button - compact */}
           <button 
             onClick={handleSend}
             disabled={isLoading || !input.trim()}
             className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all",
+              "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all mr-0.5",
               isLoading || !input.trim() ? "bg-muted" : "bg-primary"
             )}
           >
@@ -488,16 +483,23 @@ export function MobileChat() {
           </button>
         </div>
         
-        {/* Footer Info */}
-        <div className="flex items-center justify-center gap-1 mt-2">
+        {/* Footer indicators */}
+        <div className="flex items-center justify-center gap-1.5 mt-1.5 pb-1">
           {webSearchEnabled && (
             <>
               <Globe className="w-2.5 h-2.5 text-primary" />
-              <span className="text-[10px] text-primary">Web search enabled</span>
-              <span className="text-[10px] text-muted-foreground mx-1">•</span>
+              <span className="text-[9px] text-primary">Web</span>
+              <span className="text-[9px] text-muted-foreground/50">•</span>
             </>
           )}
-          <span className="text-[10px] text-muted-foreground/70">AI can make mistakes</span>
+          {isListening && (
+            <>
+              <Mic className="w-2.5 h-2.5 text-red-500 animate-pulse" />
+              <span className="text-[9px] text-red-500">Listening</span>
+              <span className="text-[9px] text-muted-foreground/50">•</span>
+            </>
+          )}
+          <span className="text-[9px] text-muted-foreground/50">AI can make mistakes</span>
         </div>
       </div>
 

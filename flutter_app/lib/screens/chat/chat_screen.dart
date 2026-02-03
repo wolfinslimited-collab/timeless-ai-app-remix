@@ -572,9 +572,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
 
-            // Input Area — single compact bar
+            // Input Area — compact redesigned bar
             Container(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               decoration: BoxDecoration(
                 color: AppTheme.card,
                 border: Border(
@@ -585,12 +585,13 @@ class _ChatScreenState extends State<ChatScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // One-row input bar: [image?] [web] [text field] [send]
+                    // Unified input bar with inline actions
                     Container(
-                      constraints: const BoxConstraints(minHeight: 48),
+                      constraints: const BoxConstraints(minHeight: 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                       decoration: BoxDecoration(
                         color: AppTheme.secondary,
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(22),
                         border: Border.all(
                           color: AppTheme.border.withOpacity(0.4),
                           width: 1,
@@ -599,144 +600,95 @@ class _ChatScreenState extends State<ChatScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // Left actions — Phosphor icons, web search shows selected state
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (_supportsVision)
-                                  _InputActionButton(
-                                    onTap: _isUploadingImage
-                                        ? null
-                                        : _showImageOptions,
-                                    icon: _isUploadingImage
-                                        ? null
-                                        : PhosphorIconsRegular.imageSquare,
-                                    loading: _isUploadingImage,
-                                    size: 24,
-                                  ),
-                                SizedBox(width: _supportsVision ? 4 : 0),
-                                GestureDetector(
-                                  onTap: () => setState(() =>
-                                      _webSearchEnabled = !_webSearchEnabled),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    width: 28,
-                                    height: 28,
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                      color: _webSearchEnabled
-                                          ? AppTheme.primary.withOpacity(0.15)
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    child: PhosphorIcon(
-                                      _webSearchEnabled
-                                          ? PhosphorIconsFill.globe
-                                          : PhosphorIconsRegular.globe,
-                                      size: 18,
-                                      color: _webSearchEnabled
-                                          ? AppTheme.primary
-                                          : AppTheme.mutedForeground,
-                                    ),
-                                  ),
+                          // Left actions — compact inline icons
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_supportsVision)
+                                _CompactActionButton(
+                                  onTap: _isUploadingImage ? null : _showImageOptions,
+                                  icon: PhosphorIconsRegular.imageSquare,
+                                  isActive: false,
+                                  isLoading: _isUploadingImage,
                                 ),
-                                // Voice input button
-                                if (_voiceAvailable) ...[
-                                  const SizedBox(width: 4),
-                                  GestureDetector(
-                                    onTap: _isLoading ? null : _toggleVoiceInput,
-                                    child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 200),
-                                      width: 28,
-                                      height: 28,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color: _isListening
-                                            ? Colors.red.withOpacity(0.15)
-                                            : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      child: PhosphorIcon(
-                                        _isListening
-                                            ? PhosphorIconsFill.microphoneSlash
-                                            : PhosphorIconsRegular.microphone,
-                                        size: 18,
-                                        color: _isListening
-                                            ? Colors.red
-                                            : AppTheme.mutedForeground,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          // Text field
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: TextField(
-                                controller: _messageController,
-                                minLines: 1,
-                                maxLines: 4,
-                                textInputAction: TextInputAction.send,
-                                onSubmitted: (_) => _sendMessage(),
-                                decoration: InputDecoration(
-                                  hintText: _isListening
-                                      ? 'Listening...'
-                                      : _webSearchEnabled
-                                          ? 'Search the web...'
-                                          : 'Message',
-                                  hintStyle: TextStyle(
-                                    color: _isListening
-                                        ? Colors.red.withOpacity(0.7)
-                                        : AppTheme.muted,
-                                    fontSize: 15,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                ),
-                                style: const TextStyle(fontSize: 15),
+                              _CompactActionButton(
+                                onTap: () => setState(() =>
+                                    _webSearchEnabled = !_webSearchEnabled),
+                                icon: _webSearchEnabled
+                                    ? PhosphorIconsFill.globe
+                                    : PhosphorIconsRegular.globe,
+                                isActive: _webSearchEnabled,
                               ),
+                              if (_voiceAvailable)
+                                _CompactActionButton(
+                                  onTap: _isLoading ? null : _toggleVoiceInput,
+                                  icon: _isListening
+                                      ? PhosphorIconsFill.microphoneSlash
+                                      : PhosphorIconsRegular.microphone,
+                                  isActive: _isListening,
+                                  activeColor: Colors.red,
+                                ),
+                            ],
+                          ),
+                          // Text field - takes remaining space
+                          Expanded(
+                            child: TextField(
+                              controller: _messageController,
+                              minLines: 1,
+                              maxLines: 3,
+                              textInputAction: TextInputAction.send,
+                              onSubmitted: (_) => _sendMessage(),
+                              decoration: InputDecoration(
+                                hintText: _isListening
+                                    ? 'Listening...'
+                                    : _webSearchEnabled
+                                        ? 'Search the web...'
+                                        : 'Message...',
+                                hintStyle: TextStyle(
+                                  color: _isListening
+                                      ? Colors.red.withOpacity(0.7)
+                                      : AppTheme.muted,
+                                  fontSize: 14,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 6,
+                                ),
+                                border: InputBorder.none,
+                                isDense: true,
+                              ),
+                              style: const TextStyle(fontSize: 14),
                             ),
                           ),
-                          // Send — primary color only for send
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4, right: 6),
-                            child: GestureDetector(
-                              onTap: _isLoading ? null : _sendMessage,
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                width: 36,
-                                height: 36,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: _isLoading
-                                      ? AppTheme.muted
-                                      : AppTheme.primary,
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                                child: _isLoading
-                                    ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : PhosphorIcon(
-                                        PhosphorIconsFill.paperPlaneTilt,
-                                        size: 18,
+                          // Send button — compact
+                          GestureDetector(
+                            onTap: _isLoading ? null : _sendMessage,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 32,
+                              height: 32,
+                              margin: const EdgeInsets.only(left: 4),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: _isLoading
+                                    ? AppTheme.muted
+                                    : AppTheme.primary,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
                                         color: Colors.white,
                                       ),
-                              ),
+                                    )
+                                  : PhosphorIcon(
+                                      PhosphorIconsFill.paperPlaneTilt,
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
                             ),
                           ),
                         ],
@@ -837,45 +789,51 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-/// Compact icon button for the chat input bar (uses Phosphor icons).
-class _InputActionButton extends StatelessWidget {
-  const _InputActionButton({
+/// Compact action button for chat input bar
+class _CompactActionButton extends StatelessWidget {
+  const _CompactActionButton({
     required this.onTap,
     required this.icon,
-    required this.loading,
-    this.size = 28,
+    this.isActive = false,
+    this.isLoading = false,
+    this.activeColor,
   });
 
   final VoidCallback? onTap;
-  final IconData? icon;
-  final bool loading;
-  final double size;
+  final IconData icon;
+  final bool isActive;
+  final bool isLoading;
+  final Color? activeColor;
 
   @override
   Widget build(BuildContext context) {
+    final color = isActive ? (activeColor ?? AppTheme.primary) : AppTheme.mutedForeground;
+    
     return GestureDetector(
       onTap: onTap,
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: loading
-            ? Center(
-                child: SizedBox(
-                  width: size * 0.5,
-                  height: size * 0.5,
-                  child: const CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppTheme.mutedForeground,
-                  ),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 28,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isActive ? color.withOpacity(0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: isLoading
+            ? SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTheme.mutedForeground,
                 ),
               )
-            : icon != null
-                ? PhosphorIcon(
-                    icon!,
-                    size: size * 0.6,
-                    color: AppTheme.mutedForeground,
-                  )
-                : const SizedBox.shrink(),
+            : PhosphorIcon(
+                icon,
+                size: 16,
+                color: color,
+              ),
       ),
     );
   }
