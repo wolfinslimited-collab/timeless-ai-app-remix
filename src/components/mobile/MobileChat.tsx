@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { 
   Menu, Plus, ChevronDown, Send, Loader2, Globe, ImageIcon, 
-  Sparkles, X
+  Sparkles, X, Mic, MicOff
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { useConversations, type ChatMessage } from "@/hooks/useConversations";
 import { useToast } from "@/hooks/use-toast";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { TIMELESS_SUPABASE_URL, TIMELESS_ANON_KEY } from "@/lib/supabase";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -61,6 +62,20 @@ export function MobileChat() {
   const { user } = useAuth();
   const { credits, hasActiveSubscription } = useCredits();
   const { toast } = useToast();
+  
+  // Voice input hook
+  const { isListening, isSupported: voiceSupported, toggleListening } = useVoiceInput({
+    onTranscript: (text) => {
+      setInput(prev => prev + (prev ? " " : "") + text);
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Voice Error",
+        description: error,
+      });
+    },
+  });
   
   const {
     conversations,
@@ -419,6 +434,26 @@ export function MobileChat() {
             )} />
           </button>
 
+          {/* Voice Input Button */}
+          {voiceSupported && (
+            <button 
+              onClick={toggleListening}
+              disabled={isLoading}
+              className={cn(
+                "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 border transition-all",
+                isListening 
+                  ? "bg-red-500/20 border-red-500 animate-pulse" 
+                  : "bg-secondary border-transparent"
+              )}
+            >
+              {isListening ? (
+                <MicOff className="w-4 h-4 text-red-500" />
+              ) : (
+                <Mic className="w-4 h-4 text-muted-foreground" />
+              )}
+            </button>
+          )}
+
           {/* Text Input */}
           <div className="flex-1 bg-secondary rounded-2xl">
             <input
@@ -426,9 +461,11 @@ export function MobileChat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-              placeholder={webSearchEnabled 
-                ? `Search the web...` 
-                : `Write something creative...`}
+              placeholder={isListening 
+                ? "Listening..." 
+                : webSearchEnabled 
+                  ? `Search the web...` 
+                  : `Write something creative...`}
               className="w-full px-4 py-2.5 bg-transparent text-foreground text-sm placeholder:text-muted-foreground outline-none"
               disabled={isLoading}
             />

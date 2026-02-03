@@ -52,6 +52,10 @@ dependencies:
   share_plus: ^12.0.1
   crypto: ^3.0.3
 
+  # Voice Input
+  speech_to_text: ^7.0.0
+  permission_handler: ^11.3.1
+
   # In-App Purchases
   in_app_purchase: ^3.2.0
   in_app_purchase_storekit: ^0.3.17+3
