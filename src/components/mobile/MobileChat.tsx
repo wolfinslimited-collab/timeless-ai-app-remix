@@ -53,7 +53,7 @@ export function MobileChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("grok-3");
+  const [selectedModel, setSelectedModel] = useState("gemini-3-pro");
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
