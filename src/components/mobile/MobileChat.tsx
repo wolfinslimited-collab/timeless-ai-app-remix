@@ -9,7 +9,7 @@ import { useCredits } from "@/hooks/useCredits";
 import { useConversations, type ChatMessage } from "@/hooks/useConversations";
 import { useToast } from "@/hooks/use-toast";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
-import { TIMELESS_SUPABASE_URL, TIMELESS_ANON_KEY } from "@/lib/supabase";
+import { TIMELESS_SUPABASE_URL, TIMELESS_ANON_KEY, supabase } from "@/lib/supabase";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import ModelLogo from "@/components/ModelLogo";
@@ -185,11 +185,15 @@ export function MobileChat() {
       // Save user message to database
       await saveMessage(convId, "user", userInput);
 
+      // Get user session token for credit deduction
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
       const response = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${TIMELESS_ANON_KEY}`,
+          Authorization: `Bearer ${accessToken || TIMELESS_ANON_KEY}`,
         },
         body: JSON.stringify({
           messages: [...messages, userMessage],
