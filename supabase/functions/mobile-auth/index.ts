@@ -21,7 +21,8 @@ const VALID_APPLE_AUDIENCES = [
 // Valid audience values for Google tokens (OAuth Client IDs)
 const VALID_GOOGLE_AUDIENCES = [
   "1012149210327-63j4hf0g83bqlad026c29q574hqdf1ka.apps.googleusercontent.com", // iOS Client ID
-  "1012149210327-7dg02kf3k08bu0ksp41rhsntl5lpl4no.apps.googleusercontent.com", // Web Client ID (Firebase/Android)
+  "1012149210327-7dgq6ib94d4btrvi1tntm5jhmj4l69cb.apps.googleusercontent.com", // Web Client ID
+  "1012149210327-7dg02kf3k08bu0ksp41rhsntl5lpl4no.apps.googleusercontent.com",
 ];
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
