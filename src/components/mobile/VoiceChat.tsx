@@ -61,11 +61,58 @@ const VoiceChat = ({ isOpen, onClose, model }: VoiceChatProps) => {
   const [response, setResponse] = useState("");
   const [isMuted, setIsMuted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
   
   const recognitionRef = useRef<SpeechRecognitionInterface | null>(null);
   const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
   const conversationRef = useRef<Array<{ role: string; content: string }>>([]);
 
+  // Load and select the best available voice
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis?.getVoices() || [];
+      setAvailableVoices(voices);
+      
+      // Priority order for natural-sounding voices
+      const voicePriority = [
+        // Google voices (highest quality)
+        (v: SpeechSynthesisVoice) => v.name.includes("Google") && v.lang.startsWith("en"),
+        // Microsoft Natural voices
+        (v: SpeechSynthesisVoice) => v.name.includes("Natural") && v.lang.startsWith("en"),
+        // Apple Samantha (macOS)
+        (v: SpeechSynthesisVoice) => v.name === "Samantha",
+        // Apple enhanced voices
+        (v: SpeechSynthesisVoice) => v.name.includes("Enhanced") && v.lang.startsWith("en"),
+        // Any premium/neural voice
+        (v: SpeechSynthesisVoice) => (v.name.includes("Premium") || v.name.includes("Neural")) && v.lang.startsWith("en"),
+        // Fallback to any English voice
+        (v: SpeechSynthesisVoice) => v.lang.startsWith("en"),
+      ];
+      
+      for (const matcher of voicePriority) {
+        const voice = voices.find(matcher);
+        if (voice) {
+          setSelectedVoice(voice);
+          console.log("Selected voice:", voice.name, voice.lang);
+          break;
+        }
+      }
+    };
+
+    loadVoices();
+    
+    // Voices may load asynchronously
+    if (window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+    
+    return () => {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
+    };
+  }, []);
   // Initialize speech recognition
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -225,28 +272,55 @@ const VoiceChat = ({ isOpen, onClose, model }: VoiceChatProps) => {
 
     setVoiceState("speaking");
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.0;
+    // Clean text for more natural speech
+    const cleanedText = text
+      .replace(/```[\s\S]*?```/g, "code block") // Replace code blocks
+      .replace(/`([^`]+)`/g, "$1") // Remove inline code backticks
+      .replace(/\*\*([^*]+)\*\*/g, "$1") // Remove bold markdown
+      .replace(/\*([^*]+)\*/g, "$1") // Remove italic markdown
+      .replace(/#{1,6}\s/g, "") // Remove headers
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // Replace links with text
+      .replace(/\n{2,}/g, ". ") // Replace multiple newlines with pause
+      .replace(/\n/g, " ") // Replace single newlines with space
+      .trim();
+
+    const utterance = new SpeechSynthesisUtterance(cleanedText);
+    
+    // Optimized settings for natural speech
+    utterance.rate = 1.05; // Slightly faster for more natural cadence
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
 
-    // Try to use a natural voice
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(
-      (v) => v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Samantha")
-    );
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
+    // Use the pre-selected best voice
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
     }
 
     utterance.onend = () => {
       setVoiceState("idle");
+      // Auto-start listening after AI finishes speaking (Gemini-like flow)
+      if (!isMuted && recognitionRef.current) {
+        setTimeout(() => {
+          startListening();
+        }, 300);
+      }
     };
 
     utterance.onerror = (event) => {
       console.error("Speech synthesis error:", event);
       setVoiceState("idle");
     };
+
+    // Chrome bug workaround: speech can stop mid-sentence
+    // Keep synthesis alive by periodically resuming
+    const keepAlive = setInterval(() => {
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      } else {
+        clearInterval(keepAlive);
+      }
+    }, 10000);
 
     synthRef.current = utterance;
     window.speechSynthesis.speak(utterance);
