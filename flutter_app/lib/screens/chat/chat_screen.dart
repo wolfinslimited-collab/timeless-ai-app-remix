@@ -7,6 +7,7 @@ import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../models/conversation_model.dart';
 import '../../services/chat_service.dart';
+import '../../services/voice_input_service.dart';
 import '../../providers/credits_provider.dart';
 import '../../widgets/chat/model_selector_modal.dart';
 import '../../widgets/chat/model_logo.dart';
@@ -25,6 +26,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final ChatService _chatService = ChatService();
+  final VoiceInputService _voiceService = VoiceInputService();
   final _supabase = Supabase.instance.client;
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
@@ -39,13 +41,29 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _webSearchEnabled = false;
   List<String> _pendingImages = [];
   bool _isUploadingImage = false;
+  bool _isListening = false;
+  bool _voiceAvailable = false;
 
   bool get _supportsVision => AppConfig.supportsVision(_selectedModel);
+
+  @override
+  void initState() {
+    super.initState();
+    _initVoice();
+  }
+
+  Future<void> _initVoice() async {
+    final available = await _voiceService.isAvailable();
+    if (mounted) {
+      setState(() => _voiceAvailable = available);
+    }
+  }
 
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    _voiceService.cancelListening();
     super.dispose();
   }
 
@@ -135,6 +153,38 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _removePendingImage(int index) {
     setState(() => _pendingImages.removeAt(index));
+  }
+
+  Future<void> _toggleVoiceInput() async {
+    if (_isListening) {
+      await _voiceService.stopListening();
+      setState(() => _isListening = false);
+    } else {
+      setState(() => _isListening = true);
+      await _voiceService.startListening(
+        onResult: (text) {
+          setState(() {
+            if (_messageController.text.isNotEmpty) {
+              _messageController.text += ' $text';
+            } else {
+              _messageController.text = text;
+            }
+            _messageController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _messageController.text.length),
+            );
+            _isListening = false;
+          });
+        },
+        onPartialResult: (text) {
+          // Could show partial results in UI if needed
+        },
+        onListeningStopped: () {
+          if (mounted) {
+            setState(() => _isListening = false);
+          }
+        },
+      );
+    }
   }
 
   Future<void> _sendMessage() async {
@@ -592,6 +642,34 @@ class _ChatScreenState extends State<ChatScreen> {
                                     ),
                                   ),
                                 ),
+                                // Voice input button
+                                if (_voiceAvailable) ...[
+                                  const SizedBox(width: 4),
+                                  GestureDetector(
+                                    onTap: _isLoading ? null : _toggleVoiceInput,
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 200),
+                                      width: 28,
+                                      height: 28,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: _isListening
+                                            ? Colors.red.withOpacity(0.15)
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      child: PhosphorIcon(
+                                        _isListening
+                                            ? PhosphorIconsFill.microphoneSlash
+                                            : PhosphorIconsRegular.microphone,
+                                        size: 18,
+                                        color: _isListening
+                                            ? Colors.red
+                                            : AppTheme.mutedForeground,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -606,11 +684,17 @@ class _ChatScreenState extends State<ChatScreen> {
                                 textInputAction: TextInputAction.send,
                                 onSubmitted: (_) => _sendMessage(),
                                 decoration: InputDecoration(
-                                  hintText: _webSearchEnabled
-                                      ? 'Search the web...'
-                                      : 'Message',
-                                  hintStyle: const TextStyle(
-                                      color: AppTheme.muted, fontSize: 15),
+                                  hintText: _isListening
+                                      ? 'Listening...'
+                                      : _webSearchEnabled
+                                          ? 'Search the web...'
+                                          : 'Message',
+                                  hintStyle: TextStyle(
+                                    color: _isListening
+                                        ? Colors.red.withOpacity(0.7)
+                                        : AppTheme.muted,
+                                    fontSize: 15,
+                                  ),
                                   contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 12,
                                     vertical: 8,
