@@ -15,6 +15,7 @@ import remarkGfm from "remark-gfm";
 import ModelLogo from "@/components/ModelLogo";
 import { ChatDrawer } from "@/components/chat/ChatDrawer";
 import VoiceInputWaveform from "@/components/tools/VoiceInputWaveform";
+import { MessageActions } from "@/components/mobile/chat/MessageActions";
 
 interface Message {
   role: "user" | "assistant";
@@ -396,34 +397,52 @@ export function MobileChat() {
                     <ModelLogo modelId={selectedModel} size="sm" />
                   </div>
                 )}
-                <div
-                  className={cn(
-                    "rounded-2xl px-4 py-2.5 max-w-[80%]",
-                    message.role === "user"
-                      ? "bg-muted rounded-tr-sm"
-                      : "bg-secondary rounded-tl-sm"
-                  )}
-                >
-                  {message.role === "user" ? (
-                    <p className="text-sm whitespace-pre-wrap text-foreground">
-                      {message.content}
-                    </p>
-                  ) : (
-                    <div className="text-sm text-foreground prose prose-sm prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0">
-                      {message.content ? (
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {message.content}
-                        </ReactMarkdown>
-                      ) : (
-                        isLoading && index === messages.length - 1 ? (
-                          <div className="flex items-center gap-1">
-                            <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                            <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                            <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                          </div>
-                        ) : ""
-                      )}
-                    </div>
+                <div className="max-w-[80%]">
+                  <div
+                    className={cn(
+                      "rounded-2xl px-4 py-2.5",
+                      message.role === "user"
+                        ? "bg-muted rounded-tr-sm"
+                        : "bg-secondary rounded-tl-sm"
+                    )}
+                  >
+                    {message.role === "user" ? (
+                      <p className="text-sm whitespace-pre-wrap text-foreground">
+                        {message.content}
+                      </p>
+                    ) : (
+                      <div className="text-sm text-foreground prose prose-sm prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0">
+                        {message.content ? (
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {message.content}
+                          </ReactMarkdown>
+                        ) : (
+                          isLoading && index === messages.length - 1 ? (
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                              <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                              <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                            </div>
+                          ) : ""
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {/* Action buttons for assistant messages */}
+                  {message.role === "assistant" && message.content && !isLoading && (
+                    <MessageActions 
+                      content={message.content}
+                      onRetry={() => {
+                        // Get the previous user message to retry
+                        const userMessages = messages.slice(0, index).filter(m => m.role === "user");
+                        const lastUserMessage = userMessages[userMessages.length - 1];
+                        if (lastUserMessage) {
+                          // Remove this assistant message and resend
+                          setMessages(prev => prev.slice(0, index));
+                          setInput(lastUserMessage.content);
+                        }
+                      }}
+                    />
                   )}
                 </div>
               </div>
