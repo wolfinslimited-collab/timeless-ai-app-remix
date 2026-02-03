@@ -226,6 +226,20 @@ export function MobileChat() {
 
         buffer += decoder.decode(value, { stream: true });
 
+        // Check if response contains an error message (non-SSE format)
+        if (buffer.startsWith('{"error"')) {
+          try {
+            const errorObj = JSON.parse(buffer);
+            throw new Error(errorObj.error || "AI service error");
+          } catch (e) {
+            if (e instanceof Error && e.message !== "AI service error") {
+              // JSON parse failed, continue with SSE parsing
+            } else {
+              throw e;
+            }
+          }
+        }
+
         let newlineIndex: number;
         while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
           let line = buffer.slice(0, newlineIndex);
@@ -253,9 +267,51 @@ export function MobileChat() {
               });
             }
           } catch {
-            // Incomplete JSON, continue
+            // Incomplete JSON, put it back and wait for more data
+            buffer = line + "\n" + buffer;
+            break;
           }
         }
+      }
+
+      // Final flush - process any remaining buffer content
+      if (buffer.trim()) {
+        for (let raw of buffer.split("\n")) {
+          if (!raw) continue;
+          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+          if (raw.startsWith(":") || raw.trim() === "") continue;
+          if (!raw.startsWith("data: ")) continue;
+          const jsonStr = raw.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              assistantContent += content;
+              setMessages(prev => {
+                const newMessages = [...prev];
+                newMessages[newMessages.length - 1] = {
+                  role: "assistant",
+                  content: assistantContent,
+                };
+                return newMessages;
+              });
+            }
+          } catch { /* ignore partial leftovers */ }
+        }
+      }
+
+      // If no content was received, show a message
+      if (!assistantContent) {
+        assistantContent = "I apologize, but I couldn't generate a response. Please try again.";
+        setMessages(prev => {
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1] = {
+            role: "assistant",
+            content: assistantContent,
+          };
+          return newMessages;
+        });
       }
 
       // Save assistant message to database
