@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { 
   Menu, Plus, ChevronDown, Send, Loader2, Globe, ImageIcon, 
-  Sparkles, X, Mic, MicOff
+  Sparkles, X, Mic, MicOff, Phone
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,6 +16,7 @@ import ModelLogo from "@/components/ModelLogo";
 import { ChatDrawer } from "@/components/chat/ChatDrawer";
 import VoiceInputWaveform from "@/components/tools/VoiceInputWaveform";
 import { MessageActions } from "@/components/mobile/chat/MessageActions";
+import VoiceChat from "@/components/mobile/VoiceChat";
 
 interface Message {
   role: "user" | "assistant";
@@ -59,6 +60,7 @@ export function MobileChat() {
   const [showDrawer, setShowDrawer] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [showVoiceChat, setShowVoiceChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { user } = useAuth();
@@ -401,6 +403,15 @@ export function MobileChat() {
           </div>
         </button>
 
+        {/* Live Voice Chat Button */}
+        <button 
+          onClick={() => setShowVoiceChat(true)}
+          className="h-8 px-3 flex items-center gap-1.5 bg-green-500/10 border border-green-500/30 rounded-full"
+        >
+          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-xs font-medium text-green-500">Live</span>
+        </button>
+
         <button 
           onClick={handleNewChat}
           className="w-10 h-10 flex items-center justify-center"
@@ -408,6 +419,13 @@ export function MobileChat() {
           <Plus className="w-5 h-5 text-foreground" />
         </button>
       </div>
+
+      {/* Voice Chat Overlay */}
+      <VoiceChat
+        isOpen={showVoiceChat}
+        onClose={() => setShowVoiceChat(false)}
+        model={selectedModel}
+      />
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
