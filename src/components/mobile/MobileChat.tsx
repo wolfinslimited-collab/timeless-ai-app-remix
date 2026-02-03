@@ -64,11 +64,17 @@ export function MobileChat() {
   const { toast } = useToast();
   
   // Voice input hook
+  const [interimText, setInterimText] = useState("");
   const { isListening, isSupported: voiceSupported, toggleListening } = useVoiceInput({
     onTranscript: (text) => {
       setInput(prev => prev + (prev ? " " : "") + text);
+      setInterimText("");
+    },
+    onInterimTranscript: (text) => {
+      setInterimText(text);
     },
     onError: (error) => {
+      setInterimText("");
       toast({
         variant: "destructive",
         title: "Voice Error",
@@ -452,19 +458,30 @@ export function MobileChat() {
           </div>
 
           {/* Text Input - takes most space */}
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-            placeholder={isListening 
-              ? "Listening..." 
-              : webSearchEnabled 
-                ? "Search the web..." 
-                : "Message..."}
-            className="flex-1 min-w-0 px-2 py-1.5 bg-transparent text-foreground text-sm placeholder:text-muted-foreground outline-none"
-            disabled={isLoading}
-          />
+          <div className="flex-1 min-w-0 relative">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+              placeholder={isListening && !interimText
+                ? "Listening..." 
+                : webSearchEnabled 
+                  ? "Search the web..." 
+                  : "Message..."}
+              className="w-full px-2 py-1.5 bg-transparent text-foreground text-sm placeholder:text-muted-foreground outline-none"
+              disabled={isLoading}
+            />
+            {/* Interim transcription overlay */}
+            {isListening && interimText && (
+              <div className="absolute inset-0 flex items-center px-2 pointer-events-none">
+                <span className="text-sm text-muted-foreground/70 italic truncate">
+                  {input && <span className="text-foreground">{input} </span>}
+                  {interimText}
+                </span>
+              </div>
+            )}
+          </div>
 
           {/* Send Button - compact */}
           <button 
