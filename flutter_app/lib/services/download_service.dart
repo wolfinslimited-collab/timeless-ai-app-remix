@@ -12,7 +12,7 @@ import '../models/download_model.dart';
 /// Service for downloading and managing saved media files
 class DownloadService {
   static const String _downloadsKey = 'downloads_list';
-  static const _methodChannel = MethodChannel('com.timelessai.app/gallery');
+  static const _methodChannel = MethodChannel('com.wolfine.app/gallery');
   
   final SupabaseClient _supabase = Supabase.instance.client;
   
