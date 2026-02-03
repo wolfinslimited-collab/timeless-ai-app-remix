@@ -200,32 +200,52 @@ class NativeAuthService {
     }
   }
 
-  /// Native Apple Sign-In for iOS
+  /// Apple Sign-In using sign_in_with_apple package
+  /// 
+  /// Works on both iOS (native) and Android (web-based flow)
+  /// Both platforms send the ID token to mobile-auth edge function
   ///
   /// Requirements:
-  /// 1. Add sign_in_with_apple: ^6.1.1 to pubspec.yaml
-  /// 2. Enable Sign In with Apple capability in Xcode
-  /// 3. Configure Runner.entitlements with com.apple.developer.applesignin
-  /// 4. Configure Apple provider in Supabase Auth settings
+  /// - iOS: Enable Sign In with Apple capability in Xcode, configure Runner.entitlements
+  /// - Android: Configure redirect URI in Apple Developer Console
   Future<AuthResponse?> signInWithAppleNative() async {
-    if (!Platform.isIOS) {
-      throw UnsupportedError('Native Apple Sign-In is only supported on iOS');
-    }
-
     try {
       // Generate nonce for security
       final rawNonce = _generateNonce();
       final hashedNonce = _sha256ofString(rawNonce);
 
-      debugPrint('Starting native Apple Sign-In...');
+      debugPrint('Starting Apple Sign-In on ${Platform.isIOS ? "iOS" : "Android"}...');
 
-      final credential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-        nonce: hashedNonce,
-      );
+      AuthorizationCredentialAppleID credential;
+
+      if (Platform.isIOS) {
+        // iOS: Native Apple Sign-In
+        credential = await SignInWithApple.getAppleIDCredential(
+          scopes: [
+            AppleIDAuthorizationScopes.email,
+            AppleIDAuthorizationScopes.fullName,
+          ],
+          nonce: hashedNonce,
+        );
+      } else if (Platform.isAndroid) {
+        // Android: Web-based Apple Sign-In
+        // Requires configuring the redirect URI in Apple Developer Console
+        credential = await SignInWithApple.getAppleIDCredential(
+          scopes: [
+            AppleIDAuthorizationScopes.email,
+            AppleIDAuthorizationScopes.fullName,
+          ],
+          nonce: hashedNonce,
+          webAuthenticationOptions: WebAuthenticationOptions(
+            clientId: 'com.timelessai.app.signin', // Apple Services ID
+            redirectUri: Uri.parse(
+              'https://ifesxveahsbjhmrhkhhy.supabase.co/auth/v1/callback',
+            ),
+          ),
+        );
+      } else {
+        throw UnsupportedError('Apple Sign-In is only supported on iOS and Android');
+      }
 
       final idToken = credential.identityToken;
       if (idToken == null) {
@@ -250,7 +270,7 @@ class NativeAuthService {
         name: fullName,
       );
     } catch (e) {
-      debugPrint('Native Apple Sign-In error: $e');
+      debugPrint('Apple Sign-In error: $e');
       rethrow;
     }
   }
@@ -273,6 +293,6 @@ class NativeAuthService {
   /// Check if native Google Sign-In is available
   bool get isNativeGoogleAvailable => Platform.isAndroid;
 
-  /// Check if native Apple Sign-In is available
-  bool get isNativeAppleAvailable => Platform.isIOS;
+  /// Check if Apple Sign-In is available (now works on both iOS and Android)
+  bool get isNativeAppleAvailable => Platform.isIOS || Platform.isAndroid;
 }
