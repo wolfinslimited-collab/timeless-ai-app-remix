@@ -33,25 +33,27 @@ class PushNotificationService {
   /// Check if the service is initialized
   bool get isInitialized => _isInitialized;
 
+  /// Timeout for FCM token so we don't block when Firebase Installations is unavailable.
+  static const Duration _tokenTimeout = Duration(seconds: 10);
+
   /// Initialize the push notification service
   Future<void> initialize() async {
     if (_isInitialized) return;
 
     try {
-      // Note: Background message handler is registered in main.dart
-      // to avoid duplicate registration
-
-      // Request notification permissions
+      // Request notification permissions (quick, no network)
       await _requestPermissions();
 
-      // Initialize local notifications for foreground display
+      // Initialize local notifications for foreground display (no network)
       await _initializeLocalNotifications();
 
-      // Get FCM token
-      await _getToken();
+      // Get FCM token with timeout so we don't block when Firebase is unreachable
+      await _getTokenWithTimeout();
 
-      // Subscribe to platform-specific topics
-      await _subscribeToPlatformTopics();
+      // Subscribe to topics in background; don't block init (needs network)
+      _subscribeToPlatformTopics().then((_) {}).catchError((e) {
+        debugPrint('Error subscribing to platform topics: $e');
+      });
 
       // Listen for token refresh
       _messaging.onTokenRefresh.listen(_handleTokenRefresh);
@@ -72,7 +74,31 @@ class PushNotificationService {
       debugPrint('Push notification service initialized');
     } catch (e) {
       debugPrint('Error initializing push notifications: $e');
+      _isInitialized = true;
     }
+  }
+
+  /// Get FCM token with timeout; retry later if unavailable (e.g. offline).
+  Future<void> _getTokenWithTimeout() async {
+    try {
+      await _getToken().timeout(_tokenTimeout, onTimeout: () async {
+        debugPrint('FCM token request timed out; will retry when network is available');
+        _scheduleTokenRetry();
+        return null;
+      });
+    } catch (e) {
+      debugPrint('Error getting FCM token: $e');
+      _scheduleTokenRetry();
+    }
+  }
+
+  void _scheduleTokenRetry() {
+    Future.delayed(const Duration(seconds: 30), () async {
+      if (_fcmToken != null || !_isInitialized) return;
+      try {
+        await _getToken().timeout(const Duration(seconds: 15));
+      } catch (_) {}
+    });
   }
 
   /// Request notification permissions

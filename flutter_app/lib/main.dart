@@ -69,14 +69,21 @@ void main() async {
     ),
   );
 
-  // Initialize analytics SDKs for attribution tracking
-  await tiktokService.initialize();
-  await facebookService.initialize();
-
-  // Initialize push notifications
-  await pushNotificationService.initialize();
-
+  // Show UI immediately; don't block on analytics or push (they can hang offline)
   runApp(const TimelessAIApp());
+
+  // Initialize analytics and push in background so app reaches splash right away
+  Future(() async {
+    try {
+      await tiktokService.initialize();
+    } catch (_) {}
+    try {
+      await facebookService.initialize();
+    } catch (_) {}
+    try {
+      await pushNotificationService.initialize();
+    } catch (_) {}
+  });
 }
 
 class TimelessAIApp extends StatelessWidget {

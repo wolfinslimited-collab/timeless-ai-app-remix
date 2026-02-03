@@ -15,6 +15,9 @@ class TikTokService {
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
 
+  /// Init timeout so we don't block when TikTok config API is unreachable (e.g. offline).
+  static const Duration _initTimeout = Duration(seconds: 10);
+
   /// Initialize TikTok SDK
   /// Call this in main.dart after WidgetsFlutterBinding.ensureInitialized()
   Future<void> initialize() async {
@@ -23,22 +26,31 @@ class TikTokService {
     try {
       debugPrint('[TikTok] Initializing SDK...');
 
-      // Initialize TikTok Events SDK
       await TikTokEventsSdk.initSdk(
         androidAppId: androidAppId,
         tikTokAndroidId: androidAppId,
         iosAppId: iosAppId,
         tiktokIosId: iosAppId,
         isDebugMode: kDebugMode,
-      );
+      ).timeout(_initTimeout, onTimeout: () {
+        debugPrint('[TikTok] Init timed out (network/config may be unavailable)');
+        return Future.value();
+      });
 
       _isInitialized = true;
       debugPrint('[TikTok] SDK initialized successfully');
 
-      // Track install event automatically on first launch
-      await trackInstall();
-    } catch (e) {
+      await trackInstall().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('[TikTok] InstallApp event timed out');
+          return Future.value();
+        },
+      );
+    } on Exception catch (e) {
       debugPrint('[TikTok] Initialization error: $e');
+      // Mark initialized so app doesn't block; events may not send until config is fetched
+      _isInitialized = true;
     }
   }
 

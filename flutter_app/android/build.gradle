@@ -6,7 +6,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.9.1'
+        classpath 'com.android.tools.build:gradle:8.8.0'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -16,6 +16,16 @@ allprojects {
         google()
         mavenCentral()
         maven { url 'https://jitpack.io' }
+    }
+    // Force AndroidX versions compatible with AGP 8.8.0 (avoids AAR metadata requiring 8.9.1+)
+    configurations.all {
+        resolutionStrategy {
+            force 'androidx.core:core:1.15.0'
+            force 'androidx.core:core-ktx:1.15.0'
+            force 'androidx.activity:activity:1.9.0'
+            force 'androidx.activity:activity-ktx:1.9.0'
+            force 'androidx.browser:browser:1.8.0'
+        }
     }
 }
 

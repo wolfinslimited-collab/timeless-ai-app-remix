@@ -13,6 +13,9 @@ class FacebookService {
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
 
+  /// Init timeout so we don't block when graph.facebook.com is unreachable (e.g. offline).
+  static const Duration _initTimeout = Duration(seconds: 10);
+
   /// Initialize Facebook SDK
   /// Call this in main.dart after WidgetsFlutterBinding.ensureInitialized()
   Future<void> initialize() async {
@@ -21,19 +24,32 @@ class FacebookService {
     try {
       debugPrint('[Facebook] Initializing SDK...');
 
-      // Enable advertiser tracking (for iOS 14+ ATT)
-      await _facebookAppEvents.setAdvertiserTracking(enabled: true);
-
-      // Enable auto-logging of app events
-      await _facebookAppEvents.setAutoLogAppEventsEnabled(true);
+      await _facebookAppEvents
+          .setAdvertiserTracking(enabled: true)
+          .timeout(_initTimeout, onTimeout: () {
+        debugPrint('[Facebook] Init timed out (network may be unavailable)');
+        return Future.value();
+      });
+      await _facebookAppEvents
+          .setAutoLogAppEventsEnabled(true)
+          .timeout(_initTimeout, onTimeout: () {
+        debugPrint('[Facebook] setAutoLogAppEvents timed out');
+        return Future.value();
+      });
 
       _isInitialized = true;
       debugPrint('[Facebook] SDK initialized successfully');
 
-      // Track install/activate event automatically
-      await trackInstall();
-    } catch (e) {
+      await trackInstall().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('[Facebook] ActivateApp event timed out');
+          return Future.value();
+        },
+      );
+    } on Exception catch (e) {
       debugPrint('[Facebook] Initialization error: $e');
+      _isInitialized = true;
     }
   }
 
