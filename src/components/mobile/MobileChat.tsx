@@ -14,6 +14,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import ModelLogo from "@/components/ModelLogo";
 import { ChatDrawer } from "@/components/chat/ChatDrawer";
+import VoiceInputWaveform from "@/components/tools/VoiceInputWaveform";
 
 interface Message {
   role: "user" | "assistant";
@@ -65,9 +66,10 @@ export function MobileChat() {
   
   // Voice input hook
   const [interimText, setInterimText] = useState("");
+  const [finalizedText, setFinalizedText] = useState("");
   const { isListening, isSupported: voiceSupported, toggleListening } = useVoiceInput({
     onTranscript: (text) => {
-      setInput(prev => prev + (prev ? " " : "") + text);
+      setFinalizedText(prev => prev + (prev ? " " : "") + text);
       setInterimText("");
     },
     onInterimTranscript: (text) => {
@@ -82,6 +84,23 @@ export function MobileChat() {
       });
     },
   });
+
+  // Handle voice confirm - add finalized text to input
+  const handleVoiceConfirm = () => {
+    if (finalizedText.trim()) {
+      setInput(prev => prev + (prev ? " " : "") + finalizedText);
+    }
+    setFinalizedText("");
+    setInterimText("");
+    toggleListening();
+  };
+
+  // Handle voice cancel - discard and stop
+  const handleVoiceCancel = () => {
+    setFinalizedText("");
+    setInterimText("");
+    toggleListening();
+  };
   
   const {
     conversations,
@@ -414,111 +433,99 @@ export function MobileChat() {
         )}
       </div>
 
-      {/* Input Area - Compact redesign */}
-      <div className="px-3 py-2.5 border-t border-border bg-card">
-        <div className="flex items-center gap-1.5 bg-secondary rounded-full px-1.5 py-1 border border-border/40">
-          {/* Left action buttons - inline and compact */}
-          <div className="flex items-center gap-0.5 pl-1">
-            {supportsVision && (
-              <button className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-background/50 transition-colors">
-                <ImageIcon className="w-4 h-4 text-muted-foreground" />
-              </button>
-            )}
-            
-            <button 
-              onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-              className={cn(
-                "w-7 h-7 rounded-full flex items-center justify-center transition-all",
-                webSearchEnabled 
-                  ? "bg-primary/20 text-primary" 
-                  : "hover:bg-background/50 text-muted-foreground"
-              )}
-            >
-              <Globe className="w-4 h-4" />
-            </button>
+      {/* Voice Input Waveform - Full width overlay when listening */}
+      {isListening && (
+        <div className="px-3 py-2.5 border-t border-border bg-card">
+          <VoiceInputWaveform
+            isListening={isListening}
+            transcription={finalizedText}
+            interimTranscription={interimText}
+            onCancel={handleVoiceCancel}
+            onConfirm={handleVoiceConfirm}
+          />
+        </div>
+      )}
 
-            {voiceSupported && (
+      {/* Input Area - Compact redesign (hidden when waveform is showing) */}
+      {!isListening && (
+        <div className="px-3 py-2.5 border-t border-border bg-card">
+          <div className="flex items-center gap-1.5 bg-secondary rounded-full px-1.5 py-1 border border-border/40">
+            {/* Left action buttons - inline and compact */}
+            <div className="flex items-center gap-0.5 pl-1">
+              {supportsVision && (
+                <button className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-background/50 transition-colors">
+                  <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                </button>
+              )}
+              
               <button 
-                onClick={toggleListening}
-                disabled={isLoading}
+                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
                 className={cn(
                   "w-7 h-7 rounded-full flex items-center justify-center transition-all",
-                  isListening 
-                    ? "bg-red-500/20 text-red-500 animate-pulse" 
+                  webSearchEnabled 
+                    ? "bg-primary/20 text-primary" 
                     : "hover:bg-background/50 text-muted-foreground"
                 )}
               >
-                {isListening ? (
-                  <MicOff className="w-4 h-4" />
-                ) : (
-                  <Mic className="w-4 h-4" />
-                )}
+                <Globe className="w-4 h-4" />
               </button>
-            )}
-          </div>
 
-          {/* Text Input - takes most space */}
-          <div className="flex-1 min-w-0 relative">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-              placeholder={isListening && !interimText
-                ? "Listening..." 
-                : webSearchEnabled 
+              {voiceSupported && (
+                <button 
+                  onClick={toggleListening}
+                  disabled={isLoading}
+                  className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-background/50 text-muted-foreground transition-all"
+                >
+                  <Mic className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Text Input - takes most space */}
+            <div className="flex-1 min-w-0 relative">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                placeholder={webSearchEnabled 
                   ? "Search the web..." 
                   : "Message..."}
-              className="w-full px-2 py-1.5 bg-transparent text-foreground text-sm placeholder:text-muted-foreground outline-none"
-              disabled={isLoading}
-            />
-            {/* Interim transcription overlay */}
-            {isListening && interimText && (
-              <div className="absolute inset-0 flex items-center px-2 pointer-events-none">
-                <span className="text-sm text-muted-foreground/70 italic truncate">
-                  {input && <span className="text-foreground">{input} </span>}
-                  {interimText}
-                </span>
-              </div>
-            )}
-          </div>
+                className="w-full px-2 py-1.5 bg-transparent text-foreground text-sm placeholder:text-muted-foreground outline-none"
+                disabled={isLoading}
+              />
+            </div>
 
-          {/* Send Button - compact */}
-          <button 
-            onClick={handleSend}
-            disabled={isLoading || !input.trim()}
-            className={cn(
-              "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all mr-0.5",
-              isLoading || !input.trim() ? "bg-muted" : "bg-primary"
+            {/* Send Button - compact */}
+            <button 
+              onClick={handleSend}
+              disabled={isLoading || !input.trim()}
+              className={cn(
+                "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all mr-0.5",
+                isLoading || !input.trim() ? "bg-muted" : "bg-primary"
+              )}
+            >
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 text-white animate-spin" />
+              ) : (
+                <Send className="w-4 h-4 text-white -rotate-45" />
+              )}
+            </button>
+          </div>
+          
+          {/* Footer indicators */}
+          <div className="flex items-center justify-center gap-1.5 mt-1.5 pb-1">
+            {webSearchEnabled && (
+              <>
+                <Globe className="w-2.5 h-2.5 text-primary" />
+                <span className="text-[9px] text-primary">Web</span>
+                <span className="text-[9px] text-muted-foreground/50">•</span>
+              </>
             )}
-          >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 text-white animate-spin" />
-            ) : (
-              <Send className="w-4 h-4 text-white -rotate-45" />
-            )}
-          </button>
+            <span className="text-[9px] text-muted-foreground/50">AI can make mistakes</span>
+          </div>
         </div>
-        
-        {/* Footer indicators */}
-        <div className="flex items-center justify-center gap-1.5 mt-1.5 pb-1">
-          {webSearchEnabled && (
-            <>
-              <Globe className="w-2.5 h-2.5 text-primary" />
-              <span className="text-[9px] text-primary">Web</span>
-              <span className="text-[9px] text-muted-foreground/50">•</span>
-            </>
-          )}
-          {isListening && (
-            <>
-              <Mic className="w-2.5 h-2.5 text-red-500 animate-pulse" />
-              <span className="text-[9px] text-red-500">Listening</span>
-              <span className="text-[9px] text-muted-foreground/50">•</span>
-            </>
-          )}
-          <span className="text-[9px] text-muted-foreground/50">AI can make mistakes</span>
-        </div>
-      </div>
+      )}
 
       {/* Model Selector Modal */}
       {showModelSelector && (
