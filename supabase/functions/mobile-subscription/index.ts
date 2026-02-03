@@ -185,7 +185,7 @@ async function verifyAppleReceipt(
   }
 }
 
-// Google Play Receipt Verification
+// Google Play Receipt Verification using Subscriptions v2 API (matching working backend)
 async function verifyGoogleReceipt(
   packageName: string,
   productId: string,
@@ -197,15 +197,25 @@ async function verifyGoogleReceipt(
   expiresDate?: Date;
   transactionId?: string;
   originalTransactionId?: string;
+  subscriptionState?: string;
   error?: string;
 }> {
   const serviceAccountJson = Deno.env.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON");
+  logStep("Checking GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", { 
+    exists: !!serviceAccountJson, 
+    length: serviceAccountJson?.length 
+  });
+  
   if (!serviceAccountJson) {
     return { isValid: false, error: "Google Play service account not configured" };
   }
 
   try {
     const serviceAccount = JSON.parse(serviceAccountJson);
+    logStep("Service account parsed", { 
+      client_email: serviceAccount.client_email,
+      has_private_key: !!serviceAccount.private_key 
+    });
 
     // Generate JWT for Google API authentication
     const now = Math.floor(Date.now() / 1000);
@@ -217,6 +227,8 @@ async function verifyGoogleReceipt(
       iat: now,
       exp: now + 3600,
     };
+
+    logStep("JWT claims prepared", { iss: jwtClaims.iss, scope: jwtClaims.scope });
 
     // Encode JWT parts
     const encoder = new TextEncoder();
@@ -232,6 +244,7 @@ async function verifyGoogleReceipt(
       .replace(/\s/g, "");
     const binaryKey = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
 
+    logStep("Importing crypto key...");
     const cryptoKey = await crypto.subtle.importKey(
       "pkcs8",
       binaryKey,
@@ -240,6 +253,7 @@ async function verifyGoogleReceipt(
       ["sign"],
     );
 
+    logStep("Signing JWT...");
     const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", cryptoKey, encoder.encode(signatureInput));
 
     const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
@@ -248,8 +262,10 @@ async function verifyGoogleReceipt(
       .replace(/\//g, "_");
 
     const jwt = `${signatureInput}.${signatureB64}`;
+    logStep("JWT created successfully");
 
     // Get access token
+    logStep("Requesting access token from Google OAuth...");
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -257,44 +273,130 @@ async function verifyGoogleReceipt(
     });
 
     const tokenData = await tokenResponse.json();
-    if (!tokenData.access_token) {
-      return { isValid: false, error: "Failed to get Google access token" };
-    }
-
-    // Verify purchase with Google Play API
-    const apiPath = isSubscription
-      ? `subscriptions/${productId}/tokens/${purchaseToken}`
-      : `products/${productId}/purchases/${purchaseToken}`;
-
-    const verifyUrl = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/purchases/${apiPath}`;
-
-    const verifyResponse = await fetch(verifyUrl, {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    logStep("Token response received", { 
+      status: tokenResponse.status, 
+      has_access_token: !!tokenData.access_token,
+      error: tokenData.error,
+      error_description: tokenData.error_description
     });
-
-    const purchaseData = await verifyResponse.json();
-    logStep("Google verification response", { purchaseData });
-
-    if (purchaseData.error) {
-      return { isValid: false, error: purchaseData.error.message };
+    
+    if (!tokenData.access_token) {
+      return { isValid: false, error: `Failed to get Google access token: ${tokenData.error_description || tokenData.error}` };
     }
 
-    // Check purchase state
-    const purchaseState = isSubscription ? purchaseData.paymentState : purchaseData.purchaseState;
+    // Use Subscriptions v2 API for subscriptions (matching working backend)
+    if (isSubscription) {
+      // This matches your working backend: purchases.subscriptionsv2.get
+      const verifyUrl = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/purchases/subscriptionsv2/tokens/${purchaseToken}`;
+      logStep("Calling Google Play Subscriptions v2 API", { 
+        url: verifyUrl,
+        packageName,
+        purchaseTokenPrefix: purchaseToken?.substring(0, 30) + "..."
+      });
 
-    if (purchaseState !== 1 && purchaseState !== 0) {
-      return { isValid: false, error: "Purchase not valid or canceled" };
+      const verifyResponse = await fetch(verifyUrl, {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      });
+
+      const subscriptionData = await verifyResponse.json();
+      logStep("Google Subscriptions v2 API response", { 
+        status: verifyResponse.status,
+        subscriptionState: subscriptionData.subscriptionState,
+        latestOrderId: subscriptionData.latestOrderId,
+        lineItemsCount: subscriptionData.lineItems?.length,
+        error: subscriptionData.error,
+        fullResponse: JSON.stringify(subscriptionData)
+      });
+
+      if (subscriptionData.error) {
+        return { isValid: false, error: subscriptionData.error.message };
+      }
+
+      // Check subscription state (matching your working backend logic)
+      const state = subscriptionData.subscriptionState;
+      logStep("Subscription state check", { state });
+
+      if (state === "SUBSCRIPTION_STATE_ACTIVE" || state === "SUBSCRIPTION_STATE_IN_GRACE_PERIOD") {
+        // Get expiry from lineItems (matching your working backend)
+        let expiresDate: Date | undefined;
+        let resolvedProductId = productId;
+
+        if (subscriptionData.lineItems && subscriptionData.lineItems.length > 0) {
+          const latestItem = subscriptionData.lineItems[0];
+          logStep("Line item details", {
+            productId: latestItem.productId,
+            expiryTime: latestItem.expiryTime,
+            autoRenewingPlan: latestItem.autoRenewingPlan
+          });
+
+          if (latestItem.expiryTime) {
+            expiresDate = new Date(latestItem.expiryTime);
+          }
+          if (latestItem.productId) {
+            resolvedProductId = latestItem.productId;
+          }
+        }
+
+        logStep("Subscription ACTIVE - returning valid", {
+          resolvedProductId,
+          expiresDate: expiresDate?.toISOString(),
+          transactionId: subscriptionData.latestOrderId
+        });
+
+        return {
+          isValid: true,
+          productId: resolvedProductId,
+          expiresDate,
+          transactionId: subscriptionData.latestOrderId,
+          subscriptionState: state,
+        };
+      } else {
+        // States like SUBSCRIPTION_STATE_ON_HOLD, SUBSCRIPTION_STATE_PAUSED, SUBSCRIPTION_STATE_EXPIRED, SUBSCRIPTION_STATE_CANCELED
+        logStep("Subscription NOT ACTIVE", { state });
+        return { 
+          isValid: false, 
+          error: `Subscription not active. State: ${state}`,
+          subscriptionState: state
+        };
+      }
+    } else {
+      // For consumable products, use the products API
+      const verifyUrl = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/purchases/products/${productId}/tokens/${purchaseToken}`;
+      logStep("Calling Google Play Products API", { url: verifyUrl });
+
+      const verifyResponse = await fetch(verifyUrl, {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      });
+
+      const purchaseData = await verifyResponse.json();
+      logStep("Google Products API response", { 
+        status: verifyResponse.status,
+        purchaseState: purchaseData.purchaseState,
+        orderId: purchaseData.orderId,
+        error: purchaseData.error,
+        fullResponse: JSON.stringify(purchaseData)
+      });
+
+      if (purchaseData.error) {
+        return { isValid: false, error: purchaseData.error.message };
+      }
+
+      // purchaseState: 0 = purchased, 1 = canceled, 2 = pending
+      if (purchaseData.purchaseState !== 0) {
+        return { isValid: false, error: `Purchase not valid. State: ${purchaseData.purchaseState}` };
+      }
+
+      return {
+        isValid: true,
+        productId,
+        transactionId: purchaseData.orderId,
+      };
     }
-
-    const expiresDate = purchaseData.expiryTimeMillis ? new Date(parseInt(purchaseData.expiryTimeMillis)) : undefined;
-
-    return {
-      isValid: true,
-      expiresDate,
-      transactionId: purchaseData.orderId,
-    };
   } catch (error) {
-    logStep("Google verification error", { error: String(error) });
+    logStep("Google verification error", { 
+      error: String(error), 
+      stack: error instanceof Error ? error.stack : undefined 
+    });
     return { isValid: false, error: String(error) };
   }
 }
