@@ -487,14 +487,19 @@ class _PricingScreenState extends State<PricingScreen>
                       itemBuilder: (context, index) {
                         final plan = plans[index];
                         // Check if this is the user's current plan
-                        // Match by plan.id (e.g., "premium-monthly") or plan.name (e.g., "Premium")
+                        // Match by exact plan.id (e.g., "premium-monthly") or exact plan name
+                        // The userPlan from DB should be the exact plan ID (e.g., "premium-monthly")
                         final userPlan =
                             creditsProvider.currentPlan?.toLowerCase() ?? '';
+                        final planId = plan.id.toLowerCase();
+                        final planName = plan.name.toLowerCase();
+                        
+                        // Only match if:
+                        // 1. User has active subscription AND
+                        // 2. Either exact match on plan ID or plan name
                         final isCurrentPlan =
                             creditsProvider.hasActiveSubscription &&
-                                (userPlan == plan.id.toLowerCase() ||
-                                    userPlan == plan.name.toLowerCase() ||
-                                    plan.id.toLowerCase().startsWith(userPlan));
+                                (userPlan == planId || userPlan == planName);
                         return SingleChildScrollView(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Padding(
