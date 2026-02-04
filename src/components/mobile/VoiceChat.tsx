@@ -202,6 +202,9 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
     };
   }, []);
 
+  // Track if we finished speaking to auto-restart listening
+  const shouldAutoRestartRef = useRef(false);
+
   // Speak the next chunk in the queue
   const speakNextChunk = useCallback(() => {
     if (!window.speechSynthesis || isMuted) {
@@ -212,19 +215,32 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
     const nextText = speechQueueRef.current.shift();
     if (!nextText) {
       isSpeakingRef.current = false;
-      // Check if we should auto-restart listening
-      if (voiceState === "speaking" && speechQueueRef.current.length === 0) {
+      // Auto-restart listening after speaking completes
+      if (shouldAutoRestartRef.current) {
+        shouldAutoRestartRef.current = false;
         setVoiceState("idle");
-        setTimeout(() => startListening(), 300);
+        // Small delay before restarting to feel natural
+        setTimeout(() => {
+          if (recognitionRef.current) {
+            setVoiceState("listening");
+            try {
+              recognitionRef.current.start();
+            } catch (e) {
+              console.log("Recognition restart failed:", e);
+              setVoiceState("idle");
+            }
+          }
+        }, 500);
       }
       return;
     }
 
     isSpeakingRef.current = true;
     setVoiceState("speaking");
+    shouldAutoRestartRef.current = true; // Mark that we should auto-restart after speaking
 
     const utterance = new SpeechSynthesisUtterance(nextText);
-    utterance.rate = 1.1; // Slightly faster for snappier feel
+    utterance.rate = 1.05; // Slightly faster but still natural
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
 
@@ -233,18 +249,24 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
     }
 
     utterance.onend = () => {
+      currentUtteranceRef.current = null;
       speakNextChunk(); // Speak next chunk
     };
 
-    utterance.onerror = () => {
+    utterance.onerror = (e) => {
+      console.log("Speech error:", e);
+      currentUtteranceRef.current = null;
       speakNextChunk(); // Try next chunk on error
     };
 
     currentUtteranceRef.current = utterance;
+    
+    // Chrome workaround: cancel and re-speak to avoid stuck queue
+    window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
-  }, [selectedVoice, isMuted, voiceState]);
+  }, [selectedVoice, isMuted]);
 
-  // Add text to speech queue - split by sentences for streaming speech
+  // Add text to speech queue - speak immediately for faster response
   const queueSpeech = useCallback((text: string) => {
     // Clean text for speech
     const cleaned = text
@@ -258,9 +280,10 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
 
     if (!cleaned) return;
 
+    console.log("Queueing speech:", cleaned.substring(0, 50) + "...");
     speechQueueRef.current.push(cleaned);
 
-    // Start speaking if not already
+    // Start speaking immediately if not already
     if (!isSpeakingRef.current && !isMuted) {
       speakNextChunk();
     }
@@ -338,15 +361,23 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
               fullResponse += content;
               setResponse(fullResponse);
 
-              // Stream speech: queue complete sentences
+              // Stream speech: queue smaller chunks for faster response
               sentenceBuffer += content;
               
-              // Check for sentence boundaries
-              const sentenceMatch = sentenceBuffer.match(/^(.*?[.!?])\s*/);
-              if (sentenceMatch) {
-                const sentence = sentenceMatch[1];
-                sentenceBuffer = sentenceBuffer.slice(sentenceMatch[0].length);
-                queueSpeech(sentence);
+              // Speak after shorter phrases (comma, period, question, exclamation, or 60+ chars)
+              const phraseMatch = sentenceBuffer.match(/^(.*?[.!?,;:])\s*/);
+              if (phraseMatch && phraseMatch[1].length > 10) {
+                const phrase = phraseMatch[1];
+                sentenceBuffer = sentenceBuffer.slice(phraseMatch[0].length);
+                queueSpeech(phrase);
+              } else if (sentenceBuffer.length > 60) {
+                // Speak longer chunks even without punctuation
+                const words = sentenceBuffer.split(' ');
+                if (words.length > 5) {
+                  const toSpeak = words.slice(0, -1).join(' ');
+                  sentenceBuffer = words[words.length - 1];
+                  queueSpeech(toSpeak);
+                }
               }
             }
           } catch {
