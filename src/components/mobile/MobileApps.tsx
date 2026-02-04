@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { 
   Bell, Moon, Brain, Sparkles, DollarSign, Apple, Fingerprint, 
-  ArrowLeft, ArrowRight
+  ArrowLeft, ArrowRight, Lock, Crown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Screen } from "./MobileNav";
+import { MobilePremiumPlusLock } from "./MobilePremiumPlusLock";
 
 interface AIAppItem {
   id: string;
@@ -87,10 +88,14 @@ const categories = [
 interface MobileAppsProps {
   onBack?: () => void;
   onNavigate?: (screen: Screen) => void;
+  hasPremiumPlusAccess?: boolean;
+  onUpgrade?: () => void;
 }
 
-export function MobileApps({ onBack, onNavigate }: MobileAppsProps) {
+export function MobileApps({ onBack, onNavigate, hasPremiumPlusAccess = false, onUpgrade }: MobileAppsProps) {
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [showLockScreen, setShowLockScreen] = useState(false);
+  const [selectedApp, setSelectedApp] = useState<AIAppItem | null>(null);
 
   const filteredApps = selectedCategory === "all" 
     ? aiApps 
@@ -98,6 +103,13 @@ export function MobileApps({ onBack, onNavigate }: MobileAppsProps) {
 
   const handleAppTap = (app: AIAppItem) => {
     if (app.comingSoon) {
+      return;
+    }
+    
+    // Check for Premium Plus access
+    if (!hasPremiumPlusAccess) {
+      setSelectedApp(app);
+      setShowLockScreen(true);
       return;
     }
     
@@ -117,6 +129,18 @@ export function MobileApps({ onBack, onNavigate }: MobileAppsProps) {
       onNavigate(route);
     }
   };
+
+  // Show lock screen when user without Premium Plus tries to access an app
+  if (showLockScreen && selectedApp) {
+    return (
+      <MobilePremiumPlusLock
+        feature={selectedApp.name}
+        description={`Access ${selectedApp.name} and all other AI-powered apps with Premium Plus.`}
+        onBack={() => setShowLockScreen(false)}
+        onUpgrade={onUpgrade}
+      />
+    );
+  }
 
   const getBadgeColor = (badge?: string) => {
     switch (badge) {
