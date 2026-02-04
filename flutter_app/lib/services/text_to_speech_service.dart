@@ -1,6 +1,7 @@
 import 'package:flutter_tts/flutter_tts.dart';
 import '../core/logger.dart';
 import '../utils/text_utils.dart';
+import 'tts_settings_service.dart';
 
 class TextToSpeechService {
   static final TextToSpeechService _instance = TextToSpeechService._internal();
@@ -8,6 +9,7 @@ class TextToSpeechService {
   TextToSpeechService._internal();
 
   final FlutterTts _tts = FlutterTts();
+  final TtsSettingsService _settings = TtsSettingsService();
   bool _isInitialized = false;
   bool _isSpeaking = false;
   final List<String> _speechQueue = [];
@@ -19,32 +21,11 @@ class TextToSpeechService {
     if (_isInitialized) return;
 
     try {
-      await _tts.setLanguage('en-US');
-      await _tts.setSpeechRate(0.5); // Slightly faster but natural
-      await _tts.setVolume(1.0);
-      await _tts.setPitch(1.0);
+      // Initialize settings first
+      await _settings.initialize();
 
-      // Try to set a natural voice
-      final voices = await _tts.getVoices;
-      if (voices != null && voices is List) {
-        // Find a good English voice
-        for (final voice in voices) {
-          if (voice is Map) {
-            final name = voice['name']?.toString().toLowerCase() ?? '';
-            final locale = voice['locale']?.toString().toLowerCase() ?? '';
-            
-            if (locale.startsWith('en') && 
-                (name.contains('samantha') || 
-                 name.contains('karen') ||
-                 name.contains('google') ||
-                 name.contains('premium'))) {
-              await _tts.setVoice(voice.cast<String, String>());
-              logger.info('Selected voice: ${voice['name']}', 'TTS');
-              break;
-            }
-          }
-        }
-      }
+      await _tts.setLanguage('en-US');
+      await _applyUserSettings();
 
       _tts.setCompletionHandler(() {
         _speakNext();
@@ -57,10 +38,64 @@ class TextToSpeechService {
       });
 
       _isInitialized = true;
-      logger.success('TTS initialized', 'TTS');
+      logger.success('TTS initialized with user settings', 'TTS');
     } catch (e) {
       logger.error('Failed to initialize TTS: $e', 'TTS');
     }
+  }
+
+  Future<void> _applyUserSettings() async {
+    await _tts.setSpeechRate(_settings.speechRate);
+    await _tts.setPitch(_settings.pitch);
+    await _tts.setVolume(_settings.volume);
+
+    // Apply selected voice if any
+    if (_settings.voiceName != null && _settings.voiceLocale != null) {
+      try {
+        await _tts.setVoice({
+          'name': _settings.voiceName!,
+          'locale': _settings.voiceLocale!,
+        });
+        logger.info('Applied voice: ${_settings.voiceName}', 'TTS');
+      } catch (e) {
+        logger.error('Failed to apply voice: $e', 'TTS');
+        // Fall back to finding a default voice
+        await _selectDefaultVoice();
+      }
+    } else {
+      await _selectDefaultVoice();
+    }
+  }
+
+  Future<void> _selectDefaultVoice() async {
+    try {
+      final voices = await _tts.getVoices;
+      if (voices != null && voices is List) {
+        for (final voice in voices) {
+          if (voice is Map) {
+            final name = voice['name']?.toString().toLowerCase() ?? '';
+            final locale = voice['locale']?.toString().toLowerCase() ?? '';
+            
+            if (locale.startsWith('en') && 
+                (name.contains('samantha') || 
+                 name.contains('karen') ||
+                 name.contains('google') ||
+                 name.contains('premium'))) {
+              await _tts.setVoice(voice.cast<String, String>());
+              logger.info('Selected default voice: ${voice['name']}', 'TTS');
+              break;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      logger.error('Failed to select default voice: $e', 'TTS');
+    }
+  }
+
+  /// Apply current settings (call after settings change)
+  Future<void> applySettings() async {
+    await _applyUserSettings();
   }
 
   void setOnSpeakingComplete(Function callback) {
@@ -105,6 +140,7 @@ class TextToSpeechService {
   }
 
   Future<void> setVolume(double volume) async {
+    await _settings.setVolume(volume);
     await _tts.setVolume(volume.clamp(0.0, 1.0));
   }
 }

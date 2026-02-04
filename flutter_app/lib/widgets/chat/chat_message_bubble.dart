@@ -5,8 +5,8 @@ import '../../core/theme.dart';
 import '../../services/text_to_speech_service.dart';
 import '../../utils/text_utils.dart';
 import '../common/smart_media_image.dart';
+import '../settings/tts_settings_dialog.dart';
 import 'model_logo.dart';
-
 class ChatMessageBubble extends StatefulWidget {
   final String content;
   final bool isUser;
@@ -155,6 +155,12 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                             );
                           },
                           tooltip: 'Share',
+                        ),
+                        const SizedBox(width: 4),
+                        _ActionButton(
+                          icon: Icons.settings_voice,
+                          onTap: () => TtsSettingsDialog.show(context),
+                          tooltip: 'Voice settings',
                         ),
                       ],
                     ),
