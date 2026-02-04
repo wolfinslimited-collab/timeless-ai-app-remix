@@ -148,18 +148,7 @@ export default function MobilePreview() {
       case "visual-styles":
         return <MobileVisualStyles onBack={() => setCurrentScreen("create")} />;
       case "apps":
-        // Premium Plus gated access for AI Apps
-        if (!hasPremiumPlusAccess) {
-          return (
-            <MobilePremiumPlusLock
-              feature="AI Apps"
-              description="Unlock all 7 AI-powered apps including Skin AI, Financial AI, Sleep AI, and more."
-              onBack={() => setCurrentScreen("home")}
-              onUpgrade={() => setCurrentScreen("subscription")}
-            />
-          );
-        }
-        return <MobileApps onBack={() => setCurrentScreen("create")} onNavigate={setCurrentScreen} />;
+        return <MobileApps onBack={() => setCurrentScreen("home")} onNavigate={setCurrentScreen} hasPremiumPlusAccess={hasPremiumPlusAccess} onUpgrade={() => setCurrentScreen("subscription")} />;
       case "chat":
         return <MobileChat />;
       case "library":
