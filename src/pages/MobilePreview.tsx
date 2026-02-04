@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
+import { usePremiumPlusAccess } from "@/hooks/usePremiumPlusAccess";
 import { MobileNav, type Screen } from "@/components/mobile/MobileNav";
 import { MobileAuth } from "@/components/mobile/MobileAuth";
 import { MobileSplash } from "@/components/mobile/MobileSplash";
@@ -19,6 +20,7 @@ import { MobilePricing } from "@/components/mobile/MobilePricing";
 import { MobileDownloads } from "@/components/mobile/MobileDownloads";
 import { MobileFavorites } from "@/components/mobile/MobileFavorites";
 import { MobileUpgradeWizard } from "@/components/mobile/MobileUpgradeWizard";
+import { MobilePremiumPlusLock } from "@/components/mobile/MobilePremiumPlusLock";
 import {
   MobileNotifyAI,
   MobileSleepAI,
@@ -36,6 +38,7 @@ export default function MobilePreview() {
   const [hasCheckedInitialAuth, setHasCheckedInitialAuth] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const { credits, hasActiveSubscription, loading: creditsLoading, refetch } = useCredits();
+  const { hasPremiumPlusAccess } = usePremiumPlusAccess();
 
   // Track if this is the first time user is detected (for OAuth redirects)
   const initialCheckDoneRef = useRef(false);
@@ -128,12 +131,34 @@ export default function MobilePreview() {
       case "video":
         return <MobileVideoCreate onBack={() => setCurrentScreen("create")} />;
       case "cinema":
+        // Premium Plus gated access for Cinema Studio
+        if (!hasPremiumPlusAccess) {
+          return (
+            <MobilePremiumPlusLock
+              feature="Cinema Studio"
+              description="Access professional video creation tools with Cinema Studio. Create cinematic content with advanced AI models."
+              onBack={() => setCurrentScreen("create")}
+              onUpgrade={() => setCurrentScreen("subscription")}
+            />
+          );
+        }
         return <MobileCinemaStudio onBack={() => setCurrentScreen("create")} />;
       case "audio":
         return <MobileAudioCreate onBack={() => setCurrentScreen("create")} />;
       case "visual-styles":
         return <MobileVisualStyles onBack={() => setCurrentScreen("create")} />;
       case "apps":
+        // Premium Plus gated access for AI Apps
+        if (!hasPremiumPlusAccess) {
+          return (
+            <MobilePremiumPlusLock
+              feature="AI Apps"
+              description="Unlock all 7 AI-powered apps including Skin AI, Financial AI, Sleep AI, and more."
+              onBack={() => setCurrentScreen("home")}
+              onUpgrade={() => setCurrentScreen("subscription")}
+            />
+          );
+        }
         return <MobileApps onBack={() => setCurrentScreen("create")} onNavigate={setCurrentScreen} />;
       case "chat":
         return <MobileChat />;
