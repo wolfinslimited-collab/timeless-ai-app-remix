@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback, useEffect, forwardRef } from "react";
-import { Mic, MicOff, Volume2, VolumeX, X, Loader2 } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { VoiceChatVisualizer } from "./VoiceChatVisualizer";
 
 // Web Speech API types
 interface SpeechRecognitionEvent extends Event {
@@ -72,18 +73,34 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
   const silenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
 
-  // Load and select the best available voice
+  // Load and select the best available voice - prioritizing natural/premium voices
   useEffect(() => {
     const loadVoices = () => {
       const voices = window.speechSynthesis?.getVoices() || [];
       
-      // Priority order for natural-sounding voices
+      // Priority order for most natural-sounding voices
+      // These are ranked by quality based on common availability
       const voicePriority = [
-        (v: SpeechSynthesisVoice) => v.name.includes("Google") && v.lang.startsWith("en"),
-        (v: SpeechSynthesisVoice) => v.name.includes("Natural") && v.lang.startsWith("en"),
-        (v: SpeechSynthesisVoice) => v.name === "Samantha",
+        // Premium/Neural voices (best quality)
+        (v: SpeechSynthesisVoice) => v.name.includes("Google UK English Female") && v.lang.startsWith("en"),
+        (v: SpeechSynthesisVoice) => v.name.includes("Google UK English Male") && v.lang.startsWith("en"),
+        (v: SpeechSynthesisVoice) => v.name.includes("Google US English") && v.lang.startsWith("en"),
+        // macOS premium voices
+        (v: SpeechSynthesisVoice) => v.name === "Samantha" && v.lang.startsWith("en"),
+        (v: SpeechSynthesisVoice) => v.name === "Karen" && v.lang.startsWith("en"),
+        (v: SpeechSynthesisVoice) => v.name === "Daniel" && v.lang.startsWith("en"),
+        (v: SpeechSynthesisVoice) => v.name === "Moira" && v.lang.startsWith("en"),
+        // Enhanced/Premium fallbacks
+        (v: SpeechSynthesisVoice) => (v.name.includes("Premium") || v.name.includes("Neural") || v.name.includes("Natural")) && v.lang.startsWith("en"),
         (v: SpeechSynthesisVoice) => v.name.includes("Enhanced") && v.lang.startsWith("en"),
-        (v: SpeechSynthesisVoice) => (v.name.includes("Premium") || v.name.includes("Neural")) && v.lang.startsWith("en"),
+        // Microsoft voices (Windows)
+        (v: SpeechSynthesisVoice) => v.name.includes("Microsoft Zira") && v.lang.startsWith("en"),
+        (v: SpeechSynthesisVoice) => v.name.includes("Microsoft David") && v.lang.startsWith("en"),
+        // Any Google voice
+        (v: SpeechSynthesisVoice) => v.name.includes("Google") && v.lang.startsWith("en"),
+        // Final fallback - any English voice
+        (v: SpeechSynthesisVoice) => v.lang.startsWith("en-US"),
+        (v: SpeechSynthesisVoice) => v.lang.startsWith("en-GB"),
         (v: SpeechSynthesisVoice) => v.lang.startsWith("en"),
       ];
       
@@ -476,49 +493,7 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
       {/* Main content */}
       <div className="flex-1 flex flex-col items-center justify-center p-6 gap-8">
         {/* Visualization */}
-        <div className="relative">
-          <div
-            className={cn(
-              "w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300",
-              voiceState === "idle" && "bg-secondary",
-              voiceState === "listening" && "bg-green-500/20 ring-4 ring-green-500/40",
-              voiceState === "processing" && "bg-yellow-500/20",
-              voiceState === "speaking" && "bg-primary/20 ring-4 ring-primary/40"
-            )}
-          >
-            {voiceState === "processing" ? (
-              <Loader2 className="h-12 w-12 text-yellow-500 animate-spin" />
-            ) : voiceState === "listening" ? (
-              <div className="flex gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-1 bg-green-500 rounded-full animate-pulse"
-                    style={{
-                      height: `${20 + Math.random() * 30}px`,
-                      animationDelay: `${i * 0.1}s`,
-                    }}
-                  />
-                ))}
-              </div>
-            ) : voiceState === "speaking" ? (
-              <div className="flex gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-1 bg-primary rounded-full animate-pulse"
-                    style={{
-                      height: `${20 + Math.random() * 30}px`,
-                      animationDelay: `${i * 0.1}s`,
-                    }}
-                  />
-                ))}
-              </div>
-            ) : (
-              <Mic className="h-12 w-12 text-muted-foreground" />
-            )}
-          </div>
-        </div>
+        <VoiceChatVisualizer state={voiceState} />
 
         {/* Transcript / Response */}
         <div className="w-full max-w-md text-center space-y-4">
