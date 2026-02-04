@@ -16,6 +16,7 @@ import '../../widgets/chat/chat_message_bubble.dart';
 import '../../widgets/chat/conversation_drawer.dart';
 import '../../widgets/common/smart_media_image.dart';
 import '../../widgets/add_credits_dialog.dart';
+import 'voice_chat_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -357,6 +358,14 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  void _openVoiceChat() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const VoiceChatScreen(),
+      ),
+    );
+  }
+
   Future<void> _loadConversation(String id) async {
     try {
       final messages = await _chatService.getMessages(id);
@@ -470,6 +479,11 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.record_voice_over),
+            onPressed: _openVoiceChat,
+            tooltip: 'Voice Chat',
+          ),
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
             onPressed: _startNewChat,
