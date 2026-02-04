@@ -57,6 +57,29 @@ type VoiceState = "idle" | "listening" | "processing" | "speaking";
 // Fast model for voice chat - optimized for low latency
 const VOICE_MODEL = "gemini-3-flash";
 
+// Clean markdown formatting from text for display
+const cleanMarkdown = (text: string): string => {
+  return text
+    // Remove bold/italic markers
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    // Remove headers
+    .replace(/^#{1,6}\s+/gm, '')
+    // Remove bullet points and normalize spacing
+    .replace(/^\s*[-*+]\s+/gm, '• ')
+    // Remove numbered list markers
+    .replace(/^\s*\d+\.\s+/gm, '')
+    // Remove code backticks
+    .replace(/`([^`]+)`/g, '$1')
+    // Remove links, keep text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // Clean up extra whitespace
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+};
+
 const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose, model }, ref) => {
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [transcript, setTranscript] = useState("");
@@ -537,7 +560,7 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
           {response && (
             <div className="p-4 rounded-lg bg-primary/10 max-h-48 overflow-y-auto">
               <p className="text-sm text-muted-foreground mb-1">AI response:</p>
-              <p className="text-foreground text-sm">{response}</p>
+              <p className="text-foreground text-sm whitespace-pre-wrap">{cleanMarkdown(response)}</p>
             </div>
           )}
           {error && (
