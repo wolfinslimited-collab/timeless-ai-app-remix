@@ -138,7 +138,7 @@ export function MobilePricing({ onBack }: MobilePricingProps) {
   const [activeTab, setActiveTab] = useState<"subscriptions" | "credits">("subscriptions");
   const [isYearly, setIsYearly] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
+  
   const [currentPlanIndex, setCurrentPlanIndex] = useState(0);
 
   const { user } = useAuth();
@@ -189,18 +189,6 @@ export function MobilePricing({ onBack }: MobilePricingProps) {
     }
   };
 
-  const handleRestore = async () => {
-    setIsRestoring(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast.success("Purchases restored successfully");
-      refetch?.();
-    } catch (error: any) {
-      toast.error(error.message || "Restore failed");
-    } finally {
-      setIsRestoring(false);
-    }
-  };
 
   const isCurrentPlan = (planId: string) => {
     // For web preview, we check if user has active subscription and match plan name
@@ -236,13 +224,6 @@ export function MobilePricing({ onBack }: MobilePricingProps) {
           </div>
         )}
         
-        <button
-          onClick={handleRestore}
-          disabled={isRestoring}
-          className="text-primary text-sm font-medium"
-        >
-          {isRestoring ? "..." : "Restore"}
-        </button>
       </div>
 
       {/* Tab Bar */}

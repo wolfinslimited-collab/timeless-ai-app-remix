@@ -80,17 +80,6 @@ class _PricingScreenState extends State<PricingScreen>
       }
     };
 
-    iapProvider.onRestoreComplete = () {
-      context.read<CreditsProvider>().refresh();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Purchases restored successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    };
 
     iapProvider.onVerificationError = (message) {
       if (mounted) {
@@ -194,10 +183,6 @@ class _PricingScreenState extends State<PricingScreen>
     }
   }
 
-  Future<void> _handleRestore() async {
-    final iapProvider = context.read<IAPProvider>();
-    await iapProvider.restorePurchases();
-  }
 
   IconData _getIconData(String iconName) {
     switch (iconName) {
@@ -294,10 +279,6 @@ class _PricingScreenState extends State<PricingScreen>
                 ),
               );
             },
-          ),
-          TextButton(
-            onPressed: _handleRestore,
-            child: const Text('Restore'),
           ),
         ],
       ),
