@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../core/theme.dart';
+import '../../services/text_to_speech_service.dart';
+import '../../utils/text_utils.dart';
 import '../common/smart_media_image.dart';
 import 'model_logo.dart';
 
@@ -24,13 +26,28 @@ class ChatMessageBubble extends StatefulWidget {
 }
 
 class _ChatMessageBubbleState extends State<ChatMessageBubble> {
+  final TextToSpeechService _tts = TextToSpeechService();
   bool _copied = false;
+  bool _isSpeaking = false;
 
   void _copyContent() async {
     await Clipboard.setData(ClipboardData(text: widget.content));
     setState(() => _copied = true);
     await Future.delayed(const Duration(seconds: 2));
     if (mounted) setState(() => _copied = false);
+  }
+
+  void _toggleSpeech() async {
+    if (_isSpeaking) {
+      await _tts.stop();
+      setState(() => _isSpeaking = false);
+    } else {
+      setState(() => _isSpeaking = true);
+      _tts.setOnSpeakingComplete(() {
+        if (mounted) setState(() => _isSpeaking = false);
+      });
+      await _tts.queueSpeech(prepareForSpeech(widget.content));
+    }
   }
 
   @override
@@ -119,6 +136,12 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _ActionButton(
+                          icon: _isSpeaking ? Icons.stop : Icons.volume_up,
+                          onTap: _toggleSpeech,
+                          tooltip: _isSpeaking ? 'Stop' : 'Read aloud',
+                        ),
+                        const SizedBox(width: 4),
+                        _ActionButton(
                           icon: _copied ? Icons.check : Icons.copy,
                           onTap: _copyContent,
                           tooltip: _copied ? 'Copied!' : 'Copy',
@@ -127,7 +150,6 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                         _ActionButton(
                           icon: Icons.share,
                           onTap: () {
-                            // Share functionality
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Sharing...')),
                             );
