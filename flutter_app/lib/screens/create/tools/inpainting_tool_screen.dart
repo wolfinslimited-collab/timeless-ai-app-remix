@@ -25,13 +25,13 @@ class InpaintingToolScreen extends StatefulWidget {
 class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
   final ImagePicker _picker = ImagePicker();
   final GlobalKey _canvasKey = GlobalKey();
+  final TextEditingController _promptController = TextEditingController();
 
   String? _inputImageUrl;
   Uint8List? _inputImageBytes;
   String? _outputImageUrl;
   bool _isUploading = false;
   bool _isProcessing = false;
-  String _prompt = '';
   double _brushSize = 30;
   bool _isPaintMode = true; // true = paint, false = erase
   bool _isEditorMode = false; // Full screen editor mode
@@ -42,6 +42,11 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
   ui.Image? _loadedImage;
   Size? _imageSize;
 
+  // Canvas display info for coordinate transformation
+  Size? _canvasDisplaySize;
+  Offset? _canvasOffset;
+  double? _displayScale;
+
   String get toolName =>
       widget.mode == 'inpainting' ? 'Inpainting' : 'Object Erase';
   String get toolDescription => widget.mode == 'inpainting'
@@ -50,6 +55,12 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
   int get creditCost => widget.mode == 'inpainting' ? 5 : 4;
   String get toolId =>
       widget.mode == 'inpainting' ? 'inpainting' : 'object-erase';
+
+  @override
+  void dispose() {
+    _promptController.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickImage() async {
     try {
@@ -139,37 +150,29 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
+    final width = _imageSize!.width;
+    final height = _imageSize!.height;
 
-    // Fill with black (unmasked area)
+    // Fill with black (unmasked area) - matches web implementation
     canvas.drawRect(
-      Rect.fromLTWH(0, 0, _imageSize!.width, _imageSize!.height),
+      Rect.fromLTWH(0, 0, width, height),
       Paint()..color = Colors.black,
     );
 
-    // Draw all strokes
+    // Draw all strokes as filled circles along the path - matches web implementation
     for (final stroke in _strokes) {
       final paint = Paint()
         ..color = stroke.isErase ? Colors.black : Colors.white
-        ..strokeWidth = stroke.brushSize
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke;
+        ..style = PaintingStyle.fill;
 
-      if (stroke.points.length == 1) {
-        canvas.drawCircle(stroke.points.first, stroke.brushSize / 2,
-            paint..style = PaintingStyle.fill);
-      } else {
-        final maskPath = Path();
-        maskPath.moveTo(stroke.points.first.dx, stroke.points.first.dy);
-        for (int i = 1; i < stroke.points.length; i++) {
-          maskPath.lineTo(stroke.points[i].dx, stroke.points[i].dy);
-        }
-        canvas.drawPath(maskPath, paint);
+      // Draw filled circles at each point (like web's arc-based drawing)
+      for (final point in stroke.points) {
+        canvas.drawCircle(point, stroke.brushSize / 2, paint);
       }
     }
 
     final picture = recorder.endRecording();
-    final img = await picture.toImage(
-        _imageSize!.width.toInt(), _imageSize!.height.toInt());
+    final img = await picture.toImage(width.toInt(), height.toInt());
     final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
 
     return byteData?.buffer.asUint8List();
@@ -189,7 +192,7 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
         throw Exception('Failed to generate mask');
       }
 
-      // Convert mask to base64 data URL
+      // Convert mask to base64 data URL - matches web implementation
       final maskBase64 = base64Encode(maskBytes);
       final maskDataUrl = 'data:image/png;base64,$maskBase64';
 
@@ -202,6 +205,15 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
       final supabaseUrl =
           Supabase.instance.client.rest.url.replaceAll('/rest/v1', '');
 
+      // Get prompt value - for object-erase, always use "remove object"
+      final promptValue = widget.mode == 'inpainting'
+          ? (_promptController.text.isNotEmpty
+              ? _promptController.text
+              : 'seamless blend')
+          : 'remove object';
+
+      debugPrint('Inpainting request - tool: $toolId, prompt: $promptValue');
+
       final response = await http.post(
         Uri.parse('$supabaseUrl/functions/v1/image-tools'),
         headers: {
@@ -213,13 +225,12 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
           'tool': toolId,
           'imageUrl': _inputImageUrl,
           'maskUrl': maskDataUrl,
-          'prompt': _prompt.isNotEmpty
-              ? _prompt
-              : (widget.mode == 'inpainting'
-                  ? 'seamless blend'
-                  : 'remove object'),
+          'prompt': promptValue,
         }),
       );
+
+      debugPrint('Response status: ${response.statusCode}');
+      debugPrint('Response body: ${response.body}');
 
       final result = jsonDecode(response.body);
 
@@ -269,6 +280,53 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
     );
   }
 
+  // Calculate image display parameters for coordinate transformation
+  void _updateCanvasLayout(Size canvasSize) {
+    if (_imageSize == null) return;
+
+    final scaleX = canvasSize.width / _imageSize!.width;
+    final scaleY = canvasSize.height / _imageSize!.height;
+    final scale = scaleX < scaleY ? scaleX : scaleY;
+
+    final scaledWidth = _imageSize!.width * scale;
+    final scaledHeight = _imageSize!.height * scale;
+    final offsetX = (canvasSize.width - scaledWidth) / 2;
+    final offsetY = (canvasSize.height - scaledHeight) / 2;
+
+    _canvasDisplaySize = canvasSize;
+    _canvasOffset = Offset(offsetX, offsetY);
+    _displayScale = scale;
+  }
+
+  // Convert screen coordinates to image coordinates
+  Offset? _screenToImageCoords(Offset screenPos, Size canvasSize) {
+    if (_imageSize == null) return null;
+
+    // Calculate scale to fit image in canvas
+    final scaleX = canvasSize.width / _imageSize!.width;
+    final scaleY = canvasSize.height / _imageSize!.height;
+    final scale = scaleX < scaleY ? scaleX : scaleY;
+
+    final scaledWidth = _imageSize!.width * scale;
+    final scaledHeight = _imageSize!.height * scale;
+    final offsetX = (canvasSize.width - scaledWidth) / 2;
+    final offsetY = (canvasSize.height - scaledHeight) / 2;
+
+    // Convert to image coordinates
+    final imageX = (screenPos.dx - offsetX) / scale;
+    final imageY = (screenPos.dy - offsetY) / scale;
+
+    // Clamp to image bounds
+    if (imageX < 0 ||
+        imageX > _imageSize!.width ||
+        imageY < 0 ||
+        imageY > _imageSize!.height) {
+      return null;
+    }
+
+    return Offset(imageX, imageY);
+  }
+
   @override
   Widget build(BuildContext context) {
     // Show full-screen editor when in editor mode
@@ -284,49 +342,6 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      // appBar: AppBar(
-      //   backgroundColor: Colors.transparent,
-      //   elevation: 0,
-      //   leading: IconButton(
-      //     icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
-      //     onPressed: () => Navigator.pop(context),
-      //   ),
-      //   title: Column(
-      //     crossAxisAlignment: CrossAxisAlignment.start,
-      //     children: [
-      //       Text(toolName, style: theme.textTheme.titleMedium),
-      //       Text(
-      //         toolDescription,
-      //         style: theme.textTheme.bodySmall?.copyWith(
-      //           color: theme.colorScheme.onSurface.withOpacity(0.7),
-      //         ),
-      //       ),
-      //     ],
-      //   ),
-      //   actions: [
-      //     Container(
-      //       margin: const EdgeInsets.only(right: 16),
-      //       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      //       decoration: BoxDecoration(
-      //         color: theme.colorScheme.primary.withOpacity(0.1),
-      //         borderRadius: BorderRadius.circular(20),
-      //       ),
-      //       child: Row(
-      //         children: [
-      //           Icon(Icons.stars, size: 16, color: theme.colorScheme.primary),
-      //           const SizedBox(width: 4),
-      //           Text(
-      //             '$creditCost credits',
-      //             style: TextStyle(
-      //               color: theme.colorScheme.primary,
-      //               fontWeight: FontWeight.w600,
-      //             ),
-      //           ),
-      //         ],
-      //       ),
-      //     ),
-      //   ],
-      // ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -409,33 +424,37 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
               ),
             ),
 
-            // Canvas area - full screen
+            // Canvas area - full screen with proper coordinate handling
             Expanded(
-              child: GestureDetector(
-                onPanStart: _onPanStart,
-                onPanUpdate: _onPanUpdate,
-                onPanEnd: _onPanEnd,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  color: Colors.black,
-                  child: Center(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return CustomPaint(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final canvasSize =
+                      Size(constraints.maxWidth, constraints.maxHeight);
+
+                  return GestureDetector(
+                    onPanStart: (details) =>
+                        _onPanStart(details, canvasSize),
+                    onPanUpdate: (details) =>
+                        _onPanUpdate(details, canvasSize),
+                    onPanEnd: _onPanEnd,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      color: Colors.black,
+                      child: Center(
+                        child: CustomPaint(
                           key: _canvasKey,
-                          size:
-                              Size(constraints.maxWidth, constraints.maxHeight),
+                          size: canvasSize,
                           painter: InpaintingCanvasPainter(
                             image: _loadedImage,
                             strokes: _strokes,
                             currentStroke: _currentStroke,
                             imageSize: _imageSize,
                           ),
-                        );
-                      },
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
 
@@ -503,7 +522,7 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
                   if (widget.mode == 'inpainting') ...[
                     const SizedBox(height: 16),
                     TextField(
-                      onChanged: (value) => _prompt = value,
+                      controller: _promptController,
                       style: const TextStyle(color: Colors.white),
                       maxLines: 2,
                       decoration: InputDecoration(
@@ -802,69 +821,42 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
     );
   }
 
-  void _onPanStart(DragStartDetails details) {
+  void _onPanStart(DragStartDetails details, Size canvasSize) {
+    if (_loadedImage == null || _imageSize == null) return;
+
     final renderBox =
         _canvasKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null || _loadedImage == null || _imageSize == null) return;
+    if (renderBox == null) return;
 
     final localPosition = renderBox.globalToLocal(details.globalPosition);
-    final canvasSize = renderBox.size;
+    final imageCoords = _screenToImageCoords(localPosition, canvasSize);
 
-    // Convert to image coordinates
-    final scaleX = _imageSize!.width / canvasSize.width;
-    final scaleY = _imageSize!.height / canvasSize.height;
-    final scale = scaleX > scaleY ? scaleX : scaleY;
-
-    final scaledWidth = _imageSize!.width / scale;
-    final scaledHeight = _imageSize!.height / scale;
-    final offsetX = (canvasSize.width - scaledWidth) / 2;
-    final offsetY = (canvasSize.height - scaledHeight) / 2;
-
-    final imageX = (localPosition.dx - offsetX) * scale;
-    final imageY = (localPosition.dy - offsetY) * scale;
-
-    // Clamp to image bounds
-    if (imageX < 0 ||
-        imageX > _imageSize!.width ||
-        imageY < 0 ||
-        imageY > _imageSize!.height) {
-      return;
-    }
+    if (imageCoords == null) return;
 
     setState(() {
       _currentStroke = DrawingStroke(
-        points: [Offset(imageX, imageY)],
+        points: [imageCoords],
         brushSize: _brushSize,
         isErase: !_isPaintMode,
       );
     });
   }
 
-  void _onPanUpdate(DragUpdateDetails details) {
-    if (_currentStroke == null) return;
+  void _onPanUpdate(DragUpdateDetails details, Size canvasSize) {
+    if (_currentStroke == null || _imageSize == null) return;
 
     final renderBox =
         _canvasKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null || _imageSize == null) return;
+    if (renderBox == null) return;
 
     final localPosition = renderBox.globalToLocal(details.globalPosition);
-    final canvasSize = renderBox.size;
+    final imageCoords = _screenToImageCoords(localPosition, canvasSize);
 
-    final scaleX = _imageSize!.width / canvasSize.width;
-    final scaleY = _imageSize!.height / canvasSize.height;
-    final scale = scaleX > scaleY ? scaleX : scaleY;
-
-    final scaledWidth = _imageSize!.width / scale;
-    final scaledHeight = _imageSize!.height / scale;
-    final offsetX = (canvasSize.width - scaledWidth) / 2;
-    final offsetY = (canvasSize.height - scaledHeight) / 2;
-
-    final imageX = (localPosition.dx - offsetX) * scale;
-    final imageY = (localPosition.dy - offsetY) * scale;
+    if (imageCoords == null) return;
 
     setState(() {
       _currentStroke = DrawingStroke(
-        points: [..._currentStroke!.points, Offset(imageX, imageY)],
+        points: [..._currentStroke!.points, imageCoords],
         brushSize: _currentStroke!.brushSize,
         isErase: _currentStroke!.isErase,
       );
@@ -926,7 +918,7 @@ class InpaintingCanvasPainter extends CustomPainter {
     canvas.scale(scale);
     canvas.drawImage(image!, Offset.zero, Paint());
 
-    // Draw mask strokes with semi-transparent overlay
+    // Draw mask strokes as filled circles - matches web implementation
     for (final stroke in strokes) {
       _drawStroke(canvas, stroke);
     }
@@ -942,23 +934,11 @@ class InpaintingCanvasPainter extends CustomPainter {
       ..color = stroke.isErase
           ? Colors.black.withOpacity(0.5)
           : Colors.red.withOpacity(0.5)
-      ..strokeWidth = stroke.brushSize
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
+      ..style = PaintingStyle.fill;
 
-    if (stroke.points.length == 1) {
-      canvas.drawCircle(
-        stroke.points.first,
-        stroke.brushSize / 2,
-        paint..style = PaintingStyle.fill,
-      );
-    } else {
-      final path = Path();
-      path.moveTo(stroke.points.first.dx, stroke.points.first.dy);
-      for (int i = 1; i < stroke.points.length; i++) {
-        path.lineTo(stroke.points[i].dx, stroke.points[i].dy);
-      }
-      canvas.drawPath(path, paint);
+    // Draw filled circles at each point - matches web's arc-based drawing
+    for (final point in stroke.points) {
+      canvas.drawCircle(point, stroke.brushSize / 2, paint);
     }
   }
 
