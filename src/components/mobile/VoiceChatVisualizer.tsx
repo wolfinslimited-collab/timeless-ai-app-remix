@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
 type VoiceState = "idle" | "listening" | "processing" | "speaking";
@@ -7,7 +7,8 @@ interface VoiceChatVisualizerProps {
   state: VoiceState;
 }
 
-export function VoiceChatVisualizer({ state }: VoiceChatVisualizerProps) {
+export const VoiceChatVisualizer = forwardRef<HTMLDivElement, VoiceChatVisualizerProps>(
+  ({ state }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
   const phaseRef = useRef(0);
@@ -181,15 +182,18 @@ export function VoiceChatVisualizer({ state }: VoiceChatVisualizerProps) {
     };
   }, [state]);
 
-  return (
-    <div className="relative flex items-center justify-center">
-      <canvas
-        ref={canvasRef}
-        className={cn(
-          "transition-opacity duration-500",
-          state === "idle" ? "opacity-60" : "opacity-100"
-        )}
-      />
-    </div>
-  );
-}
+    return (
+      <div ref={ref} className="relative flex items-center justify-center">
+        <canvas
+          ref={canvasRef}
+          className={cn(
+            "transition-opacity duration-500",
+            state === "idle" ? "opacity-60" : "opacity-100"
+          )}
+        />
+      </div>
+    );
+  }
+);
+
+VoiceChatVisualizer.displayName = "VoiceChatVisualizer";
