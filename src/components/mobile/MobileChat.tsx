@@ -403,16 +403,7 @@ export function MobileChat() {
           </div>
         </button>
 
-        {/* Live Voice Chat Button */}
-        <button 
-          onClick={() => setShowVoiceChat(true)}
-          className="h-8 px-3 flex items-center gap-1.5 bg-green-500/10 border border-green-500/30 rounded-full"
-        >
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-xs font-medium text-green-500">Live</span>
-        </button>
-
-        <button 
+        <button
           onClick={handleNewChat}
           className="w-10 h-10 flex items-center justify-center"
         >
@@ -547,8 +538,26 @@ export function MobileChat() {
       {!isListening && (
         <div className="px-3 py-2.5 border-t border-border bg-card">
           <div className="flex items-center gap-1.5 bg-secondary rounded-full px-1.5 py-1 border border-border/40">
+            {/* Live Voice Chat Button - circular like reference */}
+            <button 
+              onClick={() => setShowVoiceChat(true)}
+              className="w-10 h-10 rounded-full bg-muted-foreground/20 flex items-center justify-center hover:bg-muted-foreground/30 transition-colors flex-shrink-0"
+            >
+              <div className="flex items-center justify-center gap-[2px]">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div
+                    key={i}
+                    className="w-[2px] bg-foreground/70 rounded-full"
+                    style={{
+                      height: i === 1 || i === 5 ? '8px' : i === 2 || i === 4 ? '12px' : '16px',
+                    }}
+                  />
+                ))}
+              </div>
+            </button>
+
             {/* Left action buttons - inline and compact */}
-            <div className="flex items-center gap-0.5 pl-1">
+            <div className="flex items-center gap-0.5">
               {supportsVision && (
                 <button className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-background/50 transition-colors">
                   <ImageIcon className="w-4 h-4 text-muted-foreground" />
