@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { ArrowLeft, Upload, Play, Pause, User, Accessibility, SlidersHorizontal, Wand2, Loader2, X, Zap } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { ArrowLeft, Upload, Play, Pause, User, Accessibility, SlidersHorizontal, Wand2, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -14,6 +14,8 @@ const ACTIONS = [
   { id: "edit_more", name: "Edit More", icon: Wand2 },
 ];
 
+const FRAME_COUNT = 10;
+
 export function MobileRetouch({ onBack }: MobileRetouchProps) {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -23,9 +25,13 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
+  const [thumbnails, setThumbnails] = useState<string[]>([]);
+  const [isExtractingFrames, setIsExtractingFrames] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const extractorVideoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -33,8 +39,65 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
       if (videoUrl) {
         URL.revokeObjectURL(videoUrl);
       }
+      // Clean up thumbnails
+      thumbnails.forEach(url => URL.revokeObjectURL(url));
     };
-  }, [videoUrl]);
+  }, [videoUrl, thumbnails]);
+
+  const extractFrames = useCallback(async (videoSrc: string) => {
+    setIsExtractingFrames(true);
+    const frames: string[] = [];
+    
+    return new Promise<string[]>((resolve) => {
+      const video = document.createElement('video');
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      extractorVideoRef.current = video;
+      canvasRef.current = canvas;
+      
+      video.crossOrigin = 'anonymous';
+      video.muted = true;
+      video.preload = 'metadata';
+      
+      video.onloadedmetadata = async () => {
+        const videoDuration = video.duration;
+        canvas.width = 80;
+        canvas.height = 60;
+        
+        const captureFrame = (time: number): Promise<string> => {
+          return new Promise((res) => {
+            video.currentTime = time;
+            video.onseeked = () => {
+              if (ctx) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                res(dataUrl);
+              } else {
+                res('');
+              }
+            };
+          });
+        };
+        
+        for (let i = 0; i < FRAME_COUNT; i++) {
+          const time = (videoDuration / FRAME_COUNT) * i;
+          const frame = await captureFrame(time);
+          if (frame) frames.push(frame);
+        }
+        
+        setIsExtractingFrames(false);
+        resolve(frames);
+      };
+      
+      video.onerror = () => {
+        setIsExtractingFrames(false);
+        resolve([]);
+      };
+      
+      video.src = videoSrc;
+    });
+  }, []);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -51,6 +114,7 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
 
     setIsUploading(true);
     setUploadProgress(0);
+    setThumbnails([]);
 
     // Simulate upload progress
     const progressInterval = setInterval(() => {
@@ -66,12 +130,17 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
     // Create local URL for preview
     const url = URL.createObjectURL(file);
     
-    setTimeout(() => {
+    setTimeout(async () => {
       clearInterval(progressInterval);
       setUploadProgress(100);
       setVideoFile(file);
       setVideoUrl(url);
       setIsUploading(false);
+      
+      // Extract frames for timeline
+      const frames = await extractFrames(url);
+      setThumbnails(frames);
+      
       toast({
         title: "Video loaded",
         description: "Your video is ready for retouching",
@@ -110,12 +179,23 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
     }
   };
 
+  const handleTimelineClick = (index: number) => {
+    if (!videoRef.current || !duration) return;
+    const time = (duration / FRAME_COUNT) * index;
+    videoRef.current.currentTime = time;
+    setCurrentTime(time);
+  };
+
   const handleClearVideo = () => {
     if (videoUrl) {
       URL.revokeObjectURL(videoUrl);
     }
+    thumbnails.forEach(url => {
+      if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+    });
     setVideoFile(null);
     setVideoUrl(null);
+    setThumbnails([]);
     setCurrentTime(0);
     setDuration(0);
     setIsPlaying(false);
@@ -143,6 +223,14 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const getCurrentFrameIndex = () => {
+    if (!duration || thumbnails.length === 0) return 0;
+    return Math.min(
+      Math.floor((currentTime / duration) * thumbnails.length),
+      thumbnails.length - 1
+    );
   };
 
   return (
@@ -262,17 +350,74 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
         />
       </div>
 
-      {/* Timeline Scrubber */}
+      {/* Timeline with Frame Thumbnails */}
       {videoUrl && (
         <div className="px-4 pb-2">
+          {/* Thumbnail Strip */}
+          <div className="relative mb-2">
+            {isExtractingFrames ? (
+              <div className="h-14 bg-secondary rounded-lg flex items-center justify-center">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span className="text-muted-foreground text-xs">Extracting frames...</span>
+                </div>
+              </div>
+            ) : thumbnails.length > 0 ? (
+              <div className="relative h-14 rounded-lg overflow-hidden">
+                {/* Frame Thumbnails */}
+                <div className="absolute inset-0 flex">
+                  {thumbnails.map((thumb, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleTimelineClick(index)}
+                      className={cn(
+                        "flex-1 h-full relative transition-all",
+                        getCurrentFrameIndex() === index && "ring-2 ring-primary ring-inset z-10"
+                      )}
+                    >
+                      <img
+                        src={thumb}
+                        alt={`Frame ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      {/* Overlay for non-active frames */}
+                      <div
+                        className={cn(
+                          "absolute inset-0 bg-black/30 transition-opacity",
+                          getCurrentFrameIndex() === index ? "opacity-0" : "opacity-100"
+                        )}
+                      />
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Playhead Indicator */}
+                <div
+                  className="absolute top-0 bottom-0 w-0.5 bg-primary shadow-lg z-20 pointer-events-none"
+                  style={{
+                    left: `${(currentTime / (duration || 1)) * 100}%`,
+                    boxShadow: '0 0 8px hsl(var(--primary))',
+                  }}
+                >
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-primary rounded-full" />
+                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-primary rounded-full" />
+                </div>
+              </div>
+            ) : (
+              <div className="h-14 bg-secondary rounded-lg" />
+            )}
+          </div>
+
+          {/* Slider for fine-grained control */}
           <div className="relative">
             <input
               type="range"
               min={0}
               max={duration || 100}
+              step={0.01}
               value={currentTime}
               onChange={handleSeek}
-              className="w-full h-1 bg-border rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
+              className="w-full h-1 bg-transparent rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-lg"
               style={{
                 background: `linear-gradient(to right, hsl(var(--primary)) ${(currentTime / (duration || 1)) * 100}%, hsl(var(--border)) ${(currentTime / (duration || 1)) * 100}%)`,
               }}

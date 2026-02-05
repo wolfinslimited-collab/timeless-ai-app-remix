@@ -397,6 +397,106 @@ class _RetouchToolScreenState extends State<RetouchToolScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         children: [
+          // Video frame thumbnails strip
+          Container(
+            height: 56,
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: AppTheme.secondary,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Stack(
+              children: [
+                // Frame thumbnails placeholder - simulated frames
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Row(
+                    children: List.generate(10, (index) {
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            if (_videoController != null && _videoController!.value.isInitialized) {
+                              final duration = _videoController!.value.duration.inMilliseconds;
+                              final targetTime = Duration(
+                                milliseconds: ((duration / 10) * index).toInt(),
+                              );
+                              _videoController!.seekTo(targetTime);
+                            }
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: AppTheme.border.withOpacity(0.3),
+                              border: Border(
+                                right: index < 9
+                                    ? BorderSide(color: AppTheme.border.withOpacity(0.2), width: 1)
+                                    : BorderSide.none,
+                              ),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                Icons.movie_outlined,
+                                size: 16,
+                                color: AppTheme.muted.withOpacity(0.5),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+                // Playhead indicator
+                ValueListenableBuilder<VideoPlayerValue>(
+                  valueListenable: _videoController!,
+                  builder: (context, value, child) {
+                    final duration = value.duration.inMilliseconds;
+                    final position = value.position.inMilliseconds;
+                    final progress = duration > 0 ? position / duration : 0.0;
+                    
+                    return Positioned(
+                      left: (MediaQuery.of(context).size.width - 32) * progress - 1,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 2,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primary.withOpacity(0.5),
+                              blurRadius: 4,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: AppTheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: AppTheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
           // Video progress indicator
           ValueListenableBuilder<VideoPlayerValue>(
             valueListenable: _videoController!,
