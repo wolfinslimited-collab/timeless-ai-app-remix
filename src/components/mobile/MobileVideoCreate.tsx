@@ -9,6 +9,7 @@ import AddCreditsDialog from "@/components/AddCreditsDialog";
 import { ToolSelector, type ToolItem } from "./ToolSelector";
 import { ModelSelectorModal, type ModelOption } from "./ModelSelectorModal";
 import { ModelBrandLogo } from "./ModelBrandLogo";
+import { MobileRetouch } from "./MobileRetouch";
 
 interface MobileVideoCreateProps {
   onBack: () => void;
@@ -175,6 +176,11 @@ export function MobileVideoCreate({ onBack, initialTool = "generate" }: MobileVi
 
     setTimeout(poll, 5000);
   };
+
+  // Render MobileRetouch when retouch tool is selected
+  if (selectedToolId === "retouch") {
+    return <MobileRetouch onBack={onBack} />;
+  }
 
   return (
     <div className="h-full flex flex-col bg-background">
