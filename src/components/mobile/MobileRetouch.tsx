@@ -57,12 +57,26 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const [thumbnails, setThumbnails] = useState<string[]>([]);
   const [isExtractingFrames, setIsExtractingFrames] = useState(false);
-  const [showBottomSheet, setShowBottomSheet] = useState<"face" | "body" | "export" | null>(null);
+  const [showBottomSheet, setShowBottomSheet] = useState<"face" | "body" | "export" | "adjust" | null>(null);
   
   // Export settings state
   const [exportResolution, setExportResolution] = useState("1080p");
   const [exportFrameRate, setExportFrameRate] = useState(30);
   const [exportQuality, setExportQuality] = useState([75]);
+  
+  // Adjust settings state
+  const [adjustments, setAdjustments] = useState({
+    brightness: 0,
+    contrast: 0,
+    saturation: 0,
+    brilliance: 0,
+    highlights: 0,
+    shadows: 0,
+    warmth: 0,
+    tint: 0,
+    sharpness: 0,
+    vignette: 0,
+  });
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -250,7 +264,7 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
     
     setSelectedAction(actionId);
     
-    if (actionId === "face" || actionId === "body") {
+    if (actionId === "face" || actionId === "body" || actionId === "adjust") {
       setShowBottomSheet(actionId);
     } else {
       toast({
@@ -643,7 +657,7 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
 
       {/* Export Settings Bottom Sheet */}
       {showBottomSheet === "export" && (
-        <div className="absolute bottom-0 left-0 right-0 z-50 bg-card rounded-t-3xl" style={{ animation: 'slideUp 0.3s ease-out' }}>
+        <div className="absolute bottom-0 left-0 right-0 z-50 bg-card rounded-t-3xl max-h-[85vh] overflow-hidden" style={{ animation: 'slideUp 0.3s ease-out' }}>
           <style>{`
             @keyframes slideUp {
               from { transform: translateY(100%); }
@@ -767,6 +781,280 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
             >
               <Download className="w-5 h-5" />
               Export Video
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Adjust Tools Bottom Sheet */}
+      {showBottomSheet === "adjust" && (
+        <div className="absolute bottom-0 left-0 right-0 z-50 bg-card rounded-t-3xl max-h-[85vh] overflow-hidden" style={{ animation: 'slideUp 0.3s ease-out' }}>
+          <style>{`
+            @keyframes slideUp {
+              from { transform: translateY(100%); }
+              to { transform: translateY(0); }
+            }
+          `}</style>
+          {/* Handle */}
+          <div className="flex justify-center pt-3">
+            <div className="w-10 h-1 bg-border rounded-full" />
+          </div>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3">
+            <h2 className="text-foreground text-lg font-bold">Adjust</h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setAdjustments({
+                  brightness: 0,
+                  contrast: 0,
+                  saturation: 0,
+                  brilliance: 0,
+                  highlights: 0,
+                  shadows: 0,
+                  warmth: 0,
+                  tint: 0,
+                  sharpness: 0,
+                  vignette: 0,
+                })}
+                className="text-primary text-sm font-medium px-2"
+              >
+                Reset
+              </button>
+              <button
+                onClick={closeBottomSheet}
+                className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center"
+              >
+                <X className="w-4 h-4 text-foreground" />
+              </button>
+            </div>
+          </div>
+          
+          {/* Scrollable Adjustment Controls */}
+          <div className="px-4 pb-8 overflow-y-auto max-h-[60vh] space-y-5">
+            {/* Brightness */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-foreground text-sm font-medium">Brightness</span>
+                <span className={cn(
+                  "text-xs font-medium min-w-[36px] text-right",
+                  adjustments.brightness !== 0 ? "text-primary" : "text-muted-foreground"
+                )}>
+                  {adjustments.brightness > 0 ? "+" : ""}{adjustments.brightness}
+                </span>
+              </div>
+              <Slider
+                value={[adjustments.brightness]}
+                onValueChange={([v]) => setAdjustments(prev => ({ ...prev, brightness: v }))}
+                min={-100}
+                max={100}
+                step={1}
+                className="w-full"
+              />
+            </div>
+
+            {/* Contrast */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-foreground text-sm font-medium">Contrast</span>
+                <span className={cn(
+                  "text-xs font-medium min-w-[36px] text-right",
+                  adjustments.contrast !== 0 ? "text-primary" : "text-muted-foreground"
+                )}>
+                  {adjustments.contrast > 0 ? "+" : ""}{adjustments.contrast}
+                </span>
+              </div>
+              <Slider
+                value={[adjustments.contrast]}
+                onValueChange={([v]) => setAdjustments(prev => ({ ...prev, contrast: v }))}
+                min={-100}
+                max={100}
+                step={1}
+                className="w-full"
+              />
+            </div>
+
+            {/* Saturation */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-foreground text-sm font-medium">Saturation</span>
+                <span className={cn(
+                  "text-xs font-medium min-w-[36px] text-right",
+                  adjustments.saturation !== 0 ? "text-primary" : "text-muted-foreground"
+                )}>
+                  {adjustments.saturation > 0 ? "+" : ""}{adjustments.saturation}
+                </span>
+              </div>
+              <Slider
+                value={[adjustments.saturation]}
+                onValueChange={([v]) => setAdjustments(prev => ({ ...prev, saturation: v }))}
+                min={-100}
+                max={100}
+                step={1}
+                className="w-full"
+              />
+            </div>
+
+            {/* Brilliance */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-foreground text-sm font-medium">Brilliance</span>
+                <span className={cn(
+                  "text-xs font-medium min-w-[36px] text-right",
+                  adjustments.brilliance !== 0 ? "text-primary" : "text-muted-foreground"
+                )}>
+                  {adjustments.brilliance > 0 ? "+" : ""}{adjustments.brilliance}
+                </span>
+              </div>
+              <Slider
+                value={[adjustments.brilliance]}
+                onValueChange={([v]) => setAdjustments(prev => ({ ...prev, brilliance: v }))}
+                min={-100}
+                max={100}
+                step={1}
+                className="w-full"
+              />
+            </div>
+
+            {/* Highlights */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-foreground text-sm font-medium">Highlights</span>
+                <span className={cn(
+                  "text-xs font-medium min-w-[36px] text-right",
+                  adjustments.highlights !== 0 ? "text-primary" : "text-muted-foreground"
+                )}>
+                  {adjustments.highlights > 0 ? "+" : ""}{adjustments.highlights}
+                </span>
+              </div>
+              <Slider
+                value={[adjustments.highlights]}
+                onValueChange={([v]) => setAdjustments(prev => ({ ...prev, highlights: v }))}
+                min={-100}
+                max={100}
+                step={1}
+                className="w-full"
+              />
+            </div>
+
+            {/* Shadows */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-foreground text-sm font-medium">Shadows</span>
+                <span className={cn(
+                  "text-xs font-medium min-w-[36px] text-right",
+                  adjustments.shadows !== 0 ? "text-primary" : "text-muted-foreground"
+                )}>
+                  {adjustments.shadows > 0 ? "+" : ""}{adjustments.shadows}
+                </span>
+              </div>
+              <Slider
+                value={[adjustments.shadows]}
+                onValueChange={([v]) => setAdjustments(prev => ({ ...prev, shadows: v }))}
+                min={-100}
+                max={100}
+                step={1}
+                className="w-full"
+              />
+            </div>
+
+            {/* Warmth */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-foreground text-sm font-medium">Warmth</span>
+                <span className={cn(
+                  "text-xs font-medium min-w-[36px] text-right",
+                  adjustments.warmth !== 0 ? "text-primary" : "text-muted-foreground"
+                )}>
+                  {adjustments.warmth > 0 ? "+" : ""}{adjustments.warmth}
+                </span>
+              </div>
+              <Slider
+                value={[adjustments.warmth]}
+                onValueChange={([v]) => setAdjustments(prev => ({ ...prev, warmth: v }))}
+                min={-100}
+                max={100}
+                step={1}
+                className="w-full"
+              />
+            </div>
+
+            {/* Tint */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-foreground text-sm font-medium">Tint</span>
+                <span className={cn(
+                  "text-xs font-medium min-w-[36px] text-right",
+                  adjustments.tint !== 0 ? "text-primary" : "text-muted-foreground"
+                )}>
+                  {adjustments.tint > 0 ? "+" : ""}{adjustments.tint}
+                </span>
+              </div>
+              <Slider
+                value={[adjustments.tint]}
+                onValueChange={([v]) => setAdjustments(prev => ({ ...prev, tint: v }))}
+                min={-100}
+                max={100}
+                step={1}
+                className="w-full"
+              />
+            </div>
+
+            {/* Sharpness */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-foreground text-sm font-medium">Sharpness</span>
+                <span className={cn(
+                  "text-xs font-medium min-w-[36px] text-right",
+                  adjustments.sharpness !== 0 ? "text-primary" : "text-muted-foreground"
+                )}>
+                  {adjustments.sharpness > 0 ? "+" : ""}{adjustments.sharpness}
+                </span>
+              </div>
+              <Slider
+                value={[adjustments.sharpness]}
+                onValueChange={([v]) => setAdjustments(prev => ({ ...prev, sharpness: v }))}
+                min={0}
+                max={100}
+                step={1}
+                className="w-full"
+              />
+            </div>
+
+            {/* Vignette */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-foreground text-sm font-medium">Vignette</span>
+                <span className={cn(
+                  "text-xs font-medium min-w-[36px] text-right",
+                  adjustments.vignette !== 0 ? "text-primary" : "text-muted-foreground"
+                )}>
+                  {adjustments.vignette > 0 ? "+" : ""}{adjustments.vignette}
+                </span>
+              </div>
+              <Slider
+                value={[adjustments.vignette]}
+                onValueChange={([v]) => setAdjustments(prev => ({ ...prev, vignette: v }))}
+                min={0}
+                max={100}
+                step={1}
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          {/* Apply Button */}
+          <div className="px-4 pb-6 pt-2 border-t border-border">
+            <button
+              onClick={() => {
+                toast({
+                  title: "Adjustments applied",
+                  description: "Video adjustments have been applied",
+                });
+                closeBottomSheet();
+              }}
+              className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold"
+            >
+              Apply Adjustments
             </button>
           </div>
         </div>
