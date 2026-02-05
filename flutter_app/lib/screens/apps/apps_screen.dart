@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+ import 'package:provider/provider.dart';
 import '../../core/theme.dart';
+ import '../../providers/credits_provider.dart';
+ import '../../widgets/common/premium_plus_lock_screen.dart';
 
 class AIAppItem {
   final String id;
@@ -100,6 +103,8 @@ class AppsScreen extends StatefulWidget {
 
 class _AppsScreenState extends State<AppsScreen> {
   String _selectedCategory = 'all';
+   bool _showLockScreen = false;
+   AIAppItem? _selectedApp;
 
   List<AIAppItem> get _filteredApps {
     if (_selectedCategory == 'all') {
@@ -118,6 +123,16 @@ class _AppsScreenState extends State<AppsScreen> {
       );
       return;
     }
+     
+     // Check for Premium Plus access
+     final creditsProvider = context.read<CreditsProvider>();
+     if (!creditsProvider.hasPremiumPlusAccess) {
+       setState(() {
+         _selectedApp = app;
+         _showLockScreen = true;
+       });
+       return;
+     }
 
     // Navigate to specific app screens
     switch (app.id) {
@@ -151,6 +166,18 @@ class _AppsScreenState extends State<AppsScreen> {
 
   @override
   Widget build(BuildContext context) {
+     // Show lock screen when user without Premium Plus tries to access an app
+     if (_showLockScreen && _selectedApp != null) {
+       return PremiumPlusLockScreen(
+         feature: _selectedApp!.name,
+         description: 'Access ${_selectedApp!.name} and all other AI-powered apps with Premium Plus.',
+         onBack: () => setState(() {
+           _showLockScreen = false;
+           _selectedApp = null;
+         }),
+       );
+     }
+     
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: SafeArea(
