@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { ArrowLeft, Upload, Play, Pause, User, Accessibility, SlidersHorizontal, Wand2, X, Zap, Sparkles, Hand, Palette, Move, Settings } from "lucide-react";
+import { ArrowLeft, Upload, Play, Pause, User, Accessibility, SlidersHorizontal, Wand2, X, Zap, Sparkles, Hand, Palette, Move, Settings, Download } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -30,6 +31,21 @@ const BODY_TABS = [
 
 const FRAME_COUNT = 10;
 
+const RESOLUTION_OPTIONS = [
+  { value: "480p", label: "480p" },
+  { value: "720p", label: "720p" },
+  { value: "1080p", label: "1080p" },
+  { value: "4k", label: "4K" },
+];
+
+const FRAMERATE_OPTIONS = [
+  { value: 24, label: "24" },
+  { value: 25, label: "25" },
+  { value: 30, label: "30" },
+  { value: 50, label: "50" },
+  { value: 60, label: "60" },
+];
+
 export function MobileRetouch({ onBack }: MobileRetouchProps) {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -41,7 +57,12 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const [thumbnails, setThumbnails] = useState<string[]>([]);
   const [isExtractingFrames, setIsExtractingFrames] = useState(false);
-  const [showBottomSheet, setShowBottomSheet] = useState<"face" | "body" | null>(null);
+  const [showBottomSheet, setShowBottomSheet] = useState<"face" | "body" | "export" | null>(null);
+  
+  // Export settings state
+  const [exportResolution, setExportResolution] = useState("1080p");
+  const [exportFrameRate, setExportFrameRate] = useState(30);
+  const [exportQuality, setExportQuality] = useState([75]);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -271,9 +292,20 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
           <h1 className="text-foreground text-base font-semibold">Retouch</h1>
           <p className="text-muted-foreground text-xs">AI video retouching</p>
         </div>
-        <div className="flex items-center gap-1 bg-primary/15 px-2 py-1 rounded-lg">
-          <Zap className="w-3 h-3 text-primary" />
-          <span className="text-primary text-xs font-semibold">10</span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-primary/15 px-2 py-1 rounded-lg">
+            <Zap className="w-3 h-3 text-primary" />
+            <span className="text-primary text-xs font-semibold">10</span>
+          </div>
+          {videoUrl && (
+            <button
+              onClick={() => setShowBottomSheet("export")}
+              className="flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-lg"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="text-xs font-semibold">Export</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -606,6 +638,137 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
               );
             })}
           </Tabs>
+        </div>
+      )}
+
+      {/* Export Settings Bottom Sheet */}
+      {showBottomSheet === "export" && (
+        <div className="absolute bottom-0 left-0 right-0 z-50 bg-card rounded-t-3xl" style={{ animation: 'slideUp 0.3s ease-out' }}>
+          <style>{`
+            @keyframes slideUp {
+              from { transform: translateY(100%); }
+              to { transform: translateY(0); }
+            }
+          `}</style>
+          {/* Handle */}
+          <div className="flex justify-center pt-3">
+            <div className="w-10 h-1 bg-border rounded-full" />
+          </div>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3">
+            <h2 className="text-foreground text-lg font-bold">Export Settings</h2>
+            <button
+              onClick={closeBottomSheet}
+              className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center"
+            >
+              <X className="w-4 h-4 text-foreground" />
+            </button>
+          </div>
+          
+          {/* Settings Content */}
+          <div className="px-4 pb-8 space-y-6">
+            {/* Resolution */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-foreground font-medium">Resolution</span>
+                <span className="text-muted-foreground text-sm">
+                  {exportResolution === "1080p" ? "Full HD" : exportResolution === "4k" ? "Ultra HD" : "Standard"}
+                </span>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {RESOLUTION_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setExportResolution(option.value)}
+                    className={cn(
+                      "py-2.5 rounded-xl text-sm font-medium transition-all",
+                      exportResolution === option.value
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-foreground hover:bg-secondary/80"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Frame Rate */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-foreground font-medium">Frame Rate</span>
+                <span className="text-muted-foreground text-sm">
+                  {exportFrameRate >= 50 ? "Smoother playback" : "Standard playback"}
+                </span>
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                {FRAMERATE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setExportFrameRate(option.value)}
+                    className={cn(
+                      "py-2.5 rounded-xl text-sm font-medium transition-all",
+                      exportFrameRate === option.value
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-foreground hover:bg-secondary/80"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Quality Slider */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-foreground font-medium">Quality</span>
+                <span className="text-muted-foreground text-sm">{exportQuality[0]}%</span>
+              </div>
+              <div className="px-1">
+                <Slider
+                  value={exportQuality}
+                  onValueChange={setExportQuality}
+                  min={10}
+                  max={100}
+                  step={5}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Low</span>
+                <span>Medium</span>
+                <span>High</span>
+              </div>
+            </div>
+
+            {/* Estimated File Size */}
+            <div className="bg-secondary/50 rounded-xl p-3 flex items-center justify-between">
+              <span className="text-muted-foreground text-sm">Estimated file size</span>
+              <span className="text-foreground font-medium">
+                {Math.round(
+                  (exportResolution === "4k" ? 200 : exportResolution === "1080p" ? 80 : exportResolution === "720p" ? 40 : 20) *
+                  (exportFrameRate / 30) *
+                  (exportQuality[0] / 100)
+                )} MB
+              </span>
+            </div>
+
+            {/* Export Button */}
+            <button
+              onClick={() => {
+                toast({
+                  title: "Export started",
+                  description: `Exporting at ${exportResolution}, ${exportFrameRate}fps, ${exportQuality[0]}% quality`,
+                });
+                closeBottomSheet();
+              }}
+              className="w-full bg-primary text-primary-foreground py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2"
+            >
+              <Download className="w-5 h-5" />
+              Export Video
+            </button>
+          </div>
         </div>
       )}
     </div>
