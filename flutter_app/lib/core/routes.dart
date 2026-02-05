@@ -34,6 +34,7 @@ import '../screens/create/tools/mixed_media_tool_screen.dart';
 import '../screens/create/tools/click_to_ad_tool_screen.dart';
 import '../screens/create/tools/ugc_factory_tool_screen.dart';
 import '../screens/create/tools/sora_trends_tool_screen.dart';
+import '../screens/create/tools/retouch_tool_screen.dart';
 // Audio Tools
 import '../screens/create/tools/stems_tool_screen.dart';
 import '../screens/create/tools/remix_tool_screen.dart';
@@ -244,6 +245,10 @@ final appRouter = GoRouter(
                 GoRoute(
                   path: 'sora-trends',
                   builder: (context, state) => const SoraTrendsToolScreen(),
+                ),
+                GoRoute(
+                  path: 'retouch',
+                  builder: (context, state) => const RetouchToolScreen(),
                 ),
               ],
             ),

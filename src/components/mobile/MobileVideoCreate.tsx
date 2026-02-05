@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Video, Sparkles, Loader2, Camera, Play, Layers, TrendingUp, Mic, Brush, Maximize, PlusCircle, Timer, Zap, ChevronDown } from "lucide-react";
+import { ArrowLeft, Video, Sparkles, Loader2, Camera, Play, Layers, TrendingUp, Mic, Brush, Maximize, PlusCircle, Timer, Zap, ChevronDown, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase, TIMELESS_SUPABASE_URL } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,6 +24,7 @@ const TOOLS: ToolItem[] = [
   { id: "video-upscale", name: "Upscale", description: "Enhance video quality", icon: Maximize, credits: 8 },
   { id: "extend", name: "Extend", description: "Extend video length", icon: PlusCircle, credits: 12 },
   { id: "interpolate", name: "Smooth", description: "Smooth frame rate", icon: Timer, credits: 6 },
+  { id: "retouch", name: "Retouch", description: "AI video retouching", icon: Wand2, credits: 10, badge: "NEW" },
 ];
 
 const MODELS: ModelOption[] = [

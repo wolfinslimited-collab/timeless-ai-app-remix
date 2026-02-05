@@ -28,6 +28,7 @@ import 'tools/mixed_media_tool_screen.dart';
 import 'tools/click_to_ad_tool_screen.dart';
 import 'tools/ugc_factory_tool_screen.dart';
 import 'tools/sora_trends_tool_screen.dart';
+import 'tools/retouch_tool_screen.dart';
 
 // Video tools with ToolItem format
 const List<ToolItem> videoToolItems = [
@@ -103,6 +104,15 @@ const List<ToolItem> videoToolItems = [
     icon: Icons.animation,
     credits: 6,
     route: '/create/video/interpolate',
+  ),
+  ToolItem(
+    id: 'retouch',
+    name: 'Retouch',
+    description: 'AI video retouching',
+    icon: Icons.auto_fix_high,
+    credits: 10,
+    route: '/create/video/retouch',
+    badge: 'NEW',
   ),
 ];
 
