@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { ArrowLeft, Upload, Play, Pause, User, Accessibility, SlidersHorizontal, Wand2, X, Zap } from "lucide-react";
+import { ArrowLeft, Upload, Play, Pause, User, Accessibility, SlidersHorizontal, Wand2, X, Zap, Sparkles, Hand, Palette, Move, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface MobileRetouchProps {
   onBack: () => void;
@@ -12,6 +13,19 @@ const ACTIONS = [
   { id: "body", name: "Body", icon: Accessibility },
   { id: "adjust", name: "Adjust", icon: SlidersHorizontal },
   { id: "edit_more", name: "Edit More", icon: Wand2 },
+];
+
+const FACE_TABS = [
+  { id: "looks", name: "Looks", icon: Sparkles },
+  { id: "face", name: "Face", icon: User },
+  { id: "reshape", name: "Reshape", icon: Move },
+  { id: "makeup", name: "Makeup", icon: Palette },
+];
+
+const BODY_TABS = [
+  { id: "auto", name: "Auto", icon: Wand2 },
+  { id: "manual", name: "Manual", icon: Hand },
+  { id: "presets", name: "Presets", icon: Settings },
 ];
 
 const FRAME_COUNT = 10;
@@ -27,6 +41,7 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const [thumbnails, setThumbnails] = useState<string[]>([]);
   const [isExtractingFrames, setIsExtractingFrames] = useState(false);
+  const [showBottomSheet, setShowBottomSheet] = useState<"face" | "body" | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -213,10 +228,19 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
     }
     
     setSelectedAction(actionId);
-    toast({
-      title: `${actionId.replace("_", " ")} tools`,
-      description: "Coming soon",
-    });
+    
+    if (actionId === "face" || actionId === "body") {
+      setShowBottomSheet(actionId);
+    } else {
+      toast({
+        title: `${actionId.replace("_", " ")} tools`,
+        description: "Coming soon",
+      });
+    }
+  };
+
+  const closeBottomSheet = () => {
+    setShowBottomSheet(null);
   };
 
   const formatTime = (seconds: number) => {
@@ -472,6 +496,118 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
           })}
         </div>
       </div>
+
+      {/* Bottom Sheet Overlay */}
+      {showBottomSheet && (
+        <div 
+          className="absolute inset-0 bg-black/50 z-40 animate-fade-in"
+          onClick={closeBottomSheet}
+        />
+      )}
+
+      {/* Face Tools Bottom Sheet */}
+      {showBottomSheet === "face" && (
+        <div className="absolute bottom-0 left-0 right-0 z-50 bg-card rounded-t-3xl animate-slide-in-right" style={{ animation: 'slideUp 0.3s ease-out' }}>
+          <style>{`
+            @keyframes slideUp {
+              from { transform: translateY(100%); }
+              to { transform: translateY(0); }
+            }
+          `}</style>
+          {/* Handle */}
+          <div className="flex justify-center pt-3">
+            <div className="w-10 h-1 bg-border rounded-full" />
+          </div>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3">
+            <h2 className="text-foreground text-lg font-bold">Face Tools</h2>
+            <button
+              onClick={closeBottomSheet}
+              className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center"
+            >
+              <X className="w-4 h-4 text-foreground" />
+            </button>
+          </div>
+          {/* Tabs */}
+          <Tabs defaultValue="looks" className="w-full">
+            <TabsList className="mx-4 mb-4 bg-secondary rounded-xl p-1 grid grid-cols-4">
+              {FACE_TABS.map((tab) => (
+                <TabsTrigger
+                  key={tab.id}
+                  value={tab.id}
+                  className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  {tab.name}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {FACE_TABS.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <TabsContent key={tab.id} value={tab.id} className="px-4 pb-8">
+                  <div className="h-48 flex flex-col items-center justify-center">
+                    <Icon className="w-12 h-12 text-muted-foreground mb-4" />
+                    <p className="text-foreground font-semibold">{tab.name} Tools</p>
+                    <p className="text-muted-foreground text-sm">Coming soon</p>
+                  </div>
+                </TabsContent>
+              );
+            })}
+          </Tabs>
+        </div>
+      )}
+
+      {/* Body Tools Bottom Sheet */}
+      {showBottomSheet === "body" && (
+        <div className="absolute bottom-0 left-0 right-0 z-50 bg-card rounded-t-3xl" style={{ animation: 'slideUp 0.3s ease-out' }}>
+          <style>{`
+            @keyframes slideUp {
+              from { transform: translateY(100%); }
+              to { transform: translateY(0); }
+            }
+          `}</style>
+          {/* Handle */}
+          <div className="flex justify-center pt-3">
+            <div className="w-10 h-1 bg-border rounded-full" />
+          </div>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3">
+            <h2 className="text-foreground text-lg font-bold">Body Tools</h2>
+            <button
+              onClick={closeBottomSheet}
+              className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center"
+            >
+              <X className="w-4 h-4 text-foreground" />
+            </button>
+          </div>
+          {/* Tabs */}
+          <Tabs defaultValue="auto" className="w-full">
+            <TabsList className="mx-4 mb-4 bg-secondary rounded-xl p-1 grid grid-cols-3">
+              {BODY_TABS.map((tab) => (
+                <TabsTrigger
+                  key={tab.id}
+                  value={tab.id}
+                  className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  {tab.name}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {BODY_TABS.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <TabsContent key={tab.id} value={tab.id} className="px-4 pb-8">
+                  <div className="h-48 flex flex-col items-center justify-center">
+                    <Icon className="w-12 h-12 text-muted-foreground mb-4" />
+                    <p className="text-foreground font-semibold">{tab.name} Mode</p>
+                    <p className="text-muted-foreground text-sm">Coming soon</p>
+                  </div>
+                </TabsContent>
+              );
+            })}
+          </Tabs>
+        </div>
+      )}
     </div>
   );
 }

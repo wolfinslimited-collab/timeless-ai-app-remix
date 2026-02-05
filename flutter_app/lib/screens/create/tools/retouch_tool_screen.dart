@@ -112,7 +112,32 @@ class _RetouchToolScreenState extends State<RetouchToolScreen> {
 
   void _handleActionTap(String actionId) {
     setState(() => _selectedAction = actionId);
-    _showSnackBar('$actionId tools coming soon');
+    
+    if (actionId == 'face') {
+      _showFaceBottomSheet();
+    } else if (actionId == 'body') {
+      _showBodyBottomSheet();
+    } else {
+      _showSnackBar('$actionId tools coming soon');
+    }
+  }
+
+  void _showFaceBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => const FaceToolsBottomSheet(),
+    );
+  }
+
+  void _showBodyBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => const BodyToolsBottomSheet(),
+    );
   }
 
   void _clearVideo() {
@@ -637,4 +662,328 @@ class RetouchAction {
     required this.name,
     required this.icon,
   });
+}
+
+class FaceToolsBottomSheet extends StatefulWidget {
+  const FaceToolsBottomSheet({super.key});
+
+  @override
+  State<FaceToolsBottomSheet> createState() => _FaceToolsBottomSheetState();
+}
+
+class _FaceToolsBottomSheetState extends State<FaceToolsBottomSheet>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final List<String> _tabs = ['Looks', 'Face', 'Reshape', 'Makeup'];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: _tabs.length, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.5,
+      decoration: const BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppTheme.border,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Face Tools',
+                  style: TextStyle(
+                    color: AppTheme.foreground,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppTheme.secondary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      size: 18,
+                      color: AppTheme.foreground,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // TabBar
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: AppTheme.secondary,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              indicator: BoxDecoration(
+                color: AppTheme.primary,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.transparent,
+              labelColor: Colors.white,
+              unselectedLabelColor: AppTheme.muted,
+              labelStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.normal,
+              ),
+              tabs: _tabs.map((tab) => Tab(text: tab)).toList(),
+            ),
+          ),
+          // Tab Content
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: _tabs.map((tab) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _getTabIcon(tab),
+                        size: 48,
+                        color: AppTheme.muted,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        '$tab Tools',
+                        style: const TextStyle(
+                          color: AppTheme.foreground,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Coming soon',
+                        style: TextStyle(
+                          color: AppTheme.muted,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getTabIcon(String tab) {
+    switch (tab) {
+      case 'Looks':
+        return Icons.auto_awesome_outlined;
+      case 'Face':
+        return Icons.face_outlined;
+      case 'Reshape':
+        return Icons.transform_outlined;
+      case 'Makeup':
+        return Icons.brush_outlined;
+      default:
+        return Icons.settings_outlined;
+    }
+  }
+}
+
+class BodyToolsBottomSheet extends StatefulWidget {
+  const BodyToolsBottomSheet({super.key});
+
+  @override
+  State<BodyToolsBottomSheet> createState() => _BodyToolsBottomSheetState();
+}
+
+class _BodyToolsBottomSheetState extends State<BodyToolsBottomSheet>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final List<String> _tabs = ['Auto', 'Manual', 'Presets'];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: _tabs.length, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.5,
+      decoration: const BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppTheme.border,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Body Tools',
+                  style: TextStyle(
+                    color: AppTheme.foreground,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppTheme.secondary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      size: 18,
+                      color: AppTheme.foreground,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // TabBar
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: AppTheme.secondary,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              indicator: BoxDecoration(
+                color: AppTheme.primary,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.transparent,
+              labelColor: Colors.white,
+              unselectedLabelColor: AppTheme.muted,
+              labelStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.normal,
+              ),
+              tabs: _tabs.map((tab) => Tab(text: tab)).toList(),
+            ),
+          ),
+          // Tab Content
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: _tabs.map((tab) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _getTabIcon(tab),
+                        size: 48,
+                        color: AppTheme.muted,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        '$tab Mode',
+                        style: const TextStyle(
+                          color: AppTheme.foreground,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Coming soon',
+                        style: TextStyle(
+                          color: AppTheme.muted,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getTabIcon(String tab) {
+    switch (tab) {
+      case 'Auto':
+        return Icons.auto_fix_high_outlined;
+      case 'Manual':
+        return Icons.touch_app_outlined;
+      case 'Presets':
+        return Icons.style_outlined;
+      default:
+        return Icons.settings_outlined;
+    }
+  }
 }
