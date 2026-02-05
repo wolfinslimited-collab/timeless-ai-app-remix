@@ -19,6 +19,10 @@ class CreditsProvider extends ChangeNotifier {
   String? get currentPlan => _currentPlan;
   bool get isLoading => _isLoading;
   bool get isUnlimited => _hasActiveSubscription;
+ 
+   /// Check if user has Premium Plus access
+   bool get hasPremiumPlusAccess => 
+       _hasActiveSubscription && _currentPlan == 'premium-plus';
 
   CreditsProvider() {
     _init();

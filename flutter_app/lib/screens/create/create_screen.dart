@@ -1,13 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+ import 'package:provider/provider.dart';
 import '../../core/theme.dart';
+ import '../../providers/credits_provider.dart';
+ import '../../widgets/common/premium_plus_lock_screen.dart';
 
-class CreateScreen extends StatelessWidget {
+ class CreateScreen extends StatefulWidget {
   const CreateScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+   State<CreateScreen> createState() => _CreateScreenState();
+ }
+ 
+ class _CreateScreenState extends State<CreateScreen> {
+   bool _showCinemaLock = false;
+ 
+   void _handleCinemaStudioTap() {
+     final creditsProvider = context.read<CreditsProvider>();
+     if (!creditsProvider.hasPremiumPlusAccess) {
+       setState(() => _showCinemaLock = true);
+       return;
+     }
+     context.go('/cinema');
+   }
+ 
+   @override
+   Widget build(BuildContext context) {
+     if (_showCinemaLock) {
+       return PremiumPlusLockScreen(
+         feature: 'Cinema Studio',
+         description: 'Professional video creation workspace. Unlock Cinema Studio and all AI Apps with Premium Plus.',
+         onBack: () => setState(() => _showCinemaLock = false),
+       );
+     }
+ 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create'),
@@ -83,7 +110,8 @@ class CreateScreen extends StatelessWidget {
               title: 'Cinema Studio',
               description: 'Professional video creation workspace',
               gradient: [const Color(0xFFEF4444), const Color(0xFFBE185D)],
-              onTap: () => context.go('/cinema'),
+               onTap: _handleCinemaStudioTap,
+               badge: 'PREMIUM+',
             ),
             const SizedBox(height: 24),
           ],
