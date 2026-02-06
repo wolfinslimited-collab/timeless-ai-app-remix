@@ -625,9 +625,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         </div>
       )}
 
-      {/* Timeline Section - CapCut Style with Stack layout */}
+      {/* Timeline Section - CapCut Style with Stack layout (No audio track) */}
       {videoUrl && duration > 0 && (
-        <div className="h-[220px] shrink-0 bg-background overflow-hidden">
+        <div className="h-[160px] shrink-0 bg-background overflow-hidden">
           <div className="h-full flex">
             {/* Fixed Left Panel */}
             <div className="w-[70px] shrink-0 pt-6 pl-2 flex flex-col gap-2">
@@ -685,23 +685,41 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     minWidth: '100%'
                   }}
                 >
-                  {/* Time Ruler */}
-                  <div className="h-5 flex items-end relative" style={{ width: `${20 * 60 + 54}px` }}>
-                    {Array.from({ length: Math.ceil(duration / 2) + 1 }).map((_, i) => (
-                      <div 
-                        key={i} 
-                        className="absolute flex flex-col items-center"
-                        style={{ left: `${(i * 2 / duration) * (20 * 60)}px` }}
-                      >
-                        <div className="w-px h-2 bg-white/30" />
-                        <span className="text-[8px] text-white/40 font-mono mt-0.5">
-                          {String(Math.floor((i * 2) / 60)).padStart(2, '0')}:{String((i * 2) % 60).padStart(2, '0')}
-                        </span>
-                      </div>
-                    ))}
+                  {/* Time Ruler - 2-second major ticks */}
+                  <div className="h-6 flex items-end relative" style={{ width: `${20 * 60 + 54}px` }}>
+                    {/* Major ticks every 2 seconds */}
+                    {Array.from({ length: Math.ceil(duration / 2) + 1 }).map((_, i) => {
+                      const seconds = i * 2;
+                      if (seconds > duration) return null;
+                      return (
+                        <div 
+                          key={`major-${i}`} 
+                          className="absolute flex flex-col items-center"
+                          style={{ left: `${(seconds / duration) * (20 * 60)}px` }}
+                        >
+                          <div className="w-px h-2.5 bg-white/50" />
+                          <span className="text-[10px] text-white/60 font-mono font-medium mt-0.5">
+                            {String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {/* Minor ticks every 1 second (smaller) */}
+                    {Array.from({ length: Math.ceil(duration) + 1 }).map((_, i) => {
+                      if (i % 2 === 0) return null; // Skip major tick positions
+                      return (
+                        <div 
+                          key={`minor-${i}`} 
+                          className="absolute"
+                          style={{ left: `${(i / duration) * (20 * 60)}px` }}
+                        >
+                          <div className="w-px h-1.5 bg-white/25" />
+                        </div>
+                      );
+                    })}
                   </div>
                   
-                  {/* Video Track - Dark Red with Progress Bar */}
+                  {/* Video Track - Dark Red with Center Progress Bar */}
                   <div className="flex items-center gap-2.5">
                     <div className="relative">
                       {/* Dark red video container */}
@@ -726,9 +744,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         ))}
                       </div>
                       
-                      {/* White progress bar at bottom */}
+                      {/* White progress bar in the center of the track */}
                       <div 
-                        className="absolute bottom-0.5 left-0.5 h-[3px] bg-white rounded-full shadow-[0_0_4px_rgba(255,255,255,0.5)]"
+                        className="absolute left-0.5 top-1/2 -translate-y-1/2 h-[3px] bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.6)]"
                         style={{ width: `${(currentTime / duration) * 100}%`, maxWidth: 'calc(100% - 4px)' }}
                       />
                     </div>
@@ -742,42 +760,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </button>
                   </div>
                   
-                  {/* Extracted Audio Track (Teal with Waveform) */}
-                  <div 
-                    className="h-10 rounded-lg overflow-hidden border-[1.5px] relative"
-                    style={{ 
-                      width: `${20 * 60}px`,
-                      backgroundColor: '#008080',
-                      borderColor: '#00A0A0'
-                    }}
-                  >
-                    {/* Waveform bars */}
-                    <div className="absolute inset-0 flex items-center justify-evenly px-1">
-                      {Array.from({ length: 80 }).map((_, i) => {
-                        const seed1 = Math.sin(i * 0.7 + 0.5) * 0.5 + 0.5;
-                        const seed2 = Math.cos(i * 0.3 + 1.2) * 0.5 + 0.5;
-                        const height = 4 + (seed1 * 0.5 + seed2 * 0.5) * 24;
-                        return (
-                          <div 
-                            key={i}
-                            className="w-0.5 rounded-full"
-                            style={{ 
-                              height: `${height}px`,
-                              backgroundColor: '#00E5E5'
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
-                    
-                    {/* Extracted label */}
-                    <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(0, 128, 128, 0.9)' }}>
-                      <Music className="w-3 h-3 text-white/90" />
-                      <span className="text-[10px] font-semibold text-white/90">Extracted</span>
-                    </div>
-                  </div>
-                  
-                  {/* Add Text Button - Gray container */}
+                  {/* Add Text Button - Gray container (No audio track) */}
                   <button 
                     onClick={() => toast({ title: "Text", description: "Text editor coming soon!" })}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-lg w-fit"
