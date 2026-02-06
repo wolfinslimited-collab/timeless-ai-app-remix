@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Video, Sparkles, Loader2, Camera, Play, Layers, TrendingUp, Mic, Brush, Maximize, PlusCircle, Timer, Zap, ChevronDown, Wand2 } from "lucide-react";
+import { ArrowLeft, Video, Sparkles, Loader2, Camera, Play, Layers, TrendingUp, Mic, Brush, Maximize, PlusCircle, Timer, Zap, ChevronDown, Wand2, Film } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase, TIMELESS_SUPABASE_URL } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,7 +9,7 @@ import AddCreditsDialog from "@/components/AddCreditsDialog";
 import { ToolSelector, type ToolItem } from "./ToolSelector";
 import { ModelSelectorModal, type ModelOption } from "./ModelSelectorModal";
 import { ModelBrandLogo } from "./ModelBrandLogo";
-import { MobileRetouch } from "./MobileRetouch";
+import { MobileAIEditor } from "./MobileAIEditor";
 
 interface MobileVideoCreateProps {
   onBack: () => void;
@@ -25,7 +25,7 @@ const TOOLS: ToolItem[] = [
   { id: "video-upscale", name: "Upscale", description: "Enhance video quality", icon: Maximize, credits: 8 },
   { id: "extend", name: "Extend", description: "Extend video length", icon: PlusCircle, credits: 12 },
   { id: "interpolate", name: "Smooth", description: "Smooth frame rate", icon: Timer, credits: 6 },
-  { id: "retouch", name: "Retouch", description: "AI video retouching", icon: Wand2, credits: 10, badge: "NEW" },
+  { id: "ai-editor", name: "AI Editor", description: "AI-powered video editing", icon: Film, credits: 12, badge: "NEW" },
 ];
 
 const MODELS: ModelOption[] = [
@@ -177,9 +177,9 @@ export function MobileVideoCreate({ onBack, initialTool = "generate" }: MobileVi
     setTimeout(poll, 5000);
   };
 
-  // Render MobileRetouch when retouch tool is selected
-  if (selectedToolId === "retouch") {
-    return <MobileRetouch onBack={onBack} />;
+  // Render MobileAIEditor when ai-editor tool is selected
+  if (selectedToolId === "ai-editor") {
+    return <MobileAIEditor onBack={onBack} />;
   }
 
   return (
