@@ -6,11 +6,6 @@ import {
   Play, 
   Pause, 
   X,
-  Zap,
-  Wallpaper,
-  Subtitles,
-  Sparkles,
-  CircleOff,
   Scissors,
   Music,
   Type,
@@ -20,14 +15,15 @@ import {
   Circle,
   SlidersHorizontal,
   Maximize,
-  RectangleHorizontal,
   Undo2,
   Redo2,
   VolumeX,
   Image,
   Plus,
   Clock,
-  PlayCircle
+  PlayCircle,
+  ChevronDown,
+  Download
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -67,6 +63,8 @@ const EDITOR_TOOLS: EditorTool[] = [
   { id: "adjust", name: "Adjust", icon: SlidersHorizontal },
 ];
 
+const QUALITY_OPTIONS = ["720p", "1080p", "2K", "4K"];
+
 export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -77,8 +75,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [selectedTool, setSelectedTool] = useState("edit");
   const [isMuted, setIsMuted] = useState(false);
   const [showMediaPicker, setShowMediaPicker] = useState(false);
+  const [showQualityPicker, setShowQualityPicker] = useState(false);
   const [recentVideos, setRecentVideos] = useState<RecentVideo[]>([]);
   const [isLoadingRecent, setIsLoadingRecent] = useState(false);
+  const [selectedQuality, setSelectedQuality] = useState("1080p");
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -133,7 +133,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           };
         });
 
-      // Sort by most recent
       videos.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
       setRecentVideos(videos.slice(0, 12));
     } catch (error) {
@@ -278,7 +277,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     });
   };
 
-  // Calculate playhead position
+  const handleExport = () => {
+    toast({
+      title: "Exporting",
+      description: `Exporting video in ${selectedQuality}...`,
+    });
+  };
+
   const playheadPosition = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
@@ -295,7 +300,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       <Sheet open={showMediaPicker} onOpenChange={setShowMediaPicker}>
         <SheetContent side="bottom" className="h-[70vh] bg-[#1a1a1a] border-t border-white/10 rounded-t-3xl p-0">
           <div className="flex flex-col h-full">
-            {/* Handle bar */}
             <div className="w-10 h-1 bg-white/30 rounded-full mx-auto mt-3" />
             
             <SheetHeader className="px-5 pt-5 pb-2">
@@ -304,7 +308,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               </SheetTitle>
             </SheetHeader>
 
-            {/* Upload New Video button */}
             <div className="px-5 pt-3">
               <button
                 onClick={handleUploadClick}
@@ -317,13 +320,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               </button>
             </div>
 
-            {/* Recent Uploads header */}
             <div className="px-5 pt-6 pb-4 flex items-center gap-2">
               <Clock className="w-4 h-4 text-white/60" />
               <span className="text-white/80 text-sm font-medium">Recent Uploads</span>
             </div>
 
-            {/* Recent videos grid */}
             <div className="flex-1 overflow-y-auto px-5 pb-safe">
               {isLoadingRecent ? (
                 <div className="flex items-center justify-center h-32">
@@ -358,55 +359,80 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         </SheetContent>
       </Sheet>
 
-      {/* Top Bar - Only show when video is loaded */}
-      {videoUrl && (
-        <div className="px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={onBack}
-            className="w-8 h-8 flex items-center justify-center"
-          >
-            <ArrowLeft className="w-5 h-5 text-white" />
-          </button>
-          
-          <div className="flex items-center gap-6">
-            <button className="p-2">
-              <Maximize className="w-5 h-5 text-white/70" />
-            </button>
-            <button onClick={togglePlayPause} className="p-2">
-              {isPlaying ? (
-                <Pause className="w-6 h-6 text-white" />
-              ) : (
-                <Play className="w-6 h-6 text-white" />
-              )}
-            </button>
-            <button className="p-2 flex items-center gap-1">
-              <RectangleHorizontal className="w-5 h-5 text-white/70" />
-              <span className="text-white/70 text-xs">ON</span>
-            </button>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <button className="p-2">
-              <Undo2 className="w-5 h-5 text-white/70" />
-            </button>
-            <button className="p-2">
-              <Redo2 className="w-5 h-5 text-white/70" />
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Quality Picker Sheet */}
+      <Sheet open={showQualityPicker} onOpenChange={setShowQualityPicker}>
+        <SheetContent side="bottom" className="bg-[#1a1a1a] border-t border-white/10 rounded-t-3xl p-0">
+          <div className="flex flex-col">
+            <div className="w-10 h-1 bg-white/30 rounded-full mx-auto mt-3" />
+            
+            <SheetHeader className="px-5 pt-5 pb-4">
+              <SheetTitle className="text-white text-base font-bold text-center">
+                Export Quality
+              </SheetTitle>
+            </SheetHeader>
 
-      {/* Back button for upload state */}
-      {!videoUrl && (
-        <div className="px-4 py-3">
-          <button
-            onClick={onBack}
-            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"
-          >
-            <ArrowLeft className="w-4 h-4 text-white" />
-          </button>
-        </div>
-      )}
+            <div className="px-2 pb-6">
+              {QUALITY_OPTIONS.map((quality) => (
+                <button
+                  key={quality}
+                  onClick={() => {
+                    setSelectedQuality(quality);
+                    setShowQualityPicker(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-lg transition-colors"
+                >
+                  <div className={cn(
+                    "w-5 h-5 rounded-full border-2 flex items-center justify-center",
+                    selectedQuality === quality ? "border-primary" : "border-white/30"
+                  )}>
+                    {selectedQuality === quality && (
+                      <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+                    )}
+                  </div>
+                  <span className={cn(
+                    "text-sm",
+                    selectedQuality === quality ? "text-white font-medium" : "text-white/70"
+                  )}>
+                    {quality}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Top Bar */}
+      <div className="px-4 py-3 flex items-center justify-between">
+        <button
+          onClick={onBack}
+          className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"
+        >
+          <ArrowLeft className="w-5 h-5 text-white" />
+        </button>
+        
+        {videoUrl && (
+          <div className="flex items-center gap-3">
+            {/* Quality Selector */}
+            <button 
+              onClick={() => setShowQualityPicker(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-white/10 rounded-lg border border-white/20"
+            >
+              <span className="text-white text-sm font-medium">{selectedQuality}</span>
+              <ChevronDown className="w-4 h-4 text-white/70" />
+            </button>
+            
+            {/* Export Button */}
+            <button 
+              onClick={handleExport}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-primary/80 rounded-xl shadow-lg shadow-primary/30"
+            >
+              <Download className="w-4 h-4 text-primary-foreground" />
+              <span className="text-primary-foreground text-sm font-semibold">Export</span>
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Video Preview Area */}
       <div className="flex-1 flex flex-col">
@@ -442,33 +468,22 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             <p className="mt-4 text-white/60 text-sm">Loading video...</p>
           </div>
         ) : videoUrl ? (
-          <div className="flex-1 flex flex-col">
-            {/* Time Counter */}
-            <div className="px-4 py-2">
-              <span className="text-white/60 text-sm font-mono">
-                {formatTime(currentTime)} / {formatTime(duration)}
-              </span>
-            </div>
-            
-            {/* Video Container */}
-            <div className="flex-1 flex items-center justify-center px-4 relative">
-              <div className="relative w-full max-w-md aspect-video bg-black rounded-lg overflow-hidden">
-                <video
-                  ref={videoRef}
-                  src={videoUrl}
-                  className="w-full h-full object-contain"
-                  playsInline
-                  muted={isMuted}
-                />
-                
-                {/* Clear button */}
-                <button
-                  onClick={clearVideo}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center"
-                >
-                  <X className="w-4 h-4 text-white" />
-                </button>
-              </div>
+          <div className="flex-1 flex items-center justify-center px-4">
+            <div className="relative w-full max-w-md aspect-video bg-black rounded-lg overflow-hidden">
+              <video
+                ref={videoRef}
+                src={videoUrl}
+                className="w-full h-full object-contain"
+                playsInline
+                muted={isMuted}
+              />
+              
+              <button
+                onClick={clearVideo}
+                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center"
+              >
+                <X className="w-4 h-4 text-white" />
+              </button>
             </div>
           </div>
         ) : (
@@ -493,7 +508,49 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         )}
       </div>
 
-      {/* Timeline Section - Only show when video is loaded */}
+      {/* Video Control Bar - Below video, above timeline */}
+      {videoUrl && duration > 0 && (
+        <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
+          {/* Time counter */}
+          <span className="text-white/60 text-xs font-mono">
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </span>
+          
+          {/* Control buttons */}
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => toast({ title: "Undo", description: "Coming soon!" })}
+              className="p-2"
+            >
+              <Undo2 className="w-5 h-5 text-white/70" />
+            </button>
+            <button 
+              onClick={() => toast({ title: "Redo", description: "Coming soon!" })}
+              className="p-2"
+            >
+              <Redo2 className="w-5 h-5 text-white/70" />
+            </button>
+            <button 
+              onClick={togglePlayPause} 
+              className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center mx-2"
+            >
+              {isPlaying ? (
+                <Pause className="w-5 h-5 text-white" />
+              ) : (
+                <Play className="w-5 h-5 text-white" />
+              )}
+            </button>
+            <button 
+              onClick={() => toast({ title: "Fullscreen", description: "Coming soon!" })}
+              className="p-2"
+            >
+              <Maximize className="w-5 h-5 text-white/70" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Timeline Section */}
       {videoUrl && duration > 0 && (
         <div className="px-4 py-3 bg-[#0a0a0a]">
           {/* Time markers */}
@@ -561,7 +618,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         </div>
       )}
 
-      {/* Bottom Toolbar - Always show when video is loaded */}
+      {/* Bottom Toolbar */}
       {videoUrl && duration > 0 && (
         <div className="bg-[#0a0a0a] border-t border-white/10 pb-safe">
           <div className="overflow-x-auto">

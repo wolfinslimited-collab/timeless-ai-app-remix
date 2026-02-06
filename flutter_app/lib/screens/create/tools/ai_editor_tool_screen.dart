@@ -35,6 +35,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   bool _isMuted = false;
   List<RecentVideo> _recentVideos = [];
   bool _isLoadingRecent = false;
+  String _selectedQuality = '1080p';
+
+  final List<String> _qualityOptions = ['720p', '1080p', '2K', '4K'];
 
   final List<EditorTool> _editorTools = [
     EditorTool(id: 'edit', name: 'Edit', icon: Icons.content_cut),
@@ -85,11 +88,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
           })
           .toList();
 
-      // Sort by most recent
       videos.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
 
       setState(() {
-        _recentVideos = videos.take(12).toList(); // Limit to 12 recent
+        _recentVideos = videos.take(12).toList();
         _isLoadingRecent = false;
       });
     } catch (e) {
@@ -120,7 +122,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
           ),
           child: Column(
             children: [
-              // Handle bar
               Container(
                 width: 40,
                 height: 4,
@@ -131,7 +132,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              // Title
               const Text(
                 'Select Video',
                 style: TextStyle(
@@ -141,7 +141,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              // Upload New Video button
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: GestureDetector(
@@ -184,7 +183,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              // Recent Uploads header
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
@@ -203,7 +201,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              // Recent videos grid
               Expanded(
                 child: _isLoadingRecent
                     ? const Center(
@@ -277,7 +274,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
         ),
         child: Stack(
           children: [
-            // Video thumbnail placeholder
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Container(
@@ -302,7 +298,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                 ),
               ),
             ),
-            // Duration badge placeholder
             Positioned(
               bottom: 6,
               right: 6,
@@ -459,6 +454,73 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
     return '$minutes:$seconds';
   }
 
+  void _showQualityPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Export Quality',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ..._qualityOptions.map((quality) => ListTile(
+              onTap: () {
+                setState(() => _selectedQuality = quality);
+                Navigator.pop(context);
+              },
+              leading: Icon(
+                _selectedQuality == quality
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_off,
+                color: _selectedQuality == quality
+                    ? AppTheme.primary
+                    : Colors.white.withOpacity(0.5),
+              ),
+              title: Text(
+                quality,
+                style: TextStyle(
+                  color: _selectedQuality == quality
+                      ? Colors.white
+                      : Colors.white.withOpacity(0.7),
+                  fontWeight: _selectedQuality == quality
+                      ? FontWeight.w600
+                      : FontWeight.normal,
+                ),
+              ),
+            )),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleExport() {
+    _showSnackBar('Exporting video in $_selectedQuality...');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -466,17 +528,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Top Bar
             _buildTopBar(),
-
-            // Video Preview Area
             Expanded(child: _buildVideoPreviewArea()),
-
-            // Timeline Section (only show when video is loaded)
+            if (_isVideoInitialized && _videoController != null)
+              _buildVideoControlBar(),
             if (_isVideoInitialized && _videoController != null)
               _buildTimelineSection(),
-
-            // Bottom Toolbar (only show when video is loaded)
             if (_isVideoInitialized && _videoController != null)
               _buildBottomToolbar(),
           ],
@@ -486,75 +543,163 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   }
 
   Widget _buildTopBar() {
-    if (!_isVideoInitialized) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),
-            child: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+            ),
           ),
           const Spacer(),
-          // Center controls
-          Row(
-            children: [
-              IconButton(
-                onPressed: () {},
-                icon: Icon(Icons.fullscreen, color: Colors.white.withOpacity(0.7), size: 24),
-              ),
-              IconButton(
-                onPressed: _togglePlayPause,
-                icon: Icon(
-                  _videoController!.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                  color: Colors.white,
-                  size: 28,
+          if (_isVideoInitialized) ...[
+            // Quality Selector
+            GestureDetector(
+              onTap: _showQualityPicker,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      _selectedQuality,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.keyboard_arrow_down,
+                      color: Colors.white.withOpacity(0.7),
+                      size: 18,
+                    ),
+                  ],
                 ),
               ),
-              Row(
-                children: [
-                  Icon(Icons.crop_landscape, color: Colors.white.withOpacity(0.7), size: 24),
-                  const SizedBox(width: 2),
-                  Text(
-                    'ON',
-                    style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 10),
+            ),
+            const SizedBox(width: 12),
+            // Export Button
+            GestureDetector(
+              onTap: _handleExport,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppTheme.primary, AppTheme.primary.withOpacity(0.8)],
                   ),
-                ],
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primary.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.file_upload_outlined, color: Colors.white, size: 18),
+                    SizedBox(width: 6),
+                    Text(
+                      'Export',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoControlBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A0A0A),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Time counter
+          ValueListenableBuilder<VideoPlayerValue>(
+            valueListenable: _videoController!,
+            builder: (context, value, child) {
+              return Text(
+                '${_formatDuration(value.position)} / ${_formatDuration(value.duration)}',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                ),
+              );
+            },
           ),
           const Spacer(),
-          // Undo/Redo
+          // Control buttons
           Row(
             children: [
+              // Undo
               IconButton(
-                onPressed: () {},
-                icon: Icon(Icons.undo, color: Colors.white.withOpacity(0.7), size: 22),
+                onPressed: () => _showSnackBar('Undo'),
+                icon: Icon(Icons.undo, color: Colors.white.withOpacity(0.7), size: 20),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               ),
+              // Redo
               IconButton(
-                onPressed: () {},
-                icon: Icon(Icons.redo, color: Colors.white.withOpacity(0.7), size: 22),
+                onPressed: () => _showSnackBar('Redo'),
+                icon: Icon(Icons.redo, color: Colors.white.withOpacity(0.7), size: 20),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+              const SizedBox(width: 8),
+              // Play/Pause
+              GestureDetector(
+                onTap: _togglePlayPause,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _videoController!.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Fullscreen
+              IconButton(
+                onPressed: () => _showSnackBar('Fullscreen'),
+                icon: Icon(Icons.fullscreen, color: Colors.white.withOpacity(0.7), size: 22),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               ),
             ],
           ),
@@ -603,74 +748,44 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
     }
 
     if (_isVideoInitialized && _videoController != null) {
-      return Column(
-        children: [
-          // Time counter
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                ValueListenableBuilder<VideoPlayerValue>(
-                  valueListenable: _videoController!,
-                  builder: (context, value, child) {
-                    return Text(
-                      '${_formatDuration(value.position)} / ${_formatDuration(value.duration)}',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
-                        fontSize: 13,
-                        fontFamily: 'monospace',
-                      ),
-                    );
-                  },
+      return Center(
+        child: Stack(
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: AspectRatio(
+                  aspectRatio: _videoController!.value.aspectRatio,
+                  child: VideoPlayer(_videoController!),
                 ),
-              ],
-            ),
-          ),
-          // Video player
-          Expanded(
-            child: Center(
-              child: Stack(
-                children: [
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: AspectRatio(
-                        aspectRatio: _videoController!.value.aspectRatio,
-                        child: VideoPlayer(_videoController!),
-                      ),
-                    ),
-                  ),
-                  // Clear button
-                  Positioned(
-                    top: 8,
-                    right: 24,
-                    child: GestureDetector(
-                      onTap: _clearVideo,
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.6),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.close, color: Colors.white, size: 16),
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ),
-          ),
-        ],
+            Positioned(
+              top: 8,
+              right: 24,
+              child: GestureDetector(
+                onTap: _clearVideo,
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
       );
     }
 
-    // Empty state - upload prompt (now opens bottom sheet)
     return Center(
       child: GestureDetector(
         onTap: _showMediaPickerSheet,
@@ -748,7 +863,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
       color: const Color(0xFF0A0A0A),
       child: Column(
         children: [
-          // Time markers
           Padding(
             padding: const EdgeInsets.only(left: 72, bottom: 8),
             child: ValueListenableBuilder<VideoPlayerValue>(
@@ -768,11 +882,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
               },
             ),
           ),
-          // Timeline tracks
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Left controls
               Column(
                 children: [
                   GestureDetector(
@@ -827,13 +939,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                 ],
               ),
               const SizedBox(width: 12),
-              // Tracks area
               Expanded(
                 child: Stack(
                   children: [
                     Column(
                       children: [
-                        // Video track with thumbnails
                         Row(
                           children: [
                             Expanded(
@@ -879,7 +989,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            // Add clip button
                             GestureDetector(
                               onTap: _showMediaPickerSheet,
                               child: Container(
@@ -895,7 +1004,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        // Add audio track
                         GestureDetector(
                           onTap: () => _showSnackBar('Add audio coming soon'),
                           child: Container(
@@ -923,7 +1031,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                         ),
                       ],
                     ),
-                    // Playhead
                     ValueListenableBuilder<VideoPlayerValue>(
                       valueListenable: _videoController!,
                       builder: (context, value, child) {
