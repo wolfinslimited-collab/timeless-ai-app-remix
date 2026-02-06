@@ -1251,51 +1251,45 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     if (_isVideoInitialized && _videoController != null) {
       return LayoutBuilder(
         builder: (context, constraints) {
+          // Calculate enlarged video height (25% larger than before)
+          final videoAspectRatio = _videoController!.value.aspectRatio;
+          // Use more vertical space - fill available height with padding
+          final availableHeight = constraints.maxHeight;
+          final availableWidth = constraints.maxWidth - 32; // Account for horizontal margin
+          
+          // Calculate video dimensions to maximize height while maintaining aspect ratio
+          double videoWidth = availableWidth;
+          double videoHeight = videoWidth / videoAspectRatio;
+          
+          // If calculated height exceeds available, constrain and recalculate
+          if (videoHeight > availableHeight * 0.95) {
+            videoHeight = availableHeight * 0.95;
+            videoWidth = videoHeight * videoAspectRatio;
+          }
+          
           return Center(
-            child: Stack(
-              children: [
-                // Video with color filter
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: ColorFiltered(
-                      colorFilter: _buildColorFilter(),
-                      child: AspectRatio(
-                        aspectRatio: _videoController!.value.aspectRatio,
-                        child: Stack(
-                          children: [
-                            VideoPlayer(_videoController!),
-                            // Text overlays
-                            ..._buildTextOverlays(constraints),
-                          ],
-                        ),
-                      ),
-                    ),
+            child: Container(
+              width: videoWidth,
+              height: videoHeight,
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: ColorFiltered(
+                  colorFilter: _buildColorFilter(),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      VideoPlayer(_videoController!),
+                      // Text overlays
+                      ..._buildTextOverlays(constraints),
+                    ],
                   ),
                 ),
-                // Close button
-                Positioned(
-                  top: 8,
-                  right: 24,
-                  child: GestureDetector(
-                    onTap: _clearVideo,
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.close, color: Colors.white, size: 16),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           );
         },
