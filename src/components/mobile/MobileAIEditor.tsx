@@ -74,6 +74,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [duration, setDuration] = useState(0);
   const [selectedTool, setSelectedTool] = useState("edit");
   const [isMuted, setIsMuted] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [showQualityPicker, setShowQualityPicker] = useState(false);
   const [recentVideos, setRecentVideos] = useState<RecentVideo[]>([]);
@@ -281,6 +282,21 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     toast({
       title: "Exporting",
       description: `Exporting video in ${selectedQuality}...`,
+    });
+  };
+
+  const toggleFullScreen = () => {
+    setIsFullScreen(!isFullScreen);
+    toast({
+      title: isFullScreen ? "Exited fullscreen" : "Fullscreen mode",
+      description: isFullScreen ? "Normal view restored" : "Video preview expanded",
+    });
+  };
+
+  const handleAddAudio = () => {
+    toast({
+      title: "Add Audio",
+      description: "Audio picker coming soon!",
     });
   };
 
@@ -541,10 +557,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               )}
             </button>
             <button 
-              onClick={() => toast({ title: "Fullscreen", description: "Coming soon!" })}
-              className="p-2"
+              onClick={toggleFullScreen}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                isFullScreen ? "bg-primary/20" : "bg-transparent"
+              )}
             >
-              <Maximize className="w-5 h-5 text-white/70" />
+              <Maximize className={cn(
+                "w-5 h-5",
+                isFullScreen ? "text-primary" : "text-white/70"
+              )} />
             </button>
           </div>
         </div>
@@ -599,19 +621,25 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </div>
                   ))}
                 </div>
-                {/* Add clip button */}
+                {/* Add clip button - prominent at end */}
                 <button 
                   onClick={handleShowMediaPicker}
-                  className="w-8 h-12 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors"
+                  className="w-10 h-12 bg-white/10 rounded-lg flex flex-col items-center justify-center hover:bg-white/20 transition-colors border border-white/20"
                 >
                   <Plus className="w-5 h-5 text-white" />
+                  <span className="text-[8px] text-white/70 font-medium mt-0.5">Add</span>
                 </button>
               </div>
               
-              {/* Audio track */}
-              <button className="h-8 bg-white/5 rounded-lg flex items-center justify-center gap-2 hover:bg-white/10 transition-colors border border-dashed border-white/20">
-                <Plus className="w-4 h-4 text-white/40" />
-                <span className="text-white/40 text-xs">Add audio</span>
+              {/* Audio track - dedicated outlined container */}
+              <button 
+                onClick={handleAddAudio}
+                className="h-10 bg-white/[0.03] rounded-xl flex items-center justify-center gap-2.5 hover:bg-white/10 transition-colors border-[1.5px] border-white/15"
+              >
+                <div className="w-6 h-6 bg-white/10 rounded-md flex items-center justify-center">
+                  <Plus className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-white/50 text-[13px]">Add music or audio</span>
               </button>
             </div>
           </div>

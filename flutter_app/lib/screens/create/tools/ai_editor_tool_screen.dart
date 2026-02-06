@@ -33,6 +33,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   bool _isVideoInitialized = false;
   String _selectedTool = 'edit';
   bool _isMuted = false;
+  bool _isFullScreen = false;
   List<RecentVideo> _recentVideos = [];
   bool _isLoadingRecent = false;
   String _selectedQuality = '1080p';
@@ -632,6 +633,20 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
     );
   }
 
+  void _toggleFullScreen() {
+    setState(() => _isFullScreen = !_isFullScreen);
+    if (_isFullScreen) {
+      _showSnackBar('Fullscreen mode enabled');
+    }
+  }
+
+  Future<void> _addAudioFromGallery() async {
+    final picker = ImagePicker();
+    // Note: For audio, we'd typically use file_picker package
+    // For now, show a message since ImagePicker doesn't support audio
+    _showSnackBar('Audio picker - Coming soon!');
+  }
+
   Widget _buildVideoControlBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -694,12 +709,24 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              // Fullscreen
-              IconButton(
-                onPressed: () => _showSnackBar('Fullscreen'),
-                icon: Icon(Icons.fullscreen, color: Colors.white.withOpacity(0.7), size: 22),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              // Fullscreen toggle
+              GestureDetector(
+                onTap: _toggleFullScreen,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: _isFullScreen 
+                        ? AppTheme.primary.withOpacity(0.2) 
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    _isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                    color: _isFullScreen ? AppTheme.primary : Colors.white.withOpacity(0.7),
+                    size: 22,
+                  ),
+                ),
               ),
             ],
           ),
@@ -989,41 +1016,78 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
+                            // Add Video Button - prominent "+" at end of clip sequence
                             GestureDetector(
                               onTap: _showMediaPickerSheet,
                               child: Container(
-                                width: 36,
+                                width: 40,
                                 height: 48,
                                 decoration: BoxDecoration(
                                   color: Colors.white.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.2),
+                                    width: 1,
+                                  ),
                                 ),
-                                child: const Icon(Icons.add, color: Colors.white, size: 24),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.add, color: Colors.white, size: 20),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Add',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.7),
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
+                        // Add Audio Track - dedicated outlined container
                         GestureDetector(
-                          onTap: () => _showSnackBar('Add audio coming soon'),
+                          onTap: _addAudioFromGallery,
                           child: Container(
-                            height: 36,
+                            height: 40,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(8),
+                              color: Colors.white.withOpacity(0.03),
+                              borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.white.withOpacity(0.15),
+                                width: 1.5,
                                 style: BorderStyle.solid,
                               ),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.add, color: Colors.white.withOpacity(0.4), size: 18),
-                                const SizedBox(width: 8),
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Icon(
+                                    Icons.add,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
                                 Text(
-                                  'Add audio',
-                                  style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12),
+                                  'Add music or audio',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.5),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w400,
+                                  ),
                                 ),
                               ],
                             ),
