@@ -19,52 +19,19 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   double _uploadProgress = 0;
   VideoPlayerController? _videoController;
   bool _isVideoInitialized = false;
-  String? _selectedFeature;
-  bool _isProcessing = false;
-
-  final List<AIFeature> _features = [
-    AIFeature(
-      id: 'remove-bg',
-      name: 'AI Remove Background',
-      description: 'Automatically remove video backgrounds',
-      icon: Icons.wallpaper_outlined,
-      credits: 12,
-    ),
-    AIFeature(
-      id: 'auto-subtitles',
-      name: 'Auto Subtitles',
-      description: 'Generate and add captions automatically',
-      icon: Icons.subtitles_outlined,
-      credits: 8,
-    ),
-    AIFeature(
-      id: 'ai-enhance',
-      name: 'AI Enhance',
-      description: 'Upscale and improve video quality',
-      icon: Icons.auto_awesome_outlined,
-      credits: 10,
-    ),
-    AIFeature(
-      id: 'object-removal',
-      name: 'Object Removal',
-      description: 'Remove unwanted objects from video',
-      icon: Icons.highlight_remove_outlined,
-      credits: 15,
-    ),
-  ];
+  String _selectedTool = 'edit';
+  bool _isMuted = false;
 
   final List<EditorTool> _editorTools = [
-    EditorTool(id: 'edit', name: 'Edit', icon: Icons.content_cut_outlined),
-    EditorTool(id: 'audio', name: 'Audio', icon: Icons.volume_up_outlined),
-    EditorTool(id: 'text', name: 'Text', icon: Icons.text_fields_outlined),
-    EditorTool(id: 'effects', name: 'Effects', icon: Icons.auto_fix_high_outlined),
-    EditorTool(id: 'overlay', name: 'Overlay', icon: Icons.layers_outlined),
-    EditorTool(id: 'captions', name: 'Captions', icon: Icons.closed_caption_outlined),
-    EditorTool(id: 'filters', name: 'Filters', icon: Icons.filter_vintage_outlined),
-    EditorTool(id: 'adjust', name: 'Adjust', icon: Icons.tune_outlined),
+    EditorTool(id: 'edit', name: 'Edit', icon: Icons.content_cut),
+    EditorTool(id: 'audio', name: 'Audio', icon: Icons.music_note),
+    EditorTool(id: 'text', name: 'Text', icon: Icons.text_fields),
+    EditorTool(id: 'effects', name: 'Effects', icon: Icons.star_outline),
+    EditorTool(id: 'overlay', name: 'Overlay', icon: Icons.picture_in_picture_alt),
+    EditorTool(id: 'captions', name: 'Captions', icon: Icons.subtitles_outlined),
+    EditorTool(id: 'filters', name: 'Filters', icon: Icons.blur_circular),
+    EditorTool(id: 'adjust', name: 'Adjust', icon: Icons.tune),
   ];
-
-  String _selectedTool = 'edit';
 
   @override
   void dispose() {
@@ -154,87 +121,133 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
       _videoFile = null;
       _videoController = null;
       _isVideoInitialized = false;
-      _selectedFeature = null;
     });
   }
 
-  void _handleFeatureTap(AIFeature feature) {
-    setState(() => _selectedFeature = feature.id);
-    _showSnackBar('${feature.name} coming soon');
+  void _togglePlayPause() {
+    if (_videoController == null) return;
+    setState(() {
+      if (_videoController!.value.isPlaying) {
+        _videoController!.pause();
+      } else {
+        _videoController!.play();
+      }
+    });
+  }
+
+  void _toggleMute() {
+    if (_videoController == null) return;
+    setState(() {
+      _isMuted = !_isMuted;
+      _videoController!.setVolume(_isMuted ? 0 : 1);
+    });
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        backgroundColor: AppTheme.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.foreground),
-          onPressed: () => Navigator.of(context).pop(),
+      backgroundColor: const Color(0xFF0A0A0A),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Bar
+            _buildTopBar(),
+
+            // Video Preview Area
+            Expanded(child: _buildVideoPreviewArea()),
+
+            // Timeline Section (only show when video is loaded)
+            if (_isVideoInitialized && _videoController != null)
+              _buildTimelineSection(),
+
+            // Bottom Toolbar (only show when video is loaded)
+            if (_isVideoInitialized && _videoController != null)
+              _buildBottomToolbar(),
+          ],
         ),
-        title: const Text(
-          'AI Editor',
-          style: TextStyle(
-            color: AppTheme.foreground,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.bolt, color: AppTheme.primary, size: 14),
-                const SizedBox(width: 4),
-                const Text(
-                  '12',
-                  style: TextStyle(
-                    color: AppTheme.primary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
-      body: Column(
-        children: [
-          // Video preview area
-          Expanded(
-            flex: 3,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: _buildVideoPreviewArea(),
+    );
+  }
+
+  Widget _buildTopBar() {
+    if (!_isVideoInitialized) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+              ),
             ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
           ),
-
-          // Timeline (only show when video is loaded)
-          if (_isVideoInitialized && _videoController != null)
-            _buildTimeline(),
-
-          // Editor Tools Menu (only show when video is loaded)
-          if (_isVideoInitialized && _videoController != null)
-            _buildEditorToolsMenu(),
-
-          // AI Features Grid
-          Expanded(
-            flex: 2,
-            child: _buildFeaturesGrid(),
+          const Spacer(),
+          // Center controls
+          Row(
+            children: [
+              IconButton(
+                onPressed: () {},
+                icon: Icon(Icons.fullscreen, color: Colors.white.withOpacity(0.7), size: 24),
+              ),
+              IconButton(
+                onPressed: _togglePlayPause,
+                icon: Icon(
+                  _videoController!.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              Row(
+                children: [
+                  Icon(Icons.crop_landscape, color: Colors.white.withOpacity(0.7), size: 24),
+                  const SizedBox(width: 2),
+                  Text(
+                    'ON',
+                    style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 10),
+                  ),
+                ],
+              ),
+            ],
           ),
-
-          // Bottom safe area
-          SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
+          const Spacer(),
+          // Undo/Redo
+          Row(
+            children: [
+              IconButton(
+                onPressed: () {},
+                icon: Icon(Icons.undo, color: Colors.white.withOpacity(0.7), size: 22),
+              ),
+              IconButton(
+                onPressed: () {},
+                icon: Icon(Icons.redo, color: Colors.white.withOpacity(0.7), size: 22),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -242,13 +255,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
 
   Widget _buildVideoPreviewArea() {
     if (_isUploading) {
-      return Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: AppTheme.secondary,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.border),
-        ),
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -260,16 +267,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                 children: [
                   CircularProgressIndicator(
                     value: _uploadProgress,
-                    strokeWidth: 3,
-                    backgroundColor: AppTheme.border,
-                    valueColor:
-                        const AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                    strokeWidth: 4,
+                    backgroundColor: Colors.white.withOpacity(0.2),
+                    valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
                   ),
                   Text(
                     '${(_uploadProgress * 100).toInt()}%',
                     style: const TextStyle(
-                      color: AppTheme.foreground,
-                      fontSize: 14,
+                      color: Colors.white,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -277,9 +283,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Uploading video...',
-              style: TextStyle(color: AppTheme.muted, fontSize: 14),
+              style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14),
             ),
           ],
         ),
@@ -287,77 +293,66 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
     }
 
     if (_isVideoInitialized && _videoController != null) {
-      return Stack(
+      return Column(
         children: [
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: AppTheme.secondary,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.border),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(15),
-              child: AspectRatio(
-                aspectRatio: _videoController!.value.aspectRatio,
-                child: VideoPlayer(_videoController!),
-              ),
+          // Time counter
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                ValueListenableBuilder<VideoPlayerValue>(
+                  valueListenable: _videoController!,
+                  builder: (context, value, child) {
+                    return Text(
+                      '${_formatDuration(value.position)} / ${_formatDuration(value.duration)}',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.6),
+                        fontSize: 13,
+                        fontFamily: 'monospace',
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
-          // Play/Pause overlay
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  if (_videoController!.value.isPlaying) {
-                    _videoController!.pause();
-                  } else {
-                    _videoController!.play();
-                  }
-                });
-              },
-              child: Container(
-                color: Colors.transparent,
-                child: Center(
-                  child: AnimatedOpacity(
-                    opacity: _videoController!.value.isPlaying ? 0 : 1,
-                    duration: const Duration(milliseconds: 200),
-                    child: Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.play_arrow,
-                        color: Colors.white,
-                        size: 32,
+          // Video player
+          Expanded(
+            child: Center(
+              child: Stack(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: AspectRatio(
+                        aspectRatio: _videoController!.value.aspectRatio,
+                        child: VideoPlayer(_videoController!),
                       ),
                     ),
                   ),
-                ),
-              ),
-            ),
-          ),
-          // Clear video button
-          Positioned(
-            top: 8,
-            right: 8,
-            child: GestureDetector(
-              onTap: _clearVideo,
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 18,
-                ),
+                  // Clear button
+                  Positioned(
+                    top: 8,
+                    right: 24,
+                    child: GestureDetector(
+                      onTap: _clearVideo,
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close, color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -366,257 +361,333 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
     }
 
     // Empty state - upload prompt
-    return GestureDetector(
-      onTap: _pickVideo,
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: AppTheme.secondary,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.border, width: 2),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: const Icon(
-                Icons.video_library_outlined,
-                size: 40,
-                color: AppTheme.primary,
-              ),
+    return Center(
+      child: GestureDetector(
+        onTap: _pickVideo,
+        child: Container(
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.2),
+              width: 2,
+              style: BorderStyle.solid,
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'Upload Video',
-              style: TextStyle(
-                color: AppTheme.foreground,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(Icons.videocam_outlined, size: 32, color: AppTheme.primary),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Tap to select a video from your gallery',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppTheme.muted,
-                fontSize: 14,
+              const SizedBox(height: 20),
+              const Text(
+                'Upload Video',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppTheme.primary,
-                borderRadius: BorderRadius.circular(24),
+              const SizedBox(height: 8),
+              Text(
+                'Tap to select a video',
+                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
               ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.cloud_upload_outlined, color: Colors.white, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Choose Video',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.cloud_upload_outlined, color: Colors.white, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      'Choose Video',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildTimeline() {
+  Widget _buildTimelineSection() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(16),
+      color: const Color(0xFF0A0A0A),
       child: Column(
         children: [
-          // Video frame thumbnails strip
-          Container(
-            height: 48,
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(
-              color: AppTheme.secondary,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Stack(
-              children: [
-                // Frame thumbnails placeholder
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Row(
-                    children: List.generate(10, (index) {
-                      return Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            if (_videoController != null &&
-                                _videoController!.value.isInitialized) {
-                              final duration =
-                                  _videoController!.value.duration.inMilliseconds;
-                              final targetTime = Duration(
-                                milliseconds: ((duration / 10) * index).toInt(),
-                              );
-                              _videoController!.seekTo(targetTime);
-                            }
-                          },
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: AppTheme.border.withOpacity(0.3),
-                              border: Border(
-                                right: index < 9
-                                    ? BorderSide(
-                                        color: AppTheme.border.withOpacity(0.2),
-                                        width: 1)
-                                    : BorderSide.none,
-                              ),
-                            ),
-                            child: Center(
-                              child: Icon(
-                                Icons.movie_outlined,
-                                size: 14,
-                                color: AppTheme.muted.withOpacity(0.5),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
-                // Playhead indicator
-                ValueListenableBuilder<VideoPlayerValue>(
-                  valueListenable: _videoController!,
-                  builder: (context, value, child) {
-                    final duration = value.duration.inMilliseconds;
-                    final position = value.position.inMilliseconds;
-                    final progress = duration > 0 ? position / duration : 0.0;
-
-                    return Positioned(
-                      left:
-                          (MediaQuery.of(context).size.width - 32) * progress - 1,
-                      top: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 2,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.primary.withOpacity(0.5),
-                              blurRadius: 4,
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          // Time indicators
-          if (_videoController != null)
-            ValueListenableBuilder<VideoPlayerValue>(
+          // Time markers
+          Padding(
+            padding: const EdgeInsets.only(left: 72, bottom: 8),
+            child: ValueListenableBuilder<VideoPlayerValue>(
               valueListenable: _videoController!,
               builder: (context, value, child) {
-                final position = _formatDuration(value.position);
-                final duration = _formatDuration(value.duration);
+                final duration = value.duration;
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      position,
-                      style: TextStyle(
-                        color: AppTheme.muted,
-                        fontSize: 11,
-                      ),
-                    ),
-                    Text(
-                      duration,
-                      style: TextStyle(
-                        color: AppTheme.muted,
-                        fontSize: 11,
-                      ),
-                    ),
+                    Text('00:00', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10, fontFamily: 'monospace')),
+                    Text(_formatDuration(Duration(milliseconds: duration.inMilliseconds ~/ 4)), style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10, fontFamily: 'monospace')),
+                    Text(_formatDuration(Duration(milliseconds: duration.inMilliseconds ~/ 2)), style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10, fontFamily: 'monospace')),
+                    Text(_formatDuration(Duration(milliseconds: (duration.inMilliseconds * 3) ~/ 4)), style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10, fontFamily: 'monospace')),
+                    Text(_formatDuration(duration), style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10, fontFamily: 'monospace')),
                   ],
                 );
               },
             ),
+          ),
+          // Timeline tracks
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Left controls
+              Column(
+                children: [
+                  GestureDetector(
+                    onTap: _toggleMute,
+                    child: Container(
+                      width: 56,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.volume_off,
+                            size: 18,
+                            color: _isMuted ? AppTheme.primary : Colors.white.withOpacity(0.6),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Mute clip\naudio',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.6),
+                              fontSize: 8,
+                              height: 1.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 56,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.image, size: 18, color: Colors.white.withOpacity(0.6)),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Cover',
+                          style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 9),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 12),
+              // Tracks area
+              Expanded(
+                child: Stack(
+                  children: [
+                    Column(
+                      children: [
+                        // Video track with thumbnails
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Row(
+                                    children: List.generate(8, (index) {
+                                      return Expanded(
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [
+                                                Colors.red.shade900.withOpacity(0.4),
+                                                Colors.red.shade900.withOpacity(0.6),
+                                              ],
+                                            ),
+                                            border: Border(
+                                              right: index < 7
+                                                  ? BorderSide(color: Colors.black.withOpacity(0.3), width: 1)
+                                                  : BorderSide.none,
+                                            ),
+                                          ),
+                                          child: Center(
+                                            child: Icon(
+                                              Icons.movie_outlined,
+                                              size: 12,
+                                              color: Colors.white.withOpacity(0.2),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Add clip button
+                            GestureDetector(
+                              onTap: () => _showSnackBar('Add clip coming soon'),
+                              child: Container(
+                                width: 36,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.add, color: Colors.white, size: 24),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Add audio track
+                        GestureDetector(
+                          onTap: () => _showSnackBar('Add audio coming soon'),
+                          child: Container(
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.2),
+                                style: BorderStyle.solid,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add, color: Colors.white.withOpacity(0.4), size: 18),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Add audio',
+                                  style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Playhead
+                    ValueListenableBuilder<VideoPlayerValue>(
+                      valueListenable: _videoController!,
+                      builder: (context, value, child) {
+                        final duration = value.duration.inMilliseconds;
+                        final position = value.position.inMilliseconds;
+                        final progress = duration > 0 ? position / duration : 0.0;
+                        final trackWidth = MediaQuery.of(context).size.width - 32 - 56 - 12 - 36 - 8;
+
+                        return Positioned(
+                          left: trackWidth * progress,
+                          top: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 2,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.white.withOpacity(0.5),
+                                  blurRadius: 8,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
-
-  Widget _buildEditorToolsMenu() {
+  Widget _buildBottomToolbar() {
     return Container(
-      height: 80,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: AppTheme.secondary,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.border),
+        color: const Color(0xFF0A0A0A),
+        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         child: Row(
           children: _editorTools.map((tool) {
             final isSelected = _selectedTool == tool.id;
             return GestureDetector(
               onTap: () {
                 setState(() => _selectedTool = tool.id);
-                _showSnackBar('${tool.name} tool coming soon');
+                _showSnackBar('${tool.name} coming soon');
               },
               child: Container(
                 width: 64,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppTheme.primary.withOpacity(0.15)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        tool.icon,
-                        size: 22,
-                        color: isSelected ? AppTheme.primary : AppTheme.muted,
-                      ),
+                    Icon(
+                      tool.icon,
+                      size: 24,
+                      color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
                       tool.name,
                       style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                        color: isSelected ? AppTheme.primary : AppTheme.muted,
+                        fontSize: 11,
+                        fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                        color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -627,158 +698,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
       ),
     );
   }
-
-  Widget _buildFeaturesGrid() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'AI Features',
-            style: TextStyle(
-              color: AppTheme.foreground,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.6,
-              ),
-              itemCount: _features.length,
-              itemBuilder: (context, index) {
-                final feature = _features[index];
-                final isSelected = _selectedFeature == feature.id;
-                final isDisabled = !_isVideoInitialized;
-
-                return GestureDetector(
-                  onTap: isDisabled ? null : () => _handleFeatureTap(feature),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppTheme.primary.withOpacity(0.15)
-                          : AppTheme.secondary,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isSelected ? AppTheme.primary : AppTheme.border,
-                        width: isSelected ? 2 : 1,
-                      ),
-                    ),
-                    child: Opacity(
-                      opacity: isDisabled ? 0.5 : 1.0,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? AppTheme.primary
-                                        : AppTheme.primary.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Icon(
-                                    feature.icon,
-                                    size: 18,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : AppTheme.primary,
-                                  ),
-                                ),
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primary.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.bolt,
-                                          size: 10, color: AppTheme.primary),
-                                      const SizedBox(width: 2),
-                                      Text(
-                                        '${feature.credits}',
-                                        style: TextStyle(
-                                          color: AppTheme.primary,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  feature.name,
-                                  style: TextStyle(
-                                    color: AppTheme.foreground,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  feature.description,
-                                  style: TextStyle(
-                                    color: AppTheme.muted,
-                                    fontSize: 10,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class AIFeature {
-  final String id;
-  final String name;
-  final String description;
-  final IconData icon;
-  final int credits;
-
-  const AIFeature({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.icon,
-    required this.credits,
-  });
 }
 
 class EditorTool {
