@@ -140,8 +140,27 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   static const double _snapThreshold = 10.0; // pixels
   double? _snapLinePosition;
   
+  // Text overlay state
+  List<TextOverlay> _textOverlays = [];
+  String? _selectedTextId;
+  final TextEditingController _textInputController = TextEditingController();
+  TabController? _textTabController;
+  
+  // Layer dragging state
+  String? _draggingLayerId;
+  LayerType? _draggingLayerType;
+  double _dragOffsetY = 0;
+  
+  // Layer trimming state
+  String? _trimmingLayerId;
+  bool _isTrimmingStart = false;
+  bool _isTrimmingEnd = false;
+  
   // Settings panel state - for dynamic UI overlap
   bool _isTextEditorInline = false; // For inline keyboard editing
+  
+  // Quality options
+  final List<String> _qualityOptions = ['720p', '1080p', '2K', '4K'];
 
   // Available fonts
   final List<String> _availableFonts = [
