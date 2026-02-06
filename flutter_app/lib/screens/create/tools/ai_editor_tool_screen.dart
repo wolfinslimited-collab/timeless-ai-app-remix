@@ -1001,12 +1001,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
 
   Widget _buildTimelineSection() {
     final screenWidth = MediaQuery.of(context).size.width;
-    final halfScreen = screenWidth / 2;
     final trackLeftPadding = 70.0; // Width of left fixed panel
+    final playheadOffset = (screenWidth - trackLeftPadding) / 2; // Center of timeline area
     
     // Fixed-height container for timeline - NOT scrollable vertically
     return Container(
-      height: 220, // Height for time ruler + video + audio + add text
+      height: 160, // Height for time ruler + video track + add text (no audio)
       color: const Color(0xFF0A0A0A),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1142,31 +1142,28 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                     scrollDirection: Axis.horizontal,
                     physics: const ClampingScrollPhysics(),
                     child: SizedBox(
-                      width: halfScreen + (_thumbnailCount * _thumbnailWidth) + 60 + halfScreen,
+                      // Width: playhead offset at start + video track + add button + playhead offset at end
+                      width: playheadOffset + (_thumbnailCount * _thumbnailWidth) + 60 + playheadOffset,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Time Ruler
-                          _buildTimeRuler(halfScreen),
+                          _buildTimeRuler(playheadOffset),
                           const SizedBox(height: 4),
                           
-                          // Video Track
-                          _buildVideoTrack(halfScreen),
-                          const SizedBox(height: 8),
-                          
-                          // Extracted Audio Waveform Track
-                          _buildExtractedAudioTrack(halfScreen),
+                          // Video Track (no audio track anymore)
+                          _buildVideoTrack(playheadOffset),
                           const SizedBox(height: 8),
                           
                           // Add Text Button
-                          _buildAddTextButton(halfScreen),
+                          _buildAddTextButton(playheadOffset),
                         ],
                       ),
                     ),
                   ),
                 ),
                 
-                // Fixed Centered Playhead (Top Layer)
+                // Fixed Centered Playhead (Top Layer) - positioned at center of timeline area
                 Positioned.fill(
                   child: IgnorePointer(
                     child: CustomPaint(
@@ -1182,55 +1179,75 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
     );
   }
   
-  Widget _buildTimeRuler(double halfScreen) {
+  Widget _buildTimeRuler(double startPadding) {
     final duration = _videoController?.value.duration ?? Duration.zero;
     final totalSeconds = duration.inSeconds > 0 ? duration.inSeconds : 10;
-    final pixelsPerSecond = (_thumbnailCount * _thumbnailWidth) / totalSeconds;
+    final trackWidth = _thumbnailCount * _thumbnailWidth;
+    final pixelsPerSecond = trackWidth / totalSeconds;
+    
+    // Calculate number of 2-second intervals
+    final numMajorTicks = (totalSeconds ~/ 2) + 1;
     
     return Container(
-      height: 20,
+      height: 24,
       child: Row(
         children: [
-          // Left padding
-          SizedBox(width: halfScreen),
+          // Left padding to align with video track start
+          SizedBox(width: startPadding),
           
-          // Time ticks
+          // Time ticks with 2-second major intervals
           SizedBox(
-            width: _thumbnailCount * _thumbnailWidth,
+            width: trackWidth,
             child: Stack(
-              children: List.generate(
-                (totalSeconds ~/ 2) + 1,
-                (i) {
+              children: [
+                // Major ticks every 2 seconds
+                ...List.generate(numMajorTicks, (i) {
                   final seconds = i * 2;
+                  if (seconds > totalSeconds) return const SizedBox.shrink();
                   final position = seconds * pixelsPerSecond;
                   return Positioned(
-                    left: position,
+                    left: position.clamp(0, trackWidth - 30),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Container(
-                          width: 1,
-                          height: 8,
-                          color: Colors.white.withOpacity(0.3),
+                          width: 1.5,
+                          height: 10,
+                          color: Colors.white.withOpacity(0.5),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           _formatSecondsToTimestamp(seconds),
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.4),
-                            fontSize: 8,
+                            color: Colors.white.withOpacity(0.6),
+                            fontSize: 10,
                             fontFamily: 'monospace',
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
                     ),
                   );
-                },
-              ),
+                }),
+                // Minor ticks every 1 second (smaller)
+                ...List.generate(totalSeconds + 1, (i) {
+                  if (i % 2 == 0) return const SizedBox.shrink(); // Skip major tick positions
+                  final position = i * pixelsPerSecond;
+                  return Positioned(
+                    left: position.clamp(0, trackWidth - 1),
+                    child: Container(
+                      width: 1,
+                      height: 6,
+                      color: Colors.white.withOpacity(0.25),
+                    ),
+                  );
+                }),
+              ],
             ),
           ),
           
           // Right padding
-          SizedBox(width: halfScreen),
+          SizedBox(width: startPadding),
         ],
       ),
     );
@@ -1242,22 +1259,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
     return '$mins:$secs';
   }
   
-  Widget _buildVideoTrack(double halfScreen) {
-    // Calculate playback progress for the white progress line
-    final duration = _videoController?.value.duration ?? Duration.zero;
-    final position = _videoController?.value.position ?? Duration.zero;
-    final progress = duration.inMilliseconds > 0 
-        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
-        : 0.0;
+  Widget _buildVideoTrack(double startPadding) {
     final trackWidth = _thumbnailCount * _thumbnailWidth;
-    final progressWidth = trackWidth * progress;
     
     return SizedBox(
       height: _thumbnailHeight + 8, // Extra space for progress bar
       child: Row(
         children: [
-          // Left padding so video starts at center playhead
-          SizedBox(width: halfScreen),
+          // Left padding so video starts at playhead center
+          SizedBox(width: startPadding),
           
           // Video track with dark red background and progress bar
           Stack(
@@ -1333,10 +1343,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                 ),
               ),
               
-              // White progress bar at the bottom of the track
+              // White horizontal progress bar in the middle of the track
               Positioned(
                 left: 2,
-                bottom: 2,
+                top: (_thumbnailHeight + 4) / 2 - 1.5, // Center vertically
                 child: ValueListenableBuilder<VideoPlayerValue>(
                   valueListenable: _videoController!,
                   builder: (context, value, child) {
@@ -1353,9 +1363,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                         borderRadius: BorderRadius.circular(1.5),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.white.withOpacity(0.5),
-                            blurRadius: 4,
-                            spreadRadius: 0,
+                            color: Colors.white.withOpacity(0.6),
+                            blurRadius: 6,
+                            spreadRadius: 1,
                           ),
                         ],
                       ),
@@ -1394,102 +1404,19 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
           ),
           
           // Right padding
-          SizedBox(width: halfScreen),
+          SizedBox(width: startPadding),
         ],
       ),
     );
   }
   
-  Widget _buildExtractedAudioTrack(double halfScreen) {
-    final trackWidth = _thumbnailCount * _thumbnailWidth;
-    
-    return SizedBox(
-      height: 40,
-      child: Row(
-        children: [
-          // Left padding
-          SizedBox(width: halfScreen),
-          
-          // Teal waveform track for extracted audio
-          Container(
-            width: trackWidth,
-            height: 40,
-            decoration: BoxDecoration(
-              color: const Color(0xFF008080), // Solid teal background
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: const Color(0xFF00A0A0),
-                width: 1.5,
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Stack(
-                children: [
-                  // Waveform visualization filling the entire track
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: _AudioWaveformPainter(
-                        color: const Color(0xFF00E5E5),
-                        backgroundColor: const Color(0xFF006666),
-                      ),
-                    ),
-                  ),
-                  // Label overlay
-                  Positioned(
-                    left: 8,
-                    top: 0,
-                    bottom: 0,
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF008080).withOpacity(0.9),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.music_note,
-                                size: 12,
-                                color: Colors.white.withOpacity(0.9),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Extracted',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          // Right padding
-          SizedBox(width: halfScreen + 54),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildAddTextButton(double halfScreen) {
+  Widget _buildAddTextButton(double startPadding) {
     return SizedBox(
       height: 36,
       child: Row(
         children: [
           // Left padding
-          SizedBox(width: halfScreen),
+          SizedBox(width: startPadding),
           
           // + Add text button in gray container
           GestureDetector(
@@ -1535,7 +1462,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
           ),
           
           // Right padding
-          SizedBox(width: halfScreen),
+          SizedBox(width: startPadding),
         ],
       ),
     );
