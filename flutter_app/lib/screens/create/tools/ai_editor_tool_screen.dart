@@ -629,10 +629,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
       body: SafeArea(
+        // Main layout is NOT scrollable - only timeline scrolls horizontally
         child: Column(
           children: [
             _buildTopBar(),
-            Expanded(child: _buildVideoPreviewArea()),
+            // Video preview takes remaining space but is NOT scrollable
+            Expanded(
+              child: _buildVideoPreviewArea(),
+            ),
+            // Fixed position elements below video
             if (_isVideoInitialized && _videoController != null)
               _buildVideoControlBar(),
             if (_isVideoInitialized && _videoController != null)
@@ -736,10 +741,18 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   }
 
   void _toggleFullScreen() {
-    setState(() => _isFullScreen = !_isFullScreen);
-    if (_isFullScreen) {
-      _showSnackBar('Fullscreen mode enabled');
-    }
+    if (!_isVideoInitialized || _videoController == null) return;
+    
+    // Open fullscreen dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      useSafeArea: false,
+      builder: (context) => _FullScreenVideoDialog(
+        videoController: _videoController!,
+        onClose: () => Navigator.of(context).pop(),
+      ),
+    );
   }
 
   Future<void> _addAudioFromGallery() async {
@@ -989,9 +1002,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   Widget _buildTimelineSection() {
     final screenWidth = MediaQuery.of(context).size.width;
     final halfScreen = screenWidth / 2;
-    final totalTimelineWidth = _thumbnailCount * _thumbnailWidth;
     
+    // Fixed-height container for timeline - NOT scrollable vertically
     return Container(
+      height: 150, // Fixed height to prevent overflow
       color: const Color(0xFF0A0A0A),
       child: Column(
         children: [
@@ -1385,4 +1399,219 @@ class EditorTool {
     required this.name,
     required this.icon,
   });
+}
+
+/// Full-screen video dialog that covers the entire screen
+class _FullScreenVideoDialog extends StatefulWidget {
+  final VideoPlayerController videoController;
+  final VoidCallback onClose;
+
+  const _FullScreenVideoDialog({
+    required this.videoController,
+    required this.onClose,
+  });
+
+  @override
+  State<_FullScreenVideoDialog> createState() => _FullScreenVideoDialogState();
+}
+
+class _FullScreenVideoDialogState extends State<_FullScreenVideoDialog> {
+  bool _showControls = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-hide controls after 3 seconds
+    _scheduleHideControls();
+  }
+
+  void _scheduleHideControls() {
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted && widget.videoController.value.isPlaying) {
+        setState(() => _showControls = false);
+      }
+    });
+  }
+
+  void _toggleControls() {
+    setState(() => _showControls = !_showControls);
+    if (_showControls) {
+      _scheduleHideControls();
+    }
+  }
+
+  void _togglePlayPause() {
+    if (widget.videoController.value.isPlaying) {
+      widget.videoController.pause();
+    } else {
+      widget.videoController.play();
+      _scheduleHideControls();
+    }
+    setState(() {});
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        onTap: _toggleControls,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Full-screen video
+            Center(
+              child: AspectRatio(
+                aspectRatio: widget.videoController.value.aspectRatio,
+                child: VideoPlayer(widget.videoController),
+              ),
+            ),
+            
+            // Controls overlay
+            AnimatedOpacity(
+              opacity: _showControls ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.5),
+                      Colors.transparent,
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.5),
+                    ],
+                    stops: const [0.0, 0.2, 0.8, 1.0],
+                  ),
+                ),
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      // Top bar with close button
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            GestureDetector(
+                              onTap: widget.onClose,
+                              child: Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.5),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.close,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              'Full Screen',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.8),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const Spacer(),
+                            const SizedBox(width: 44), // Balance the close button
+                          ],
+                        ),
+                      ),
+                      
+                      const Spacer(),
+                      
+                      // Center play/pause button
+                      GestureDetector(
+                        onTap: _togglePlayPause,
+                        child: Container(
+                          width: 72,
+                          height: 72,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            widget.videoController.value.isPlaying
+                                ? Icons.pause
+                                : Icons.play_arrow,
+                            color: Colors.white,
+                            size: 40,
+                          ),
+                        ),
+                      ),
+                      
+                      const Spacer(),
+                      
+                      // Bottom bar with time
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: ValueListenableBuilder<VideoPlayerValue>(
+                          valueListenable: widget.videoController,
+                          builder: (context, value, child) {
+                            return Column(
+                              children: [
+                                // Progress bar
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(2),
+                                  child: LinearProgressIndicator(
+                                    value: value.duration.inMilliseconds > 0
+                                        ? value.position.inMilliseconds /
+                                            value.duration.inMilliseconds
+                                        : 0,
+                                    backgroundColor: Colors.white.withOpacity(0.3),
+                                    valueColor: const AlwaysStoppedAnimation<Color>(
+                                      AppTheme.primary,
+                                    ),
+                                    minHeight: 4,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      _formatDuration(value.position),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                    Text(
+                                      _formatDuration(value.duration),
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.6),
+                                        fontSize: 13,
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
