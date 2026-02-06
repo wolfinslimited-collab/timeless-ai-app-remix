@@ -122,9 +122,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   List<Uint8List?> _thumbnails = [];
   bool _isExtractingThumbnails = false;
   bool _isUserScrolling = false;
-  static const int _thumbnailCount = 20;
-  static const double _thumbnailWidth = 60.0;
+  bool _isAutoScrolling = false; // Prevents feedback loop during auto-scroll
+  static const int _thumbnailCount = 30; // More thumbnails for smoother display
+  static const double _thumbnailWidth = 50.0;
   static const double _thumbnailHeight = 48.0;
+  static const double _pixelsPerSecond = 60.0; // Key constant for sync calculation
 
   final List<String> _qualityOptions = ['720p', '1080p', '2K', '4K'];
 
@@ -232,6 +234,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     super.initState();
     _textTabController = TabController(length: 5, vsync: this);
     _loadRecentVideos();
+    // Listen to scroll events for bidirectional sync
+    _timelineScrollController.addListener(_onTimelineScroll);
   }
 
   void _resetAllAdjustments() {
@@ -407,22 +411,32 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     });
   }
 
+  // Calculate total track width based on video duration
+  double get _dynamicTrackWidth {
+    if (_videoController == null || !_isVideoInitialized) {
+      return _thumbnailCount * _thumbnailWidth;
+    }
+    final durationSeconds = _videoController!.value.duration.inMilliseconds / 1000.0;
+    return durationSeconds * _pixelsPerSecond;
+  }
+
   void _onTimelineScroll() {
-    if (!_isUserScrolling || _videoController == null || !_isVideoInitialized) return;
+    // Skip if auto-scrolling from video playback to prevent feedback loop
+    if (_isAutoScrolling || _videoController == null || !_isVideoInitialized) return;
     
-    final totalTimelineWidth = _thumbnailCount * _thumbnailWidth;
-    final scrollOffset = _timelineScrollController.offset;
-    
-    // Calculate position based on scroll - playhead is at center
-    // scrollOffset 0 = first frame at center playhead
-    // scrollOffset = totalTimelineWidth = last frame at center playhead
-    final progress = scrollOffset / totalTimelineWidth;
-    final clampedProgress = progress.clamp(0.0, 1.0);
-    final duration = _videoController!.value.duration;
-    final newPosition = Duration(milliseconds: (duration.inMilliseconds * clampedProgress).toInt());
-    
-    // Seek to exact millisecond indicated by playhead
-    _videoController!.seekTo(newPosition);
+    // If user is actively scrolling, seek video to match scroll position
+    if (_isUserScrolling) {
+      final scrollOffset = _timelineScrollController.offset;
+      final durationSeconds = _videoController!.value.duration.inMilliseconds / 1000.0;
+      
+      // Formula: currentPositionInSeconds = scrollOffset / pixelsPerSecond
+      final positionSeconds = scrollOffset / _pixelsPerSecond;
+      final clampedSeconds = positionSeconds.clamp(0.0, durationSeconds);
+      final newPosition = Duration(milliseconds: (clampedSeconds * 1000).toInt());
+      
+      // Seek to exact millisecond indicated by playhead
+      _videoController!.seekTo(newPosition);
+    }
   }
 
   void _onScrollEnd() {
@@ -430,31 +444,49 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     if (_videoController == null || !_isVideoInitialized) return;
     if (!_timelineScrollController.hasClients) return;
     
-    final totalTimelineWidth = _thumbnailCount * _thumbnailWidth;
     final scrollOffset = _timelineScrollController.offset;
+    final durationSeconds = _videoController!.value.duration.inMilliseconds / 1000.0;
     
-    final progress = (scrollOffset / totalTimelineWidth).clamp(0.0, 1.0);
-    final duration = _videoController!.value.duration;
-    final exactPosition = Duration(milliseconds: (duration.inMilliseconds * progress).toInt());
+    // Formula: currentPositionInSeconds = scrollOffset / pixelsPerSecond
+    final positionSeconds = (scrollOffset / _pixelsPerSecond).clamp(0.0, durationSeconds);
+    final exactPosition = Duration(milliseconds: (positionSeconds * 1000).toInt());
     
     // Jump to exact millisecond when scrolling stops
     _videoController!.seekTo(exactPosition);
   }
 
   void _onVideoPositionChanged() {
+    // Skip if user is manually scrolling to prevent feedback loop
     if (_isUserScrolling || _videoController == null || !_isVideoInitialized) return;
     if (!_timelineScrollController.hasClients) return;
     
-    final duration = _videoController!.value.duration.inMilliseconds;
-    final position = _videoController!.value.position.inMilliseconds;
-    if (duration <= 0) return;
+    final durationMs = _videoController!.value.duration.inMilliseconds;
+    final positionMs = _videoController!.value.position.inMilliseconds;
+    if (durationMs <= 0) return;
     
-    final progress = position / duration;
-    final totalTimelineWidth = _thumbnailCount * _thumbnailWidth;
-    final targetScroll = totalTimelineWidth * progress;
+    // Formula: scrollOffset = currentPositionInSeconds * pixelsPerSecond
+    final positionSeconds = positionMs / 1000.0;
+    final targetScroll = positionSeconds * _pixelsPerSecond;
     
-    // Animate scroll to keep timeline synced with video
-    _timelineScrollController.jumpTo(targetScroll.clamp(0.0, _timelineScrollController.position.maxScrollExtent));
+    // Mark as auto-scrolling to prevent feedback loop
+    _isAutoScrolling = true;
+    
+    // Smoothly animate scroll to keep timeline synced with video during playback
+    if (_videoController!.value.isPlaying) {
+      _timelineScrollController.jumpTo(
+        targetScroll.clamp(0.0, _timelineScrollController.position.maxScrollExtent)
+      );
+    } else {
+      // When paused, also update scroll position
+      _timelineScrollController.jumpTo(
+        targetScroll.clamp(0.0, _timelineScrollController.position.maxScrollExtent)
+      );
+    }
+    
+    _isAutoScrolling = false;
+    
+    // Trigger rebuild to update any position-dependent UI
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadRecentVideos() async {
@@ -824,14 +856,20 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     
     setState(() => _isExtractingThumbnails = true);
     
-    final duration = _videoController!.value.duration.inMilliseconds;
-    final List<Uint8List?> thumbnails = List.filled(_thumbnailCount, null);
+    final durationMs = _videoController!.value.duration.inMilliseconds;
+    final durationSeconds = durationMs / 1000.0;
+    
+    // Calculate number of thumbnails needed based on dynamic width
+    final dynamicWidth = durationSeconds * _pixelsPerSecond;
+    final thumbnailsNeeded = (dynamicWidth / _thumbnailWidth).ceil().clamp(10, 100);
+    
+    final List<Uint8List?> thumbnails = List.filled(thumbnailsNeeded, null);
     
     try {
-      for (int i = 0; i < _thumbnailCount; i++) {
+      for (int i = 0; i < thumbnailsNeeded; i++) {
         if (!mounted) break;
         
-        final timeMs = (duration * i / _thumbnailCount).toInt();
+        final timeMs = (durationMs * i / thumbnailsNeeded).toInt();
         
         try {
           final thumbnail = await VideoThumbnail.thumbnailData(
@@ -1362,12 +1400,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   Widget _buildTimelineSection() {
     final screenWidth = MediaQuery.of(context).size.width;
-    final playheadOffset = screenWidth / 2; // Center of screen
-    final trackWidth = _thumbnailCount * _thumbnailWidth;
-    final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+    final playheadOffset = screenWidth / 2; // Center of screen - leading padding for first frame
+    final durationSeconds = _videoController?.value.duration.inMilliseconds ?? 0;
+    final durationSec = durationSeconds / 1000.0;
+    
+    // Dynamic track width based on duration and pixels per second
+    final trackWidth = (durationSec * _pixelsPerSecond).clamp(300.0, 10000.0);
     
     // Calculate total height based on tracks
-    final baseHeight = 200.0; // Time ruler + video track + audio track + text track + padding
+    final baseHeight = 200.0;
     
     return Container(
       height: baseHeight,
@@ -1391,6 +1432,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               scrollDirection: Axis.horizontal,
               physics: const ClampingScrollPhysics(),
               child: SizedBox(
+                // Total width = leading padding + track + trailing padding
+                // Leading padding allows first frame to align with center playhead
                 width: playheadOffset + trackWidth + 120 + playheadOffset,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1399,12 +1442,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     _buildTimeRuler(playheadOffset),
                     const SizedBox(height: 4),
                     
-                    // Scrollable Control Buttons + Video Track
-                    _buildVideoTrackWithControls(playheadOffset),
+                    // Scrollable Control Buttons + Video Track with continuous thumbnails
+                    _buildVideoTrackWithControls(playheadOffset, trackWidth),
                     const SizedBox(height: 6),
                     
                     // Text Track (Purple/Yellow layers) - No Audio Track
-                    _buildTextTrack(playheadOffset, trackWidth, duration),
+                    _buildTextTrack(playheadOffset, trackWidth, durationSec > 0 ? durationSec : 10.0),
                     const SizedBox(height: 6),
                     
                     // Add layer buttons row (without audio)
@@ -1443,9 +1486,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
 
-  Widget _buildVideoTrackWithControls(double startPadding) {
-    final trackWidth = _thumbnailCount * _thumbnailWidth;
-    
+  Widget _buildVideoTrackWithControls(double startPadding, double trackWidth) {
     return SizedBox(
       height: _thumbnailHeight + 8,
       child: Row(
@@ -1519,7 +1560,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             ),
           ),
           
-          // Video Track
+          // Video Track with continuous thumbnails using ListView.builder for performance
           _buildVideoTrackContent(trackWidth),
           
           const SizedBox(width: 10),
@@ -1551,7 +1592,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
 
   Widget _buildVideoTrackContent(double trackWidth) {
+    // Calculate number of thumbnail slots based on dynamic track width
+    final thumbnailCount = (trackWidth / _thumbnailWidth).ceil();
+    
     // Main video track container with dark red background - NO progress overlay
+    // Scrolling movement represents progress, not a horizontal line
     return Container(
       width: trackWidth,
       height: _thumbnailHeight + 4,
@@ -1562,22 +1607,32 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
-        child: Row(
-          children: List.generate(_thumbnailCount, (index) {
-            final thumbnail = index < _thumbnails.length ? _thumbnails[index] : null;
+        // Use ListView.builder for performance - renders only visible thumbnails
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(), // Parent handles scrolling
+          itemCount: thumbnailCount,
+          itemBuilder: (context, index) {
+            // Get thumbnail for this position if available
+            final thumbnailIndex = _thumbnails.isNotEmpty 
+                ? (index * _thumbnails.length / thumbnailCount).floor().clamp(0, _thumbnails.length - 1)
+                : -1;
+            final thumbnail = thumbnailIndex >= 0 && thumbnailIndex < _thumbnails.length 
+                ? _thumbnails[thumbnailIndex] 
+                : null;
             
             return Container(
               width: _thumbnailWidth,
               height: _thumbnailHeight,
               decoration: BoxDecoration(
                 border: Border(
-                  right: index < _thumbnailCount - 1
-                      ? BorderSide(color: const Color(0xFF5A0000).withOpacity(0.8), width: 1)
+                  right: index < thumbnailCount - 1
+                      ? BorderSide(color: const Color(0xFF5A0000).withOpacity(0.5), width: 0.5)
                       : BorderSide.none,
                 ),
               ),
               child: thumbnail != null
-                  ? Image.memory(thumbnail, fit: BoxFit.cover)
+                  ? Image.memory(thumbnail, fit: BoxFit.cover, gaplessPlayback: true)
                   : Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -1602,7 +1657,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                             ),
                     ),
             );
-          }),
+          },
         ),
       ),
     );
@@ -1992,12 +2047,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   
   Widget _buildTimeRuler(double startPadding) {
     final duration = _videoController?.value.duration ?? Duration.zero;
-    final totalSeconds = duration.inSeconds > 0 ? duration.inSeconds : 10;
-    final trackWidth = _thumbnailCount * _thumbnailWidth;
-    final pixelsPerSecond = trackWidth / totalSeconds;
+    final durationMs = duration.inMilliseconds;
+    final totalSeconds = durationMs > 0 ? durationMs / 1000.0 : 10.0;
+    
+    // Use the same pixelsPerSecond constant for consistency
+    final trackWidth = totalSeconds * _pixelsPerSecond;
     
     // Calculate number of 2-second intervals
-    final numMajorTicks = (totalSeconds ~/ 2) + 1;
+    final numMajorTicks = (totalSeconds / 2).ceil() + 1;
     
     return Container(
       height: 24,
@@ -2015,7 +2072,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 ...List.generate(numMajorTicks, (i) {
                   final seconds = i * 2;
                   if (seconds > totalSeconds) return const SizedBox.shrink();
-                  final position = seconds * pixelsPerSecond;
+                  // Formula: position = seconds * pixelsPerSecond
+                  final position = seconds * _pixelsPerSecond;
                   return Positioned(
                     left: position.clamp(0, trackWidth - 30),
                     child: Column(
@@ -2041,9 +2099,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   );
                 }),
                 // Minor ticks every 1 second (smaller)
-                ...List.generate(totalSeconds + 1, (i) {
+                ...List.generate(totalSeconds.ceil() + 1, (i) {
                   if (i % 2 == 0) return const SizedBox.shrink(); // Skip major tick positions
-                  final position = i * pixelsPerSecond;
+                  // Formula: position = seconds * pixelsPerSecond
+                  final position = i * _pixelsPerSecond;
                   return Positioned(
                     left: position.clamp(0, trackWidth - 1),
                     child: Container(
