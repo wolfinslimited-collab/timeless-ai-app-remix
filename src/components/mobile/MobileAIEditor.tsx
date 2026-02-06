@@ -25,12 +25,20 @@ import {
   Redo2,
   VolumeX,
   Image,
-  Plus
+  Plus,
+  Clock,
+  PlayCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 interface MobileAIEditorProps {
   onBack: () => void;
@@ -40,6 +48,12 @@ interface EditorTool {
   id: string;
   name: string;
   icon: React.ComponentType<{ className?: string }>;
+}
+
+interface RecentVideo {
+  url: string;
+  name: string;
+  uploadedAt: Date;
 }
 
 const EDITOR_TOOLS: EditorTool[] = [
@@ -62,6 +76,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [duration, setDuration] = useState(0);
   const [selectedTool, setSelectedTool] = useState("edit");
   const [isMuted, setIsMuted] = useState(false);
+  const [showMediaPicker, setShowMediaPicker] = useState(false);
+  const [recentVideos, setRecentVideos] = useState<RecentVideo[]>([]);
+  const [isLoadingRecent, setIsLoadingRecent] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -88,8 +105,75 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     };
   }, [videoUrl]);
 
+  const loadRecentVideos = async () => {
+    if (!user) return;
+    
+    setIsLoadingRecent(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from("generation-inputs")
+        .list(user.id);
+
+      if (error) throw error;
+
+      const videos = data
+        .filter((file) => 
+          file.name.endsWith('.mp4') || 
+          file.name.endsWith('.mov') || 
+          file.name.endsWith('.webm') ||
+          file.name.endsWith('.avi'))
+        .map((file) => {
+          const { data: urlData } = supabase.storage
+            .from("generation-inputs")
+            .getPublicUrl(`${user.id}/${file.name}`);
+          return {
+            url: urlData.publicUrl,
+            name: file.name,
+            uploadedAt: new Date(file.created_at || Date.now()),
+          };
+        });
+
+      // Sort by most recent
+      videos.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
+      setRecentVideos(videos.slice(0, 12));
+    } catch (error) {
+      console.error("Failed to load recent videos:", error);
+    } finally {
+      setIsLoadingRecent(false);
+    }
+  };
+
+  const handleShowMediaPicker = () => {
+    loadRecentVideos();
+    setShowMediaPicker(true);
+  };
+
   const handleUploadClick = () => {
+    setShowMediaPicker(false);
     fileInputRef.current?.click();
+  };
+
+  const handleSelectRecentVideo = async (url: string) => {
+    setShowMediaPicker(false);
+    setIsUploading(true);
+    setUploadProgress(50);
+
+    try {
+      setVideoUrl(url);
+      setUploadProgress(100);
+      toast({
+        title: "Video loaded",
+        description: "Your video is ready for editing",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load video",
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -207,6 +291,73 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         onChange={handleFileSelect}
       />
 
+      {/* Media Picker Sheet */}
+      <Sheet open={showMediaPicker} onOpenChange={setShowMediaPicker}>
+        <SheetContent side="bottom" className="h-[70vh] bg-[#1a1a1a] border-t border-white/10 rounded-t-3xl p-0">
+          <div className="flex flex-col h-full">
+            {/* Handle bar */}
+            <div className="w-10 h-1 bg-white/30 rounded-full mx-auto mt-3" />
+            
+            <SheetHeader className="px-5 pt-5 pb-2">
+              <SheetTitle className="text-white text-lg font-bold text-center">
+                Select Video
+              </SheetTitle>
+            </SheetHeader>
+
+            {/* Upload New Video button */}
+            <div className="px-5 pt-3">
+              <button
+                onClick={handleUploadClick}
+                className="w-full py-4 bg-gradient-to-r from-primary to-primary/80 rounded-2xl flex items-center justify-center gap-3 shadow-lg shadow-primary/30"
+              >
+                <Upload className="w-6 h-6 text-primary-foreground" />
+                <span className="text-primary-foreground text-base font-semibold">
+                  Upload New Video
+                </span>
+              </button>
+            </div>
+
+            {/* Recent Uploads header */}
+            <div className="px-5 pt-6 pb-4 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-white/60" />
+              <span className="text-white/80 text-sm font-medium">Recent Uploads</span>
+            </div>
+
+            {/* Recent videos grid */}
+            <div className="flex-1 overflow-y-auto px-5 pb-safe">
+              {isLoadingRecent ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : recentVideos.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-32 gap-3">
+                  <Video className="w-12 h-12 text-white/30" />
+                  <p className="text-white/50 text-sm">No recent videos</p>
+                  <p className="text-white/30 text-xs">Upload a video to get started</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-3">
+                  {recentVideos.map((video, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleSelectRecentVideo(video.url)}
+                      className="aspect-square bg-white/10 rounded-xl border border-white/10 overflow-hidden relative group"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/50 to-blue-900/50 flex items-center justify-center">
+                        <PlayCircle className="w-8 h-8 text-white/80 group-hover:scale-110 transition-transform" />
+                      </div>
+                      <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 bg-black/70 rounded text-[9px] text-white font-medium">
+                        Video
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* Top Bar - Only show when video is loaded */}
       {videoUrl && (
         <div className="px-4 py-3 flex items-center justify-between">
@@ -288,7 +439,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 {uploadProgress}%
               </span>
             </div>
-            <p className="mt-4 text-white/60 text-sm">Uploading video...</p>
+            <p className="mt-4 text-white/60 text-sm">Loading video...</p>
           </div>
         ) : videoUrl ? (
           <div className="flex-1 flex flex-col">
@@ -323,7 +474,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         ) : (
           <div className="flex-1 flex items-center justify-center p-6">
             <button
-              onClick={handleUploadClick}
+              onClick={handleShowMediaPicker}
               className="w-full max-w-sm aspect-video bg-white/5 rounded-2xl border-2 border-dashed border-white/20 flex flex-col items-center justify-center hover:bg-white/10 transition-colors"
             >
               <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center mb-4">
@@ -392,7 +543,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   ))}
                 </div>
                 {/* Add clip button */}
-                <button className="w-8 h-12 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors">
+                <button 
+                  onClick={handleShowMediaPicker}
+                  className="w-8 h-12 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors"
+                >
                   <Plus className="w-5 h-5 text-white" />
                 </button>
               </div>

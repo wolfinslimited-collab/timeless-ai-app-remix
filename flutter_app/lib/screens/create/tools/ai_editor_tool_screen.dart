@@ -5,6 +5,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 import '../../../core/theme.dart';
 
+class RecentVideo {
+  final String url;
+  final String name;
+  final DateTime uploadedAt;
+
+  const RecentVideo({
+    required this.url,
+    required this.name,
+    required this.uploadedAt,
+  });
+}
+
 class AIEditorToolScreen extends StatefulWidget {
   const AIEditorToolScreen({super.key});
 
@@ -21,6 +33,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   bool _isVideoInitialized = false;
   String _selectedTool = 'edit';
   bool _isMuted = false;
+  List<RecentVideo> _recentVideos = [];
+  bool _isLoadingRecent = false;
 
   final List<EditorTool> _editorTools = [
     EditorTool(id: 'edit', name: 'Edit', icon: Icons.content_cut),
@@ -39,7 +53,303 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
     super.dispose();
   }
 
-  Future<void> _pickVideo() async {
+  Future<void> _loadRecentVideos() async {
+    setState(() => _isLoadingRecent = true);
+    
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session == null) {
+        setState(() => _isLoadingRecent = false);
+        return;
+      }
+
+      final result = await Supabase.instance.client.storage
+          .from('generation-inputs')
+          .list(path: session.user.id);
+
+      final videos = result
+          .where((file) => 
+            file.name.endsWith('.mp4') || 
+            file.name.endsWith('.mov') || 
+            file.name.endsWith('.webm') ||
+            file.name.endsWith('.avi'))
+          .map((file) {
+            final publicUrl = Supabase.instance.client.storage
+                .from('generation-inputs')
+                .getPublicUrl('${session.user.id}/${file.name}');
+            return RecentVideo(
+              url: publicUrl,
+              name: file.name,
+              uploadedAt: DateTime.tryParse(file.createdAt ?? '') ?? DateTime.now(),
+            );
+          })
+          .toList();
+
+      // Sort by most recent
+      videos.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+
+      setState(() {
+        _recentVideos = videos.take(12).toList(); // Limit to 12 recent
+        _isLoadingRecent = false;
+      });
+    } catch (e) {
+      debugPrint('Failed to load recent videos: $e');
+      setState(() => _isLoadingRecent = false);
+    }
+  }
+
+  void _showMediaPickerSheet() {
+    _loadRecentVideos();
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _buildMediaPickerSheet(),
+    );
+  }
+
+  Widget _buildMediaPickerSheet() {
+    return StatefulBuilder(
+      builder: (context, setSheetState) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: const BoxDecoration(
+            color: Color(0xFF1A1A1A),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Title
+              const Text(
+                'Select Video',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Upload New Video button
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickNewVideo();
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [AppTheme.primary, AppTheme.primary.withOpacity(0.8)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.primary.withOpacity(0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.cloud_upload_outlined, color: Colors.white, size: 24),
+                        SizedBox(width: 12),
+                        Text(
+                          'Upload New Video',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Recent Uploads header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Icon(Icons.history, color: Colors.white.withOpacity(0.6), size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Recent Uploads',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Recent videos grid
+              Expanded(
+                child: _isLoadingRecent
+                    ? const Center(
+                        child: CircularProgressIndicator(color: AppTheme.primary),
+                      )
+                    : _recentVideos.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.video_library_outlined,
+                                  size: 48,
+                                  color: Colors.white.withOpacity(0.3),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'No recent videos',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.5),
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Upload a video to get started',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.3),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : GridView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 1,
+                            ),
+                            itemCount: _recentVideos.length,
+                            itemBuilder: (context, index) {
+                              final video = _recentVideos[index];
+                              return _buildRecentVideoThumbnail(video);
+                            },
+                          ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRecentVideoThumbnail(RecentVideo video) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pop(context);
+        _loadVideoFromUrl(video.url);
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Video thumbnail placeholder
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: double.infinity,
+                height: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.purple.shade900.withOpacity(0.5),
+                      Colors.blue.shade900.withOpacity(0.5),
+                    ],
+                  ),
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.play_circle_outline,
+                    color: Colors.white.withOpacity(0.8),
+                    size: 32,
+                  ),
+                ),
+              ),
+            ),
+            // Duration badge placeholder
+            Positioned(
+              bottom: 6,
+              right: 6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'Video',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loadVideoFromUrl(String url) async {
+    setState(() {
+      _isUploading = true;
+      _uploadProgress = 0.5;
+    });
+
+    try {
+      setState(() {
+        _videoUrl = url;
+        _uploadProgress = 1.0;
+      });
+
+      await _initializeVideoPlayer(url);
+      _showSnackBar('Video loaded successfully');
+    } catch (e) {
+      _showSnackBar('Failed to load video: $e');
+    } finally {
+      setState(() => _isUploading = false);
+    }
+  }
+
+  Future<void> _pickNewVideo() async {
     final picker = ImagePicker();
     final video = await picker.pickVideo(source: ImageSource.gallery);
     if (video == null) return;
@@ -284,7 +594,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Uploading video...',
+              'Loading video...',
               style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14),
             ),
           ],
@@ -360,10 +670,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
       );
     }
 
-    // Empty state - upload prompt
+    // Empty state - upload prompt (now opens bottom sheet)
     return Center(
       child: GestureDetector(
-        onTap: _pickVideo,
+        onTap: _showMediaPickerSheet,
         child: Container(
           margin: const EdgeInsets.all(24),
           padding: const EdgeInsets.all(32),
@@ -571,7 +881,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                             const SizedBox(width: 8),
                             // Add clip button
                             GestureDetector(
-                              onTap: () => _showSnackBar('Add clip coming soon'),
+                              onTap: _showMediaPickerSheet,
                               child: Container(
                                 width: 36,
                                 height: 48,
