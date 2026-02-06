@@ -11,7 +11,15 @@ import {
   Wallpaper,
   Subtitles,
   Sparkles,
-  CircleOff
+  CircleOff,
+  Scissors,
+  Volume2,
+  Type,
+  Wand2,
+  Layers,
+  Captions,
+  Palette,
+  SlidersHorizontal
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -62,6 +70,23 @@ const AI_FEATURES: AIFeature[] = [
   },
 ];
 
+interface EditorTool {
+  id: string;
+  name: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+const EDITOR_TOOLS: EditorTool[] = [
+  { id: "edit", name: "Edit", icon: Scissors },
+  { id: "audio", name: "Audio", icon: Volume2 },
+  { id: "text", name: "Text", icon: Type },
+  { id: "effects", name: "Effects", icon: Wand2 },
+  { id: "overlay", name: "Overlay", icon: Layers },
+  { id: "captions", name: "Captions", icon: Captions },
+  { id: "filters", name: "Filters", icon: Palette },
+  { id: "adjust", name: "Adjust", icon: SlidersHorizontal },
+];
+
 export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -70,6 +95,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [selectedFeature, setSelectedFeature] = useState<string | null>(null);
+  const [selectedTool, setSelectedTool] = useState("edit");
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -368,6 +394,61 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>{formatTime(currentTime)}</span>
               <span>{formatTime(duration)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Editor Tools Menu (only when video is loaded) */}
+      {videoUrl && duration > 0 && (
+        <div className="px-4 pb-3">
+          <div className="bg-secondary rounded-2xl border border-border p-2 overflow-x-auto">
+            <div className="flex gap-1 min-w-max">
+              {EDITOR_TOOLS.map((tool) => {
+                const Icon = tool.icon;
+                const isSelected = selectedTool === tool.id;
+
+                return (
+                  <button
+                    key={tool.id}
+                    onClick={() => {
+                      setSelectedTool(tool.id);
+                      toast({
+                        title: tool.name,
+                        description: "Coming soon!",
+                      });
+                    }}
+                    className={cn(
+                      "flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all",
+                      isSelected
+                        ? "bg-primary/15"
+                        : "hover:bg-secondary/80"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center mb-1",
+                        isSelected ? "bg-primary/15" : "bg-transparent"
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          "w-5 h-5",
+                          isSelected ? "text-primary" : "text-muted-foreground"
+                        )}
+                      />
+                    </div>
+                    <span
+                      className={cn(
+                        "text-[10px] font-medium",
+                        isSelected ? "text-primary" : "text-muted-foreground"
+                      )}
+                    >
+                      {tool.name}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
