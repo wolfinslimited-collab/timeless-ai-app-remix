@@ -15,6 +15,7 @@ import {
   Circle,
   SlidersHorizontal,
   Maximize,
+  Minimize,
   Undo2,
   Redo2,
   VolumeX,
@@ -35,6 +36,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
 
 interface MobileAIEditorProps {
   onBack: () => void;
@@ -287,10 +292,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   const toggleFullScreen = () => {
     setIsFullScreen(!isFullScreen);
-    toast({
-      title: isFullScreen ? "Exited fullscreen" : "Fullscreen mode",
-      description: isFullScreen ? "Normal view restored" : "Video preview expanded",
-    });
+  };
+
+  const closeFullScreen = () => {
+    setIsFullScreen(false);
   };
 
   const handleAddAudio = () => {
@@ -301,7 +306,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#0a0a0a]">
+    <div className="h-full flex flex-col bg-background overflow-hidden">
       <input
         ref={fileInputRef}
         type="file"
@@ -309,6 +314,56 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         className="hidden"
         onChange={handleFileSelect}
       />
+
+      {/* Fullscreen Video Dialog */}
+      <Dialog open={isFullScreen} onOpenChange={setIsFullScreen}>
+        <DialogContent className="max-w-none w-screen h-screen p-0 border-0 bg-black [&>button]:hidden">
+          <div className="relative w-full h-full flex flex-col">
+            {/* Fullscreen Header */}
+            <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/60 to-transparent p-4">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={closeFullScreen}
+                  className="w-11 h-11 rounded-full bg-black/50 flex items-center justify-center"
+                >
+                  <X className="w-6 h-6 text-white" />
+                </button>
+                <span className="text-white/80 text-base font-medium">Full Screen</span>
+                <div className="w-11" />
+              </div>
+            </div>
+            
+            {/* Fullscreen Video */}
+            <div className="flex-1 flex items-center justify-center">
+              {videoUrl && (
+                <video
+                  src={videoUrl}
+                  className="max-w-full max-h-full object-contain"
+                  playsInline
+                  muted={isMuted}
+                  autoPlay
+                  controls
+                />
+              )}
+            </div>
+            
+            {/* Fullscreen Footer */}
+            <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/60 to-transparent p-4">
+              <div className="flex items-center justify-between text-white text-sm font-mono">
+                <span>{formatTime(currentTime)}</span>
+                <button
+                  onClick={closeFullScreen}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-full"
+                >
+                  <Minimize className="w-4 h-4" />
+                  <span className="text-sm">Exit</span>
+                </button>
+                <span>{formatTime(duration)}</span>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Media Picker Sheet */}
       <Sheet open={showMediaPicker} onOpenChange={setShowMediaPicker}>
@@ -358,7 +413,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       onClick={() => handleSelectRecentVideo(video.url)}
                       className="aspect-square bg-white/10 rounded-xl border border-white/10 overflow-hidden relative group"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/50 to-blue-900/50 flex items-center justify-center">
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
                         <PlayCircle className="w-8 h-8 text-white/80 group-hover:scale-110 transition-transform" />
                       </div>
                       <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 bg-black/70 rounded text-[9px] text-white font-medium">
@@ -570,9 +625,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         </div>
       )}
 
-      {/* Timeline Section - Scrollable with Fixed Centered Playhead */}
+      {/* Timeline Section - Fixed height, only horizontal scroll for frames */}
       {videoUrl && duration > 0 && (
-        <div className="bg-[#0a0a0a] py-3">
+        <div className="h-[150px] shrink-0 bg-background py-3">
           {/* Current position display */}
           <div className="flex justify-center items-center gap-1 mb-3">
             <span className="text-white font-semibold text-sm font-mono">
@@ -620,7 +675,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       {Array.from({ length: 20 }).map((_, i) => (
                         <div
                           key={i}
-                          className="w-[60px] h-full border-r border-black/40 last:border-r-0 bg-gradient-to-b from-red-900/40 to-red-950/60 flex items-center justify-center shrink-0"
+                          className="w-[60px] h-full border-r border-border/40 last:border-r-0 bg-gradient-to-b from-primary/20 to-primary/10 flex items-center justify-center shrink-0"
                         >
                           <Video className="w-3 h-3 text-white/30" />
                         </div>
@@ -654,9 +709,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         </div>
       )}
 
-      {/* Bottom Toolbar */}
+      {/* Bottom Toolbar - Fixed, not scrollable vertically */}
       {videoUrl && duration > 0 && (
-        <div className="bg-[#0a0a0a] border-t border-white/10 pb-safe">
+        <div className="shrink-0 bg-background border-t border-border/10 pb-safe">
           <div className="overflow-x-auto">
             <div className="flex px-2 py-3 min-w-max">
               {EDITOR_TOOLS.map((tool) => {
