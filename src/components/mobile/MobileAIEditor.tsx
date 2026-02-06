@@ -108,6 +108,65 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     hue: 0,
   });
 
+  // Text overlay state
+  interface TextOverlay {
+    id: string;
+    text: string;
+    position: { x: number; y: number };
+    fontSize: number;
+    textColor: string;
+    fontFamily: string;
+    alignment: 'left' | 'center' | 'right';
+    hasBackground: boolean;
+    backgroundColor: string;
+    backgroundOpacity: number;
+    startTime: number;
+    endTime: number;
+  }
+
+  const [textOverlays, setTextOverlays] = useState<TextOverlay[]>([]);
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+  const [textTab, setTextTab] = useState<'input' | 'font' | 'style' | 'background' | 'align'>('input');
+  const [textInput, setTextInput] = useState('');
+
+  const availableFonts = ['Roboto', 'Serif', 'Montserrat', 'Impact', 'Comic Sans'];
+  const availableColors = ['#ffffff', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
+
+  const selectedTextOverlay = textOverlays.find(t => t.id === selectedTextId);
+
+  const addTextOverlay = () => {
+    const newText: TextOverlay = {
+      id: Date.now().toString(),
+      text: 'Sample Text',
+      position: { x: 0.5, y: 0.5 },
+      fontSize: 24,
+      textColor: '#ffffff',
+      fontFamily: 'Roboto',
+      alignment: 'center',
+      hasBackground: false,
+      backgroundColor: '#000000',
+      backgroundOpacity: 0.5,
+      startTime: 0,
+      endTime: Math.min(5, duration || 10),
+    };
+    setTextOverlays(prev => [...prev, newText]);
+    setSelectedTextId(newText.id);
+    setTextInput(newText.text);
+    setSelectedTool('text');
+  };
+
+  const updateSelectedText = (updates: Partial<TextOverlay>) => {
+    if (!selectedTextId) return;
+    setTextOverlays(prev => prev.map(t => 
+      t.id === selectedTextId ? { ...t, ...updates } : t
+    ));
+  };
+
+  const deleteTextOverlay = (id: string) => {
+    setTextOverlays(prev => prev.filter(t => t.id !== id));
+    if (selectedTextId === id) setSelectedTextId(null);
+  };
+
   const adjustmentTools: { id: keyof typeof adjustments; name: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'brightness', name: 'Brightness', icon: Sun },
     { id: 'contrast', name: 'Contrast', icon: Contrast },
@@ -677,6 +736,69 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 muted={isMuted}
               />
               
+              {/* Text Overlays */}
+              {textOverlays.filter(overlay => 
+                currentTime >= overlay.startTime && currentTime <= overlay.endTime
+              ).map(overlay => {
+                const isSelected = overlay.id === selectedTextId;
+                return (
+                  <div
+                    key={overlay.id}
+                    className={cn(
+                      "absolute cursor-move px-3 py-2 rounded-lg transition-all",
+                      isSelected && "ring-2 ring-primary"
+                    )}
+                    style={{
+                      left: `${overlay.position.x * 100}%`,
+                      top: `${overlay.position.y * 100}%`,
+                      transform: 'translate(-50%, -50%)',
+                      backgroundColor: overlay.hasBackground 
+                        ? `${overlay.backgroundColor}${Math.round(overlay.backgroundOpacity * 255).toString(16).padStart(2, '0')}`
+                        : 'transparent',
+                    }}
+                    onClick={() => {
+                      setSelectedTextId(overlay.id);
+                      setTextInput(overlay.text);
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: overlay.textColor,
+                        fontSize: overlay.fontSize,
+                        fontFamily: overlay.fontFamily,
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      {overlay.text}
+                    </span>
+                    
+                    {/* Selection controls */}
+                    {isSelected && (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteTextOverlay(overlay.id);
+                          }}
+                          className="absolute -top-4 -right-4 w-6 h-6 rounded-full bg-destructive flex items-center justify-center"
+                        >
+                          <X className="w-3.5 h-3.5 text-white" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedTool('text');
+                          }}
+                          className="absolute -top-4 -left-4 w-6 h-6 rounded-full bg-primary flex items-center justify-center"
+                        >
+                          <Type className="w-3.5 h-3.5 text-white" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+              
               <button
                 onClick={clearVideo}
                 className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center"
@@ -890,9 +1012,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </button>
                   </div>
                   
-                  {/* Add Text Button - Gray container (No audio track) */}
+                  {/* Add Text Button - Gray container */}
                   <button 
-                    onClick={() => toast({ title: "Text", description: "Text editor coming soon!" })}
+                    onClick={addTextOverlay}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-lg w-fit"
                     style={{ backgroundColor: '#2A2A2A', border: '1px solid rgba(255,255,255,0.1)' }}
                   >
@@ -901,6 +1023,42 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </div>
                     <span className="text-xs text-white/70 font-medium">Add text</span>
                   </button>
+                  
+                  {/* Text track items */}
+                  {textOverlays.length > 0 && (
+                    <div className="flex items-center gap-2 ml-2">
+                      {textOverlays.map(overlay => {
+                        const isSelected = overlay.id === selectedTextId;
+                        const trackWidth = 20 * 60; // thumbnailCount * thumbnailWidth
+                        const dur = duration || 10;
+                        const startPercent = overlay.startTime / dur;
+                        const widthPercent = (overlay.endTime - overlay.startTime) / dur;
+                        const itemWidth = Math.max(40, trackWidth * widthPercent);
+                        
+                        return (
+                          <div
+                            key={overlay.id}
+                            onClick={() => {
+                              setSelectedTextId(overlay.id);
+                              setTextInput(overlay.text);
+                            }}
+                            className={cn(
+                              "h-8 rounded-md flex items-center px-2 gap-1 cursor-pointer transition-all",
+                              isSelected 
+                                ? "bg-gradient-to-r from-amber-500 to-amber-600 ring-2 ring-white"
+                                : "bg-gradient-to-r from-primary to-primary/80"
+                            )}
+                            style={{ width: itemWidth }}
+                          >
+                            <Type className="w-3 h-3 text-white/90" />
+                            <span className="text-[10px] text-white font-semibold truncate">
+                              {overlay.text}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -972,6 +1130,206 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        ) : selectedTool === 'text' ? (
+          // Text Editor Panel
+          <div className="shrink-0 bg-background border-t border-border/10 pb-safe">
+            {/* Header */}
+            <div className="flex items-center justify-between px-3 py-3">
+              <button
+                onClick={() => setSelectedTool('edit')}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white/10 rounded-lg"
+              >
+                <ArrowLeft className="w-4 h-4 text-white/80" />
+                <span className="text-white/80 text-sm font-medium">Back</span>
+              </button>
+              <span className="text-white font-bold">Text Editor</span>
+              <button
+                onClick={addTextOverlay}
+                className="flex items-center gap-1.5 px-3 py-2 bg-primary/15 border border-primary/40 rounded-lg"
+              >
+                <Plus className="w-4 h-4 text-primary" />
+                <span className="text-primary text-sm font-semibold">Add</span>
+              </button>
+            </div>
+            
+            {/* Tab bar */}
+            <div className="flex gap-1 px-3 overflow-x-auto">
+              {(['input', 'font', 'style', 'background', 'align'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setTextTab(tab)}
+                  className={cn(
+                    "px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors",
+                    textTab === tab ? "bg-primary text-white" : "bg-white/10 text-white/60"
+                  )}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
+            </div>
+            
+            {/* Tab content */}
+            <div className="p-4 max-h-[200px] overflow-y-auto">
+              {!selectedTextId ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-2">
+                  <Type className="w-10 h-10 text-white/30" />
+                  <p className="text-white/50 text-sm">Add text to get started</p>
+                </div>
+              ) : textTab === 'input' ? (
+                <div className="space-y-4">
+                  <textarea
+                    value={textInput}
+                    onChange={(e) => {
+                      setTextInput(e.target.value);
+                      updateSelectedText({ text: e.target.value });
+                    }}
+                    className="w-full bg-white/10 text-white rounded-lg p-3 border-0 focus:ring-2 focus:ring-primary resize-none"
+                    rows={3}
+                    placeholder="Enter your text..."
+                  />
+                  {selectedTextId && (
+                    <button
+                      onClick={() => deleteTextOverlay(selectedTextId)}
+                      className="w-full py-3 bg-destructive/20 text-destructive rounded-lg font-semibold flex items-center justify-center gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Delete Text
+                    </button>
+                  )}
+                </div>
+              ) : textTab === 'font' ? (
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {availableFonts.map((font) => {
+                    const isSelected = selectedTextOverlay?.fontFamily === font;
+                    return (
+                      <button
+                        key={font}
+                        onClick={() => updateSelectedText({ fontFamily: font })}
+                        className={cn(
+                          "w-20 h-16 rounded-xl flex flex-col items-center justify-center shrink-0",
+                          isSelected ? "bg-primary/20 ring-2 ring-primary" : "bg-white/10"
+                        )}
+                      >
+                        <span className={cn("text-lg font-bold", isSelected ? "text-primary" : "text-white")}>Aa</span>
+                        <span className="text-[9px] text-white/70 mt-1">{font}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : textTab === 'style' ? (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-white/70 text-xs mb-2">Text Color</p>
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                      {availableColors.map((color) => {
+                        const isSelected = selectedTextOverlay?.textColor === color;
+                        return (
+                          <button
+                            key={color}
+                            onClick={() => updateSelectedText({ textColor: color })}
+                            className={cn(
+                              "w-9 h-9 rounded-full shrink-0",
+                              isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                            )}
+                            style={{ backgroundColor: color }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-white/70 text-xs">Font Size</p>
+                      <span className="text-white text-xs font-semibold">{selectedTextOverlay?.fontSize || 24}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="12"
+                      max="72"
+                      value={selectedTextOverlay?.fontSize || 24}
+                      onChange={(e) => updateSelectedText({ fontSize: Number(e.target.value) })}
+                      className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                  </div>
+                </div>
+              ) : textTab === 'background' ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-white/70 text-xs">Enable Background</p>
+                    <button
+                      onClick={() => updateSelectedText({ hasBackground: !selectedTextOverlay?.hasBackground })}
+                      className={cn(
+                        "w-12 h-6 rounded-full transition-colors",
+                        selectedTextOverlay?.hasBackground ? "bg-primary" : "bg-white/20"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-5 h-5 rounded-full bg-white transition-transform",
+                        selectedTextOverlay?.hasBackground ? "translate-x-6" : "translate-x-0.5"
+                      )} />
+                    </button>
+                  </div>
+                  {selectedTextOverlay?.hasBackground && (
+                    <>
+                      <div>
+                        <p className="text-white/70 text-xs mb-2">Background Color</p>
+                        <div className="flex gap-2">
+                          {availableColors.map((color) => (
+                            <button
+                              key={color}
+                              onClick={() => updateSelectedText({ backgroundColor: color })}
+                              className={cn(
+                                "w-8 h-8 rounded-full shrink-0",
+                                selectedTextOverlay?.backgroundColor === color && "ring-2 ring-primary"
+                              )}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-white/70 text-xs">Opacity</p>
+                          <span className="text-white text-xs">{Math.round((selectedTextOverlay?.backgroundOpacity || 0.5) * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="10"
+                          max="100"
+                          value={(selectedTextOverlay?.backgroundOpacity || 0.5) * 100}
+                          onChange={(e) => updateSelectedText({ backgroundOpacity: Number(e.target.value) / 100 })}
+                          className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : textTab === 'align' ? (
+                <div>
+                  <p className="text-white/70 text-xs mb-3">Text Alignment</p>
+                  <div className="flex gap-4 justify-center">
+                    {(['left', 'center', 'right'] as const).map((align) => {
+                      const isSelected = selectedTextOverlay?.alignment === align;
+                      return (
+                        <button
+                          key={align}
+                          onClick={() => updateSelectedText({ alignment: align })}
+                          className={cn(
+                            "w-14 h-14 rounded-xl flex items-center justify-center",
+                            isSelected ? "bg-primary/20 ring-2 ring-primary" : "bg-white/10"
+                          )}
+                        >
+                          {align === 'left' && <svg className={cn("w-6 h-6", isSelected ? "text-primary" : "text-white/70")} fill="currentColor" viewBox="0 0 24 24"><path d="M3 5h18v2H3V5zm0 4h12v2H3V9zm0 4h18v2H3v-2zm0 4h12v2H3v-2z"/></svg>}
+                          {align === 'center' && <svg className={cn("w-6 h-6", isSelected ? "text-primary" : "text-white/70")} fill="currentColor" viewBox="0 0 24 24"><path d="M3 5h18v2H3V5zm3 4h12v2H6V9zm-3 4h18v2H3v-2zm3 4h12v2H6v-2z"/></svg>}
+                          {align === 'right' && <svg className={cn("w-6 h-6", isSelected ? "text-primary" : "text-white/70")} fill="currentColor" viewBox="0 0 24 24"><path d="M3 5h18v2H3V5zm6 4h12v2H9V9zm-6 4h18v2H3v-2zm6 4h12v2H9v-2z"/></svg>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : (

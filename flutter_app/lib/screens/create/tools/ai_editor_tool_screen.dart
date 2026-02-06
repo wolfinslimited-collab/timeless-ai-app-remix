@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -19,6 +20,39 @@ class RecentVideo {
   });
 }
 
+/// Text overlay data model
+class TextOverlay {
+  String id;
+  String text;
+  Offset position;
+  double fontSize;
+  Color textColor;
+  String fontFamily;
+  TextAlign alignment;
+  bool hasBackground;
+  Color backgroundColor;
+  double backgroundOpacity;
+  double startTime; // in seconds
+  double endTime; // in seconds
+  double scale;
+
+  TextOverlay({
+    required this.id,
+    this.text = 'Sample Text',
+    this.position = const Offset(0.5, 0.5), // Normalized 0-1
+    this.fontSize = 24,
+    this.textColor = Colors.white,
+    this.fontFamily = 'Roboto',
+    this.alignment = TextAlign.center,
+    this.hasBackground = false,
+    this.backgroundColor = Colors.black,
+    this.backgroundOpacity = 0.5,
+    this.startTime = 0,
+    this.endTime = 5,
+    this.scale = 1.0,
+  });
+}
+
 class AIEditorToolScreen extends StatefulWidget {
   const AIEditorToolScreen({super.key});
 
@@ -26,7 +60,7 @@ class AIEditorToolScreen extends StatefulWidget {
   State<AIEditorToolScreen> createState() => _AIEditorToolScreenState();
 }
 
-class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
+class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTickerProviderStateMixin {
   String? _videoUrl;
   File? _videoFile;
   bool _isUploading = false;
@@ -50,6 +84,36 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   static const double _thumbnailHeight = 48.0;
 
   final List<String> _qualityOptions = ['720p', '1080p', '2K', '4K'];
+
+  // Text overlay state
+  List<TextOverlay> _textOverlays = [];
+  String? _selectedTextId;
+  TabController? _textTabController;
+  final TextEditingController _textInputController = TextEditingController();
+
+  // Available fonts
+  final List<String> _availableFonts = [
+    'Roboto',
+    'Serif',
+    'Montserrat',
+    'Handwriting',
+    'Impact',
+    'Comic Sans',
+  ];
+
+  // Available colors for text
+  final List<Color> _availableColors = [
+    Colors.white,
+    Colors.black,
+    Colors.red,
+    Colors.orange,
+    Colors.yellow,
+    Colors.green,
+    Colors.blue,
+    Colors.purple,
+    Colors.pink,
+    const Color(0xFF8B5CF6), // Primary violet
+  ];
 
   // Adjustment values (range -1.0 to 1.0, default 0)
   double _brightness = 0.0;
@@ -85,6 +149,22 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
     AdjustmentTool(id: 'temp', name: 'Temp', icon: Icons.thermostat_outlined, value: _temperature, onChanged: (v) => setState(() => _temperature = v)),
     AdjustmentTool(id: 'hue', name: 'Hue', icon: Icons.color_lens_outlined, value: _hue, onChanged: (v) => setState(() => _hue = v)),
   ];
+
+  TextOverlay? get _selectedTextOverlay {
+    if (_selectedTextId == null) return null;
+    try {
+      return _textOverlays.firstWhere((t) => t.id == _selectedTextId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _textTabController = TabController(length: 5, vsync: this);
+    _loadRecentVideos();
+  }
 
   void _resetAllAdjustments() {
     setState(() {
@@ -204,18 +284,59 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _timelineScrollController.addListener(_onTimelineScroll);
-  }
-
-  @override
   void dispose() {
     _timelineScrollController.removeListener(_onTimelineScroll);
     _timelineScrollController.dispose();
     _videoController?.removeListener(_onVideoPositionChanged);
     _videoController?.dispose();
+    _textTabController?.dispose();
+    _textInputController.dispose();
     super.dispose();
+  }
+
+  // Text overlay functions
+  void _addTextOverlay() {
+    final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+    final newText = TextOverlay(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      text: 'Sample Text',
+      startTime: 0,
+      endTime: math.min(5.0, duration),
+    );
+    setState(() {
+      _textOverlays.add(newText);
+      _selectedTextId = newText.id;
+      _textInputController.text = newText.text;
+    });
+  }
+
+  void _updateSelectedText(void Function(TextOverlay) updater) {
+    if (_selectedTextId == null) return;
+    setState(() {
+      final index = _textOverlays.indexWhere((t) => t.id == _selectedTextId);
+      if (index != -1) {
+        updater(_textOverlays[index]);
+      }
+    });
+  }
+
+  void _deleteTextOverlay(String id) {
+    setState(() {
+      _textOverlays.removeWhere((t) => t.id == id);
+      if (_selectedTextId == id) {
+        _selectedTextId = null;
+      }
+    });
+  }
+
+  void _selectTextOverlay(String? id) {
+    setState(() {
+      _selectedTextId = id;
+      if (id != null) {
+        final overlay = _textOverlays.firstWhere((t) => t.id == id);
+        _textInputController.text = overlay.text;
+      }
+    });
   }
 
   void _onTimelineScroll() {
@@ -1031,44 +1152,56 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
     }
 
     if (_isVideoInitialized && _videoController != null) {
-      return Center(
-        child: Stack(
-          children: [
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: ColorFiltered(
-                  colorFilter: _buildColorFilter(),
-                  child: AspectRatio(
-                    aspectRatio: _videoController!.value.aspectRatio,
-                    child: VideoPlayer(_videoController!),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 8,
-              right: 24,
-              child: GestureDetector(
-                onTap: _clearVideo,
-                child: Container(
-                  width: 28,
-                  height: 28,
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return Center(
+            child: Stack(
+              children: [
+                // Video with color filter
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    shape: BoxShape.circle,
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 16),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: ColorFiltered(
+                      colorFilter: _buildColorFilter(),
+                      child: AspectRatio(
+                        aspectRatio: _videoController!.value.aspectRatio,
+                        child: Stack(
+                          children: [
+                            VideoPlayer(_videoController!),
+                            // Text overlays
+                            ..._buildTextOverlays(constraints),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                // Close button
+                Positioned(
+                  top: 8,
+                  right: 24,
+                  child: GestureDetector(
+                    onTap: _clearVideo,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close, color: Colors.white, size: 16),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       );
     }
 
@@ -1564,7 +1697,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
           
           // + Add text button in gray container
           GestureDetector(
-            onTap: () => _showSnackBar('Text editor coming soon'),
+            onTap: _addTextOverlay,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
@@ -1605,6 +1738,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
             ),
           ),
           
+          // Text track items
+          ..._buildTextTrackItems(startPadding),
+          
           // Right padding
           SizedBox(width: startPadding),
         ],
@@ -1612,10 +1748,137 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
     );
   }
 
+  List<Widget> _buildTextTrackItems(double startPadding) {
+    if (_textOverlays.isEmpty) return [];
+    
+    final trackWidth = _thumbnailCount * _thumbnailWidth;
+    final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+    
+    return _textOverlays.map((overlay) {
+      final startPercent = overlay.startTime / duration;
+      final endPercent = overlay.endTime / duration;
+      final widthPercent = endPercent - startPercent;
+      final itemWidth = trackWidth * widthPercent;
+      final leftOffset = trackWidth * startPercent;
+      final isSelected = overlay.id == _selectedTextId;
+      
+      return Transform.translate(
+        offset: Offset(leftOffset - 16, 0), // Adjust for button width
+        child: GestureDetector(
+          onTap: () => _selectTextOverlay(overlay.id),
+          onHorizontalDragUpdate: (details) {
+            // Allow dragging to change position
+            final delta = details.primaryDelta ?? 0;
+            final timeDelta = (delta / trackWidth) * duration;
+            setState(() {
+              final newStart = (overlay.startTime + timeDelta).clamp(0.0, duration - (overlay.endTime - overlay.startTime));
+              final itemDuration = overlay.endTime - overlay.startTime;
+              overlay.startTime = newStart;
+              overlay.endTime = newStart + itemDuration;
+            });
+          },
+          child: Container(
+            width: itemWidth.clamp(40.0, trackWidth),
+            height: 32,
+            margin: const EdgeInsets.only(left: 8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isSelected 
+                    ? [const Color(0xFFF59E0B), const Color(0xFFD97706)]
+                    : [const Color(0xFF8B5CF6), const Color(0xFF7C3AED)],
+              ),
+              borderRadius: BorderRadius.circular(6),
+              border: isSelected 
+                  ? Border.all(color: Colors.white, width: 2)
+                  : null,
+              boxShadow: [
+                BoxShadow(
+                  color: (isSelected ? const Color(0xFFF59E0B) : const Color(0xFF8B5CF6)).withOpacity(0.3),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                // Left resize handle
+                GestureDetector(
+                  onHorizontalDragUpdate: (details) {
+                    final delta = details.primaryDelta ?? 0;
+                    final timeDelta = (delta / trackWidth) * duration;
+                    setState(() {
+                      overlay.startTime = (overlay.startTime + timeDelta).clamp(0.0, overlay.endTime - 0.5);
+                    });
+                  },
+                  child: Container(
+                    width: 8,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.3),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(6),
+                        bottomLeft: Radius.circular(6),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.text_fields, size: 12, color: Colors.white.withOpacity(0.9)),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            overlay.text,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Right resize handle
+                GestureDetector(
+                  onHorizontalDragUpdate: (details) {
+                    final delta = details.primaryDelta ?? 0;
+                    final timeDelta = (delta / trackWidth) * duration;
+                    setState(() {
+                      overlay.endTime = (overlay.endTime + timeDelta).clamp(overlay.startTime + 0.5, duration);
+                    });
+                  },
+                  child: Container(
+                    width: 8,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.3),
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(6),
+                        bottomRight: Radius.circular(6),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
   Widget _buildBottomToolbar() {
     // If Adjust tool is selected, show the adjustment panel
     if (_selectedTool == 'adjust') {
       return _buildAdjustPanel();
+    }
+    
+    // If Text tool is selected, show the text panel
+    if (_selectedTool == 'text') {
+      return _buildTextPanel();
     }
     
     return Container(
@@ -1632,7 +1895,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
             return GestureDetector(
               onTap: () {
                 setState(() => _selectedTool = tool.id);
-                if (tool.id != 'adjust') {
+                if (tool.id != 'adjust' && tool.id != 'text') {
                   _showSnackBar('${tool.name} coming soon');
                 }
               },
@@ -1664,6 +1927,537 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildTextPanel() {
+    return Container(
+      height: 280,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A0A0A),
+        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+      ),
+      child: Column(
+        children: [
+          // Header with back button and add text
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => setState(() => _selectedTool = 'edit'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.arrow_back, size: 16, color: Colors.white.withOpacity(0.8)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Back',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                const Text(
+                  'Text Editor',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: _addTextOverlay,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.add, size: 16, color: AppTheme.primary),
+                        SizedBox(width: 4),
+                        Text(
+                          'Add',
+                          style: TextStyle(
+                            color: AppTheme.primary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Tab bar
+          TabBar(
+            controller: _textTabController,
+            isScrollable: true,
+            indicatorColor: AppTheme.primary,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white.withOpacity(0.5),
+            indicatorSize: TabBarIndicatorSize.label,
+            labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            tabs: const [
+              Tab(icon: Icon(Icons.edit_note, size: 18), text: 'Input'),
+              Tab(icon: Icon(Icons.font_download_outlined, size: 18), text: 'Font'),
+              Tab(icon: Icon(Icons.style_outlined, size: 18), text: 'Style'),
+              Tab(icon: Icon(Icons.square_outlined, size: 18), text: 'Background'),
+              Tab(icon: Icon(Icons.format_align_center, size: 18), text: 'Align'),
+            ],
+          ),
+          
+          // Tab content
+          Expanded(
+            child: _selectedTextId == null
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.text_fields, size: 40, color: Colors.white.withOpacity(0.3)),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Add text to get started',
+                          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  )
+                : TabBarView(
+                    controller: _textTabController,
+                    children: [
+                      _buildTextInputTab(),
+                      _buildFontTab(),
+                      _buildStyleTab(),
+                      _buildBackgroundTab(),
+                      _buildAlignmentTab(),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextInputTab() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          TextField(
+            controller: _textInputController,
+            style: const TextStyle(color: Colors.white),
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: 'Enter your text...',
+              hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.1),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppTheme.primary, width: 2),
+              ),
+            ),
+            onChanged: (value) {
+              _updateSelectedText((t) => t.text = value);
+            },
+          ),
+          const SizedBox(height: 16),
+          if (_selectedTextId != null)
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      if (_selectedTextId != null) {
+                        _deleteTextOverlay(_selectedTextId!);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                          SizedBox(width: 8),
+                          Text('Delete Text', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFontTab() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Select Font', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 70,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _availableFonts.length,
+              itemBuilder: (context, index) {
+                final font = _availableFonts[index];
+                final isSelected = _selectedTextOverlay?.fontFamily == font;
+                return GestureDetector(
+                  onTap: () => _updateSelectedText((t) => t.fontFamily = font),
+                  child: Container(
+                    width: 80,
+                    margin: const EdgeInsets.only(right: 12),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppTheme.primary.withOpacity(0.2) : Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: isSelected ? Border.all(color: AppTheme.primary, width: 2) : null,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Aa',
+                          style: TextStyle(
+                            color: isSelected ? AppTheme.primary : Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          font,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 9,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStyleTab() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Color picker
+          Text('Text Color', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 40,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _availableColors.length,
+              itemBuilder: (context, index) {
+                final color = _availableColors[index];
+                final isSelected = _selectedTextOverlay?.textColor == color;
+                return GestureDetector(
+                  onTap: () => _updateSelectedText((t) => t.textColor = color),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: isSelected 
+                          ? Border.all(color: AppTheme.primary, width: 3)
+                          : Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+                      boxShadow: isSelected
+                          ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 8)]
+                          : null,
+                    ),
+                    child: isSelected
+                        ? const Icon(Icons.check, color: Colors.black, size: 18)
+                        : null,
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // Font size slider
+          Row(
+            children: [
+              Text('Font Size', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
+              const Spacer(),
+              Text(
+                '${(_selectedTextOverlay?.fontSize ?? 24).toInt()}',
+                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          Slider(
+            value: _selectedTextOverlay?.fontSize ?? 24,
+            min: 12,
+            max: 72,
+            activeColor: AppTheme.primary,
+            inactiveColor: Colors.white.withOpacity(0.2),
+            onChanged: (value) => _updateSelectedText((t) => t.fontSize = value),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackgroundTab() {
+    final overlay = _selectedTextOverlay;
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Toggle background
+          Row(
+            children: [
+              Text('Enable Background', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
+              const Spacer(),
+              Switch(
+                value: overlay?.hasBackground ?? false,
+                activeColor: AppTheme.primary,
+                onChanged: (value) => _updateSelectedText((t) => t.hasBackground = value),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          if (overlay?.hasBackground ?? false) ...[
+            // Background color
+            Text('Background Color', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 36,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _availableColors.length,
+                itemBuilder: (context, index) {
+                  final color = _availableColors[index];
+                  final isSelected = overlay?.backgroundColor == color;
+                  return GestureDetector(
+                    onTap: () => _updateSelectedText((t) => t.backgroundColor = color),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: isSelected ? Border.all(color: AppTheme.primary, width: 2) : null,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            // Opacity slider
+            Row(
+              children: [
+                Text('Opacity', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
+                const Spacer(),
+                Text(
+                  '${((overlay?.backgroundOpacity ?? 0.5) * 100).toInt()}%',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ],
+            ),
+            Slider(
+              value: overlay?.backgroundOpacity ?? 0.5,
+              min: 0.1,
+              max: 1.0,
+              activeColor: AppTheme.primary,
+              inactiveColor: Colors.white.withOpacity(0.2),
+              onChanged: (value) => _updateSelectedText((t) => t.backgroundOpacity = value),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlignmentTab() {
+    final overlay = _selectedTextOverlay;
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Text Alignment', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildAlignmentButton(Icons.format_align_left, TextAlign.left, overlay?.alignment),
+              _buildAlignmentButton(Icons.format_align_center, TextAlign.center, overlay?.alignment),
+              _buildAlignmentButton(Icons.format_align_right, TextAlign.right, overlay?.alignment),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlignmentButton(IconData icon, TextAlign alignment, TextAlign? currentAlignment) {
+    final isSelected = currentAlignment == alignment;
+    return GestureDetector(
+      onTap: () => _updateSelectedText((t) => t.alignment = alignment),
+      child: Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primary.withOpacity(0.2) : Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: isSelected ? Border.all(color: AppTheme.primary, width: 2) : null,
+        ),
+        child: Icon(
+          icon,
+          color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.7),
+          size: 28,
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildTextOverlays(BoxConstraints constraints) {
+    final currentTime = _videoController?.value.position.inSeconds.toDouble() ?? 0;
+    
+    return _textOverlays.where((overlay) {
+      // Only show text if current time is within the overlay's time range
+      return currentTime >= overlay.startTime && currentTime <= overlay.endTime;
+    }).map((overlay) {
+      final isSelected = overlay.id == _selectedTextId;
+      
+      return Positioned(
+        left: constraints.maxWidth * overlay.position.dx - 75,
+        top: constraints.maxHeight * overlay.position.dy - 25,
+        child: GestureDetector(
+          onTap: () => _selectTextOverlay(overlay.id),
+          onPanUpdate: (details) {
+            setState(() {
+              final newX = (overlay.position.dx + details.delta.dx / constraints.maxWidth).clamp(0.1, 0.9);
+              final newY = (overlay.position.dy + details.delta.dy / constraints.maxHeight).clamp(0.1, 0.9);
+              overlay.position = Offset(newX, newY);
+            });
+          },
+          onScaleUpdate: (details) {
+            if (details.scale != 1.0) {
+              setState(() {
+                overlay.scale = (overlay.scale * details.scale).clamp(0.5, 3.0);
+              });
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: overlay.hasBackground 
+                  ? overlay.backgroundColor.withOpacity(overlay.backgroundOpacity)
+                  : null,
+              borderRadius: BorderRadius.circular(8),
+              border: isSelected 
+                  ? Border.all(color: AppTheme.primary, width: 2)
+                  : null,
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Text(
+                  overlay.text,
+                  style: TextStyle(
+                    color: overlay.textColor,
+                    fontSize: overlay.fontSize * overlay.scale,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: overlay.alignment,
+                ),
+                // Selection controls
+                if (isSelected) ...[
+                  // Delete button
+                  Positioned(
+                    top: -20,
+                    right: -20,
+                    child: GestureDetector(
+                      onTap: () => _deleteTextOverlay(overlay.id),
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close, color: Colors.white, size: 14),
+                      ),
+                    ),
+                  ),
+                  // Edit button
+                  Positioned(
+                    top: -20,
+                    left: -20,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() => _selectedTool = 'text');
+                        _textInputController.text = overlay.text;
+                      },
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.edit, color: Colors.white, size: 14),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    }).toList();
   }
 
   Widget _buildAdjustPanel() {
