@@ -1270,19 +1270,18 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     if (_isVideoInitialized && _videoController != null) {
       return LayoutBuilder(
         builder: (context, constraints) {
-          // Calculate enlarged video height (25% larger than before)
+          // Calculate maximized video dimensions - use full available space
           final videoAspectRatio = _videoController!.value.aspectRatio;
-          // Use more vertical space - fill available height with padding
           final availableHeight = constraints.maxHeight;
-          final availableWidth = constraints.maxWidth - 32; // Account for horizontal margin
+          final availableWidth = constraints.maxWidth - 16; // Minimal horizontal margin
           
-          // Calculate video dimensions to maximize height while maintaining aspect ratio
+          // Calculate video dimensions to maximize space while maintaining aspect ratio
           double videoWidth = availableWidth;
           double videoHeight = videoWidth / videoAspectRatio;
           
-          // If calculated height exceeds available, constrain and recalculate
-          if (videoHeight > availableHeight * 0.95) {
-            videoHeight = availableHeight * 0.95;
+          // Fill up to 98% of available height for maximum video size
+          if (videoHeight > availableHeight * 0.98) {
+            videoHeight = availableHeight * 0.98;
             videoWidth = videoHeight * videoAspectRatio;
           }
           
@@ -1290,7 +1289,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             child: Container(
               width: videoWidth,
               height: videoHeight,
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: Colors.black,
                 borderRadius: BorderRadius.circular(12),
@@ -1302,8 +1301,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
+                      // Video player only - no overlay buttons
                       VideoPlayer(_videoController!),
-                      // Text overlays
+                      // Text overlays for editing
                       ..._buildTextOverlays(constraints),
                     ],
                   ),
