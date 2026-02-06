@@ -179,7 +179,7 @@ export function MobileVideoCreate({ onBack, initialTool = "generate" }: MobileVi
 
   // Render MobileAIEditor when ai-editor tool is selected
   if (selectedToolId === "ai-editor") {
-    return <MobileAIEditor onBack={onBack} />;
+    return <MobileAIEditor onBack={() => setSelectedToolId("generate")} />;
   }
 
   return (
