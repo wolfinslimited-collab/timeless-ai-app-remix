@@ -1388,15 +1388,20 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   Widget _buildTimelineSection() {
     final screenWidth = MediaQuery.of(context).size.width;
-    final halfScreenWidth = screenWidth / 2; // Padding for first/last frame alignment
     final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
     final trackWidth = _totalTimelineWidth; // duration * pixelsPerSecond
     
-    // Total scrollable width: padding + track + padding
-    final totalScrollWidth = halfScreenWidth + trackWidth + halfScreenWidth;
+    // Minimal edge padding for visual clarity
+    const double edgePadding = 16.0;
+    
+    // Total scrollable width: small padding + track + small padding
+    final totalScrollWidth = edgePadding + trackWidth + edgePadding;
     
     // Calculate height based on tracks
     const baseHeight = 200.0;
+    
+    // Playhead positioned at left edge with small offset
+    const double playheadOffset = edgePadding;
     
     return Container(
       height: baseHeight,
@@ -1432,49 +1437,75 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Time Ruler
-                    _buildTimeRuler(halfScreenWidth),
+                    _buildTimeRuler(edgePadding),
                     const SizedBox(height: 4),
                     
                     // Video Track with Controls (scrollable together)
-                    _buildVideoTrackWithControls(halfScreenWidth, trackWidth),
+                    _buildVideoTrackWithControls(edgePadding, trackWidth),
                     const SizedBox(height: 6),
                     
                     // Text Track (Purple/Yellow layers)
-                    _buildTextTrack(halfScreenWidth, trackWidth, duration),
+                    _buildTextTrack(edgePadding, trackWidth, duration),
                     const SizedBox(height: 6),
                     
                     // Add layer buttons row
-                    _buildAddLayerRow(halfScreenWidth),
+                    _buildAddLayerRow(edgePadding),
                   ],
                 ),
               ),
             ),
           ),
           
-          // Fixed Centered Playhead (Always at screen center)
-          Positioned.fill(
+          // Fixed Playhead at left edge (with small offset for visibility)
+          Positioned(
+            left: playheadOffset,
+            top: 0,
+            bottom: 0,
             child: IgnorePointer(
               child: Stack(
                 children: [
                   // Main playhead line
-                  CustomPaint(
-                    painter: _PlayheadPainter(),
+                  Container(
+                    width: 2,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.white.withOpacity(0.5),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
                   ),
-                  // Snap indicator (green line when snapping)
-                  if (_snapLinePosition != null)
-                    Positioned(
-                      left: _snapLinePosition!,
-                      top: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 2,
-                        color: const Color(0xFF00FF00).withOpacity(0.8),
+                  // Playhead top indicator
+                  Positioned(
+                    top: 0,
+                    left: -5,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
                       ),
                     ),
+                  ),
                 ],
               ),
             ),
           ),
+          
+          // Snap indicator (green line when snapping)
+          if (_snapLinePosition != null)
+            Positioned(
+              left: _snapLinePosition!,
+              top: 0,
+              bottom: 0,
+              child: Container(
+                width: 2,
+                color: const Color(0xFF00FF00).withOpacity(0.8),
+              ),
+            ),
         ],
       ),
     );
@@ -1485,8 +1516,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       height: _thumbnailHeight + 8,
       child: Row(
         children: [
-          // Left padding (half screen width for first frame at center)
-          SizedBox(width: startPadding - 70),
+          // Minimal left padding to align with screen edge
+          SizedBox(width: startPadding),
           
           // Mute button (scrolls with timeline)
           GestureDetector(
@@ -1579,7 +1610,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             ),
           ),
           
-          // Right padding (half screen width for last frame at center)
+          // Minimal right padding
           SizedBox(width: startPadding),
         ],
       ),
@@ -1728,13 +1759,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         final playheadTime = _videoController?.value.position.inSeconds.toDouble() ?? 0;
                         final snapTimeThreshold = _snapThreshold / _pixelsPerSecond;
                         
-                        // Snap to playhead
+                        // Snap to playhead (now at left edge with 16px offset)
+                        const playheadScreenOffset = 16.0;
                         if ((newStart - playheadTime).abs() < snapTimeThreshold) {
                           newStart = playheadTime;
-                          _snapLinePosition = MediaQuery.of(context).size.width / 2;
+                          _snapLinePosition = playheadScreenOffset;
                         } else if ((newStart + itemDuration - playheadTime).abs() < snapTimeThreshold) {
                           newStart = playheadTime - itemDuration;
-                          _snapLinePosition = MediaQuery.of(context).size.width / 2;
+                          _snapLinePosition = playheadScreenOffset;
                         } else {
                           _snapLinePosition = null;
                         }
@@ -2046,8 +2078,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   Widget _buildTimeRuler(double startPadding) {
     final duration = _videoController?.value.duration ?? Duration.zero;
     final totalSeconds = duration.inSeconds > 0 ? duration.inSeconds : 10;
-    final trackWidth = _thumbnailCount * _thumbnailWidth;
-    final pixelsPerSecond = trackWidth / totalSeconds;
+    final trackWidth = _totalTimelineWidth; // Use consistent timeline width
     
     // Calculate number of 2-second intervals
     final numMajorTicks = (totalSeconds ~/ 2) + 1;
