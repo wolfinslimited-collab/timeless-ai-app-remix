@@ -410,18 +410,35 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   void _onTimelineScroll() {
     if (!_isUserScrolling || _videoController == null || !_isVideoInitialized) return;
     
-    final screenWidth = MediaQuery.of(context).size.width;
-    final halfScreen = screenWidth / 2;
     final totalTimelineWidth = _thumbnailCount * _thumbnailWidth;
     final scrollOffset = _timelineScrollController.offset;
     
-    // Calculate position based on scroll
+    // Calculate position based on scroll - playhead is at center
+    // scrollOffset 0 = first frame at center playhead
+    // scrollOffset = totalTimelineWidth = last frame at center playhead
     final progress = scrollOffset / totalTimelineWidth;
     final clampedProgress = progress.clamp(0.0, 1.0);
     final duration = _videoController!.value.duration;
     final newPosition = Duration(milliseconds: (duration.inMilliseconds * clampedProgress).toInt());
     
+    // Seek to exact millisecond indicated by playhead
     _videoController!.seekTo(newPosition);
+  }
+
+  void _onScrollEnd() {
+    // Called when user stops scrolling - ensure video is at exact playhead position
+    if (_videoController == null || !_isVideoInitialized) return;
+    if (!_timelineScrollController.hasClients) return;
+    
+    final totalTimelineWidth = _thumbnailCount * _thumbnailWidth;
+    final scrollOffset = _timelineScrollController.offset;
+    
+    final progress = (scrollOffset / totalTimelineWidth).clamp(0.0, 1.0);
+    final duration = _videoController!.value.duration;
+    final exactPosition = Duration(milliseconds: (duration.inMilliseconds * progress).toInt());
+    
+    // Jump to exact millisecond when scrolling stops
+    _videoController!.seekTo(exactPosition);
   }
 
   void _onVideoPositionChanged() {
@@ -1364,6 +1381,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 _isUserScrolling = true;
               } else if (notification is ScrollEndNotification) {
                 _isUserScrolling = false;
+                // When scrolling ends, sync video to exact playhead position
+                _onScrollEnd();
               }
               return false;
             },
@@ -1384,15 +1403,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     _buildVideoTrackWithControls(playheadOffset),
                     const SizedBox(height: 6),
                     
-                    // Audio Track (Extracted audio layer - teal)
-                    _buildAudioTrack(playheadOffset, trackWidth, duration),
-                    const SizedBox(height: 6),
-                    
-                    // Text Track (Purple/Yellow layers)
+                    // Text Track (Purple/Yellow layers) - No Audio Track
                     _buildTextTrack(playheadOffset, trackWidth, duration),
                     const SizedBox(height: 6),
                     
-                    // Add layer buttons row
+                    // Add layer buttons row (without audio)
                     _buildAddLayerRow(playheadOffset),
                   ],
                 ),
@@ -1536,150 +1551,64 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
 
   Widget _buildVideoTrackContent(double trackWidth) {
-    return Stack(
-      children: [
-        // Main video track container with dark red background
-        Container(
-          width: trackWidth,
-          height: _thumbnailHeight + 4,
-          decoration: BoxDecoration(
-            color: const Color(0xFF8B0000),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFAA2222), width: 2),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: Row(
-              children: List.generate(_thumbnailCount, (index) {
-                final thumbnail = index < _thumbnails.length ? _thumbnails[index] : null;
-                
-                return Container(
-                  width: _thumbnailWidth,
-                  height: _thumbnailHeight,
-                  decoration: BoxDecoration(
-                    border: Border(
-                      right: index < _thumbnailCount - 1
-                          ? BorderSide(color: const Color(0xFF5A0000).withOpacity(0.8), width: 1)
-                          : BorderSide.none,
-                    ),
-                  ),
-                  child: thumbnail != null
-                      ? Image.memory(thumbnail, fit: BoxFit.cover)
-                      : Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [const Color(0xFF8B0000), const Color(0xFF5A0000)],
-                            ),
-                          ),
-                          child: _isExtractingThumbnails
-                              ? Center(
-                                  child: SizedBox(
-                                    width: 10,
-                                    height: 10,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 1.5,
-                                      color: Colors.white.withOpacity(0.4),
-                                    ),
-                                  ),
-                                )
-                              : Center(
-                                  child: Icon(Icons.movie_outlined, size: 14, color: Colors.white.withOpacity(0.3)),
-                                ),
-                        ),
-                );
-              }),
-            ),
-          ),
-        ),
-        
-        // White progress bar
-        if (_videoController != null)
-          Positioned(
-            left: 2,
-            top: (_thumbnailHeight + 4) / 2 - 1.5,
-            child: ValueListenableBuilder<VideoPlayerValue>(
-              valueListenable: _videoController!,
-              builder: (context, value, child) {
-                final progress = value.duration.inMilliseconds > 0
-                    ? (value.position.inMilliseconds / value.duration.inMilliseconds).clamp(0.0, 1.0)
-                    : 0.0;
-                return Container(
-                  width: (trackWidth - 4) * progress,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(1.5),
-                    boxShadow: [BoxShadow(color: Colors.white.withOpacity(0.6), blurRadius: 6)],
-                  ),
-                );
-              },
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildAudioTrack(double startPadding, double trackWidth, double duration) {
-    // Teal audio track (extracted audio or added audio layers)
-    return SizedBox(
-      height: 36,
-      child: Row(
-        children: [
-          SizedBox(width: startPadding),
-          
-          // Audio waveform track
-          Container(
-            width: trackWidth,
-            height: 32,
-            decoration: BoxDecoration(
-              color: const Color(0xFF0D9488).withOpacity(0.3), // Teal
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: const Color(0xFF0D9488).withOpacity(0.5)),
-            ),
-            child: Stack(
-              children: [
-                // Waveform background
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(5),
-                  child: CustomPaint(
-                    size: Size(trackWidth, 32),
-                    painter: _AudioWaveformPainter(
-                      color: const Color(0xFF0D9488),
-                      backgroundColor: Colors.transparent,
-                    ),
-                  ),
+    // Main video track container with dark red background - NO progress overlay
+    return Container(
+      width: trackWidth,
+      height: _thumbnailHeight + 4,
+      decoration: BoxDecoration(
+        color: const Color(0xFF8B0000),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFAA2222), width: 2),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Row(
+          children: List.generate(_thumbnailCount, (index) {
+            final thumbnail = index < _thumbnails.length ? _thumbnails[index] : null;
+            
+            return Container(
+              width: _thumbnailWidth,
+              height: _thumbnailHeight,
+              decoration: BoxDecoration(
+                border: Border(
+                  right: index < _thumbnailCount - 1
+                      ? BorderSide(color: const Color(0xFF5A0000).withOpacity(0.8), width: 1)
+                      : BorderSide.none,
                 ),
-                // Label
-                Positioned(
-                  left: 8,
-                  top: 0,
-                  bottom: 0,
-                  child: Row(
-                    children: [
-                      Icon(Icons.music_note, size: 14, color: const Color(0xFF0D9488)),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Extracted',
-                        style: TextStyle(
-                          color: const Color(0xFF0D9488),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+              ),
+              child: thumbnail != null
+                  ? Image.memory(thumbnail, fit: BoxFit.cover)
+                  : Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [const Color(0xFF8B0000), const Color(0xFF5A0000)],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          SizedBox(width: startPadding),
-        ],
+                      child: _isExtractingThumbnails
+                          ? Center(
+                              child: SizedBox(
+                                width: 10,
+                                height: 10,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: Colors.white.withOpacity(0.4),
+                                ),
+                              ),
+                            )
+                          : Center(
+                              child: Icon(Icons.movie_outlined, size: 14, color: Colors.white.withOpacity(0.3)),
+                            ),
+                    ),
+            );
+          }),
+        ),
       ),
     );
   }
+
+  // Audio track removed - space dedicated to text/other layers only
 
   Widget _buildTextTrack(double startPadding, double trackWidth, double duration) {
     if (_textOverlays.isEmpty) {
@@ -2008,44 +1937,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     'Add text',
                     style: TextStyle(
                       color: Color(0xFF8B5CF6),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          const SizedBox(width: 10),
-          
-          // Add audio button
-          GestureDetector(
-            onTap: () => _showSnackBar('Add audio coming soon'),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2A2A2A),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF0D9488).withOpacity(0.4)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0D9488).withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Icon(Icons.add, size: 12, color: Color(0xFF0D9488)),
-                  ),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'Add audio',
-                    style: TextStyle(
-                      color: Color(0xFF0D9488),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
