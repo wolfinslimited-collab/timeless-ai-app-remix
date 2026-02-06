@@ -627,7 +627,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
       {/* Timeline Section - CapCut Style with Stack layout */}
       {videoUrl && duration > 0 && (
-        <div className="h-[200px] shrink-0 bg-background overflow-hidden">
+        <div className="h-[220px] shrink-0 bg-background overflow-hidden">
           <div className="h-full flex">
             {/* Fixed Left Panel */}
             <div className="w-[70px] shrink-0 pt-6 pl-2 flex flex-col gap-2">
@@ -701,64 +701,92 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     ))}
                   </div>
                   
-                  {/* Video Track */}
+                  {/* Video Track - Dark Red with Progress Bar */}
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-12 rounded-lg overflow-hidden border-2 border-white/30">
-                      {Array.from({ length: 20 }).map((_, i) => (
-                        <div
-                          key={i}
-                          className="w-[60px] h-full border-r border-border/30 last:border-r-0 bg-gradient-to-b from-red-900/30 to-red-900/50 flex items-center justify-center shrink-0"
-                        >
-                          <Video className="w-3 h-3 text-white/25" />
-                        </div>
-                      ))}
+                    <div className="relative">
+                      {/* Dark red video container */}
+                      <div 
+                        className="flex h-[52px] rounded-lg overflow-hidden border-2"
+                        style={{ 
+                          backgroundColor: '#8B0000',
+                          borderColor: '#AA2222'
+                        }}
+                      >
+                        {Array.from({ length: 20 }).map((_, i) => (
+                          <div
+                            key={i}
+                            className="w-[60px] h-full flex items-center justify-center shrink-0"
+                            style={{
+                              borderRight: i < 19 ? '1px solid rgba(90, 0, 0, 0.8)' : 'none',
+                              background: 'linear-gradient(to bottom, #8B0000, #5A0000)'
+                            }}
+                          >
+                            <Video className="w-3.5 h-3.5 text-white/30" />
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* White progress bar at bottom */}
+                      <div 
+                        className="absolute bottom-0.5 left-0.5 h-[3px] bg-white rounded-full shadow-[0_0_4px_rgba(255,255,255,0.5)]"
+                        style={{ width: `${(currentTime / duration) * 100}%`, maxWidth: 'calc(100% - 4px)' }}
+                      />
                     </div>
                     
                     {/* White + Add button */}
                     <button 
                       onClick={handleShowMediaPicker}
-                      className="w-11 h-12 bg-white rounded-xl flex items-center justify-center hover:bg-white/90 transition-colors shrink-0 shadow-[0_0_8px_rgba(255,255,255,0.2)]"
+                      className="w-11 h-[52px] bg-white rounded-xl flex items-center justify-center hover:bg-white/90 transition-colors shrink-0 shadow-[0_0_10px_rgba(255,255,255,0.25)]"
                     >
                       <Plus className="w-6 h-6 text-black" />
                     </button>
                   </div>
                   
-                  {/* Extracted Audio Track (Teal) */}
+                  {/* Extracted Audio Track (Teal with Waveform) */}
                   <div 
-                    className="h-9 rounded-lg flex items-center gap-1.5 px-2 border-[1.5px]"
+                    className="h-10 rounded-lg overflow-hidden border-[1.5px] relative"
                     style={{ 
                       width: `${20 * 60}px`,
-                      backgroundColor: 'rgba(0, 191, 165, 0.15)',
-                      borderColor: 'rgba(0, 191, 165, 0.5)'
+                      backgroundColor: '#008080',
+                      borderColor: '#00A0A0'
                     }}
                   >
-                    <Music className="w-3.5 h-3.5 shrink-0" style={{ color: '#00BFA5' }} />
-                    <span className="text-[11px] font-medium shrink-0" style={{ color: '#00BFA5' }}>Extracted</span>
-                    {/* Waveform visualization */}
-                    <div className="flex-1 h-5 flex items-center justify-evenly">
-                      {Array.from({ length: 50 }).map((_, i) => {
-                        const height = 4 + Math.sin(i * 0.3) * 6 + (i % 3) * 2;
+                    {/* Waveform bars */}
+                    <div className="absolute inset-0 flex items-center justify-evenly px-1">
+                      {Array.from({ length: 80 }).map((_, i) => {
+                        const seed1 = Math.sin(i * 0.7 + 0.5) * 0.5 + 0.5;
+                        const seed2 = Math.cos(i * 0.3 + 1.2) * 0.5 + 0.5;
+                        const height = 4 + (seed1 * 0.5 + seed2 * 0.5) * 24;
                         return (
                           <div 
                             key={i}
                             className="w-0.5 rounded-full"
                             style={{ 
                               height: `${height}px`,
-                              backgroundColor: '#00BFA5'
+                              backgroundColor: '#00E5E5'
                             }}
                           />
                         );
                       })}
                     </div>
+                    
+                    {/* Extracted label */}
+                    <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(0, 128, 128, 0.9)' }}>
+                      <Music className="w-3 h-3 text-white/90" />
+                      <span className="text-[10px] font-semibold text-white/90">Extracted</span>
+                    </div>
                   </div>
                   
-                  {/* Add Text Button */}
+                  {/* Add Text Button - Gray container */}
                   <button 
                     onClick={() => toast({ title: "Text", description: "Text editor coming soon!" })}
-                    className="flex items-center gap-1.5 px-3.5 py-2 bg-white/5 rounded-lg border border-white/15 w-fit"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg w-fit"
+                    style={{ backgroundColor: '#2A2A2A', border: '1px solid rgba(255,255,255,0.1)' }}
                   >
-                    <Plus className="w-3.5 h-3.5 text-white/60" />
-                    <span className="text-xs text-white/60">Add text</span>
+                    <div className="w-4 h-4 bg-white/15 rounded flex items-center justify-center">
+                      <Plus className="w-3 h-3 text-white/70" />
+                    </div>
+                    <span className="text-xs text-white/70 font-medium">Add text</span>
                   </button>
                 </div>
               </div>

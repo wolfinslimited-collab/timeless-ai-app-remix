@@ -1006,7 +1006,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
     
     // Fixed-height container for timeline - NOT scrollable vertically
     return Container(
-      height: 200, // Increased height for time ruler + video + audio + add text
+      height: 220, // Height for time ruler + video + audio + add text
       color: const Color(0xFF0A0A0A),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1243,81 +1243,127 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   }
   
   Widget _buildVideoTrack(double halfScreen) {
+    // Calculate playback progress for the white progress line
+    final duration = _videoController?.value.duration ?? Duration.zero;
+    final position = _videoController?.value.position ?? Duration.zero;
+    final progress = duration.inMilliseconds > 0 
+        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+        : 0.0;
+    final trackWidth = _thumbnailCount * _thumbnailWidth;
+    final progressWidth = trackWidth * progress;
+    
     return SizedBox(
-      height: _thumbnailHeight + 4,
+      height: _thumbnailHeight + 8, // Extra space for progress bar
       child: Row(
         children: [
           // Left padding so video starts at center playhead
           SizedBox(width: halfScreen),
           
-          // Video thumbnails
-          Container(
-            height: _thumbnailHeight,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 2,
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Row(
-                children: List.generate(_thumbnailCount, (index) {
-                  final thumbnail = index < _thumbnails.length ? _thumbnails[index] : null;
-                  
-                  return Container(
-                    width: _thumbnailWidth,
-                    height: _thumbnailHeight,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      border: Border(
-                        right: index < _thumbnailCount - 1
-                            ? BorderSide(color: Colors.black.withOpacity(0.3), width: 0.5)
-                            : BorderSide.none,
-                      ),
-                    ),
-                    child: thumbnail != null
-                        ? Image.memory(
-                            thumbnail,
-                            fit: BoxFit.cover,
-                            width: _thumbnailWidth,
-                            height: _thumbnailHeight,
-                          )
-                        : Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.red.shade900.withOpacity(0.3),
-                                  Colors.red.shade900.withOpacity(0.5),
-                                ],
-                              ),
-                            ),
-                            child: _isExtractingThumbnails
-                                ? Center(
-                                    child: SizedBox(
-                                      width: 10,
-                                      height: 10,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 1.5,
-                                        color: Colors.white.withOpacity(0.3),
-                                      ),
-                                    ),
-                                  )
-                                : Center(
-                                    child: Icon(
-                                      Icons.movie_outlined,
-                                      size: 12,
-                                      color: Colors.white.withOpacity(0.25),
-                                    ),
-                                  ),
+          // Video track with dark red background and progress bar
+          Stack(
+            children: [
+              // Main video track container with dark red background
+              Container(
+                width: trackWidth,
+                height: _thumbnailHeight + 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8B0000), // Dark red background
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFFAA2222),
+                    width: 2,
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Row(
+                    children: List.generate(_thumbnailCount, (index) {
+                      final thumbnail = index < _thumbnails.length ? _thumbnails[index] : null;
+                      
+                      return Container(
+                        width: _thumbnailWidth,
+                        height: _thumbnailHeight,
+                        decoration: BoxDecoration(
+                          border: Border(
+                            right: index < _thumbnailCount - 1
+                                ? BorderSide(color: const Color(0xFF5A0000).withOpacity(0.8), width: 1)
+                                : BorderSide.none,
                           ),
-                  );
-                }),
+                        ),
+                        child: thumbnail != null
+                            ? Image.memory(
+                                thumbnail,
+                                fit: BoxFit.cover,
+                                width: _thumbnailWidth,
+                                height: _thumbnailHeight,
+                              )
+                            : Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      const Color(0xFF8B0000),
+                                      const Color(0xFF5A0000),
+                                    ],
+                                  ),
+                                ),
+                                child: _isExtractingThumbnails
+                                    ? Center(
+                                        child: SizedBox(
+                                          width: 10,
+                                          height: 10,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 1.5,
+                                            color: Colors.white.withOpacity(0.4),
+                                          ),
+                                        ),
+                                      )
+                                    : Center(
+                                        child: Icon(
+                                          Icons.movie_outlined,
+                                          size: 14,
+                                          color: Colors.white.withOpacity(0.3),
+                                        ),
+                                      ),
+                              ),
+                      );
+                    }),
+                  ),
+                ),
               ),
-            ),
+              
+              // White progress bar at the bottom of the track
+              Positioned(
+                left: 2,
+                bottom: 2,
+                child: ValueListenableBuilder<VideoPlayerValue>(
+                  valueListenable: _videoController!,
+                  builder: (context, value, child) {
+                    final currentProgress = value.duration.inMilliseconds > 0
+                        ? (value.position.inMilliseconds / value.duration.inMilliseconds).clamp(0.0, 1.0)
+                        : 0.0;
+                    final currentProgressWidth = (trackWidth - 4) * currentProgress;
+                    
+                    return Container(
+                      width: currentProgressWidth,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.white.withOpacity(0.5),
+                            blurRadius: 4,
+                            spreadRadius: 0,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
           
           const SizedBox(width: 10),
@@ -1333,8 +1379,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.white.withOpacity(0.2),
-                    blurRadius: 8,
+                    color: Colors.white.withOpacity(0.25),
+                    blurRadius: 10,
                     spreadRadius: 0,
                   ),
                 ],
@@ -1342,7 +1388,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
               child: const Icon(
                 Icons.add,
                 color: Colors.black,
-                size: 24,
+                size: 26,
               ),
             ),
           ),
@@ -1355,8 +1401,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   }
   
   Widget _buildExtractedAudioTrack(double halfScreen) {
+    final trackWidth = _thumbnailCount * _thumbnailWidth;
+    
     return SizedBox(
-      height: 36,
+      height: 40,
       child: Row(
         children: [
           // Left padding
@@ -1364,44 +1412,67 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
           
           // Teal waveform track for extracted audio
           Container(
-            width: _thumbnailCount * _thumbnailWidth,
-            height: 36,
+            width: trackWidth,
+            height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFF00BFA5).withOpacity(0.15),
+              color: const Color(0xFF008080), // Solid teal background
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: const Color(0xFF00BFA5).withOpacity(0.5),
+                color: const Color(0xFF00A0A0),
                 width: 1.5,
               ),
             ),
-            child: Row(
-              children: [
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.music_note,
-                  size: 14,
-                  color: const Color(0xFF00BFA5),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Extracted',
-                  style: TextStyle(
-                    color: const Color(0xFF00BFA5),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Waveform visualization
-                Expanded(
-                  child: CustomPaint(
-                    painter: _WaveformPainter(
-                      color: const Color(0xFF00BFA5),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Stack(
+                children: [
+                  // Waveform visualization filling the entire track
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _AudioWaveformPainter(
+                        color: const Color(0xFF00E5E5),
+                        backgroundColor: const Color(0xFF006666),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-              ],
+                  // Label overlay
+                  Positioned(
+                    left: 8,
+                    top: 0,
+                    bottom: 0,
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF008080).withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.music_note,
+                                size: 12,
+                                color: Colors.white.withOpacity(0.9),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Extracted',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           
@@ -1414,39 +1485,48 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   
   Widget _buildAddTextButton(double halfScreen) {
     return SizedBox(
-      height: 32,
+      height: 36,
       child: Row(
         children: [
           // Left padding
           SizedBox(width: halfScreen),
           
-          // + Add text button
+          // + Add text button in gray container
           GestureDetector(
             onTap: () => _showSnackBar('Text editor coming soon'),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: const Color(0xFF2A2A2A),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.15),
+                  color: Colors.white.withOpacity(0.1),
                   width: 1,
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.add,
-                    size: 14,
-                    color: Colors.white.withOpacity(0.6),
+                  Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Icon(
+                      Icons.add,
+                      size: 12,
+                      color: Colors.white.withOpacity(0.7),
+                    ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 8),
                   Text(
                     'Add text',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: Colors.white.withOpacity(0.7),
                       fontSize: 12,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -1583,6 +1663,55 @@ class _WaveformPainter extends CustomPainter {
         Offset(x, centerY - halfHeight),
         Offset(x, centerY + halfHeight),
         paint,
+      );
+    }
+  }
+  
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Custom painter for audio waveform with filled bars
+class _AudioWaveformPainter extends CustomPainter {
+  final Color color;
+  final Color backgroundColor;
+  
+  _AudioWaveformPainter({
+    required this.color,
+    required this.backgroundColor,
+  });
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final barPaint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    
+    final bgPaint = Paint()
+      ..color = backgroundColor;
+    
+    // Fill background
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+    
+    final centerY = size.height / 2;
+    final barCount = (size.width / 4).toInt(); // More bars for denser waveform
+    final spacing = size.width / barCount;
+    
+    for (int i = 0; i < barCount; i++) {
+      // Create a pseudo-random but consistent waveform pattern
+      final seed1 = (i * 0.7 + 0.5);
+      final seed2 = (i * 0.3 + 1.2);
+      final combinedSeed = (seed1.abs() % 1) * 0.5 + (seed2.abs() % 1) * 0.5;
+      final height = (0.15 + combinedSeed * 0.7) * size.height * 0.85;
+      final halfHeight = height / 2;
+      
+      final x = i * spacing + spacing / 2;
+      
+      canvas.drawLine(
+        Offset(x, centerY - halfHeight),
+        Offset(x, centerY + halfHeight),
+        barPaint,
       );
     }
   }
