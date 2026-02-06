@@ -79,6 +79,10 @@ const EDITOR_TOOLS: EditorTool[] = [
 
 const QUALITY_OPTIONS = ["720p", "1080p", "2K", "4K"];
 
+// Timeline Sync Engine - Global Constants
+const PIXELS_PER_SECOND = 80.0; // Master time-to-pixel ratio
+const THUMBNAIL_HEIGHT = 48;
+
 export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -94,6 +98,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [recentVideos, setRecentVideos] = useState<RecentVideo[]>([]);
   const [isLoadingRecent, setIsLoadingRecent] = useState(false);
   const [selectedQuality, setSelectedQuality] = useState("1080p");
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
   
   // Adjustment values (range -1.0 to 1.0, default 0)
   const [adjustments, setAdjustments] = useState({
@@ -1236,8 +1241,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         ) : (
           // Normal: Timeline + Toolbar
           <>
-            {/* Timeline Section - Multi-Track CapCut Style */}
-            <div className="h-[200px] shrink-0 bg-background overflow-hidden relative">
+            {/* Timeline Section - Multi-Track with Sync Engine */}
+            <div className="h-[200px] shrink-0 bg-[#0D0D0D] overflow-hidden relative">
               {/* Fixed Centered Playhead (Top Layer) */}
               <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white z-20 -translate-x-1/2 shadow-[0_0_12px_rgba(255,255,255,0.5)]">
                 <div className="absolute -top-0 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.4)]" />
@@ -1251,108 +1256,140 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 />
               )}
               
-              {/* Scrollable Timeline Content */}
+              {/* Scrollable Timeline Content using pixelsPerSecond */}
               <div 
                 className="h-full overflow-x-auto scrollbar-hide"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                onScroll={(e) => {
+                  if (!isUserScrolling) return;
+                  const scrollLeft = e.currentTarget.scrollLeft;
+                  // Convert scroll to time using pixelsPerSecond
+                  const timeUnderPlayhead = scrollLeft / PIXELS_PER_SECOND;
+                  const clampedTime = Math.max(0, Math.min(duration, timeUnderPlayhead));
+                  if (videoRef.current) {
+                    videoRef.current.pause();
+                    videoRef.current.currentTime = clampedTime;
+                    setIsPlaying(false);
+                  }
+                }}
+                onMouseDown={() => setIsUserScrolling(true)}
+                onMouseUp={() => setIsUserScrolling(false)}
+                onMouseLeave={() => setIsUserScrolling(false)}
+                onTouchStart={() => setIsUserScrolling(true)}
+                onTouchEnd={() => setIsUserScrolling(false)}
               >
-                <div 
-                  className="flex flex-col gap-1.5 pt-1"
-                  style={{ 
-                    paddingLeft: 'calc(50% - 60px)', 
-                    paddingRight: 'calc(50%)',
-                    width: 'fit-content',
-                    minWidth: '100%'
-                  }}
-                >
-                  {/* Time Ruler */}
-                  <div className="h-6 flex items-end relative" style={{ width: `${20 * 60 + 160}px` }}>
-                    {Array.from({ length: Math.ceil(duration / 2) + 1 }).map((_, i) => {
-                      const seconds = i * 2;
-                      if (seconds > duration) return null;
-                      return (
-                        <div 
-                          key={`major-${i}`} 
-                          className="absolute flex flex-col items-center"
-                          style={{ left: `${110 + (seconds / duration) * (20 * 60)}px` }}
-                        >
-                          <div className="w-px h-2.5 bg-white/50" />
-                          <span className="text-[10px] text-white/60 font-mono font-medium mt-0.5">
-                            {String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                {/* Calculate dimensions using pixelsPerSecond */}
+                {(() => {
+                  const trackWidth = duration * PIXELS_PER_SECOND;
+                  const thumbCount = Math.ceil(trackWidth / 60);
+                  const halfScreen = typeof window !== 'undefined' ? window.innerWidth / 2 : 200;
                   
-                  {/* Video Track Row - with scrollable Mute/Cover buttons */}
-                  <div className="flex items-center gap-2">
-                    {/* Scrollable Mute button */}
-                    <button 
-                      onClick={() => setIsMuted(!isMuted)}
-                      className={cn(
-                        "w-12 h-[48px] shrink-0 rounded-lg flex flex-col items-center justify-center gap-0.5 border transition-colors",
-                        isMuted 
-                          ? "bg-primary/15 border-primary/40" 
-                          : "bg-white/5 border-white/10"
-                      )}
+                  return (
+                    <div 
+                      className="flex flex-col gap-1.5 pt-1"
+                      style={{ 
+                        paddingLeft: halfScreen, 
+                        paddingRight: halfScreen,
+                        width: trackWidth + halfScreen * 2,
+                      }}
                     >
-                      <VolumeX className={cn("w-4 h-4", isMuted ? "text-primary" : "text-white/70")} />
-                      <span className={cn("text-[8px]", isMuted ? "text-primary" : "text-white/50")}>Mute</span>
-                    </button>
-                    
-                    {/* Scrollable Cover button */}
-                    <button 
-                      onClick={() => toast({ title: "Cover", description: "Coming soon!" })}
-                      className="w-12 h-[48px] shrink-0 bg-white/5 rounded-lg flex flex-col items-center justify-center gap-0.5 border border-white/10"
-                    >
-                      <Image className="w-4 h-4 text-white/60" />
-                      <span className="text-[8px] text-white/50">Cover</span>
-                    </button>
-                    
-                    {/* Video Track - NO progress overlay */}
-                    <div className="relative">
-                      <div 
-                        className="flex h-[48px] rounded-lg overflow-hidden border-2"
-                        style={{ backgroundColor: '#8B0000', borderColor: '#AA2222' }}
-                      >
-                        {Array.from({ length: 20 }).map((_, i) => (
-                          <div
-                            key={i}
-                            className="w-[60px] h-full flex items-center justify-center shrink-0"
-                            style={{
-                              borderRight: i < 19 ? '1px solid rgba(90, 0, 0, 0.8)' : 'none',
-                              background: 'linear-gradient(to bottom, #8B0000, #5A0000)'
-                            }}
-                          >
-                            <Video className="w-3.5 h-3.5 text-white/30" />
-                          </div>
-                        ))}
+                      {/* Time Ruler using pixelsPerSecond */}
+                      <div className="h-6 flex items-end relative" style={{ width: trackWidth }}>
+                        {Array.from({ length: Math.ceil(duration / 2) + 1 }).map((_, i) => {
+                          const seconds = i * 2;
+                          if (seconds > duration) return null;
+                          // Position using global constant
+                          const position = seconds * PIXELS_PER_SECOND;
+                          return (
+                            <div 
+                              key={`major-${i}`} 
+                              className="absolute flex flex-col items-center"
+                              style={{ left: position }}
+                            >
+                              <div className="w-px h-2.5 bg-white/50" />
+                              <span className="text-[10px] text-white/60 font-mono font-medium mt-0.5">
+                                {String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {/* Minor ticks */}
+                        {Array.from({ length: Math.ceil(duration) + 1 }).map((_, i) => {
+                          if (i % 2 === 0) return null;
+                          const position = i * PIXELS_PER_SECOND;
+                          return (
+                            <div 
+                              key={`minor-${i}`}
+                              className="absolute w-px h-1.5 bg-white/25"
+                              style={{ left: position }}
+                            />
+                          );
+                        })}
                       </div>
-                    </div>
-                    
-                    {/* Add video button */}
-                    <button 
-                      onClick={handleShowMediaPicker}
-                      className="w-11 h-[48px] bg-white rounded-xl flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(255,255,255,0.25)]"
-                    >
-                      <Plus className="w-6 h-6 text-black" />
-                    </button>
-                  </div>
-                  
-                  {/* Audio Track Removed - Space dedicated to text/other layers */}
-                  
-                  {/* Text Track - Purple/Yellow clips with trim handles */}
-                  {textOverlays.length > 0 && (
-                    <div className="relative h-10" style={{ marginLeft: '110px', width: `${20 * 60}px` }}>
-                      {textOverlays.map(overlay => {
-                        const isSelected = overlay.id === selectedTextId;
-                        const trackWidth = 20 * 60;
-                        const dur = duration || 10;
-                        const startPercent = overlay.startTime / dur;
-                        const widthPercent = (overlay.endTime - overlay.startTime) / dur;
-                        const itemWidth = Math.max(50, trackWidth * widthPercent);
-                        const leftOffset = trackWidth * startPercent;
+                      
+                      {/* Video Track Row - with scrollable Mute/Cover buttons */}
+                      <div className="flex items-center gap-2">
+                        {/* Scrollable Mute button */}
+                        <button 
+                          onClick={() => setIsMuted(!isMuted)}
+                          className={cn(
+                            "w-12 h-[48px] shrink-0 rounded-lg flex flex-col items-center justify-center gap-0.5 border transition-colors",
+                            isMuted 
+                              ? "bg-primary/15 border-primary/40" 
+                              : "bg-white/5 border-white/10"
+                          )}
+                        >
+                          <VolumeX className={cn("w-4 h-4", isMuted ? "text-primary" : "text-white/70")} />
+                          <span className={cn("text-[8px]", isMuted ? "text-primary" : "text-white/50")}>Mute</span>
+                        </button>
+                        
+                        {/* Scrollable Cover button */}
+                        <button 
+                          onClick={() => toast({ title: "Cover", description: "Coming soon!" })}
+                          className="w-12 h-[48px] shrink-0 bg-white/5 rounded-lg flex flex-col items-center justify-center gap-0.5 border border-white/10"
+                        >
+                          <Image className="w-4 h-4 text-white/60" />
+                          <span className="text-[8px] text-white/50">Cover</span>
+                        </button>
+                        
+                        {/* Video Track Filmstrip - using pixelsPerSecond */}
+                        <div className="relative">
+                          <div 
+                            className="flex h-[48px] rounded-lg overflow-hidden border-2"
+                            style={{ backgroundColor: '#8B0000', borderColor: '#AA2222', width: trackWidth }}
+                          >
+                            {Array.from({ length: thumbCount }).map((_, i) => (
+                              <div
+                                key={i}
+                                className="w-[60px] h-full flex items-center justify-center shrink-0"
+                                style={{
+                                  borderRight: i < thumbCount - 1 ? '1px solid rgba(90, 0, 0, 0.5)' : 'none',
+                                  background: 'linear-gradient(to bottom, #8B0000, #5A0000)'
+                                }}
+                              >
+                                <Video className="w-3.5 h-3.5 text-white/30" />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        {/* Add video button */}
+                        <button 
+                          onClick={handleShowMediaPicker}
+                          className="w-11 h-[48px] bg-white rounded-xl flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(255,255,255,0.25)]"
+                        >
+                          <Plus className="w-6 h-6 text-black" />
+                        </button>
+                      </div>
+                      
+                      {/* Text Track - using pixelsPerSecond for positioning */}
+                      {textOverlays.length > 0 && (
+                        <div className="relative h-10" style={{ width: trackWidth }}>
+                          {textOverlays.map(overlay => {
+                            const isSelected = overlay.id === selectedTextId;
+                            // Use pixelsPerSecond for consistent positioning
+                            const leftOffset = overlay.startTime * PIXELS_PER_SECOND;
+                            const itemWidth = Math.max(50, (overlay.endTime - overlay.startTime) * PIXELS_PER_SECOND);
                         
                         return (
                           <div
@@ -1387,7 +1424,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 
                                 const handleMove = (moveE: MouseEvent) => {
                                   const deltaX = moveE.clientX - startX;
-                                  const timeDelta = (deltaX / trackWidth) * dur;
+                                  // Use PIXELS_PER_SECOND for time conversion
+                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
                                   const newStart = Math.max(0, Math.min(overlay.endTime - 0.5, startTime + timeDelta));
                                   setTextOverlays(prev => prev.map(t => 
                                     t.id === overlay.id ? { ...t, startTime: newStart } : t
@@ -1431,8 +1469,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 
                                 const handleMove = (moveE: MouseEvent) => {
                                   const deltaX = moveE.clientX - startX;
-                                  const timeDelta = (deltaX / trackWidth) * dur;
-                                  const newEnd = Math.min(dur, Math.max(overlay.startTime + 0.5, endTime + timeDelta));
+                                  // Use PIXELS_PER_SECOND for time conversion
+                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                  const newEnd = Math.min(duration, Math.max(overlay.startTime + 0.5, endTime + timeDelta));
                                   setTextOverlays(prev => prev.map(t => 
                                     t.id === overlay.id ? { ...t, endTime: newEnd } : t
                                   ));
@@ -1483,6 +1522,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </button>
                   </div>
                 </div>
+                  );
+                })()}
               </div>
             </div>
 

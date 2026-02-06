@@ -117,41 +117,25 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   bool _isLoadingRecent = false;
   String _selectedQuality = '1080p';
 
+  // Timeline Sync Engine - Global Constants
+  static const double _pixelsPerSecond = 80.0; // Master time-to-pixel ratio
+  static const double _thumbnailHeight = 48.0;
+  
   // Timeline state
   final ScrollController _timelineScrollController = ScrollController();
   List<Uint8List?> _thumbnails = [];
   bool _isExtractingThumbnails = false;
   bool _isUserScrolling = false;
-  static const int _thumbnailCount = 20;
-  static const double _thumbnailWidth = 60.0;
-  static const double _thumbnailHeight = 48.0;
+  bool _isAutoScrolling = false; // Prevent feedback loops during auto-scroll
+  
+  // Calculated values based on video duration
+  int get _thumbnailCount {
+    final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+    return (duration * _pixelsPerSecond / 60.0).ceil().clamp(10, 100);
+  }
+  
+  double get _thumbnailWidth => 60.0;
 
-  final List<String> _qualityOptions = ['720p', '1080p', '2K', '4K'];
-
-  // Text overlay state
-  List<TextOverlay> _textOverlays = [];
-  String? _selectedTextId;
-  TabController? _textTabController;
-  final TextEditingController _textInputController = TextEditingController();
-  
-  // Audio layer state
-  List<AudioLayer> _audioLayers = [];
-  String? _selectedAudioId;
-  
-  // Sticker layer state
-  List<StickerLayer> _stickerLayers = [];
-  String? _selectedStickerId;
-  
-  // Drag & drop state for layer reordering
-  String? _draggingLayerId;
-  LayerType? _draggingLayerType;
-  double _dragOffsetY = 0;
-  
-  // Trim handle state
-  String? _trimmingLayerId;
-  bool _isTrimmingStart = false;
-  bool _isTrimmingEnd = false;
-  
   // Snapping state
   static const double _snapThreshold = 10.0; // pixels
   double? _snapLinePosition;
@@ -407,21 +391,45 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     });
   }
 
+  // ============================================
+  // TIMELINE SYNC ENGINE - Core Logic
+  // ============================================
+  
+  /// Convert video time (seconds) to scroll offset (pixels)
+  double _timeToScroll(double timeSeconds) {
+    return timeSeconds * _pixelsPerSecond;
+  }
+  
+  /// Convert scroll offset (pixels) to video time (seconds)
+  double _scrollToTime(double scrollOffset) {
+    return scrollOffset / _pixelsPerSecond;
+  }
+  
+  /// Get total timeline width based on video duration
+  double get _totalTimelineWidth {
+    final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+    return duration * _pixelsPerSecond;
+  }
+
   void _onTimelineScroll() {
-    if (!_isUserScrolling || _videoController == null || !_isVideoInitialized) return;
+    // Only process manual scrolling (not auto-scroll from video playback)
+    if (!_isUserScrolling || _isAutoScrolling) return;
+    if (_videoController == null || !_isVideoInitialized) return;
     
-    final totalTimelineWidth = _thumbnailCount * _thumbnailWidth;
+    // PAUSE video immediately when user starts manual scrubbing
+    if (_videoController!.value.isPlaying) {
+      _videoController!.pause();
+    }
+    
     final scrollOffset = _timelineScrollController.offset;
     
-    // Calculate position based on scroll - playhead is at center
-    // scrollOffset 0 = first frame at center playhead
-    // scrollOffset = totalTimelineWidth = last frame at center playhead
-    final progress = scrollOffset / totalTimelineWidth;
-    final clampedProgress = progress.clamp(0.0, 1.0);
+    // Calculate exact time position under the center playhead
+    final timeUnderPlayhead = _scrollToTime(scrollOffset);
     final duration = _videoController!.value.duration;
-    final newPosition = Duration(milliseconds: (duration.inMilliseconds * clampedProgress).toInt());
+    final clampedTime = timeUnderPlayhead.clamp(0.0, duration.inSeconds.toDouble());
+    final newPosition = Duration(milliseconds: (clampedTime * 1000).toInt());
     
-    // Seek to exact millisecond indicated by playhead
+    // Seek video to exact millisecond under playhead
     _videoController!.seekTo(newPosition);
   }
 
@@ -430,31 +438,36 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     if (_videoController == null || !_isVideoInitialized) return;
     if (!_timelineScrollController.hasClients) return;
     
-    final totalTimelineWidth = _thumbnailCount * _thumbnailWidth;
     final scrollOffset = _timelineScrollController.offset;
-    
-    final progress = (scrollOffset / totalTimelineWidth).clamp(0.0, 1.0);
+    final timeUnderPlayhead = _scrollToTime(scrollOffset);
     final duration = _videoController!.value.duration;
-    final exactPosition = Duration(milliseconds: (duration.inMilliseconds * progress).toInt());
+    final clampedTime = timeUnderPlayhead.clamp(0.0, duration.inSeconds.toDouble());
+    final exactPosition = Duration(milliseconds: (clampedTime * 1000).toInt());
     
     // Jump to exact millisecond when scrolling stops
     _videoController!.seekTo(exactPosition);
   }
 
   void _onVideoPositionChanged() {
+    // Don't auto-scroll if user is manually scrolling
     if (_isUserScrolling || _videoController == null || !_isVideoInitialized) return;
     if (!_timelineScrollController.hasClients) return;
     
-    final duration = _videoController!.value.duration.inMilliseconds;
-    final position = _videoController!.value.position.inMilliseconds;
-    if (duration <= 0) return;
+    // Only auto-scroll during playback
+    if (!_videoController!.value.isPlaying) return;
     
-    final progress = position / duration;
-    final totalTimelineWidth = _thumbnailCount * _thumbnailWidth;
-    final targetScroll = totalTimelineWidth * progress;
+    final positionSeconds = _videoController!.value.position.inMilliseconds / 1000.0;
+    final targetScroll = _timeToScroll(positionSeconds);
     
-    // Animate scroll to keep timeline synced with video
-    _timelineScrollController.jumpTo(targetScroll.clamp(0.0, _timelineScrollController.position.maxScrollExtent));
+    // Use flag to prevent feedback loops
+    _isAutoScrolling = true;
+    
+    // Scroll timeline to keep current frame under center playhead
+    _timelineScrollController.jumpTo(
+      targetScroll.clamp(0.0, _timelineScrollController.position.maxScrollExtent)
+    );
+    
+    _isAutoScrolling = false;
   }
 
   Future<void> _loadRecentVideos() async {
@@ -1362,26 +1375,36 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   Widget _buildTimelineSection() {
     final screenWidth = MediaQuery.of(context).size.width;
-    final playheadOffset = screenWidth / 2; // Center of screen
-    final trackWidth = _thumbnailCount * _thumbnailWidth;
+    final halfScreenWidth = screenWidth / 2; // Padding for first/last frame alignment
     final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+    final trackWidth = _totalTimelineWidth; // duration * pixelsPerSecond
     
-    // Calculate total height based on tracks
-    final baseHeight = 200.0; // Time ruler + video track + audio track + text track + padding
+    // Total scrollable width: padding + track + padding
+    final totalScrollWidth = halfScreenWidth + trackWidth + halfScreenWidth;
+    
+    // Calculate height based on tracks
+    const baseHeight = 200.0;
     
     return Container(
       height: baseHeight,
-      color: const Color(0xFF0A0A0A),
+      color: const Color(0xFF0D0D0D),
       child: Stack(
         children: [
-          // Scrollable timeline content
+          // Scrollable timeline content with manual scroll detection
           NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (notification is ScrollStartNotification) {
-                _isUserScrolling = true;
+                setState(() => _isUserScrolling = true);
+                // Pause video when user starts scrolling
+                if (_videoController?.value.isPlaying ?? false) {
+                  _videoController!.pause();
+                }
+              } else if (notification is ScrollUpdateNotification) {
+                // Continuous seeking while scrolling
+                _onTimelineScroll();
               } else if (notification is ScrollEndNotification) {
-                _isUserScrolling = false;
-                // When scrolling ends, sync video to exact playhead position
+                setState(() => _isUserScrolling = false);
+                // Final sync when scrolling stops
                 _onScrollEnd();
               }
               return false;
@@ -1389,41 +1412,42 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             child: SingleChildScrollView(
               controller: _timelineScrollController,
               scrollDirection: Axis.horizontal,
-              physics: const ClampingScrollPhysics(),
+              physics: const BouncingScrollPhysics(),
               child: SizedBox(
-                width: playheadOffset + trackWidth + 120 + playheadOffset,
+                width: totalScrollWidth,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Time Ruler
-                    _buildTimeRuler(playheadOffset),
+                    _buildTimeRuler(halfScreenWidth),
                     const SizedBox(height: 4),
                     
-                    // Scrollable Control Buttons + Video Track
-                    _buildVideoTrackWithControls(playheadOffset),
+                    // Video Track with Controls (scrollable together)
+                    _buildVideoTrackWithControls(halfScreenWidth, trackWidth),
                     const SizedBox(height: 6),
                     
-                    // Text Track (Purple/Yellow layers) - No Audio Track
-                    _buildTextTrack(playheadOffset, trackWidth, duration),
+                    // Text Track (Purple/Yellow layers)
+                    _buildTextTrack(halfScreenWidth, trackWidth, duration),
                     const SizedBox(height: 6),
                     
-                    // Add layer buttons row (without audio)
-                    _buildAddLayerRow(playheadOffset),
+                    // Add layer buttons row
+                    _buildAddLayerRow(halfScreenWidth),
                   ],
                 ),
               ),
             ),
           ),
           
-          // Fixed Centered Playhead (Top Layer)
+          // Fixed Centered Playhead (Always at screen center)
           Positioned.fill(
             child: IgnorePointer(
               child: Stack(
                 children: [
+                  // Main playhead line
                   CustomPaint(
                     painter: _PlayheadPainter(),
                   ),
-                  // Snap line indicator (when dragging near playhead)
+                  // Snap indicator (green line when snapping)
                   if (_snapLinePosition != null)
                     Positioned(
                       left: _snapLinePosition!,
@@ -1443,17 +1467,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
 
-  Widget _buildVideoTrackWithControls(double startPadding) {
-    final trackWidth = _thumbnailCount * _thumbnailWidth;
-    
+  Widget _buildVideoTrackWithControls(double startPadding, double trackWidth) {
     return SizedBox(
       height: _thumbnailHeight + 8,
       child: Row(
         children: [
-          // Left padding
-          SizedBox(width: startPadding - 70), // Offset to put buttons before video track
+          // Left padding (half screen width for first frame at center)
+          SizedBox(width: startPadding - 70),
           
-          // Scrollable Mute button (moves with timeline)
+          // Mute button (scrolls with timeline)
           GestureDetector(
             onTap: _toggleMute,
             child: Container(
@@ -1493,9 +1515,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             ),
           ),
           
-          // Scrollable Cover button
+          // Cover button (scrolls with timeline)
           GestureDetector(
-            onTap: () => _showSnackBar('Cover editor coming soon'),
+            onTap: () => _showSnackBar('Set cover image'),
             child: Container(
               width: 50,
               height: _thumbnailHeight,
@@ -1519,12 +1541,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             ),
           ),
           
-          // Video Track
-          _buildVideoTrackContent(trackWidth),
+          // Video Track - Filmstrip using ListView.builder
+          _buildVideoTrackFilmstrip(trackWidth),
           
           const SizedBox(width: 10),
           
-          // White + button
+          // Add clip button
           GestureDetector(
             onTap: _showMediaPickerSheet,
             child: Container(
@@ -1544,14 +1566,19 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             ),
           ),
           
+          // Right padding (half screen width for last frame at center)
           SizedBox(width: startPadding),
         ],
       ),
     );
   }
 
-  Widget _buildVideoTrackContent(double trackWidth) {
-    // Main video track container with dark red background - NO progress overlay
+  /// Build filmstrip video track using ListView.builder for performance
+  Widget _buildVideoTrackFilmstrip(double trackWidth) {
+    final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+    // Calculate how many thumbnails fit in the track
+    final thumbCount = (trackWidth / _thumbnailWidth).ceil();
+    
     return Container(
       width: trackWidth,
       height: _thumbnailHeight + 4,
@@ -1562,28 +1589,41 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
-        child: Row(
-          children: List.generate(_thumbnailCount, (index) {
-            final thumbnail = index < _thumbnails.length ? _thumbnails[index] : null;
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(), // Timeline scrolls, not this
+          itemCount: thumbCount,
+          itemBuilder: (context, index) {
+            // Get corresponding thumbnail if available
+            final thumbnailIndex = _thumbnails.isNotEmpty 
+                ? (index * _thumbnails.length / thumbCount).floor().clamp(0, _thumbnails.length - 1)
+                : -1;
+            final thumbnail = thumbnailIndex >= 0 && thumbnailIndex < _thumbnails.length 
+                ? _thumbnails[thumbnailIndex] 
+                : null;
             
             return Container(
               width: _thumbnailWidth,
               height: _thumbnailHeight,
               decoration: BoxDecoration(
                 border: Border(
-                  right: index < _thumbnailCount - 1
-                      ? BorderSide(color: const Color(0xFF5A0000).withOpacity(0.8), width: 1)
+                  right: index < thumbCount - 1
+                      ? BorderSide(color: const Color(0xFF5A0000).withOpacity(0.5), width: 0.5)
                       : BorderSide.none,
                 ),
               ),
               child: thumbnail != null
-                  ? Image.memory(thumbnail, fit: BoxFit.cover)
+                  ? Image.memory(
+                      thumbnail,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                    )
                   : Container(
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [const Color(0xFF8B0000), const Color(0xFF5A0000)],
+                          colors: [Color(0xFF8B0000), Color(0xFF5A0000)],
                         ),
                       ),
                       child: _isExtractingThumbnails
@@ -1598,11 +1638,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                               ),
                             )
                           : Center(
-                              child: Icon(Icons.movie_outlined, size: 14, color: Colors.white.withOpacity(0.3)),
+                              child: Icon(
+                                Icons.movie_outlined,
+                                size: 14,
+                                color: Colors.white.withOpacity(0.3),
+                              ),
                             ),
                     ),
             );
-          }),
+          },
         ),
       ),
     );
@@ -1626,11 +1670,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             child: Stack(
               clipBehavior: Clip.none,
               children: _textOverlays.map((overlay) {
-                final startPercent = (overlay.startTime / duration).clamp(0.0, 1.0);
-                final endPercent = (overlay.endTime / duration).clamp(0.0, 1.0);
-                final widthPercent = endPercent - startPercent;
-                final itemWidth = (trackWidth * widthPercent).clamp(50.0, trackWidth);
-                final leftOffset = trackWidth * startPercent;
+                // Use pixelsPerSecond for consistent positioning
+                final leftOffset = overlay.startTime * _pixelsPerSecond;
+                final itemWidth = ((overlay.endTime - overlay.startTime) * _pixelsPerSecond).clamp(50.0, trackWidth);
                 final isSelected = overlay.id == _selectedTextId;
                 final isDragging = overlay.id == _draggingLayerId;
                 
@@ -1639,7 +1681,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   child: GestureDetector(
                     onTap: () => _selectTextOverlay(overlay.id),
                     onLongPressStart: (details) {
-                      // Start vertical drag for reordering
                       setState(() {
                         _draggingLayerId = overlay.id;
                         _draggingLayerType = LayerType.text;
@@ -1652,7 +1693,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       });
                     },
                     onLongPressEnd: (details) {
-                      // Handle vertical reordering
                       if (_dragOffsetY.abs() > 20) {
                         _reorderLayers(overlay.id, LayerType.text, _dragOffsetY > 0);
                       }
@@ -1663,17 +1703,17 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       });
                     },
                     onHorizontalDragUpdate: (details) {
-                      // Horizontal drag to change start time
                       final delta = details.primaryDelta ?? 0;
-                      final timeDelta = (delta / trackWidth) * duration;
+                      // Convert pixel delta to time using pixelsPerSecond
+                      final timeDelta = delta / _pixelsPerSecond;
                       final itemDuration = overlay.endTime - overlay.startTime;
                       
                       setState(() {
                         var newStart = (overlay.startTime + timeDelta).clamp(0.0, duration - itemDuration);
                         
-                        // Snapping logic
+                        // Snapping logic using pixelsPerSecond
                         final playheadTime = _videoController?.value.position.inSeconds.toDouble() ?? 0;
-                        final snapTimeThreshold = (_snapThreshold / trackWidth) * duration;
+                        final snapTimeThreshold = _snapThreshold / _pixelsPerSecond;
                         
                         // Snap to playhead
                         if ((newStart - playheadTime).abs() < snapTimeThreshold) {
@@ -1704,9 +1744,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       });
                     },
                     onHorizontalDragEnd: (_) {
-                      setState(() {
-                        _snapLinePosition = null;
-                      });
+                      setState(() => _snapLinePosition = null);
                     },
                     child: Transform.translate(
                       offset: isDragging ? Offset(0, _dragOffsetY) : Offset.zero,
@@ -1765,7 +1803,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       ),
       child: Row(
         children: [
-          // Left trim handle
+          // Left trim handle - uses pixelsPerSecond
           GestureDetector(
             onHorizontalDragStart: (_) {
               setState(() {
@@ -1775,7 +1813,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             },
             onHorizontalDragUpdate: (details) {
               final delta = details.primaryDelta ?? 0;
-              final timeDelta = (delta / trackWidth) * duration;
+              // Convert pixel delta to time using global pixelsPerSecond
+              final timeDelta = delta / _pixelsPerSecond;
               setState(() {
                 overlay.startTime = (overlay.startTime + timeDelta).clamp(0.0, overlay.endTime - 0.5);
               });
@@ -1833,7 +1872,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             ),
           ),
           
-          // Right trim handle
+          // Right trim handle - uses pixelsPerSecond
           GestureDetector(
             onHorizontalDragStart: (_) {
               setState(() {
@@ -1843,7 +1882,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             },
             onHorizontalDragUpdate: (details) {
               final delta = details.primaryDelta ?? 0;
-              final timeDelta = (delta / trackWidth) * duration;
+              // Convert pixel delta to time using global pixelsPerSecond
+              final timeDelta = delta / _pixelsPerSecond;
               setState(() {
                 overlay.endTime = (overlay.endTime + timeDelta).clamp(overlay.startTime + 0.5, duration);
               });
