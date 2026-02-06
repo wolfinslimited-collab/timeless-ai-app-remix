@@ -86,6 +86,63 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [isLoadingRecent, setIsLoadingRecent] = useState(false);
   const [selectedQuality, setSelectedQuality] = useState("1080p");
   
+  // Adjustment values (range -1.0 to 1.0, default 0)
+  const [adjustments, setAdjustments] = useState({
+    brightness: 0,
+    contrast: 0,
+    saturation: 0,
+    exposure: 0,
+    sharpen: 0,
+    highlight: 0,
+    shadow: 0,
+    temp: 0,
+    hue: 0,
+  });
+
+  const adjustmentTools = [
+    { id: 'brightness', name: 'Brightness', icon: '☀️' },
+    { id: 'contrast', name: 'Contrast', icon: '◐' },
+    { id: 'saturation', name: 'Saturation', icon: '🎨' },
+    { id: 'exposure', name: 'Exposure', icon: '📷' },
+    { id: 'sharpen', name: 'Sharpen', icon: '🔍' },
+    { id: 'highlight', name: 'Highlight', icon: '🌞' },
+    { id: 'shadow', name: 'Shadow', icon: '🌙' },
+    { id: 'temp', name: 'Temp', icon: '🌡️' },
+    { id: 'hue', name: 'Hue', icon: '🎭' },
+  ];
+
+  const resetAdjustments = () => {
+    setAdjustments({
+      brightness: 0,
+      contrast: 0,
+      saturation: 0,
+      exposure: 0,
+      sharpen: 0,
+      highlight: 0,
+      shadow: 0,
+      temp: 0,
+      hue: 0,
+    });
+    toast({ title: "Reset", description: "All adjustments reset to default" });
+  };
+
+  // Build CSS filter string from adjustment values
+  const buildVideoFilter = () => {
+    const brightness = 1 + adjustments.brightness * 0.5;
+    const contrast = 1 + adjustments.contrast;
+    const saturation = 1 + adjustments.saturation;
+    const exposure = 1 + adjustments.exposure * 0.5;
+    const hueRotate = adjustments.hue * 180; // -180 to 180 degrees
+    
+    // Combine brightness and exposure
+    const combinedBrightness = brightness * exposure;
+    
+    // Temperature affects sepia for warmth
+    const sepia = adjustments.temp > 0 ? adjustments.temp * 0.3 : 0;
+    
+    return `brightness(${combinedBrightness}) contrast(${contrast}) saturate(${saturation}) hue-rotate(${hueRotate}deg) sepia(${sepia})`;
+  };
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -277,10 +334,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   const handleToolClick = (tool: EditorTool) => {
     setSelectedTool(tool.id);
-    toast({
-      title: tool.name,
-      description: "Coming soon!",
-    });
+    if (tool.id !== 'adjust') {
+      toast({
+        title: tool.name,
+        description: "Coming soon!",
+      });
+    }
   };
 
   const handleExport = () => {
@@ -543,6 +602,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 ref={videoRef}
                 src={videoUrl}
                 className="w-full h-full object-contain"
+                style={{ filter: buildVideoFilter() }}
                 playsInline
                 muted={isMuted}
               />
@@ -780,39 +840,105 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
       {/* Bottom Toolbar - Fixed, not scrollable vertically */}
       {videoUrl && duration > 0 && (
-        <div className="shrink-0 bg-background border-t border-border/10 pb-safe">
-          <div className="overflow-x-auto">
-            <div className="flex px-2 py-3 min-w-max">
-              {EDITOR_TOOLS.map((tool) => {
-                const Icon = tool.icon;
-                const isSelected = selectedTool === tool.id;
-
+        selectedTool === 'adjust' ? (
+          // Adjust Panel with sliders
+          <div className="shrink-0 bg-background border-t border-border/10 pb-safe">
+            {/* Header */}
+            <div className="flex items-center justify-between px-3 py-3">
+              <button
+                onClick={() => setSelectedTool('edit')}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white/10 rounded-lg"
+              >
+                <ArrowLeft className="w-4 h-4 text-white/80" />
+                <span className="text-white/80 text-sm font-medium">Back</span>
+              </button>
+              <span className="text-white font-bold">Adjust</span>
+              <button
+                onClick={resetAdjustments}
+                className="flex items-center gap-1.5 px-3 py-2 bg-primary/15 border border-primary/40 rounded-lg"
+              >
+                <span className="text-primary text-sm font-semibold">Reset</span>
+              </button>
+            </div>
+            
+            {/* Sliders */}
+            <div className="max-h-[200px] overflow-y-auto px-4 pb-4 space-y-4">
+              {adjustmentTools.map((tool) => {
+                const value = adjustments[tool.id as keyof typeof adjustments];
                 return (
-                  <button
-                    key={tool.id}
-                    onClick={() => handleToolClick(tool)}
-                    className="flex flex-col items-center justify-center w-16 py-1"
-                  >
-                    <Icon
-                      className={cn(
-                        "w-6 h-6 mb-1",
-                        isSelected ? "text-white" : "text-white/60"
-                      )}
+                  <div key={tool.id}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{tool.icon}</span>
+                        <span className={cn(
+                          "text-sm",
+                          value !== 0 ? "text-white font-semibold" : "text-white/70"
+                        )}>
+                          {tool.name}
+                        </span>
+                      </div>
+                      <span className={cn(
+                        "text-xs font-mono px-2 py-1 rounded",
+                        value !== 0 ? "bg-primary/15 text-primary" : "bg-white/10 text-white/60"
+                      )}>
+                        {value >= 0 ? '+' : ''}{Math.round(value * 100)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-100"
+                      max="100"
+                      value={value * 100}
+                      onChange={(e) => setAdjustments(prev => ({
+                        ...prev,
+                        [tool.id]: Number(e.target.value) / 100
+                      }))}
+                      className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                      style={{
+                        background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${((value + 1) / 2) * 100}%, rgba(255,255,255,0.1) ${((value + 1) / 2) * 100}%, rgba(255,255,255,0.1) 100%)`
+                      }}
                     />
-                    <span
-                      className={cn(
-                        "text-[11px]",
-                        isSelected ? "text-white font-medium" : "text-white/60"
-                      )}
-                    >
-                      {tool.name}
-                    </span>
-                  </button>
+                  </div>
                 );
               })}
             </div>
           </div>
-        </div>
+        ) : (
+          // Normal tool bar
+          <div className="shrink-0 bg-background border-t border-border/10 pb-safe">
+            <div className="overflow-x-auto">
+              <div className="flex px-2 py-3 min-w-max">
+                {EDITOR_TOOLS.map((tool) => {
+                  const Icon = tool.icon;
+                  const isSelected = selectedTool === tool.id;
+
+                  return (
+                    <button
+                      key={tool.id}
+                      onClick={() => handleToolClick(tool)}
+                      className="flex flex-col items-center justify-center w-16 py-1"
+                    >
+                      <Icon
+                        className={cn(
+                          "w-6 h-6 mb-1",
+                          isSelected ? "text-white" : "text-white/60"
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          "text-[11px]",
+                          isSelected ? "text-white font-medium" : "text-white/60"
+                        )}
+                      >
+                        {tool.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )
       )}
     </div>
   );
