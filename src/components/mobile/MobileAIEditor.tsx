@@ -625,85 +625,143 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         </div>
       )}
 
-      {/* Timeline Section - Fixed height, only horizontal scroll for frames */}
+      {/* Timeline Section - CapCut Style with Stack layout */}
       {videoUrl && duration > 0 && (
-        <div className="h-[150px] shrink-0 bg-background py-3">
-          {/* Current position display */}
-          <div className="flex justify-center items-center gap-1 mb-3">
-            <span className="text-white font-semibold text-sm font-mono">
-              {formatTime(currentTime)}
-            </span>
-            <span className="text-white/50 text-sm font-mono">
-              / {formatTime(duration)}
-            </span>
-          </div>
-          
-          {/* Timeline tracks */}
-          <div className="flex gap-2">
-            {/* Left controls */}
-            <div className="flex flex-col gap-2 w-14 shrink-0 pl-3">
+        <div className="h-[200px] shrink-0 bg-background overflow-hidden">
+          <div className="h-full flex">
+            {/* Fixed Left Panel */}
+            <div className="w-[70px] shrink-0 pt-6 pl-2 flex flex-col gap-2">
+              {/* Mute clip audio button */}
               <button 
                 onClick={() => setIsMuted(!isMuted)}
-                className="flex flex-col items-center justify-center gap-1 p-2 bg-white/5 rounded-lg"
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1 p-2.5 rounded-xl border transition-colors",
+                  isMuted 
+                    ? "bg-primary/15 border-primary/40" 
+                    : "bg-white/5 border-white/10"
+                )}
               >
-                <VolumeX className={cn("w-4 h-4", isMuted ? "text-primary" : "text-white/60")} />
-                <span className="text-[8px] text-white/60 leading-tight text-center">Mute<br/>audio</span>
+                <VolumeX className={cn("w-5 h-5", isMuted ? "text-primary" : "text-white/70")} />
+                <span className={cn(
+                  "text-[9px] leading-tight text-center",
+                  isMuted ? "text-primary" : "text-white/50"
+                )}>Mute<br/>audio</span>
               </button>
-              <button className="flex flex-col items-center justify-center gap-1 p-2 bg-white/5 rounded-lg">
-                <Image className="w-4 h-4 text-white/60" />
-                <span className="text-[9px] text-white/60">Cover</span>
+              
+              {/* Cover button */}
+              <button className="flex flex-col items-center justify-center gap-1 p-2.5 bg-white/5 rounded-xl border border-white/10">
+                <div className="relative">
+                  <div className="w-6 h-6 bg-white/10 rounded flex items-center justify-center">
+                    <Image className="w-4 h-4 text-white/60" />
+                  </div>
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-background rounded-full flex items-center justify-center">
+                    <svg className="w-2 h-2 text-white/60" viewBox="0 0 12 12" fill="currentColor">
+                      <path d="M9 1L11 3L4 10L1 11L2 8L9 1Z" />
+                    </svg>
+                  </div>
+                </div>
+                <span className="text-[9px] text-white/50">Cover</span>
               </button>
             </div>
             
-            {/* Scrollable timeline area with fixed playhead */}
-            <div className="flex-1 flex flex-col gap-2 relative">
-              {/* Scrollable video track */}
-              <div className="relative h-12">
-                {/* Fixed centered playhead */}
-                <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white z-20 -translate-x-1/2 shadow-[0_0_12px_rgba(255,255,255,0.6)]">
-                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
-                </div>
-                
-                {/* Scrollable thumbnail strip */}
+            {/* Main Timeline Area with Stack for playhead */}
+            <div className="flex-1 relative">
+              {/* Fixed Centered Playhead (Top Layer) */}
+              <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white z-20 -translate-x-1/2 shadow-[0_0_12px_rgba(255,255,255,0.5)]">
+                <div className="absolute -top-0 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.4)]" />
+              </div>
+              
+              {/* Scrollable Timeline Content */}
+              <div 
+                className="h-full overflow-x-auto scrollbar-hide"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
                 <div 
-                  className="overflow-x-auto h-full scrollbar-hide"
-                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                  className="flex flex-col gap-2 pt-1"
+                  style={{ 
+                    paddingLeft: 'calc(50% - 35px)', 
+                    paddingRight: 'calc(50% - 35px)',
+                    width: 'fit-content',
+                    minWidth: '100%'
+                  }}
                 >
-                  <div className="flex items-center h-full" style={{ paddingLeft: 'calc(50% - 8px)', paddingRight: 'calc(50% - 8px)' }}>
-                    {/* Video thumbnails */}
-                    <div className="flex h-12 rounded-lg overflow-hidden border-2 border-primary/50">
+                  {/* Time Ruler */}
+                  <div className="h-5 flex items-end relative" style={{ width: `${20 * 60 + 54}px` }}>
+                    {Array.from({ length: Math.ceil(duration / 2) + 1 }).map((_, i) => (
+                      <div 
+                        key={i} 
+                        className="absolute flex flex-col items-center"
+                        style={{ left: `${(i * 2 / duration) * (20 * 60)}px` }}
+                      >
+                        <div className="w-px h-2 bg-white/30" />
+                        <span className="text-[8px] text-white/40 font-mono mt-0.5">
+                          {String(Math.floor((i * 2) / 60)).padStart(2, '0')}:{String((i * 2) % 60).padStart(2, '0')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Video Track */}
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-12 rounded-lg overflow-hidden border-2 border-white/30">
                       {Array.from({ length: 20 }).map((_, i) => (
                         <div
                           key={i}
-                          className="w-[60px] h-full border-r border-border/40 last:border-r-0 bg-gradient-to-b from-primary/20 to-primary/10 flex items-center justify-center shrink-0"
+                          className="w-[60px] h-full border-r border-border/30 last:border-r-0 bg-gradient-to-b from-red-900/30 to-red-900/50 flex items-center justify-center shrink-0"
                         >
-                          <Video className="w-3 h-3 text-white/30" />
+                          <Video className="w-3 h-3 text-white/25" />
                         </div>
                       ))}
                     </div>
                     
-                    {/* Add clip button */}
+                    {/* White + Add button */}
                     <button 
                       onClick={handleShowMediaPicker}
-                      className="w-10 h-12 bg-white/10 rounded-lg flex flex-col items-center justify-center hover:bg-white/20 transition-colors border border-white/20 ml-2 shrink-0"
+                      className="w-11 h-12 bg-white rounded-xl flex items-center justify-center hover:bg-white/90 transition-colors shrink-0 shadow-[0_0_8px_rgba(255,255,255,0.2)]"
                     >
-                      <Plus className="w-4 h-4 text-white" />
-                      <span className="text-[8px] text-white/70 font-medium">Add</span>
+                      <Plus className="w-6 h-6 text-black" />
                     </button>
                   </div>
+                  
+                  {/* Extracted Audio Track (Teal) */}
+                  <div 
+                    className="h-9 rounded-lg flex items-center gap-1.5 px-2 border-[1.5px]"
+                    style={{ 
+                      width: `${20 * 60}px`,
+                      backgroundColor: 'rgba(0, 191, 165, 0.15)',
+                      borderColor: 'rgba(0, 191, 165, 0.5)'
+                    }}
+                  >
+                    <Music className="w-3.5 h-3.5 shrink-0" style={{ color: '#00BFA5' }} />
+                    <span className="text-[11px] font-medium shrink-0" style={{ color: '#00BFA5' }}>Extracted</span>
+                    {/* Waveform visualization */}
+                    <div className="flex-1 h-5 flex items-center justify-evenly">
+                      {Array.from({ length: 50 }).map((_, i) => {
+                        const height = 4 + Math.sin(i * 0.3) * 6 + (i % 3) * 2;
+                        return (
+                          <div 
+                            key={i}
+                            className="w-0.5 rounded-full"
+                            style={{ 
+                              height: `${height}px`,
+                              backgroundColor: '#00BFA5'
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* Add Text Button */}
+                  <button 
+                    onClick={() => toast({ title: "Text", description: "Text editor coming soon!" })}
+                    className="flex items-center gap-1.5 px-3.5 py-2 bg-white/5 rounded-lg border border-white/15 w-fit"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-white/60" />
+                    <span className="text-xs text-white/60">Add text</span>
+                  </button>
                 </div>
               </div>
-              
-              {/* Audio track */}
-              <button 
-                onClick={handleAddAudio}
-                className="h-10 bg-white/[0.03] rounded-xl flex items-center justify-center gap-2.5 hover:bg-white/10 transition-colors border-[1.5px] border-white/15 mr-3"
-              >
-                <div className="w-6 h-6 bg-white/10 rounded-md flex items-center justify-center">
-                  <Plus className="w-4 h-4 text-white" />
-                </div>
-                <span className="text-white/50 text-[13px]">Add music or audio</span>
-              </button>
             </div>
           </div>
         </div>
