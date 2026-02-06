@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import '../../../core/theme.dart';
+import '../../../widgets/ai_editor/video_export_settings.dart';
 
 class RecentVideo {
   final String url;
@@ -1000,7 +1001,33 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
 
   void _handleExport() {
-    _showSnackBar('Exporting video in $_selectedQuality...');
+    _showExportSettings();
+  }
+
+  void _showExportSettings() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => VideoExportSettings(
+          videoDuration: _videoController?.value.duration ?? const Duration(seconds: 30),
+          onClose: () => Navigator.pop(context),
+          onExport: () {
+            Navigator.pop(context);
+            _performExport();
+          },
+        ),
+      ),
+    );
+  }
+
+  void _performExport() {
+    _showSnackBar('Exporting video...');
+    // TODO: Implement actual export logic
   }
 
   @override
