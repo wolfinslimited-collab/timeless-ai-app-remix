@@ -90,6 +90,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   String? _selectedTextId;
   TabController? _textTabController;
   final TextEditingController _textInputController = TextEditingController();
+  
+  // Settings panel state - for dynamic UI overlap
+  bool _isTextEditorInline = false; // For inline keyboard editing
 
   // Available fonts
   final List<String> _availableFonts = [
@@ -902,10 +905,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             // Fixed position elements below video
             if (_isVideoInitialized && _videoController != null)
               _buildVideoControlBar(),
+            // Dynamic UI: Show timeline OR settings panel based on active tool
             if (_isVideoInitialized && _videoController != null)
-              _buildTimelineSection(),
-            if (_isVideoInitialized && _videoController != null)
-              _buildBottomToolbar(),
+              _buildDynamicBottomArea(),
           ],
         ),
       ),
@@ -1870,17 +1872,234 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     }).toList();
   }
 
+  // Dynamic bottom area that switches between timeline and settings panel
+  Widget _buildDynamicBottomArea() {
+    // Check if a settings panel should be shown (overlays timeline)
+    final bool showSettingsPanel = _selectedTool == 'text' || _selectedTool == 'adjust';
+    
+    if (showSettingsPanel) {
+      return _buildContextualSettingsPanel();
+    } else {
+      // Show normal timeline + toolbar
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildTimelineSection(),
+          _buildBottomToolbar(),
+        ],
+      );
+    }
+  }
+
+  // Contextual settings panel that overlays the timeline area
+  Widget _buildContextualSettingsPanel() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A0A0A),
+        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header with Done (checkmark) and Cancel (X) buttons
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            child: Row(
+              children: [
+                // Cancel button (X)
+                GestureDetector(
+                  onTap: _cancelSettingsPanel,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.close, color: Colors.white.withOpacity(0.8), size: 20),
+                  ),
+                ),
+                const Spacer(),
+                // Title
+                Text(
+                  _selectedTool == 'text' ? 'Text Editor' : 'Adjust',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                // Done button (checkmark)
+                GestureDetector(
+                  onTap: _confirmSettingsPanel,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(color: AppTheme.primary.withOpacity(0.4), blurRadius: 8)],
+                    ),
+                    child: const Icon(Icons.check, color: Colors.white, size: 22),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Content based on selected tool
+          if (_selectedTool == 'text')
+            _buildTextSettingsContent()
+          else if (_selectedTool == 'adjust')
+            _buildAdjustSettingsContent(),
+        ],
+      ),
+    );
+  }
+
+  void _cancelSettingsPanel() {
+    setState(() {
+      _selectedTool = 'edit';
+      _selectedTextId = null;
+    });
+  }
+
+  void _confirmSettingsPanel() {
+    setState(() {
+      _selectedTool = 'edit';
+    });
+    _showSnackBar('Changes applied');
+  }
+
+  Widget _buildTextSettingsContent() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Add text button if no text selected
+        if (_selectedTextId == null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: GestureDetector(
+              onTap: _addTextOverlay,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.primary.withOpacity(0.4)),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add, color: AppTheme.primary, size: 20),
+                    SizedBox(width: 8),
+                    Text('Add Text', style: TextStyle(color: AppTheme.primary, fontSize: 15, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        
+        // Tab bar for text options
+        TabBar(
+          controller: _textTabController,
+          isScrollable: true,
+          indicatorColor: AppTheme.primary,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withOpacity(0.5),
+          indicatorSize: TabBarIndicatorSize.label,
+          labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          tabs: const [
+            Tab(icon: Icon(Icons.edit_note, size: 18), text: 'Input'),
+            Tab(icon: Icon(Icons.font_download_outlined, size: 18), text: 'Font'),
+            Tab(icon: Icon(Icons.style_outlined, size: 18), text: 'Style'),
+            Tab(icon: Icon(Icons.square_outlined, size: 18), text: 'Background'),
+            Tab(icon: Icon(Icons.format_align_center, size: 18), text: 'Align'),
+          ],
+        ),
+        
+        // Tab content
+        SizedBox(
+          height: 140,
+          child: _selectedTextId == null
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.text_fields, size: 32, color: Colors.white.withOpacity(0.3)),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Select or add text',
+                        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
+                      ),
+                    ],
+                  ),
+                )
+              : TabBarView(
+                  controller: _textTabController,
+                  children: [
+                    _buildTextInputTab(),
+                    _buildFontTab(),
+                    _buildStyleTab(),
+                    _buildBackgroundTab(),
+                    _buildAlignmentTab(),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdjustSettingsContent() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Reset button
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              GestureDetector(
+                onTap: _resetAllAdjustments,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.primary.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.refresh, size: 14, color: AppTheme.primary),
+                      const SizedBox(width: 6),
+                      Text('Reset', style: TextStyle(color: AppTheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Sliders
+        SizedBox(
+          height: 180,
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            itemCount: _adjustmentTools.length,
+            itemBuilder: (context, index) {
+              final tool = _adjustmentTools[index];
+              return _buildAdjustmentSlider(tool);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildBottomToolbar() {
-    // If Adjust tool is selected, show the adjustment panel
-    if (_selectedTool == 'adjust') {
-      return _buildAdjustPanel();
-    }
-    
-    // If Text tool is selected, show the text panel
-    if (_selectedTool == 'text') {
-      return _buildTextPanel();
-    }
-    
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF0A0A0A),
@@ -2374,30 +2593,44 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         left: constraints.maxWidth * overlay.position.dx - 75,
         top: constraints.maxHeight * overlay.position.dy - 25,
         child: GestureDetector(
-          onTap: () => _selectTextOverlay(overlay.id),
-          onPanUpdate: (details) {
-            setState(() {
-              final newX = (overlay.position.dx + details.delta.dx / constraints.maxWidth).clamp(0.1, 0.9);
-              final newY = (overlay.position.dy + details.delta.dy / constraints.maxHeight).clamp(0.1, 0.9);
-              overlay.position = Offset(newX, newY);
-            });
+          // Single tap: Select OR open inline editor if already selected
+          onTap: () {
+            if (isSelected) {
+              // Already selected - open inline text editor
+              _openInlineTextEditor(overlay);
+            } else {
+              // Select the text overlay
+              _selectTextOverlay(overlay.id);
+            }
           },
-          onScaleUpdate: (details) {
-            if (details.scale != 1.0) {
+          // Double tap: Always open inline editor
+          onDoubleTap: () => _openInlineTextEditor(overlay),
+          // Pan for smooth dragging
+          onPanUpdate: (details) {
+            if (!_isTextEditorInline) {
               setState(() {
-                overlay.scale = (overlay.scale * details.scale).clamp(0.5, 3.0);
+                final newX = (overlay.position.dx + details.delta.dx / constraints.maxWidth).clamp(0.05, 0.95);
+                final newY = (overlay.position.dy + details.delta.dy / constraints.maxHeight).clamp(0.05, 0.95);
+                overlay.position = Offset(newX, newY);
               });
             }
           },
-          child: Container(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            transform: Matrix4.identity()..scale(overlay.scale),
+            transformAlignment: Alignment.center,
             decoration: BoxDecoration(
               color: overlay.hasBackground 
                   ? overlay.backgroundColor.withOpacity(overlay.backgroundOpacity)
                   : null,
               borderRadius: BorderRadius.circular(8),
+              // Show bounding box only when selected
               border: isSelected 
                   ? Border.all(color: AppTheme.primary, width: 2)
+                  : null,
+              boxShadow: isSelected 
+                  ? [BoxShadow(color: AppTheme.primary.withOpacity(0.3), blurRadius: 12)]
                   : null,
             ),
             child: Stack(
@@ -2407,47 +2640,72 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   overlay.text,
                   style: TextStyle(
                     color: overlay.textColor,
-                    fontSize: overlay.fontSize * overlay.scale,
+                    fontSize: overlay.fontSize,
                     fontWeight: FontWeight.bold,
+                    fontFamily: overlay.fontFamily,
                   ),
                   textAlign: overlay.alignment,
                 ),
-                // Selection controls
+                // Selection handles - only when selected
                 if (isSelected) ...[
-                  // Delete button
+                  // Delete button (top-right)
                   Positioned(
-                    top: -20,
-                    right: -20,
+                    top: -24,
+                    right: -24,
                     child: GestureDetector(
                       onTap: () => _deleteTextOverlay(overlay.id),
+                      behavior: HitTestBehavior.opaque,
                       child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: const BoxDecoration(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
                           color: Colors.red,
                           shape: BoxShape.circle,
+                          boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.4), blurRadius: 8)],
                         ),
-                        child: const Icon(Icons.close, color: Colors.white, size: 14),
+                        child: const Icon(Icons.close, color: Colors.white, size: 16),
                       ),
                     ),
                   ),
-                  // Edit button
+                  // Edit button (top-left) - opens inline editor
                   Positioned(
-                    top: -20,
-                    left: -20,
+                    top: -24,
+                    left: -24,
                     child: GestureDetector(
-                      onTap: () {
-                        setState(() => _selectedTool = 'text');
-                        _textInputController.text = overlay.text;
-                      },
+                      onTap: () => _openInlineTextEditor(overlay),
+                      behavior: HitTestBehavior.opaque,
                       child: Container(
-                        width: 24,
-                        height: 24,
+                        width: 28,
+                        height: 28,
                         decoration: BoxDecoration(
                           color: AppTheme.primary,
                           shape: BoxShape.circle,
+                          boxShadow: [BoxShadow(color: AppTheme.primary.withOpacity(0.4), blurRadius: 8)],
                         ),
-                        child: const Icon(Icons.edit, color: Colors.white, size: 14),
+                        child: const Icon(Icons.edit, color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                  // Scale handle (bottom-right corner)
+                  Positioned(
+                    bottom: -16,
+                    right: -16,
+                    child: GestureDetector(
+                      onPanUpdate: (details) {
+                        setState(() {
+                          final scaleDelta = 1 + (details.delta.dx + details.delta.dy) * 0.005;
+                          overlay.scale = (overlay.scale * scaleDelta).clamp(0.5, 3.0);
+                        });
+                      },
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppTheme.primary, width: 2),
+                        ),
+                        child: const Icon(Icons.open_in_full, color: AppTheme.primary, size: 12),
                       ),
                     ),
                   ),
@@ -2458,6 +2716,287 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         ),
       );
     }).toList();
+  }
+
+  // Open inline text editor dialog
+  void _openInlineTextEditor(TextOverlay overlay) {
+    _textInputController.text = overlay.text;
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Edit Text', style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: TextField(
+          controller: _textInputController,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          maxLines: 3,
+          decoration: InputDecoration(
+            hintText: 'Enter text...',
+            hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+            filled: true,
+            fillColor: Colors.white.withOpacity(0.1),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppTheme.primary, width: 2),
+            ),
+          ),
+          onChanged: (value) {
+            setState(() {
+              overlay.text = value;
+            });
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: Colors.white.withOpacity(0.7))),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                overlay.text = _textInputController.text;
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('Done', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Dynamic bottom area that switches between timeline and settings panel
+  Widget _buildDynamicBottomArea() {
+    // Check if a settings panel should be shown
+    final bool showSettingsPanel = _selectedTool == 'text' || _selectedTool == 'adjust';
+    
+    if (showSettingsPanel) {
+      return _buildContextualSettingsPanel();
+    } else {
+      // Show normal timeline + toolbar
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildTimelineSection(),
+          _buildBottomToolbar(),
+        ],
+      );
+    }
+  }
+
+  // Contextual settings panel that overlays the timeline area
+  Widget _buildContextualSettingsPanel() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A0A0A),
+        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header with Done (checkmark) and Cancel (X) buttons
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            child: Row(
+              children: [
+                // Cancel button (X)
+                GestureDetector(
+                  onTap: _cancelSettingsPanel,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.close, color: Colors.white.withOpacity(0.8), size: 20),
+                  ),
+                ),
+                const Spacer(),
+                // Title
+                Text(
+                  _selectedTool == 'text' ? 'Text Editor' : 'Adjust',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                // Done button (checkmark)
+                GestureDetector(
+                  onTap: _confirmSettingsPanel,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(color: AppTheme.primary.withOpacity(0.4), blurRadius: 8)],
+                    ),
+                    child: const Icon(Icons.check, color: Colors.white, size: 22),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Content based on selected tool
+          if (_selectedTool == 'text')
+            _buildTextSettingsContent()
+          else if (_selectedTool == 'adjust')
+            _buildAdjustSettingsContent(),
+        ],
+      ),
+    );
+  }
+
+  void _cancelSettingsPanel() {
+    setState(() {
+      _selectedTool = 'edit';
+      _selectedTextId = null;
+    });
+  }
+
+  void _confirmSettingsPanel() {
+    setState(() {
+      _selectedTool = 'edit';
+    });
+    _showSnackBar('Changes applied');
+  }
+
+  Widget _buildTextSettingsContent() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Add text button if no text selected
+        if (_selectedTextId == null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: GestureDetector(
+              onTap: _addTextOverlay,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.primary.withOpacity(0.4)),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add, color: AppTheme.primary, size: 20),
+                    SizedBox(width: 8),
+                    Text('Add Text', style: TextStyle(color: AppTheme.primary, fontSize: 15, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        
+        // Tab bar for text options
+        TabBar(
+          controller: _textTabController,
+          isScrollable: true,
+          indicatorColor: AppTheme.primary,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withOpacity(0.5),
+          indicatorSize: TabBarIndicatorSize.label,
+          labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          tabs: const [
+            Tab(icon: Icon(Icons.edit_note, size: 18), text: 'Input'),
+            Tab(icon: Icon(Icons.font_download_outlined, size: 18), text: 'Font'),
+            Tab(icon: Icon(Icons.style_outlined, size: 18), text: 'Style'),
+            Tab(icon: Icon(Icons.square_outlined, size: 18), text: 'Background'),
+            Tab(icon: Icon(Icons.format_align_center, size: 18), text: 'Align'),
+          ],
+        ),
+        
+        // Tab content
+        SizedBox(
+          height: 140,
+          child: _selectedTextId == null
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.text_fields, size: 32, color: Colors.white.withOpacity(0.3)),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Select or add text',
+                        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
+                      ),
+                    ],
+                  ),
+                )
+              : TabBarView(
+                  controller: _textTabController,
+                  children: [
+                    _buildTextInputTab(),
+                    _buildFontTab(),
+                    _buildStyleTab(),
+                    _buildBackgroundTab(),
+                    _buildAlignmentTab(),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdjustSettingsContent() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Reset button
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              GestureDetector(
+                onTap: _resetAllAdjustments,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.primary.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.refresh, size: 14, color: AppTheme.primary),
+                      const SizedBox(width: 6),
+                      Text('Reset', style: TextStyle(color: AppTheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Sliders
+        SizedBox(
+          height: 180,
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            itemCount: _adjustmentTools.length,
+            itemBuilder: (context, index) {
+              final tool = _adjustmentTools[index];
+              return _buildAdjustmentSlider(tool);
+            },
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildAdjustPanel() {
