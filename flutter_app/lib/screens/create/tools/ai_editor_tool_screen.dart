@@ -53,6 +53,19 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
     ),
   ];
 
+  final List<EditorTool> _editorTools = [
+    EditorTool(id: 'edit', name: 'Edit', icon: Icons.content_cut_outlined),
+    EditorTool(id: 'audio', name: 'Audio', icon: Icons.volume_up_outlined),
+    EditorTool(id: 'text', name: 'Text', icon: Icons.text_fields_outlined),
+    EditorTool(id: 'effects', name: 'Effects', icon: Icons.auto_fix_high_outlined),
+    EditorTool(id: 'overlay', name: 'Overlay', icon: Icons.layers_outlined),
+    EditorTool(id: 'captions', name: 'Captions', icon: Icons.closed_caption_outlined),
+    EditorTool(id: 'filters', name: 'Filters', icon: Icons.filter_vintage_outlined),
+    EditorTool(id: 'adjust', name: 'Adjust', icon: Icons.tune_outlined),
+  ];
+
+  String _selectedTool = 'edit';
+
   @override
   void dispose() {
     _videoController?.dispose();
@@ -209,6 +222,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
           // Timeline (only show when video is loaded)
           if (_isVideoInitialized && _videoController != null)
             _buildTimeline(),
+
+          // Editor Tools Menu (only show when video is loaded)
+          if (_isVideoInitialized && _videoController != null)
+            _buildEditorToolsMenu(),
 
           // AI Features Grid
           Expanded(
@@ -549,6 +566,68 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
     return '$minutes:$seconds';
   }
 
+  Widget _buildEditorToolsMenu() {
+    return Container(
+      height: 80,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.secondary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(
+          children: _editorTools.map((tool) {
+            final isSelected = _selectedTool == tool.id;
+            return GestureDetector(
+              onTap: () {
+                setState(() => _selectedTool = tool.id);
+                _showSnackBar('${tool.name} tool coming soon');
+              },
+              child: Container(
+                width: 64,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.primary.withOpacity(0.15)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        tool.icon,
+                        size: 22,
+                        color: isSelected ? AppTheme.primary : AppTheme.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      tool.name,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        color: isSelected ? AppTheme.primary : AppTheme.muted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFeaturesGrid() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -699,5 +778,17 @@ class AIFeature {
     required this.description,
     required this.icon,
     required this.credits,
+  });
+}
+
+class EditorTool {
+  final String id;
+  final String name;
+  final IconData icon;
+
+  const EditorTool({
+    required this.id,
+    required this.name,
+    required this.icon,
   });
 }
