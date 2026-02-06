@@ -433,13 +433,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setIsFullScreen(false);
   };
 
-  const handleAddAudio = () => {
-    toast({
-      title: "Add Audio",
-      description: "Audio picker coming soon!",
-    });
-  };
-
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
       <input
@@ -1317,7 +1310,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       <span className="text-[8px] text-white/50">Cover</span>
                     </button>
                     
-                    {/* Video Track */}
+                    {/* Video Track - NO progress overlay */}
                     <div className="relative">
                       <div 
                         className="flex h-[48px] rounded-lg overflow-hidden border-2"
@@ -1336,11 +1329,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           </div>
                         ))}
                       </div>
-                      {/* Progress bar */}
-                      <div 
-                        className="absolute left-0.5 top-1/2 -translate-y-1/2 h-[3px] bg-white rounded-full shadow-[0_0_6px_rgba(255,255,255,0.6)]"
-                        style={{ width: `${(currentTime / duration) * 100}%`, maxWidth: 'calc(100% - 4px)' }}
-                      />
                     </div>
                     
                     {/* Add video button */}
@@ -1352,33 +1340,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </button>
                   </div>
                   
-                  {/* Audio Track - Teal */}
-                  <div className="flex items-center" style={{ marginLeft: '110px' }}>
-                    <div 
-                      className="h-8 rounded-md flex items-center gap-2 px-3"
-                      style={{ 
-                        width: `${20 * 60}px`,
-                        backgroundColor: 'rgba(13, 148, 136, 0.3)',
-                        border: '1px solid rgba(13, 148, 136, 0.5)'
-                      }}
-                    >
-                      <Music className="w-3.5 h-3.5" style={{ color: '#0D9488' }} />
-                      <span className="text-[10px] font-semibold" style={{ color: '#0D9488' }}>Extracted</span>
-                      {/* Waveform pattern */}
-                      <div className="flex-1 h-5 flex items-center gap-0.5 overflow-hidden">
-                        {Array.from({ length: 60 }).map((_, i) => (
-                          <div 
-                            key={i} 
-                            className="w-0.5 rounded-full"
-                            style={{ 
-                              height: `${15 + Math.sin(i * 0.7) * 10 + Math.random() * 8}px`,
-                              backgroundColor: '#0D9488'
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+                  {/* Audio Track Removed - Space dedicated to text/other layers */}
                   
                   {/* Text Track - Purple/Yellow clips with trim handles */}
                   {textOverlays.length > 0 && (
@@ -1506,18 +1468,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         <Plus className="w-3 h-3" style={{ color: '#8B5CF6' }} />
                       </div>
                       <span className="text-[11px] font-semibold" style={{ color: '#8B5CF6' }}>Add text</span>
-                    </button>
-                    
-                    {/* Add audio */}
-                    <button 
-                      onClick={() => toast({ title: "Add Audio", description: "Coming soon!" })}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg"
-                      style={{ backgroundColor: '#2A2A2A', border: '1px solid rgba(13, 148, 136, 0.4)' }}
-                    >
-                      <div className="w-4 h-4 rounded flex items-center justify-center" style={{ backgroundColor: 'rgba(13, 148, 136, 0.3)' }}>
-                        <Plus className="w-3 h-3" style={{ color: '#0D9488' }} />
-                      </div>
-                      <span className="text-[11px] font-semibold" style={{ color: '#0D9488' }}>Add audio</span>
                     </button>
                     
                     {/* Add sticker */}
