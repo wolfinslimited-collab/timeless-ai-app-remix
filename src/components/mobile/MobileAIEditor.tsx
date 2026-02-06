@@ -385,48 +385,109 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
       {/* Fullscreen Video Dialog */}
       <Dialog open={isFullScreen} onOpenChange={setIsFullScreen}>
-        <DialogContent className="max-w-none w-screen h-screen p-0 border-0 bg-black [&>button]:hidden">
+        <DialogContent className="max-w-none w-full h-full max-h-[100dvh] p-0 border-0 bg-black [&>button]:hidden rounded-none">
           <div className="relative w-full h-full flex flex-col">
-            {/* Fullscreen Header */}
-            <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/60 to-transparent p-4">
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={closeFullScreen}
-                  className="w-11 h-11 rounded-full bg-black/50 flex items-center justify-center"
-                >
-                  <X className="w-6 h-6 text-white" />
-                </button>
-                <span className="text-white/80 text-base font-medium">Full Screen</span>
-                <div className="w-11" />
-              </div>
+            {/* Floating close button at top right */}
+            <div className="absolute top-4 right-4 z-20">
+              <button
+                onClick={closeFullScreen}
+                className="w-11 h-11 rounded-full bg-black/60 border border-white/20 flex items-center justify-center hover:bg-black/80 transition-colors"
+              >
+                <X className="w-6 h-6 text-white" />
+              </button>
             </div>
             
-            {/* Fullscreen Video */}
-            <div className="flex-1 flex items-center justify-center">
+            {/* Fullscreen Video - expands to fill vertical space */}
+            <div className="flex-1 flex items-center justify-center px-4">
               {videoUrl && (
                 <video
+                  ref={videoRef}
                   src={videoUrl}
-                  className="max-w-full max-h-full object-contain"
+                  className="w-full h-full object-contain"
                   playsInline
                   muted={isMuted}
-                  autoPlay
-                  controls
+                  onClick={() => {
+                    if (videoRef.current) {
+                      if (videoRef.current.paused) {
+                        videoRef.current.play();
+                        setIsPlaying(true);
+                      } else {
+                        videoRef.current.pause();
+                        setIsPlaying(false);
+                      }
+                    }
+                  }}
                 />
               )}
             </div>
             
-            {/* Fullscreen Footer */}
-            <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/60 to-transparent p-4">
-              <div className="flex items-center justify-between text-white text-sm font-mono">
-                <span>{formatTime(currentTime)}</span>
+            {/* Bottom control bar with semi-transparent background */}
+            <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/90 via-black/70 to-transparent pt-8 pb-6 px-4">
+              {/* Seek bar */}
+              <div 
+                className="mb-4 h-6 flex items-center cursor-pointer group"
+                onClick={(e) => {
+                  if (videoRef.current && duration > 0) {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left;
+                    const progress = clickX / rect.width;
+                    const newTime = progress * duration;
+                    videoRef.current.currentTime = newTime;
+                    setCurrentTime(newTime);
+                  }
+                }}
+              >
+                <div className="relative w-full h-1 bg-white/30 rounded-full">
+                  {/* Progress bar */}
+                  <div 
+                    className="absolute h-full bg-white rounded-full transition-all"
+                    style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                  />
+                  {/* Seek thumb */}
+                  <div 
+                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg transition-all group-hover:scale-125"
+                    style={{ left: `calc(${duration > 0 ? (currentTime / duration) * 100 : 0}% - 6px)` }}
+                  />
+                </div>
+              </div>
+              
+              {/* Control row: Time | Play/Pause | Duration */}
+              <div className="flex items-center">
+                {/* Current time */}
+                <span className="text-white text-sm font-mono w-[60px]">
+                  {formatTime(currentTime)}
+                </span>
+                
+                <div className="flex-1" />
+                
+                {/* Large central play/pause button */}
                 <button
-                  onClick={closeFullScreen}
-                  className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-full"
+                  onClick={() => {
+                    if (videoRef.current) {
+                      if (videoRef.current.paused) {
+                        videoRef.current.play();
+                        setIsPlaying(true);
+                      } else {
+                        videoRef.current.pause();
+                        setIsPlaying(false);
+                      }
+                    }
+                  }}
+                  className="w-14 h-14 rounded-full bg-white/15 border-2 border-white/30 flex items-center justify-center hover:bg-white/25 transition-colors"
                 >
-                  <Minimize className="w-4 h-4" />
-                  <span className="text-sm">Exit</span>
+                  {isPlaying ? (
+                    <Pause className="w-8 h-8 text-white" />
+                  ) : (
+                    <Play className="w-8 h-8 text-white ml-1" />
+                  )}
                 </button>
-                <span>{formatTime(duration)}</span>
+                
+                <div className="flex-1" />
+                
+                {/* Total duration */}
+                <span className="text-white/60 text-sm font-mono w-[60px] text-right">
+                  {formatTime(duration)}
+                </span>
               </div>
             </div>
           </div>

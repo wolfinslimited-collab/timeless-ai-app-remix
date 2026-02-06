@@ -1970,7 +1970,7 @@ class EditorTool {
   });
 }
 
-/// Full-screen video dialog that covers the entire screen
+/// Full-screen video dialog that stays within the mobile frame
 class _FullScreenVideoDialog extends StatefulWidget {
   final VideoPlayerController videoController;
   final VoidCallback onClose;
@@ -1986,17 +1986,17 @@ class _FullScreenVideoDialog extends StatefulWidget {
 
 class _FullScreenVideoDialogState extends State<_FullScreenVideoDialog> {
   bool _showControls = true;
+  bool _isDragging = false;
 
   @override
   void initState() {
     super.initState();
-    // Auto-hide controls after 3 seconds
     _scheduleHideControls();
   }
 
   void _scheduleHideControls() {
     Future.delayed(const Duration(seconds: 3), () {
-      if (mounted && widget.videoController.value.isPlaying) {
+      if (mounted && widget.videoController.value.isPlaying && !_isDragging) {
         setState(() => _showControls = false);
       }
     });
@@ -2025,160 +2025,239 @@ class _FullScreenVideoDialogState extends State<_FullScreenVideoDialog> {
     return '$minutes:$seconds';
   }
 
+  void _seekToPosition(double progress) {
+    final duration = widget.videoController.value.duration;
+    final newPosition = Duration(
+      milliseconds: (duration.inMilliseconds * progress).round(),
+    );
+    widget.videoController.seekTo(newPosition);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: _toggleControls,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Full-screen video
-            Center(
-              child: AspectRatio(
-                aspectRatio: widget.videoController.value.aspectRatio,
-                child: VideoPlayer(widget.videoController),
+      body: SafeArea(
+        child: GestureDetector(
+          onTap: _toggleControls,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Full-screen video centered
+              Center(
+                child: AspectRatio(
+                  aspectRatio: widget.videoController.value.aspectRatio,
+                  child: VideoPlayer(widget.videoController),
+                ),
               ),
-            ),
-            
-            // Controls overlay
-            AnimatedOpacity(
-              opacity: _showControls ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.5),
-                      Colors.transparent,
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.5),
-                    ],
-                    stops: const [0.0, 0.2, 0.8, 1.0],
+              
+              // Floating close button at top right
+              Positioned(
+                top: 16,
+                right: 16,
+                child: AnimatedOpacity(
+                  opacity: _showControls ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: GestureDetector(
+                    onTap: widget.onClose,
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
                   ),
                 ),
-                child: SafeArea(
-                  child: Column(
-                    children: [
-                      // Top bar with close button
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            GestureDetector(
-                              onTap: widget.onClose,
-                              child: Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.5),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.close,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              'Full Screen',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const Spacer(),
-                            const SizedBox(width: 44), // Balance the close button
-                          ],
-                        ),
+              ),
+              
+              // Bottom control bar
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: AnimatedOpacity(
+                  opacity: _showControls ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.7),
+                          Colors.black.withOpacity(0.9),
+                        ],
+                        stops: const [0.0, 0.4, 1.0],
                       ),
-                      
-                      const Spacer(),
-                      
-                      // Center play/pause button
-                      GestureDetector(
-                        onTap: _togglePlayPause,
-                        child: Container(
-                          width: 72,
-                          height: 72,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            widget.videoController.value.isPlaying
-                                ? Icons.pause
-                                : Icons.play_arrow,
-                            color: Colors.white,
-                            size: 40,
-                          ),
-                        ),
-                      ),
-                      
-                      const Spacer(),
-                      
-                      // Bottom bar with time
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: ValueListenableBuilder<VideoPlayerValue>(
-                          valueListenable: widget.videoController,
-                          builder: (context, value, child) {
-                            return Column(
-                              children: [
-                                // Progress bar
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(2),
-                                  child: LinearProgressIndicator(
-                                    value: value.duration.inMilliseconds > 0
-                                        ? value.position.inMilliseconds /
-                                            value.duration.inMilliseconds
-                                        : 0,
-                                    backgroundColor: Colors.white.withOpacity(0.3),
-                                    valueColor: const AlwaysStoppedAnimation<Color>(
-                                      AppTheme.primary,
-                                    ),
-                                    minHeight: 4,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 32, 16, 16),
+                      child: ValueListenableBuilder<VideoPlayerValue>(
+                        valueListenable: widget.videoController,
+                        builder: (context, value, child) {
+                          final progress = value.duration.inMilliseconds > 0
+                              ? value.position.inMilliseconds / value.duration.inMilliseconds
+                              : 0.0;
+                          
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Seek bar
+                              GestureDetector(
+                                onHorizontalDragStart: (_) {
+                                  setState(() => _isDragging = true);
+                                },
+                                onHorizontalDragUpdate: (details) {
+                                  final RenderBox box = context.findRenderObject() as RenderBox;
+                                  final localX = details.localPosition.dx;
+                                  final width = box.size.width - 32; // Account for padding
+                                  final seekProgress = (localX / width).clamp(0.0, 1.0);
+                                  _seekToPosition(seekProgress);
+                                },
+                                onHorizontalDragEnd: (_) {
+                                  setState(() => _isDragging = false);
+                                  _scheduleHideControls();
+                                },
+                                onTapUp: (details) {
+                                  final RenderBox box = context.findRenderObject() as RenderBox;
+                                  final localX = details.localPosition.dx - 16; // Account for padding
+                                  final width = box.size.width - 32;
+                                  final seekProgress = (localX / width).clamp(0.0, 1.0);
+                                  _seekToPosition(seekProgress);
+                                },
+                                child: Container(
+                                  height: 24,
+                                  alignment: Alignment.center,
+                                  child: Stack(
+                                    alignment: Alignment.centerLeft,
+                                    children: [
+                                      // Background track
+                                      Container(
+                                        height: 4,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.3),
+                                          borderRadius: BorderRadius.circular(2),
+                                        ),
+                                      ),
+                                      // Progress track
+                                      FractionallySizedBox(
+                                        widthFactor: progress.clamp(0.0, 1.0),
+                                        child: Container(
+                                          height: 4,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(2),
+                                          ),
+                                        ),
+                                      ),
+                                      // Seek thumb
+                                      Positioned(
+                                        left: (MediaQuery.of(context).size.width - 32) * progress.clamp(0.0, 1.0) - 6,
+                                        child: Container(
+                                          width: 12,
+                                          height: 12,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.3),
+                                                blurRadius: 4,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
+                              ),
+                              
+                              const SizedBox(height: 16),
+                              
+                              // Control row: Time | Play/Pause | Duration
+                              Row(
+                                children: [
+                                  // Current time
+                                  SizedBox(
+                                    width: 60,
+                                    child: Text(
                                       _formatDuration(value.position),
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 13,
                                         fontFamily: 'monospace',
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                    Text(
+                                  ),
+                                  
+                                  const Spacer(),
+                                  
+                                  // Large central play/pause button
+                                  GestureDetector(
+                                    onTap: _togglePlayPause,
+                                    child: Container(
+                                      width: 56,
+                                      height: 56,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.15),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white.withOpacity(0.3),
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: Icon(
+                                        value.isPlaying
+                                            ? Icons.pause_rounded
+                                            : Icons.play_arrow_rounded,
+                                        color: Colors.white,
+                                        size: 32,
+                                      ),
+                                    ),
+                                  ),
+                                  
+                                  const Spacer(),
+                                  
+                                  // Total duration
+                                  SizedBox(
+                                    width: 60,
+                                    child: Text(
                                       _formatDuration(value.duration),
+                                      textAlign: TextAlign.right,
                                       style: TextStyle(
                                         color: Colors.white.withOpacity(0.6),
                                         fontSize: 13,
                                         fontFamily: 'monospace',
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ],
-                            );
-                          },
-                        ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        },
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
