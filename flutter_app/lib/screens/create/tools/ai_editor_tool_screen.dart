@@ -35,6 +35,7 @@ class TextOverlay {
   double startTime; // in seconds
   double endTime; // in seconds
   double scale;
+  int trackIndex; // Z-index/track order for layer stacking
 
   TextOverlay({
     required this.id,
@@ -50,8 +51,50 @@ class TextOverlay {
     this.startTime = 0,
     this.endTime = 5,
     this.scale = 1.0,
+    this.trackIndex = 0,
   });
 }
+
+/// Audio layer data model
+class AudioLayer {
+  String id;
+  String name;
+  double startTime;
+  double endTime;
+  int trackIndex;
+  
+  AudioLayer({
+    required this.id,
+    required this.name,
+    this.startTime = 0,
+    this.endTime = 5,
+    this.trackIndex = 0,
+  });
+}
+
+/// Sticker layer data model
+class StickerLayer {
+  String id;
+  String assetPath;
+  Offset position;
+  double startTime;
+  double endTime;
+  double scale;
+  int trackIndex;
+  
+  StickerLayer({
+    required this.id,
+    required this.assetPath,
+    this.position = const Offset(0.5, 0.5),
+    this.startTime = 0,
+    this.endTime = 5,
+    this.scale = 1.0,
+    this.trackIndex = 0,
+  });
+}
+
+/// Layer type enum for track management
+enum LayerType { text, audio, sticker }
 
 class AIEditorToolScreen extends StatefulWidget {
   const AIEditorToolScreen({super.key});
@@ -90,6 +133,28 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   String? _selectedTextId;
   TabController? _textTabController;
   final TextEditingController _textInputController = TextEditingController();
+  
+  // Audio layer state
+  List<AudioLayer> _audioLayers = [];
+  String? _selectedAudioId;
+  
+  // Sticker layer state
+  List<StickerLayer> _stickerLayers = [];
+  String? _selectedStickerId;
+  
+  // Drag & drop state for layer reordering
+  String? _draggingLayerId;
+  LayerType? _draggingLayerType;
+  double _dragOffsetY = 0;
+  
+  // Trim handle state
+  String? _trimmingLayerId;
+  bool _isTrimmingStart = false;
+  bool _isTrimmingEnd = false;
+  
+  // Snapping state
+  static const double _snapThreshold = 10.0; // pixels
+  double? _snapLinePosition;
   
   // Settings panel state - for dynamic UI overlap
   bool _isTextEditorInline = false; // For inline keyboard editing
@@ -1280,179 +1345,755 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   Widget _buildTimelineSection() {
     final screenWidth = MediaQuery.of(context).size.width;
-    final trackLeftPadding = 70.0; // Width of left fixed panel
-    final playheadOffset = (screenWidth - trackLeftPadding) / 2; // Center of timeline area
+    final playheadOffset = screenWidth / 2; // Center of screen
+    final trackWidth = _thumbnailCount * _thumbnailWidth;
+    final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
     
-    // Fixed-height container for timeline - NOT scrollable vertically
+    // Calculate total height based on tracks
+    final baseHeight = 200.0; // Time ruler + video track + audio track + text track + padding
+    
     return Container(
-      height: 160, // Height for time ruler + video track + add text (no audio)
+      height: baseHeight,
       color: const Color(0xFF0A0A0A),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          // Fixed Left Panel (doesn't scroll)
-          Container(
-            width: trackLeftPadding,
-            padding: const EdgeInsets.only(left: 8, top: 24),
-            child: Column(
-              children: [
-                // Mute clip audio button
-                GestureDetector(
-                  onTap: _toggleMute,
-                  child: Container(
-                    width: 54,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: _isMuted 
-                          ? AppTheme.primary.withOpacity(0.15)
-                          : Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: _isMuted 
-                            ? AppTheme.primary.withOpacity(0.4)
-                            : Colors.white.withOpacity(0.1),
-                        width: 1,
+          // Scrollable timeline content
+          NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification is ScrollStartNotification) {
+                _isUserScrolling = true;
+              } else if (notification is ScrollEndNotification) {
+                _isUserScrolling = false;
+              }
+              return false;
+            },
+            child: SingleChildScrollView(
+              controller: _timelineScrollController,
+              scrollDirection: Axis.horizontal,
+              physics: const ClampingScrollPhysics(),
+              child: SizedBox(
+                width: playheadOffset + trackWidth + 120 + playheadOffset,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Time Ruler
+                    _buildTimeRuler(playheadOffset),
+                    const SizedBox(height: 4),
+                    
+                    // Scrollable Control Buttons + Video Track
+                    _buildVideoTrackWithControls(playheadOffset),
+                    const SizedBox(height: 6),
+                    
+                    // Audio Track (Extracted audio layer - teal)
+                    _buildAudioTrack(playheadOffset, trackWidth, duration),
+                    const SizedBox(height: 6),
+                    
+                    // Text Track (Purple/Yellow layers)
+                    _buildTextTrack(playheadOffset, trackWidth, duration),
+                    const SizedBox(height: 6),
+                    
+                    // Add layer buttons row
+                    _buildAddLayerRow(playheadOffset),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          
+          // Fixed Centered Playhead (Top Layer)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Stack(
+                children: [
+                  CustomPaint(
+                    painter: _PlayheadPainter(),
+                  ),
+                  // Snap line indicator (when dragging near playhead)
+                  if (_snapLinePosition != null)
+                    Positioned(
+                      left: _snapLinePosition!,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 2,
+                        color: const Color(0xFF00FF00).withOpacity(0.8),
                       ),
                     ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          _isMuted ? Icons.volume_off : Icons.volume_up,
-                          size: 20,
-                          color: _isMuted ? AppTheme.primary : Colors.white.withOpacity(0.7),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Mute\naudio',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: _isMuted ? AppTheme.primary : Colors.white.withOpacity(0.5),
-                            fontSize: 9,
-                            height: 1.2,
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoTrackWithControls(double startPadding) {
+    final trackWidth = _thumbnailCount * _thumbnailWidth;
+    
+    return SizedBox(
+      height: _thumbnailHeight + 8,
+      child: Row(
+        children: [
+          // Left padding
+          SizedBox(width: startPadding - 70), // Offset to put buttons before video track
+          
+          // Scrollable Mute button (moves with timeline)
+          GestureDetector(
+            onTap: _toggleMute,
+            child: Container(
+              width: 50,
+              height: _thumbnailHeight,
+              margin: const EdgeInsets.only(right: 6),
+              decoration: BoxDecoration(
+                color: _isMuted 
+                    ? AppTheme.primary.withOpacity(0.15)
+                    : Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _isMuted 
+                      ? AppTheme.primary.withOpacity(0.4)
+                      : Colors.white.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    _isMuted ? Icons.volume_off : Icons.volume_up,
+                    size: 18,
+                    color: _isMuted ? AppTheme.primary : Colors.white.withOpacity(0.7),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Mute',
+                    style: TextStyle(
+                      color: _isMuted ? AppTheme.primary : Colors.white.withOpacity(0.5),
+                      fontSize: 8,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Scrollable Cover button
+          GestureDetector(
+            onTap: () => _showSnackBar('Cover editor coming soon'),
+            child: Container(
+              width: 50,
+              height: _thumbnailHeight,
+              margin: const EdgeInsets.only(right: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white.withOpacity(0.1)),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.image_outlined, size: 18, color: Colors.white.withOpacity(0.6)),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Cover',
+                    style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 8),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Video Track
+          _buildVideoTrackContent(trackWidth),
+          
+          const SizedBox(width: 10),
+          
+          // White + button
+          GestureDetector(
+            onTap: _showMediaPickerSheet,
+            child: Container(
+              width: 44,
+              height: _thumbnailHeight,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.white.withOpacity(0.25),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.add, color: Colors.black, size: 26),
+            ),
+          ),
+          
+          SizedBox(width: startPadding),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoTrackContent(double trackWidth) {
+    return Stack(
+      children: [
+        // Main video track container with dark red background
+        Container(
+          width: trackWidth,
+          height: _thumbnailHeight + 4,
+          decoration: BoxDecoration(
+            color: const Color(0xFF8B0000),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFAA2222), width: 2),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Row(
+              children: List.generate(_thumbnailCount, (index) {
+                final thumbnail = index < _thumbnails.length ? _thumbnails[index] : null;
+                
+                return Container(
+                  width: _thumbnailWidth,
+                  height: _thumbnailHeight,
+                  decoration: BoxDecoration(
+                    border: Border(
+                      right: index < _thumbnailCount - 1
+                          ? BorderSide(color: const Color(0xFF5A0000).withOpacity(0.8), width: 1)
+                          : BorderSide.none,
+                    ),
+                  ),
+                  child: thumbnail != null
+                      ? Image.memory(thumbnail, fit: BoxFit.cover)
+                      : Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [const Color(0xFF8B0000), const Color(0xFF5A0000)],
+                            ),
                           ),
+                          child: _isExtractingThumbnails
+                              ? Center(
+                                  child: SizedBox(
+                                    width: 10,
+                                    height: 10,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: Colors.white.withOpacity(0.4),
+                                    ),
+                                  ),
+                                )
+                              : Center(
+                                  child: Icon(Icons.movie_outlined, size: 14, color: Colors.white.withOpacity(0.3)),
+                                ),
                         ),
-                      ],
+                );
+              }),
+            ),
+          ),
+        ),
+        
+        // White progress bar
+        if (_videoController != null)
+          Positioned(
+            left: 2,
+            top: (_thumbnailHeight + 4) / 2 - 1.5,
+            child: ValueListenableBuilder<VideoPlayerValue>(
+              valueListenable: _videoController!,
+              builder: (context, value, child) {
+                final progress = value.duration.inMilliseconds > 0
+                    ? (value.position.inMilliseconds / value.duration.inMilliseconds).clamp(0.0, 1.0)
+                    : 0.0;
+                return Container(
+                  width: (trackWidth - 4) * progress,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(1.5),
+                    boxShadow: [BoxShadow(color: Colors.white.withOpacity(0.6), blurRadius: 6)],
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAudioTrack(double startPadding, double trackWidth, double duration) {
+    // Teal audio track (extracted audio or added audio layers)
+    return SizedBox(
+      height: 36,
+      child: Row(
+        children: [
+          SizedBox(width: startPadding),
+          
+          // Audio waveform track
+          Container(
+            width: trackWidth,
+            height: 32,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D9488).withOpacity(0.3), // Teal
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFF0D9488).withOpacity(0.5)),
+            ),
+            child: Stack(
+              children: [
+                // Waveform background
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(5),
+                  child: CustomPaint(
+                    size: Size(trackWidth, 32),
+                    painter: _AudioWaveformPainter(
+                      color: const Color(0xFF0D9488),
+                      backgroundColor: Colors.transparent,
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                // Cover button
-                GestureDetector(
-                  onTap: () => _showSnackBar('Cover editor coming soon'),
-                  child: Container(
-                    width: 54,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.1),
-                        width: 1,
+                // Label
+                Positioned(
+                  left: 8,
+                  top: 0,
+                  bottom: 0,
+                  child: Row(
+                    children: [
+                      Icon(Icons.music_note, size: 14, color: const Color(0xFF0D9488)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Extracted',
+                        style: TextStyle(
+                          color: const Color(0xFF0D9488),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    child: Column(
-                      children: [
-                        Stack(
-                          children: [
-                            Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Icon(
-                                Icons.image_outlined,
-                                size: 16,
-                                color: Colors.white.withOpacity(0.6),
-                              ),
-                            ),
-                            Positioned(
-                              right: -2,
-                              bottom: -2,
-                              child: Container(
-                                width: 12,
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF0A0A0A),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.edit,
-                                  size: 8,
-                                  color: Colors.white.withOpacity(0.6),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Cover',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.5),
-                            fontSize: 9,
-                          ),
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
           
-          // Main timeline area with Stack for playhead overlay
-          Expanded(
+          SizedBox(width: startPadding),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextTrack(double startPadding, double trackWidth, double duration) {
+    if (_textOverlays.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    return SizedBox(
+      height: 40,
+      child: Row(
+        children: [
+          SizedBox(width: startPadding),
+          
+          SizedBox(
+            width: trackWidth,
             child: Stack(
-              children: [
-                // Scrollable timeline content
-                NotificationListener<ScrollNotification>(
-                  onNotification: (notification) {
-                    if (notification is ScrollStartNotification) {
-                      _isUserScrolling = true;
-                    } else if (notification is ScrollEndNotification) {
-                      _isUserScrolling = false;
-                    }
-                    return false;
-                  },
-                  child: SingleChildScrollView(
-                    controller: _timelineScrollController,
-                    scrollDirection: Axis.horizontal,
-                    physics: const ClampingScrollPhysics(),
-                    child: SizedBox(
-                      // Width: playhead offset at start + video track + add button + playhead offset at end
-                      width: playheadOffset + (_thumbnailCount * _thumbnailWidth) + 60 + playheadOffset,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Time Ruler
-                          _buildTimeRuler(playheadOffset),
-                          const SizedBox(height: 4),
-                          
-                          // Video Track (no audio track anymore)
-                          _buildVideoTrack(playheadOffset),
-                          const SizedBox(height: 8),
-                          
-                          // Add Text Button
-                          _buildAddTextButton(playheadOffset),
-                        ],
+              clipBehavior: Clip.none,
+              children: _textOverlays.map((overlay) {
+                final startPercent = (overlay.startTime / duration).clamp(0.0, 1.0);
+                final endPercent = (overlay.endTime / duration).clamp(0.0, 1.0);
+                final widthPercent = endPercent - startPercent;
+                final itemWidth = (trackWidth * widthPercent).clamp(50.0, trackWidth);
+                final leftOffset = trackWidth * startPercent;
+                final isSelected = overlay.id == _selectedTextId;
+                final isDragging = overlay.id == _draggingLayerId;
+                
+                return Positioned(
+                  left: leftOffset,
+                  child: GestureDetector(
+                    onTap: () => _selectTextOverlay(overlay.id),
+                    onLongPressStart: (details) {
+                      // Start vertical drag for reordering
+                      setState(() {
+                        _draggingLayerId = overlay.id;
+                        _draggingLayerType = LayerType.text;
+                        _dragOffsetY = 0;
+                      });
+                    },
+                    onLongPressMoveUpdate: (details) {
+                      setState(() {
+                        _dragOffsetY = details.localOffsetFromOrigin.dy;
+                      });
+                    },
+                    onLongPressEnd: (details) {
+                      // Handle vertical reordering
+                      if (_dragOffsetY.abs() > 20) {
+                        _reorderLayers(overlay.id, LayerType.text, _dragOffsetY > 0);
+                      }
+                      setState(() {
+                        _draggingLayerId = null;
+                        _draggingLayerType = null;
+                        _dragOffsetY = 0;
+                      });
+                    },
+                    onHorizontalDragUpdate: (details) {
+                      // Horizontal drag to change start time
+                      final delta = details.primaryDelta ?? 0;
+                      final timeDelta = (delta / trackWidth) * duration;
+                      final itemDuration = overlay.endTime - overlay.startTime;
+                      
+                      setState(() {
+                        var newStart = (overlay.startTime + timeDelta).clamp(0.0, duration - itemDuration);
+                        
+                        // Snapping logic
+                        final playheadTime = _videoController?.value.position.inSeconds.toDouble() ?? 0;
+                        final snapTimeThreshold = (_snapThreshold / trackWidth) * duration;
+                        
+                        // Snap to playhead
+                        if ((newStart - playheadTime).abs() < snapTimeThreshold) {
+                          newStart = playheadTime;
+                          _snapLinePosition = MediaQuery.of(context).size.width / 2;
+                        } else if ((newStart + itemDuration - playheadTime).abs() < snapTimeThreshold) {
+                          newStart = playheadTime - itemDuration;
+                          _snapLinePosition = MediaQuery.of(context).size.width / 2;
+                        } else {
+                          _snapLinePosition = null;
+                        }
+                        
+                        // Snap to other clips
+                        for (final other in _textOverlays) {
+                          if (other.id == overlay.id) continue;
+                          if ((newStart - other.endTime).abs() < snapTimeThreshold) {
+                            newStart = other.endTime;
+                            break;
+                          }
+                          if ((newStart + itemDuration - other.startTime).abs() < snapTimeThreshold) {
+                            newStart = other.startTime - itemDuration;
+                            break;
+                          }
+                        }
+                        
+                        overlay.startTime = newStart;
+                        overlay.endTime = newStart + itemDuration;
+                      });
+                    },
+                    onHorizontalDragEnd: (_) {
+                      setState(() {
+                        _snapLinePosition = null;
+                      });
+                    },
+                    child: Transform.translate(
+                      offset: isDragging ? Offset(0, _dragOffsetY) : Offset.zero,
+                      child: _buildLayerClip(
+                        overlay: overlay,
+                        itemWidth: itemWidth,
+                        isSelected: isSelected,
+                        isDragging: isDragging,
+                        trackWidth: trackWidth,
+                        duration: duration,
+                        color: isSelected ? const Color(0xFFF59E0B) : const Color(0xFF8B5CF6),
+                        icon: Icons.text_fields,
+                        label: overlay.text,
                       ),
                     ),
                   ),
-                ),
-                
-                // Fixed Centered Playhead (Top Layer) - positioned at center of timeline area
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: CustomPaint(
-                      painter: _PlayheadPainter(),
-                    ),
-                  ),
-                ),
-              ],
+                );
+              }).toList(),
             ),
           ),
+          
+          SizedBox(width: startPadding),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLayerClip({
+    required TextOverlay overlay,
+    required double itemWidth,
+    required bool isSelected,
+    required bool isDragging,
+    required double trackWidth,
+    required double duration,
+    required Color color,
+    required IconData icon,
+    required String label,
+  }) {
+    return Container(
+      width: itemWidth,
+      height: 34,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isSelected 
+              ? [const Color(0xFFF59E0B), const Color(0xFFD97706)]
+              : [color, color.withOpacity(0.8)],
+        ),
+        borderRadius: BorderRadius.circular(6),
+        border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(isDragging ? 0.6 : 0.3),
+            blurRadius: isDragging ? 16 : 8,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Left trim handle
+          GestureDetector(
+            onHorizontalDragStart: (_) {
+              setState(() {
+                _trimmingLayerId = overlay.id;
+                _isTrimmingStart = true;
+              });
+            },
+            onHorizontalDragUpdate: (details) {
+              final delta = details.primaryDelta ?? 0;
+              final timeDelta = (delta / trackWidth) * duration;
+              setState(() {
+                overlay.startTime = (overlay.startTime + timeDelta).clamp(0.0, overlay.endTime - 0.5);
+              });
+            },
+            onHorizontalDragEnd: (_) {
+              setState(() {
+                _trimmingLayerId = null;
+                _isTrimmingStart = false;
+              });
+            },
+            child: Container(
+              width: 10,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(isSelected ? 0.5 : 0.3),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(6),
+                  bottomLeft: Radius.circular(6),
+                ),
+              ),
+              child: Center(
+                child: Container(
+                  width: 3,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(1.5),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          // Content
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 12, color: Colors.white.withOpacity(0.9)),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Right trim handle
+          GestureDetector(
+            onHorizontalDragStart: (_) {
+              setState(() {
+                _trimmingLayerId = overlay.id;
+                _isTrimmingEnd = true;
+              });
+            },
+            onHorizontalDragUpdate: (details) {
+              final delta = details.primaryDelta ?? 0;
+              final timeDelta = (delta / trackWidth) * duration;
+              setState(() {
+                overlay.endTime = (overlay.endTime + timeDelta).clamp(overlay.startTime + 0.5, duration);
+              });
+            },
+            onHorizontalDragEnd: (_) {
+              setState(() {
+                _trimmingLayerId = null;
+                _isTrimmingEnd = false;
+              });
+            },
+            child: Container(
+              width: 10,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(isSelected ? 0.5 : 0.3),
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(6),
+                  bottomRight: Radius.circular(6),
+                ),
+              ),
+              child: Center(
+                child: Container(
+                  width: 3,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(1.5),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _reorderLayers(String layerId, LayerType type, bool moveDown) {
+    if (type == LayerType.text) {
+      final index = _textOverlays.indexWhere((t) => t.id == layerId);
+      if (index == -1) return;
+      
+      if (moveDown && index < _textOverlays.length - 1) {
+        final temp = _textOverlays[index].trackIndex;
+        _textOverlays[index].trackIndex = _textOverlays[index + 1].trackIndex;
+        _textOverlays[index + 1].trackIndex = temp;
+        // Swap positions
+        final item = _textOverlays.removeAt(index);
+        _textOverlays.insert(index + 1, item);
+      } else if (!moveDown && index > 0) {
+        final temp = _textOverlays[index].trackIndex;
+        _textOverlays[index].trackIndex = _textOverlays[index - 1].trackIndex;
+        _textOverlays[index - 1].trackIndex = temp;
+        final item = _textOverlays.removeAt(index);
+        _textOverlays.insert(index - 1, item);
+      }
+    }
+    _showSnackBar('Layer reordered');
+  }
+
+  Widget _buildAddLayerRow(double startPadding) {
+    return SizedBox(
+      height: 36,
+      child: Row(
+        children: [
+          SizedBox(width: startPadding),
+          
+          // Add text button
+          GestureDetector(
+            onTap: _addTextOverlay,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A2A),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.4)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(Icons.add, size: 12, color: Color(0xFF8B5CF6)),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Add text',
+                    style: TextStyle(
+                      color: Color(0xFF8B5CF6),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(width: 10),
+          
+          // Add audio button
+          GestureDetector(
+            onTap: () => _showSnackBar('Add audio coming soon'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A2A),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF0D9488).withOpacity(0.4)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D9488).withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(Icons.add, size: 12, color: Color(0xFF0D9488)),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Add audio',
+                    style: TextStyle(
+                      color: Color(0xFF0D9488),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(width: 10),
+          
+          // Add sticker button
+          GestureDetector(
+            onTap: () => _showSnackBar('Add sticker coming soon'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A2A),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFEC4899).withOpacity(0.4)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEC4899).withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(Icons.add, size: 12, color: Color(0xFFEC4899)),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Add sticker',
+                    style: TextStyle(
+                      color: Color(0xFFEC4899),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          SizedBox(width: startPadding),
         ],
       ),
     );
@@ -1538,339 +2179,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     return '$mins:$secs';
   }
   
-  Widget _buildVideoTrack(double startPadding) {
-    final trackWidth = _thumbnailCount * _thumbnailWidth;
-    
-    return SizedBox(
-      height: _thumbnailHeight + 8, // Extra space for progress bar
-      child: Row(
-        children: [
-          // Left padding so video starts at playhead center
-          SizedBox(width: startPadding),
-          
-          // Video track with dark red background and progress bar
-          Stack(
-            children: [
-              // Main video track container with dark red background
-              Container(
-                width: trackWidth,
-                height: _thumbnailHeight + 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8B0000), // Dark red background
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: const Color(0xFFAA2222),
-                    width: 2,
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: Row(
-                    children: List.generate(_thumbnailCount, (index) {
-                      final thumbnail = index < _thumbnails.length ? _thumbnails[index] : null;
-                      
-                      return Container(
-                        width: _thumbnailWidth,
-                        height: _thumbnailHeight,
-                        decoration: BoxDecoration(
-                          border: Border(
-                            right: index < _thumbnailCount - 1
-                                ? BorderSide(color: const Color(0xFF5A0000).withOpacity(0.8), width: 1)
-                                : BorderSide.none,
-                          ),
-                        ),
-                        child: thumbnail != null
-                            ? Image.memory(
-                                thumbnail,
-                                fit: BoxFit.cover,
-                                width: _thumbnailWidth,
-                                height: _thumbnailHeight,
-                              )
-                            : Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      const Color(0xFF8B0000),
-                                      const Color(0xFF5A0000),
-                                    ],
-                                  ),
-                                ),
-                                child: _isExtractingThumbnails
-                                    ? Center(
-                                        child: SizedBox(
-                                          width: 10,
-                                          height: 10,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 1.5,
-                                            color: Colors.white.withOpacity(0.4),
-                                          ),
-                                        ),
-                                      )
-                                    : Center(
-                                        child: Icon(
-                                          Icons.movie_outlined,
-                                          size: 14,
-                                          color: Colors.white.withOpacity(0.3),
-                                        ),
-                                      ),
-                              ),
-                      );
-                    }),
-                  ),
-                ),
-              ),
-              
-              // White horizontal progress bar in the middle of the track
-              Positioned(
-                left: 2,
-                top: (_thumbnailHeight + 4) / 2 - 1.5, // Center vertically
-                child: ValueListenableBuilder<VideoPlayerValue>(
-                  valueListenable: _videoController!,
-                  builder: (context, value, child) {
-                    final currentProgress = value.duration.inMilliseconds > 0
-                        ? (value.position.inMilliseconds / value.duration.inMilliseconds).clamp(0.0, 1.0)
-                        : 0.0;
-                    final currentProgressWidth = (trackWidth - 4) * currentProgress;
-                    
-                    return Container(
-                      width: currentProgressWidth,
-                      height: 3,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(1.5),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.white.withOpacity(0.6),
-                            blurRadius: 6,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(width: 10),
-          
-          // White + button in rounded square
-          GestureDetector(
-            onTap: _showMediaPickerSheet,
-            child: Container(
-              width: 44,
-              height: _thumbnailHeight,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.white.withOpacity(0.25),
-                    blurRadius: 10,
-                    spreadRadius: 0,
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.add,
-                color: Colors.black,
-                size: 26,
-              ),
-            ),
-          ),
-          
-          // Right padding
-          SizedBox(width: startPadding),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildAddTextButton(double startPadding) {
-    return SizedBox(
-      height: 36,
-      child: Row(
-        children: [
-          // Left padding
-          SizedBox(width: startPadding),
-          
-          // + Add text button in gray container
-          GestureDetector(
-            onTap: _addTextOverlay,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2A2A2A),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Icon(
-                      Icons.add,
-                      size: 12,
-                      color: Colors.white.withOpacity(0.7),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Add text',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          // Text track items
-          ..._buildTextTrackItems(startPadding),
-          
-          // Right padding
-          SizedBox(width: startPadding),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildTextTrackItems(double startPadding) {
-    if (_textOverlays.isEmpty) return [];
-    
-    final trackWidth = _thumbnailCount * _thumbnailWidth;
-    final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
-    
-    return _textOverlays.map((overlay) {
-      final startPercent = overlay.startTime / duration;
-      final endPercent = overlay.endTime / duration;
-      final widthPercent = endPercent - startPercent;
-      final itemWidth = trackWidth * widthPercent;
-      final leftOffset = trackWidth * startPercent;
-      final isSelected = overlay.id == _selectedTextId;
-      
-      return Transform.translate(
-        offset: Offset(leftOffset - 16, 0), // Adjust for button width
-        child: GestureDetector(
-          onTap: () => _selectTextOverlay(overlay.id),
-          onHorizontalDragUpdate: (details) {
-            // Allow dragging to change position
-            final delta = details.primaryDelta ?? 0;
-            final timeDelta = (delta / trackWidth) * duration;
-            setState(() {
-              final newStart = (overlay.startTime + timeDelta).clamp(0.0, duration - (overlay.endTime - overlay.startTime));
-              final itemDuration = overlay.endTime - overlay.startTime;
-              overlay.startTime = newStart;
-              overlay.endTime = newStart + itemDuration;
-            });
-          },
-          child: Container(
-            width: itemWidth.clamp(40.0, trackWidth),
-            height: 32,
-            margin: const EdgeInsets.only(left: 8),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isSelected 
-                    ? [const Color(0xFFF59E0B), const Color(0xFFD97706)]
-                    : [const Color(0xFF8B5CF6), const Color(0xFF7C3AED)],
-              ),
-              borderRadius: BorderRadius.circular(6),
-              border: isSelected 
-                  ? Border.all(color: Colors.white, width: 2)
-                  : null,
-              boxShadow: [
-                BoxShadow(
-                  color: (isSelected ? const Color(0xFFF59E0B) : const Color(0xFF8B5CF6)).withOpacity(0.3),
-                  blurRadius: 8,
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                // Left resize handle
-                GestureDetector(
-                  onHorizontalDragUpdate: (details) {
-                    final delta = details.primaryDelta ?? 0;
-                    final timeDelta = (delta / trackWidth) * duration;
-                    setState(() {
-                      overlay.startTime = (overlay.startTime + timeDelta).clamp(0.0, overlay.endTime - 0.5);
-                    });
-                  },
-                  child: Container(
-                    width: 8,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.3),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(6),
-                        bottomLeft: Radius.circular(6),
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.text_fields, size: 12, color: Colors.white.withOpacity(0.9)),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            overlay.text,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Right resize handle
-                GestureDetector(
-                  onHorizontalDragUpdate: (details) {
-                    final delta = details.primaryDelta ?? 0;
-                    final timeDelta = (delta / trackWidth) * duration;
-                    setState(() {
-                      overlay.endTime = (overlay.endTime + timeDelta).clamp(overlay.startTime + 0.5, duration);
-                    });
-                  },
-                  child: Container(
-                    width: 8,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.3),
-                      borderRadius: const BorderRadius.only(
-                        topRight: Radius.circular(6),
-                        bottomRight: Radius.circular(6),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }).toList();
-  }
+  // Old methods removed - replaced by new multi-track system
 
   // Dynamic bottom area that switches between timeline and settings panel
   Widget _buildDynamicBottomArea() {
