@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 import '../../../core/theme.dart';
 
 class RecentVideo {
@@ -38,6 +40,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   bool _isLoadingRecent = false;
   String _selectedQuality = '1080p';
 
+  // Timeline state
+  final ScrollController _timelineScrollController = ScrollController();
+  List<Uint8List?> _thumbnails = [];
+  bool _isExtractingThumbnails = false;
+  bool _isUserScrolling = false;
+  static const int _thumbnailCount = 20;
+  static const double _thumbnailWidth = 60.0;
+  static const double _thumbnailHeight = 48.0;
+
   final List<String> _qualityOptions = ['720p', '1080p', '2K', '4K'];
 
   final List<EditorTool> _editorTools = [
@@ -52,9 +63,51 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _timelineScrollController.addListener(_onTimelineScroll);
+  }
+
+  @override
   void dispose() {
+    _timelineScrollController.removeListener(_onTimelineScroll);
+    _timelineScrollController.dispose();
+    _videoController?.removeListener(_onVideoPositionChanged);
     _videoController?.dispose();
     super.dispose();
+  }
+
+  void _onTimelineScroll() {
+    if (!_isUserScrolling || _videoController == null || !_isVideoInitialized) return;
+    
+    final screenWidth = MediaQuery.of(context).size.width;
+    final halfScreen = screenWidth / 2;
+    final totalTimelineWidth = _thumbnailCount * _thumbnailWidth;
+    final scrollOffset = _timelineScrollController.offset;
+    
+    // Calculate position based on scroll
+    final progress = scrollOffset / totalTimelineWidth;
+    final clampedProgress = progress.clamp(0.0, 1.0);
+    final duration = _videoController!.value.duration;
+    final newPosition = Duration(milliseconds: (duration.inMilliseconds * clampedProgress).toInt());
+    
+    _videoController!.seekTo(newPosition);
+  }
+
+  void _onVideoPositionChanged() {
+    if (_isUserScrolling || _videoController == null || !_isVideoInitialized) return;
+    if (!_timelineScrollController.hasClients) return;
+    
+    final duration = _videoController!.value.duration.inMilliseconds;
+    final position = _videoController!.value.position.inMilliseconds;
+    if (duration <= 0) return;
+    
+    final progress = position / duration;
+    final totalTimelineWidth = _thumbnailCount * _thumbnailWidth;
+    final targetScroll = totalTimelineWidth * progress;
+    
+    // Animate scroll to keep timeline synced with video
+    _timelineScrollController.jumpTo(targetScroll.clamp(0.0, _timelineScrollController.position.maxScrollExtent));
   }
 
   Future<void> _loadRecentVideos() async {
@@ -402,15 +455,62 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   }
 
   Future<void> _initializeVideoPlayer(String url) async {
+    _videoController?.removeListener(_onVideoPositionChanged);
     _videoController?.dispose();
     _videoController = VideoPlayerController.networkUrl(Uri.parse(url));
 
     try {
       await _videoController!.initialize();
       _videoController!.setLooping(true);
+      _videoController!.addListener(_onVideoPositionChanged);
       setState(() => _isVideoInitialized = true);
+      
+      // Extract thumbnails after video is initialized
+      _extractThumbnails(url);
     } catch (e) {
       debugPrint('Failed to initialize video: $e');
+    }
+  }
+
+  Future<void> _extractThumbnails(String videoUrl) async {
+    if (_videoController == null || !_isVideoInitialized) return;
+    
+    setState(() => _isExtractingThumbnails = true);
+    
+    final duration = _videoController!.value.duration.inMilliseconds;
+    final List<Uint8List?> thumbnails = List.filled(_thumbnailCount, null);
+    
+    try {
+      for (int i = 0; i < _thumbnailCount; i++) {
+        if (!mounted) break;
+        
+        final timeMs = (duration * i / _thumbnailCount).toInt();
+        
+        try {
+          final thumbnail = await VideoThumbnail.thumbnailData(
+            video: videoUrl,
+            imageFormat: ImageFormat.JPEG,
+            maxWidth: 120,
+            quality: 50,
+            timeMs: timeMs,
+          );
+          
+          if (mounted && thumbnail != null) {
+            thumbnails[i] = thumbnail;
+            setState(() {
+              _thumbnails = List.from(thumbnails);
+            });
+          }
+        } catch (e) {
+          debugPrint('Failed to extract thumbnail at $timeMs: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to extract thumbnails: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isExtractingThumbnails = false);
+      }
     }
   }
 
@@ -421,12 +521,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   }
 
   void _clearVideo() {
+    _videoController?.removeListener(_onVideoPositionChanged);
     _videoController?.dispose();
     setState(() {
       _videoUrl = null;
       _videoFile = null;
       _videoController = null;
       _isVideoInitialized = false;
+      _thumbnails = [];
     });
   }
 
@@ -885,39 +987,88 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   }
 
   Widget _buildTimelineSection() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final halfScreen = screenWidth / 2;
+    final totalTimelineWidth = _thumbnailCount * _thumbnailWidth;
+    
     return Container(
-      padding: const EdgeInsets.all(16),
       color: const Color(0xFF0A0A0A),
       child: Column(
         children: [
+          // Time markers that scroll with the timeline
           Padding(
-            padding: const EdgeInsets.only(left: 72, bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: ValueListenableBuilder<VideoPlayerValue>(
               valueListenable: _videoController!,
               builder: (context, value, child) {
-                final duration = value.duration;
                 return Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('00:00', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10, fontFamily: 'monospace')),
-                    Text(_formatDuration(Duration(milliseconds: duration.inMilliseconds ~/ 4)), style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10, fontFamily: 'monospace')),
-                    Text(_formatDuration(Duration(milliseconds: duration.inMilliseconds ~/ 2)), style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10, fontFamily: 'monospace')),
-                    Text(_formatDuration(Duration(milliseconds: (duration.inMilliseconds * 3) ~/ 4)), style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10, fontFamily: 'monospace')),
-                    Text(_formatDuration(duration), style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10, fontFamily: 'monospace')),
+                    Text(
+                      _formatDuration(value.position),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    Text(
+                      ' / ${_formatDuration(value.duration)}',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.5),
+                        fontSize: 14,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
                   ],
                 );
               },
             ),
           ),
+          
+          // Main timeline area with fixed playhead
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                children: [
-                  GestureDetector(
-                    onTap: _toggleMute,
-                    child: Container(
-                      width: 56,
+              // Left controls
+              Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: Column(
+                  children: [
+                    GestureDetector(
+                      onTap: _toggleMute,
+                      child: Container(
+                        width: 52,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.volume_off,
+                              size: 18,
+                              color: _isMuted ? AppTheme.primary : Colors.white.withOpacity(0.6),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Mute\naudio',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.6),
+                                fontSize: 8,
+                                height: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: 52,
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.05),
@@ -925,209 +1076,252 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
                       ),
                       child: Column(
                         children: [
-                          Icon(
-                            Icons.volume_off,
-                            size: 18,
-                            color: _isMuted ? AppTheme.primary : Colors.white.withOpacity(0.6),
-                          ),
+                          Icon(Icons.image, size: 18, color: Colors.white.withOpacity(0.6)),
                           const SizedBox(height: 4),
                           Text(
-                            'Mute clip\naudio',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
-                              fontSize: 8,
-                              height: 1.2,
+                            'Cover',
+                            style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 9),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(width: 8),
+              
+              // Scrollable timeline with fixed centered playhead
+              Expanded(
+                child: Column(
+                  children: [
+                    // Video track with scrollable thumbnails
+                    SizedBox(
+                      height: _thumbnailHeight + 4,
+                      child: Stack(
+                        children: [
+                          // Scrollable thumbnail track
+                          NotificationListener<ScrollNotification>(
+                            onNotification: (notification) {
+                              if (notification is ScrollStartNotification) {
+                                _isUserScrolling = true;
+                              } else if (notification is ScrollEndNotification) {
+                                _isUserScrolling = false;
+                              }
+                              return false;
+                            },
+                            child: SingleChildScrollView(
+                              controller: _timelineScrollController,
+                              scrollDirection: Axis.horizontal,
+                              physics: const ClampingScrollPhysics(),
+                              child: Row(
+                                children: [
+                                  // Left padding (half screen) so video can start at center
+                                  SizedBox(width: halfScreen - 64),
+                                  
+                                  // Thumbnail frames
+                                  Container(
+                                    height: _thumbnailHeight,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: AppTheme.primary.withOpacity(0.5),
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Row(
+                                        children: List.generate(_thumbnailCount, (index) {
+                                          final thumbnail = index < _thumbnails.length ? _thumbnails[index] : null;
+                                          
+                                          return Container(
+                                            width: _thumbnailWidth,
+                                            height: _thumbnailHeight,
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withOpacity(0.1),
+                                              border: Border(
+                                                right: index < _thumbnailCount - 1
+                                                    ? BorderSide(color: Colors.black.withOpacity(0.4), width: 1)
+                                                    : BorderSide.none,
+                                              ),
+                                            ),
+                                            child: thumbnail != null
+                                                ? Image.memory(
+                                                    thumbnail,
+                                                    fit: BoxFit.cover,
+                                                    width: _thumbnailWidth,
+                                                    height: _thumbnailHeight,
+                                                  )
+                                                : Container(
+                                                    decoration: BoxDecoration(
+                                                      gradient: LinearGradient(
+                                                        begin: Alignment.topCenter,
+                                                        end: Alignment.bottomCenter,
+                                                        colors: [
+                                                          Colors.red.shade900.withOpacity(0.4),
+                                                          Colors.red.shade900.withOpacity(0.6),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    child: _isExtractingThumbnails
+                                                        ? Center(
+                                                            child: SizedBox(
+                                                              width: 12,
+                                                              height: 12,
+                                                              child: CircularProgressIndicator(
+                                                                strokeWidth: 1.5,
+                                                                color: Colors.white.withOpacity(0.3),
+                                                              ),
+                                                            ),
+                                                          )
+                                                        : Center(
+                                                            child: Icon(
+                                                              Icons.movie_outlined,
+                                                              size: 14,
+                                                              color: Colors.white.withOpacity(0.3),
+                                                            ),
+                                                          ),
+                                                  ),
+                                          );
+                                        }),
+                                      ),
+                                    ),
+                                  ),
+                                  
+                                  // Add clip button
+                                  const SizedBox(width: 8),
+                                  GestureDetector(
+                                    onTap: _showMediaPickerSheet,
+                                    child: Container(
+                                      width: 40,
+                                      height: _thumbnailHeight,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: Colors.white.withOpacity(0.2),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.add, color: Colors.white, size: 18),
+                                          Text(
+                                            'Add',
+                                            style: TextStyle(
+                                              color: Colors.white.withOpacity(0.7),
+                                              fontSize: 8,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  
+                                  // Right padding (half screen) so video can end at center
+                                  SizedBox(width: halfScreen - 64),
+                                ],
+                              ),
+                            ),
+                          ),
+                          
+                          // Fixed centered playhead overlay
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: 0,
+                            bottom: 0,
+                            child: IgnorePointer(
+                              child: Center(
+                                child: Container(
+                                  width: 3,
+                                  height: _thumbnailHeight + 8,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(2),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.white.withOpacity(0.6),
+                                        blurRadius: 8,
+                                        spreadRadius: 2,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Container(
+                                        width: 12,
+                                        height: 12,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: 56,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(Icons.image, size: 18, color: Colors.white.withOpacity(0.6)),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Cover',
-                          style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 9),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Stack(
-                  children: [
-                    Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Row(
-                                    children: List.generate(8, (index) {
-                                      return Expanded(
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                Colors.red.shade900.withOpacity(0.4),
-                                                Colors.red.shade900.withOpacity(0.6),
-                                              ],
-                                            ),
-                                            border: Border(
-                                              right: index < 7
-                                                  ? BorderSide(color: Colors.black.withOpacity(0.3), width: 1)
-                                                  : BorderSide.none,
-                                            ),
-                                          ),
-                                          child: Center(
-                                            child: Icon(
-                                              Icons.movie_outlined,
-                                              size: 12,
-                                              color: Colors.white.withOpacity(0.2),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    }),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Add Video Button - prominent "+" at end of clip sequence
-                            GestureDetector(
-                              onTap: _showMediaPickerSheet,
-                              child: Container(
-                                width: 40,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.2),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.add, color: Colors.white, size: 20),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Add',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.7),
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        // Add Audio Track - dedicated outlined container
-                        GestureDetector(
-                          onTap: _addAudioFromGallery,
-                          child: Container(
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.03),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.15),
-                                width: 1.5,
-                                style: BorderStyle.solid,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  width: 24,
-                                  height: 24,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: const Icon(
-                                    Icons.add,
-                                    color: Colors.white,
-                                    size: 16,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  'Add music or audio',
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                              ],
+                    
+                    const SizedBox(height: 10),
+                    
+                    // Add Audio Track
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: GestureDetector(
+                        onTap: _addAudioFromGallery,
+                        child: Container(
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.03),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.15),
+                              width: 1.5,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    ValueListenableBuilder<VideoPlayerValue>(
-                      valueListenable: _videoController!,
-                      builder: (context, value, child) {
-                        final duration = value.duration.inMilliseconds;
-                        final position = value.position.inMilliseconds;
-                        final progress = duration > 0 ? position / duration : 0.0;
-                        final trackWidth = MediaQuery.of(context).size.width - 32 - 56 - 12 - 36 - 8;
-
-                        return Positioned(
-                          left: trackWidth * progress,
-                          top: 0,
-                          bottom: 0,
-                          child: Container(
-                            width: 2,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              boxShadow: [
-                                BoxShadow(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Icon(
+                                  Icons.add,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Add music or audio',
+                                style: TextStyle(
                                   color: Colors.white.withOpacity(0.5),
-                                  blurRadius: 8,
-                                  spreadRadius: 2,
+                                  fontSize: 13,
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        );
-                      },
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
           ),
+          
+          const SizedBox(height: 12),
         ],
       ),
     );
