@@ -116,9 +116,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   
   // Auto-scroll timeline state
   const [isUserScrolling, setIsUserScrolling] = useState(false);
-  const [wasPlayingBeforeScroll, setWasPlayingBeforeScroll] = useState(false);
-  const [showCurrentTimeTooltip, setShowCurrentTimeTooltip] = useState(false);
-  const scrollIdleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const PIXELS_PER_SECOND = 60; // Key constant for sync calculation
 
@@ -248,11 +245,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         const scrollOffset = video.currentTime * PIXELS_PER_SECOND;
         timeline.scrollLeft = scrollOffset;
       }
-      
-      // Hide tooltip during playback
-      if (!video.paused && showCurrentTimeTooltip) {
-        setShowCurrentTimeTooltip(false);
-      }
     };
     
     const handleLoadedMetadata = () => setDuration(video.duration);
@@ -267,30 +259,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       video.removeEventListener("loadedmetadata", handleLoadedMetadata);
       video.removeEventListener("ended", handleEnded);
     };
-  }, [videoUrl, isUserScrolling, showCurrentTimeTooltip]);
+  }, [videoUrl, isUserScrolling]);
 
-  // Handle scroll start - pause video immediately
-  const handleScrollStart = () => {
-    if (!videoRef.current) return;
-    
-    // Remember if video was playing before scroll
-    setWasPlayingBeforeScroll(!videoRef.current.paused);
-    
-    // Immediately pause video when user starts scrolling
-    if (!videoRef.current.paused) {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    }
-    
-    // Hide tooltip during active scrolling
-    if (scrollIdleTimerRef.current) {
-      clearTimeout(scrollIdleTimerRef.current);
-    }
-    setIsUserScrolling(true);
-    setShowCurrentTimeTooltip(false);
-  };
-
-  // Handle timeline scroll for real-time seeking
+  // Handle timeline scroll for bidirectional sync
   const handleTimelineScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (!isUserScrolling || !videoRef.current || duration <= 0) return;
     
@@ -298,53 +269,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     // Formula: currentPositionInSeconds = scrollOffset / pixelsPerSecond
     const newTime = Math.min(scrollOffset / PIXELS_PER_SECOND, duration);
     videoRef.current.currentTime = newTime;
-    
-    // Reset idle timer
-    if (scrollIdleTimerRef.current) {
-      clearTimeout(scrollIdleTimerRef.current);
-    }
-  };
-  
-  // Handle scroll end - show tooltip after 500ms if paused
-  const handleScrollEnd = () => {
-    setIsUserScrolling(false);
-    
-    // Start 500ms timer to show tooltip if video remains paused
-    if (scrollIdleTimerRef.current) {
-      clearTimeout(scrollIdleTimerRef.current);
-    }
-    scrollIdleTimerRef.current = setTimeout(() => {
-      if (videoRef.current && videoRef.current.paused) {
-        setShowCurrentTimeTooltip(true);
-        // Hide tooltip after 2 seconds
-        setTimeout(() => {
-          setShowCurrentTimeTooltip(false);
-        }, 2000);
-      }
-    }, 500);
-  };
-  
-  // Toggle play/pause with smooth transition
-  const handlePlayPause = () => {
-    if (!videoRef.current) return;
-    
-    if (isPlaying) {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      // Hide tooltip when starting playback
-      setShowCurrentTimeTooltip(false);
-      videoRef.current.play();
-      setIsPlaying(true);
-    }
-  };
-  
-  // Format time for tooltip
-  const formatTimeTooltip = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    const ms = Math.floor((seconds % 1) * 100);
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(2, '0')}`;
   };
 
   const loadRecentVideos = async () => {
@@ -488,8 +412,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   };
 
   const togglePlayPause = () => {
-    // Use the new handlePlayPause for smooth transitions
-    handlePlayPause();
+    if (!videoRef.current) return;
+    
+    if (isPlaying) {
+      videoRef.current.pause();
+    } else {
+      videoRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
   };
 
   const clearVideo = () => {
@@ -1343,36 +1273,22 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               {/* Snap line indicator */}
               {snapLinePosition !== null && (
                 <div 
-                  className="absolute top-0 bottom-0 w-0.5 bg-primary z-30"
+                  className="absolute top-0 bottom-0 w-0.5 bg-emerald-500 z-30"
                   style={{ left: snapLinePosition }}
                 />
               )}
               
-              {/* Current Time Tooltip (appears after 500ms of idle while paused) */}
-              {showCurrentTimeTooltip && videoUrl && (
-                <div 
-                  className="absolute left-1/2 top-8 -translate-x-1/2 z-40 px-3 py-1.5 bg-background/95 border border-primary/50 rounded-lg shadow-lg shadow-primary/20 animate-in fade-in-0 zoom-in-95 duration-200"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-xs font-semibold font-mono text-foreground">
-                      {formatTimeTooltip(currentTime)}
-                    </span>
-                  </div>
-                </div>
-              )}
-              
-              {/* Scrollable Timeline Content with smart auto-pause sync */}
+              {/* Scrollable Timeline Content with bidirectional sync */}
               <div 
                 ref={timelineRef}
                 className="h-full overflow-x-auto scrollbar-hide"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 onScroll={handleTimelineScroll}
-                onMouseDown={handleScrollStart}
-                onMouseUp={handleScrollEnd}
-                onMouseLeave={handleScrollEnd}
-                onTouchStart={handleScrollStart}
-                onTouchEnd={handleScrollEnd}
+                onMouseDown={() => setIsUserScrolling(true)}
+                onMouseUp={() => setIsUserScrolling(false)}
+                onMouseLeave={() => setIsUserScrolling(false)}
+                onTouchStart={() => setIsUserScrolling(true)}
+                onTouchEnd={() => setIsUserScrolling(false)}
               >
                 {/* Dynamic track width based on duration: width = duration * pixelsPerSecond */}
                 {(() => {
