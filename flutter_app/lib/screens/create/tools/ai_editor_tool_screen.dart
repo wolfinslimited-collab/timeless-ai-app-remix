@@ -51,6 +51,17 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
 
   final List<String> _qualityOptions = ['720p', '1080p', '2K', '4K'];
 
+  // Adjustment values (range -1.0 to 1.0, default 0)
+  double _brightness = 0.0;
+  double _contrast = 0.0;
+  double _saturation = 0.0;
+  double _exposure = 0.0;
+  double _sharpen = 0.0;
+  double _highlight = 0.0;
+  double _shadow = 0.0;
+  double _temperature = 0.0;
+  double _hue = 0.0;
+
   final List<EditorTool> _editorTools = [
     EditorTool(id: 'edit', name: 'Edit', icon: Icons.content_cut),
     EditorTool(id: 'audio', name: 'Audio', icon: Icons.music_note),
@@ -61,6 +72,136 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
     EditorTool(id: 'filters', name: 'Filters', icon: Icons.blur_circular),
     EditorTool(id: 'adjust', name: 'Adjust', icon: Icons.tune),
   ];
+
+  // Adjustment tool definitions
+  List<AdjustmentTool> get _adjustmentTools => [
+    AdjustmentTool(id: 'brightness', name: 'Brightness', icon: Icons.brightness_6, value: _brightness, onChanged: (v) => setState(() => _brightness = v)),
+    AdjustmentTool(id: 'contrast', name: 'Contrast', icon: Icons.contrast, value: _contrast, onChanged: (v) => setState(() => _contrast = v)),
+    AdjustmentTool(id: 'saturation', name: 'Saturation', icon: Icons.palette_outlined, value: _saturation, onChanged: (v) => setState(() => _saturation = v)),
+    AdjustmentTool(id: 'exposure', name: 'Exposure', icon: Icons.exposure, value: _exposure, onChanged: (v) => setState(() => _exposure = v)),
+    AdjustmentTool(id: 'sharpen', name: 'Sharpen', icon: Icons.blur_on, value: _sharpen, onChanged: (v) => setState(() => _sharpen = v)),
+    AdjustmentTool(id: 'highlight', name: 'Highlight', icon: Icons.wb_sunny_outlined, value: _highlight, onChanged: (v) => setState(() => _highlight = v)),
+    AdjustmentTool(id: 'shadow', name: 'Shadow', icon: Icons.nights_stay_outlined, value: _shadow, onChanged: (v) => setState(() => _shadow = v)),
+    AdjustmentTool(id: 'temp', name: 'Temp', icon: Icons.thermostat_outlined, value: _temperature, onChanged: (v) => setState(() => _temperature = v)),
+    AdjustmentTool(id: 'hue', name: 'Hue', icon: Icons.color_lens_outlined, value: _hue, onChanged: (v) => setState(() => _hue = v)),
+  ];
+
+  void _resetAllAdjustments() {
+    setState(() {
+      _brightness = 0.0;
+      _contrast = 0.0;
+      _saturation = 0.0;
+      _exposure = 0.0;
+      _sharpen = 0.0;
+      _highlight = 0.0;
+      _shadow = 0.0;
+      _temperature = 0.0;
+      _hue = 0.0;
+    });
+    _showSnackBar('All adjustments reset');
+  }
+
+  // Build color matrix for video filtering
+  ColorFilter _buildColorFilter() {
+    // Start with identity matrix
+    List<double> matrix = [
+      1, 0, 0, 0, 0,
+      0, 1, 0, 0, 0,
+      0, 0, 1, 0, 0,
+      0, 0, 0, 1, 0,
+    ];
+
+    // Apply brightness (add to RGB channels)
+    final brightnessValue = _brightness * 50;
+    matrix = _multiplyMatrix(matrix, [
+      1, 0, 0, 0, brightnessValue,
+      0, 1, 0, 0, brightnessValue,
+      0, 0, 1, 0, brightnessValue,
+      0, 0, 0, 1, 0,
+    ]);
+
+    // Apply contrast
+    final contrastValue = 1 + _contrast;
+    final contrastOffset = 128 * (1 - contrastValue);
+    matrix = _multiplyMatrix(matrix, [
+      contrastValue, 0, 0, 0, contrastOffset,
+      0, contrastValue, 0, 0, contrastOffset,
+      0, 0, contrastValue, 0, contrastOffset,
+      0, 0, 0, 1, 0,
+    ]);
+
+    // Apply saturation
+    final saturationValue = 1 + _saturation;
+    const lumR = 0.3086;
+    const lumG = 0.6094;
+    const lumB = 0.0820;
+    final sr = (1 - saturationValue) * lumR;
+    final sg = (1 - saturationValue) * lumG;
+    final sb = (1 - saturationValue) * lumB;
+    matrix = _multiplyMatrix(matrix, [
+      sr + saturationValue, sg, sb, 0, 0,
+      sr, sg + saturationValue, sb, 0, 0,
+      sr, sg, sb + saturationValue, 0, 0,
+      0, 0, 0, 1, 0,
+    ]);
+
+    // Apply exposure (multiply RGB)
+    final exposureValue = 1 + (_exposure * 0.5);
+    matrix = _multiplyMatrix(matrix, [
+      exposureValue, 0, 0, 0, 0,
+      0, exposureValue, 0, 0, 0,
+      0, 0, exposureValue, 0, 0,
+      0, 0, 0, 1, 0,
+    ]);
+
+    // Apply temperature (warm/cool tint)
+    final tempR = _temperature > 0 ? _temperature * 30 : 0;
+    final tempB = _temperature < 0 ? -_temperature * 30 : 0;
+    matrix = _multiplyMatrix(matrix, [
+      1, 0, 0, 0, tempR,
+      0, 1, 0, 0, 0,
+      0, 0, 1, 0, tempB,
+      0, 0, 0, 1, 0,
+    ]);
+
+    // Apply highlights (affects bright areas - simplified)
+    final highlightValue = _highlight * 20;
+    matrix = _multiplyMatrix(matrix, [
+      1, 0, 0, 0, highlightValue,
+      0, 1, 0, 0, highlightValue,
+      0, 0, 1, 0, highlightValue,
+      0, 0, 0, 1, 0,
+    ]);
+
+    // Apply shadows (affects dark areas - simplified)
+    final shadowValue = _shadow * 15;
+    matrix = _multiplyMatrix(matrix, [
+      1, 0, 0, 0, shadowValue,
+      0, 1, 0, 0, shadowValue,
+      0, 0, 1, 0, shadowValue,
+      0, 0, 0, 1, 0,
+    ]);
+
+    return ColorFilter.matrix(matrix);
+  }
+
+  List<double> _multiplyMatrix(List<double> a, List<double> b) {
+    // Multiply two 5x4 color matrices
+    final result = List<double>.filled(20, 0);
+    for (int i = 0; i < 4; i++) {
+      for (int j = 0; j < 5; j++) {
+        double sum = 0;
+        for (int k = 0; k < 4; k++) {
+          sum += a[i * 5 + k] * b[k * 5 + j];
+        }
+        if (j == 4) {
+          sum += a[i * 5 + 4];
+        }
+        result[i * 5 + j] = sum;
+      }
+    }
+    return result;
+  }
 
   @override
   void initState() {
@@ -901,9 +1042,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: AspectRatio(
-                  aspectRatio: _videoController!.value.aspectRatio,
-                  child: VideoPlayer(_videoController!),
+                child: ColorFiltered(
+                  colorFilter: _buildColorFilter(),
+                  child: AspectRatio(
+                    aspectRatio: _videoController!.value.aspectRatio,
+                    child: VideoPlayer(_videoController!),
+                  ),
                 ),
               ),
             ),
@@ -1469,6 +1613,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
   }
 
   Widget _buildBottomToolbar() {
+    // If Adjust tool is selected, show the adjustment panel
+    if (_selectedTool == 'adjust') {
+      return _buildAdjustPanel();
+    }
+    
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF0A0A0A),
@@ -1483,7 +1632,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
             return GestureDetector(
               onTap: () {
                 setState(() => _selectedTool = tool.id);
-                _showSnackBar('${tool.name} coming soon');
+                if (tool.id != 'adjust') {
+                  _showSnackBar('${tool.name} coming soon');
+                }
               },
               child: Container(
                 width: 64,
@@ -1511,6 +1662,166 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> {
             );
           }).toList(),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAdjustPanel() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A0A0A),
+        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header with back button and reset
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => setState(() => _selectedTool = 'edit'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.arrow_back, size: 16, color: Colors.white.withOpacity(0.8)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Back',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  'Adjust',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: _resetAllAdjustments,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.primary.withOpacity(0.4)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.refresh, size: 16, color: AppTheme.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Reset',
+                          style: TextStyle(
+                            color: AppTheme.primary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Adjustment sliders
+          SizedBox(
+            height: 200,
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              itemCount: _adjustmentTools.length,
+              itemBuilder: (context, index) {
+                final tool = _adjustmentTools[index];
+                return _buildAdjustmentSlider(tool);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdjustmentSlider(AdjustmentTool tool) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                tool.icon,
+                size: 18,
+                color: tool.value != 0 ? AppTheme.primary : Colors.white.withOpacity(0.6),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                tool.name,
+                style: TextStyle(
+                  color: tool.value != 0 ? Colors.white : Colors.white.withOpacity(0.7),
+                  fontSize: 13,
+                  fontWeight: tool.value != 0 ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: tool.value != 0 
+                      ? AppTheme.primary.withOpacity(0.15)
+                      : Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  tool.value >= 0 ? '+${(tool.value * 100).toInt()}' : '${(tool.value * 100).toInt()}',
+                  style: TextStyle(
+                    color: tool.value != 0 ? AppTheme.primary : Colors.white.withOpacity(0.6),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SliderTheme(
+            data: SliderThemeData(
+              activeTrackColor: AppTheme.primary,
+              inactiveTrackColor: Colors.white.withOpacity(0.1),
+              thumbColor: Colors.white,
+              overlayColor: AppTheme.primary.withOpacity(0.2),
+              trackHeight: 4,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+            ),
+            child: Slider(
+              value: tool.value,
+              min: -1.0,
+              max: 1.0,
+              onChanged: tool.onChanged,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1872,4 +2183,21 @@ class _FullScreenVideoDialogState extends State<_FullScreenVideoDialog> {
       ),
     );
   }
+}
+
+/// Data class for adjustment tool configuration
+class AdjustmentTool {
+  final String id;
+  final String name;
+  final IconData icon;
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  const AdjustmentTool({
+    required this.id,
+    required this.name,
+    required this.icon,
+    required this.value,
+    required this.onChanged,
+  });
 }
