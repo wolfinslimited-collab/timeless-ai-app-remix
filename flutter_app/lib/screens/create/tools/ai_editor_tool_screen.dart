@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math' as math;
@@ -123,6 +124,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   bool _isExtractingThumbnails = false;
   bool _isUserScrolling = false;
   bool _isAutoScrolling = false; // Prevents feedback loop during auto-scroll
+  bool _wasPlayingBeforeScroll = false; // Track if video was playing when user started scrolling
+  bool _showCurrentTimeTooltip = false; // Show tooltip after 500ms of idle while paused
+  Timer? _scrollIdleTimer; // Timer to detect scroll idle
   static const int _thumbnailCount = 30; // More thumbnails for smoother display
   static const double _thumbnailWidth = 50.0;
   static const double _thumbnailHeight = 48.0;
@@ -420,11 +424,31 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     return durationSeconds * _pixelsPerSecond;
   }
 
+  // Called when user starts touching/scrolling the timeline
+  void _onScrollStart() {
+    if (_videoController == null || !_isVideoInitialized) return;
+    
+    // Remember if video was playing before scroll
+    _wasPlayingBeforeScroll = _videoController!.value.isPlaying;
+    
+    // Immediately pause video when user starts scrolling
+    if (_wasPlayingBeforeScroll) {
+      _videoController!.pause();
+    }
+    
+    // Hide tooltip during active scrolling
+    _scrollIdleTimer?.cancel();
+    setState(() {
+      _isUserScrolling = true;
+      _showCurrentTimeTooltip = false;
+    });
+  }
+  
   void _onTimelineScroll() {
     // Skip if auto-scrolling from video playback to prevent feedback loop
     if (_isAutoScrolling || _videoController == null || !_isVideoInitialized) return;
     
-    // If user is actively scrolling, seek video to match scroll position
+    // If user is actively scrolling, seek video in real-time to show frame under playhead
     if (_isUserScrolling) {
       final scrollOffset = _timelineScrollController.offset;
       final durationSeconds = _videoController!.value.duration.inMilliseconds / 1000.0;
@@ -434,13 +458,16 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       final clampedSeconds = positionSeconds.clamp(0.0, durationSeconds);
       final newPosition = Duration(milliseconds: (clampedSeconds * 1000).toInt());
       
-      // Seek to exact millisecond indicated by playhead
+      // Seek to exact millisecond indicated by playhead in real-time
       _videoController!.seekTo(newPosition);
+      
+      // Reset idle timer for tooltip
+      _scrollIdleTimer?.cancel();
     }
   }
 
   void _onScrollEnd() {
-    // Called when user stops scrolling - ensure video is at exact playhead position
+    // Called when user stops scrolling
     if (_videoController == null || !_isVideoInitialized) return;
     if (!_timelineScrollController.hasClients) return;
     
@@ -453,6 +480,28 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     
     // Jump to exact millisecond when scrolling stops
     _videoController!.seekTo(exactPosition);
+    
+    setState(() {
+      _isUserScrolling = false;
+    });
+    
+    // Start 500ms timer to show tooltip if video remains paused
+    _scrollIdleTimer?.cancel();
+    _scrollIdleTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted && _videoController != null && !_videoController!.value.isPlaying) {
+        setState(() {
+          _showCurrentTimeTooltip = true;
+        });
+        // Hide tooltip after 2 seconds
+        Timer(const Duration(seconds: 2), () {
+          if (mounted) {
+            setState(() {
+              _showCurrentTimeTooltip = false;
+            });
+          }
+        });
+      }
+    });
   }
 
   void _onVideoPositionChanged() {
@@ -471,22 +520,36 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     // Mark as auto-scrolling to prevent feedback loop
     _isAutoScrolling = true;
     
-    // Smoothly animate scroll to keep timeline synced with video during playback
-    if (_videoController!.value.isPlaying) {
-      _timelineScrollController.jumpTo(
-        targetScroll.clamp(0.0, _timelineScrollController.position.maxScrollExtent)
-      );
-    } else {
-      // When paused, also update scroll position
-      _timelineScrollController.jumpTo(
-        targetScroll.clamp(0.0, _timelineScrollController.position.maxScrollExtent)
-      );
+    // Hide tooltip during playback
+    if (_videoController!.value.isPlaying && _showCurrentTimeTooltip) {
+      setState(() {
+        _showCurrentTimeTooltip = false;
+      });
     }
+    
+    // Smoothly animate scroll to keep timeline synced with video during playback
+    final maxScroll = _timelineScrollController.position.maxScrollExtent;
+    _timelineScrollController.jumpTo(targetScroll.clamp(0.0, maxScroll));
     
     _isAutoScrolling = false;
     
     // Trigger rebuild to update any position-dependent UI
     if (mounted) setState(() {});
+  }
+  
+  // Toggle play/pause with smooth transition
+  void _togglePlayPause() {
+    if (_videoController == null || !_isVideoInitialized) return;
+    
+    if (_videoController!.value.isPlaying) {
+      _videoController!.pause();
+    } else {
+      // Hide tooltip when starting playback
+      setState(() {
+        _showCurrentTimeTooltip = false;
+      });
+      _videoController!.play();
+    }
   }
 
   Future<void> _loadRecentVideos() async {
@@ -1419,10 +1482,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (notification is ScrollStartNotification) {
-                _isUserScrolling = true;
+                // User started scrolling - pause video immediately
+                _onScrollStart();
               } else if (notification is ScrollEndNotification) {
-                _isUserScrolling = false;
-                // When scrolling ends, sync video to exact playhead position
+                // User stopped scrolling - finalize position
                 _onScrollEnd();
               }
               return false;
@@ -1475,6 +1538,47 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       child: Container(
                         width: 2,
                         color: const Color(0xFF00FF00).withOpacity(0.8),
+                      ),
+                    ),
+                  // Current Time Tooltip (appears after 500ms of idle while paused)
+                  if (_showCurrentTimeTooltip && _videoController != null && _isVideoInitialized)
+                    Positioned(
+                      left: MediaQuery.of(context).size.width / 2 - 45,
+                      top: 30,
+                      child: AnimatedOpacity(
+                        opacity: _showCurrentTimeTooltip ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.85),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppTheme.primary.withOpacity(0.5), width: 1),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primary.withOpacity(0.2),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.access_time, size: 14, color: AppTheme.primary),
+                              const SizedBox(width: 6),
+                              Text(
+                                _formatDuration(_videoController!.value.position),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                 ],
