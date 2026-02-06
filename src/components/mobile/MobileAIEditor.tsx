@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { 
   ArrowLeft, 
   Video, 
-  Loader2, 
   Upload, 
   Play, 
   Pause, 
@@ -13,62 +12,29 @@ import {
   Sparkles,
   CircleOff,
   Scissors,
-  Volume2,
+  Music,
   Type,
-  Wand2,
-  Layers,
-  Captions,
-  Palette,
-  SlidersHorizontal
+  Star,
+  PictureInPicture2,
+  MessageSquareText,
+  Circle,
+  SlidersHorizontal,
+  Maximize,
+  RectangleHorizontal,
+  Undo2,
+  Redo2,
+  VolumeX,
+  Image,
+  Plus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Slider } from "@/components/ui/slider";
 
 interface MobileAIEditorProps {
   onBack: () => void;
 }
-
-interface AIFeature {
-  id: string;
-  name: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  credits: number;
-}
-
-const AI_FEATURES: AIFeature[] = [
-  {
-    id: "remove-bg",
-    name: "AI Remove Background",
-    description: "Automatically remove video backgrounds",
-    icon: Wallpaper,
-    credits: 12,
-  },
-  {
-    id: "auto-subtitles",
-    name: "Auto Subtitles",
-    description: "Generate and add captions automatically",
-    icon: Subtitles,
-    credits: 8,
-  },
-  {
-    id: "ai-enhance",
-    name: "AI Enhance",
-    description: "Upscale and improve video quality",
-    icon: Sparkles,
-    credits: 10,
-  },
-  {
-    id: "object-removal",
-    name: "Object Removal",
-    description: "Remove unwanted objects from video",
-    icon: CircleOff,
-    credits: 15,
-  },
-];
 
 interface EditorTool {
   id: string;
@@ -78,12 +44,12 @@ interface EditorTool {
 
 const EDITOR_TOOLS: EditorTool[] = [
   { id: "edit", name: "Edit", icon: Scissors },
-  { id: "audio", name: "Audio", icon: Volume2 },
+  { id: "audio", name: "Audio", icon: Music },
   { id: "text", name: "Text", icon: Type },
-  { id: "effects", name: "Effects", icon: Wand2 },
-  { id: "overlay", name: "Overlay", icon: Layers },
-  { id: "captions", name: "Captions", icon: Captions },
-  { id: "filters", name: "Filters", icon: Palette },
+  { id: "effects", name: "Effects", icon: Star },
+  { id: "overlay", name: "Overlay", icon: PictureInPicture2 },
+  { id: "captions", name: "Captions", icon: MessageSquareText },
+  { id: "filters", name: "Filters", icon: Circle },
   { id: "adjust", name: "Adjust", icon: SlidersHorizontal },
 ];
 
@@ -94,8 +60,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [selectedFeature, setSelectedFeature] = useState<string | null>(null);
   const [selectedTool, setSelectedTool] = useState("edit");
+  const [isMuted, setIsMuted] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -151,7 +117,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setIsUploading(true);
     setUploadProgress(0);
 
-    // Simulate progress
     const progressInterval = setInterval(() => {
       setUploadProgress((prev) => {
         if (prev >= 90) {
@@ -208,35 +173,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setIsPlaying(!isPlaying);
   };
 
-  const handleSeek = (values: number[]) => {
-    if (!videoRef.current) return;
-    videoRef.current.currentTime = values[0];
-    setCurrentTime(values[0]);
-  };
-
   const clearVideo = () => {
     setVideoUrl(null);
     setCurrentTime(0);
     setDuration(0);
     setIsPlaying(false);
-    setSelectedFeature(null);
-  };
-
-  const handleFeatureClick = (feature: AIFeature) => {
-    if (!videoUrl) {
-      toast({
-        variant: "destructive",
-        title: "No video",
-        description: "Please upload a video first",
-      });
-      return;
-    }
-    
-    setSelectedFeature(feature.id);
-    toast({
-      title: feature.name,
-      description: "Coming soon!",
-    });
   };
 
   const formatTime = (seconds: number) => {
@@ -245,38 +186,81 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const handleToolClick = (tool: EditorTool) => {
+    setSelectedTool(tool.id);
+    toast({
+      title: tool.name,
+      description: "Coming soon!",
+    });
+  };
+
+  // Calculate playhead position
+  const playheadPosition = duration > 0 ? (currentTime / duration) * 100 : 0;
+
   return (
-    <div className="h-full flex flex-col bg-background">
-      {/* Header */}
-      <div className="px-4 py-3 flex items-center gap-3 border-b border-border">
-        <button
-          onClick={onBack}
-          className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center"
-        >
-          <ArrowLeft className="w-4 h-4 text-foreground" />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-foreground text-lg font-semibold">AI Editor</h1>
-          <p className="text-muted-foreground text-xs">AI-powered video editing</p>
+    <div className="h-full flex flex-col bg-[#0a0a0a]">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
+
+      {/* Top Bar - Only show when video is loaded */}
+      {videoUrl && (
+        <div className="px-4 py-3 flex items-center justify-between">
+          <button
+            onClick={onBack}
+            className="w-8 h-8 flex items-center justify-center"
+          >
+            <ArrowLeft className="w-5 h-5 text-white" />
+          </button>
+          
+          <div className="flex items-center gap-6">
+            <button className="p-2">
+              <Maximize className="w-5 h-5 text-white/70" />
+            </button>
+            <button onClick={togglePlayPause} className="p-2">
+              {isPlaying ? (
+                <Pause className="w-6 h-6 text-white" />
+              ) : (
+                <Play className="w-6 h-6 text-white" />
+              )}
+            </button>
+            <button className="p-2 flex items-center gap-1">
+              <RectangleHorizontal className="w-5 h-5 text-white/70" />
+              <span className="text-white/70 text-xs">ON</span>
+            </button>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <button className="p-2">
+              <Undo2 className="w-5 h-5 text-white/70" />
+            </button>
+            <button className="p-2">
+              <Redo2 className="w-5 h-5 text-white/70" />
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-1 bg-primary/15 px-2.5 py-1 rounded-lg">
-          <Zap className="w-3.5 h-3.5 text-primary" />
-          <span className="text-primary text-xs font-semibold">12</span>
+      )}
+
+      {/* Back button for upload state */}
+      {!videoUrl && (
+        <div className="px-4 py-3">
+          <button
+            onClick={onBack}
+            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"
+          >
+            <ArrowLeft className="w-4 h-4 text-white" />
+          </button>
         </div>
-      </div>
+      )}
 
       {/* Video Preview Area */}
-      <div className="flex-1 p-4">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="video/*"
-          className="hidden"
-          onChange={handleFileSelect}
-        />
-
+      <div className="flex-1 flex flex-col">
         {isUploading ? (
-          <div className="h-full bg-secondary rounded-2xl border border-border flex flex-col items-center justify-center">
+          <div className="flex-1 flex flex-col items-center justify-center">
             <div className="relative w-20 h-20">
               <svg className="w-full h-full -rotate-90">
                 <circle
@@ -286,7 +270,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   stroke="currentColor"
                   strokeWidth="4"
                   fill="none"
-                  className="text-border"
+                  className="text-white/20"
                 />
                 <circle
                   cx="40"
@@ -300,110 +284,134 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   className="text-primary transition-all duration-300"
                 />
               </svg>
-              <span className="absolute inset-0 flex items-center justify-center text-foreground font-bold">
+              <span className="absolute inset-0 flex items-center justify-center text-white font-bold">
                 {uploadProgress}%
               </span>
             </div>
-            <p className="mt-4 text-muted-foreground text-sm">Uploading video...</p>
+            <p className="mt-4 text-white/60 text-sm">Uploading video...</p>
           </div>
         ) : videoUrl ? (
-          <div className="h-full flex flex-col">
-            <div className="flex-1 relative bg-secondary rounded-2xl border border-border overflow-hidden">
-              <video
-                ref={videoRef}
-                src={videoUrl}
-                className="w-full h-full object-contain"
-                playsInline
-              />
-              
-              {/* Play/Pause overlay */}
-              <button
-                onClick={togglePlayPause}
-                className="absolute inset-0 flex items-center justify-center"
-              >
-                <div
-                  className={cn(
-                    "w-16 h-16 rounded-full bg-black/50 flex items-center justify-center transition-opacity",
-                    isPlaying ? "opacity-0 hover:opacity-100" : "opacity-100"
-                  )}
+          <div className="flex-1 flex flex-col">
+            {/* Time Counter */}
+            <div className="px-4 py-2">
+              <span className="text-white/60 text-sm font-mono">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </span>
+            </div>
+            
+            {/* Video Container */}
+            <div className="flex-1 flex items-center justify-center px-4 relative">
+              <div className="relative w-full max-w-md aspect-video bg-black rounded-lg overflow-hidden">
+                <video
+                  ref={videoRef}
+                  src={videoUrl}
+                  className="w-full h-full object-contain"
+                  playsInline
+                  muted={isMuted}
+                />
+                
+                {/* Clear button */}
+                <button
+                  onClick={clearVideo}
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center"
                 >
-                  {isPlaying ? (
-                    <Pause className="w-8 h-8 text-white" />
-                  ) : (
-                    <Play className="w-8 h-8 text-white ml-1" />
-                  )}
-                </div>
-              </button>
-
-              {/* Clear button */}
-              <button
-                onClick={clearVideo}
-                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center"
-              >
-                <X className="w-4 h-4 text-white" />
-              </button>
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
             </div>
           </div>
         ) : (
-          <button
-            onClick={handleUploadClick}
-            className="h-full w-full bg-secondary rounded-2xl border-2 border-dashed border-border flex flex-col items-center justify-center hover:bg-secondary/80 transition-colors"
-          >
-            <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mb-6">
-              <Video className="w-10 h-10 text-primary" />
-            </div>
-            <h2 className="text-foreground text-xl font-bold mb-2">Upload Video</h2>
-            <p className="text-muted-foreground text-sm mb-6">
-              Tap to select a video from your gallery
-            </p>
-            <div className="flex items-center gap-2 px-5 py-3 bg-primary rounded-full">
-              <Upload className="w-5 h-5 text-primary-foreground" />
-              <span className="text-primary-foreground text-sm font-semibold">Choose Video</span>
-            </div>
-          </button>
+          <div className="flex-1 flex items-center justify-center p-6">
+            <button
+              onClick={handleUploadClick}
+              className="w-full max-w-sm aspect-video bg-white/5 rounded-2xl border-2 border-dashed border-white/20 flex flex-col items-center justify-center hover:bg-white/10 transition-colors"
+            >
+              <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center mb-4">
+                <Video className="w-8 h-8 text-primary" />
+              </div>
+              <h2 className="text-white text-lg font-bold mb-2">Upload Video</h2>
+              <p className="text-white/50 text-sm mb-4 text-center">
+                Tap to select a video
+              </p>
+              <div className="flex items-center gap-2 px-4 py-2 bg-primary rounded-full">
+                <Upload className="w-4 h-4 text-primary-foreground" />
+                <span className="text-primary-foreground text-sm font-semibold">Choose Video</span>
+              </div>
+            </button>
+          </div>
         )}
       </div>
 
-      {/* Timeline (only when video is loaded) */}
+      {/* Timeline Section - Only show when video is loaded */}
       {videoUrl && duration > 0 && (
-        <div className="px-4 pb-3">
-          <div className="bg-secondary rounded-lg p-3 border border-border">
-            {/* Thumbnail strip placeholder */}
-            <div className="h-12 mb-3 rounded-lg overflow-hidden flex bg-border/30">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex-1 border-r border-border/20 last:border-r-0 flex items-center justify-center"
-                >
-                  <Video className="w-3 h-3 text-muted-foreground/30" />
-                </div>
-              ))}
+        <div className="px-4 py-3 bg-[#0a0a0a]">
+          {/* Time markers */}
+          <div className="flex justify-between mb-2 text-[10px] text-white/40 font-mono">
+            <span>00:00</span>
+            <span>{formatTime(duration / 4)}</span>
+            <span>{formatTime(duration / 2)}</span>
+            <span>{formatTime((duration * 3) / 4)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+          
+          {/* Timeline tracks */}
+          <div className="flex gap-2 relative">
+            {/* Left controls */}
+            <div className="flex flex-col gap-2 w-16 shrink-0">
+              <button 
+                onClick={() => setIsMuted(!isMuted)}
+                className="flex flex-col items-center justify-center gap-1 p-2 bg-white/5 rounded-lg"
+              >
+                <VolumeX className={cn("w-4 h-4", isMuted ? "text-primary" : "text-white/60")} />
+                <span className="text-[9px] text-white/60 leading-tight text-center">Mute clip audio</span>
+              </button>
+              <button className="flex flex-col items-center justify-center gap-1 p-2 bg-white/5 rounded-lg">
+                <Image className="w-4 h-4 text-white/60" />
+                <span className="text-[9px] text-white/60">Cover</span>
+              </button>
             </div>
             
-            {/* Slider */}
-            <Slider
-              value={[currentTime]}
-              min={0}
-              max={duration || 100}
-              step={0.1}
-              onValueChange={handleSeek}
-              className="mb-2"
-            />
-            
-            {/* Time display */}
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
+            {/* Tracks area */}
+            <div className="flex-1 flex flex-col gap-2 relative">
+              {/* Playhead line */}
+              <div 
+                className="absolute top-0 bottom-0 w-0.5 bg-white z-10 shadow-[0_0_8px_rgba(255,255,255,0.5)]"
+                style={{ left: `${playheadPosition}%` }}
+              />
+              
+              {/* Video track with thumbnails */}
+              <div className="flex items-center gap-1">
+                <div className="flex-1 h-12 bg-white/10 rounded-lg overflow-hidden flex relative">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="flex-1 border-r border-black/30 last:border-r-0 bg-gradient-to-b from-red-900/40 to-red-950/60 flex items-center justify-center"
+                    >
+                      <Video className="w-3 h-3 text-white/20" />
+                    </div>
+                  ))}
+                </div>
+                {/* Add clip button */}
+                <button className="w-8 h-12 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors">
+                  <Plus className="w-5 h-5 text-white" />
+                </button>
+              </div>
+              
+              {/* Audio track */}
+              <button className="h-8 bg-white/5 rounded-lg flex items-center justify-center gap-2 hover:bg-white/10 transition-colors border border-dashed border-white/20">
+                <Plus className="w-4 h-4 text-white/40" />
+                <span className="text-white/40 text-xs">Add audio</span>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Editor Tools Menu (only when video is loaded) */}
+      {/* Bottom Toolbar - Always show when video is loaded */}
       {videoUrl && duration > 0 && (
-        <div className="px-4 pb-3">
-          <div className="bg-secondary rounded-2xl border border-border p-2 overflow-x-auto">
-            <div className="flex gap-1 min-w-max">
+        <div className="bg-[#0a0a0a] border-t border-white/10 pb-safe">
+          <div className="overflow-x-auto">
+            <div className="flex px-2 py-3 min-w-max">
               {EDITOR_TOOLS.map((tool) => {
                 const Icon = tool.icon;
                 const isSelected = selectedTool === tool.id;
@@ -411,37 +419,19 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 return (
                   <button
                     key={tool.id}
-                    onClick={() => {
-                      setSelectedTool(tool.id);
-                      toast({
-                        title: tool.name,
-                        description: "Coming soon!",
-                      });
-                    }}
-                    className={cn(
-                      "flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all",
-                      isSelected
-                        ? "bg-primary/15"
-                        : "hover:bg-secondary/80"
-                    )}
+                    onClick={() => handleToolClick(tool)}
+                    className="flex flex-col items-center justify-center w-16 py-1"
                   >
-                    <div
+                    <Icon
                       className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center mb-1",
-                        isSelected ? "bg-primary/15" : "bg-transparent"
+                        "w-6 h-6 mb-1",
+                        isSelected ? "text-white" : "text-white/60"
                       )}
-                    >
-                      <Icon
-                        className={cn(
-                          "w-5 h-5",
-                          isSelected ? "text-primary" : "text-muted-foreground"
-                        )}
-                      />
-                    </div>
+                    />
                     <span
                       className={cn(
-                        "text-[10px] font-medium",
-                        isSelected ? "text-primary" : "text-muted-foreground"
+                        "text-[11px]",
+                        isSelected ? "text-white font-medium" : "text-white/60"
                       )}
                     >
                       {tool.name}
@@ -453,59 +443,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           </div>
         </div>
       )}
-
-      {/* AI Features Grid */}
-      <div className="px-4 pb-4">
-        <h3 className="text-foreground font-bold mb-3">AI Features</h3>
-        <div className="grid grid-cols-2 gap-3">
-          {AI_FEATURES.map((feature) => {
-            const Icon = feature.icon;
-            const isSelected = selectedFeature === feature.id;
-            const isDisabled = !videoUrl;
-
-            return (
-              <button
-                key={feature.id}
-                onClick={() => handleFeatureClick(feature)}
-                disabled={isDisabled}
-                className={cn(
-                  "p-3 rounded-2xl border text-left transition-all",
-                  isSelected
-                    ? "bg-primary/15 border-primary"
-                    : "bg-secondary border-border hover:bg-secondary/80",
-                  isDisabled && "opacity-50 cursor-not-allowed"
-                )}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div
-                    className={cn(
-                      "w-9 h-9 rounded-xl flex items-center justify-center",
-                      isSelected ? "bg-primary" : "bg-primary/10"
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        "w-4 h-4",
-                        isSelected ? "text-primary-foreground" : "text-primary"
-                      )}
-                    />
-                  </div>
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-primary/10 rounded-md">
-                    <Zap className="w-2.5 h-2.5 text-primary" />
-                    <span className="text-[10px] font-bold text-primary">{feature.credits}</span>
-                  </div>
-                </div>
-                <h4 className="text-foreground text-xs font-semibold mb-0.5 truncate">
-                  {feature.name}
-                </h4>
-                <p className="text-muted-foreground text-[10px] truncate">
-                  {feature.description}
-                </p>
-              </button>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 }
