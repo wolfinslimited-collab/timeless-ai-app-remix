@@ -24,7 +24,16 @@ import {
   Clock,
   PlayCircle,
   ChevronDown,
-  Download
+  Download,
+  Sun,
+  Contrast,
+  Palette,
+  Aperture,
+  Focus,
+  Sunrise,
+  Moon,
+  Thermometer,
+  Droplets
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -99,16 +108,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     hue: 0,
   });
 
-  const adjustmentTools = [
-    { id: 'brightness', name: 'Brightness', icon: '☀️' },
-    { id: 'contrast', name: 'Contrast', icon: '◐' },
-    { id: 'saturation', name: 'Saturation', icon: '🎨' },
-    { id: 'exposure', name: 'Exposure', icon: '📷' },
-    { id: 'sharpen', name: 'Sharpen', icon: '🔍' },
-    { id: 'highlight', name: 'Highlight', icon: '🌞' },
-    { id: 'shadow', name: 'Shadow', icon: '🌙' },
-    { id: 'temp', name: 'Temp', icon: '🌡️' },
-    { id: 'hue', name: 'Hue', icon: '🎭' },
+  const adjustmentTools: { id: keyof typeof adjustments; name: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { id: 'brightness', name: 'Brightness', icon: Sun },
+    { id: 'contrast', name: 'Contrast', icon: Contrast },
+    { id: 'saturation', name: 'Saturation', icon: Palette },
+    { id: 'exposure', name: 'Exposure', icon: Aperture },
+    { id: 'sharpen', name: 'Sharpen', icon: Focus },
+    { id: 'highlight', name: 'Highlight', icon: Sunrise },
+    { id: 'shadow', name: 'Shadow', icon: Moon },
+    { id: 'temp', name: 'Temp', icon: Thermometer },
+    { id: 'hue', name: 'Hue', icon: Droplets },
   ];
 
   const resetAdjustments = () => {
@@ -865,11 +874,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             <div className="max-h-[200px] overflow-y-auto px-4 pb-4 space-y-4">
               {adjustmentTools.map((tool) => {
                 const value = adjustments[tool.id as keyof typeof adjustments];
+                const IconComponent = tool.icon;
                 return (
                   <div key={tool.id}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-base">{tool.icon}</span>
+                        <IconComponent className="w-4 h-4 text-white/80" />
                         <span className={cn(
                           "text-sm",
                           value !== 0 ? "text-white font-semibold" : "text-white/70"
