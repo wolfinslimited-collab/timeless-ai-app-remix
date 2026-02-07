@@ -195,12 +195,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     hue: 0,
   });
   
-  // Video frame thumbnails for timeline filmstrip
-  const [clipThumbnails, setClipThumbnails] = useState<Map<string, string[]>>(new Map());
-  const [isExtractingFrames, setIsExtractingFrames] = useState(false);
-  const extractorVideoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  
   // Layer management state for multi-track timeline
   const [draggingLayerId, setDraggingLayerId] = useState<string | null>(null);
   const [trimmingLayerId, setTrimmingLayerId] = useState<string | null>(null);
@@ -917,16 +911,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         // Create a temporary video element to get duration
         const tempVideo = document.createElement('video');
         tempVideo.src = localUrl;
-        tempVideo.addEventListener('loadedmetadata', async () => {
-          const newClipId = Date.now().toString();
+        tempVideo.addEventListener('loadedmetadata', () => {
           addVideoClip(localUrl, tempVideo.duration);
-          
-          // Extract frames for the new clip
-          setIsExtractingFrames(true);
-          const frames = await extractFramesForClip(newClipId, localUrl);
-          setClipThumbnails(prev => new Map(prev).set(localUrl, frames));
-          setIsExtractingFrames(false);
-          
           setIsUploading(false);
         });
         tempVideo.addEventListener('error', () => {
@@ -938,13 +924,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         // First video - set as primary
         setVideoUrl(localUrl);
         setUploadProgress(100);
-        
-        // Extract frames for the primary video
-        setIsExtractingFrames(true);
-        const frames = await extractFramesForClip('primary', localUrl);
-        setClipThumbnails(prev => new Map(prev).set(localUrl, frames));
-        setIsExtractingFrames(false);
-        
         toast({
           title: "Video loaded",
           description: "Your video is ready for editing (local)",
@@ -975,68 +954,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     unifiedPlayPause();
   };
 
-  // Extract video frames for timeline thumbnails
-  const extractFramesForClip = async (clipId: string, videoSrc: string): Promise<string[]> => {
-    const FRAME_COUNT = 20; // Number of frames to extract
-    const frames: string[] = [];
-    
-    return new Promise<string[]>((resolve) => {
-      const video = document.createElement('video');
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      extractorVideoRef.current = video;
-      canvasRef.current = canvas;
-      
-      video.crossOrigin = 'anonymous';
-      video.muted = true;
-      video.preload = 'metadata';
-      
-      video.onloadedmetadata = async () => {
-        const videoDuration = video.duration;
-        canvas.width = 80;
-        canvas.height = 60;
-        
-        const captureFrame = (time: number): Promise<string> => {
-          return new Promise((res) => {
-            video.currentTime = time;
-            video.onseeked = () => {
-              if (ctx) {
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-                res(dataUrl);
-              } else {
-                res('');
-              }
-            };
-          });
-        };
-        
-        for (let i = 0; i < FRAME_COUNT; i++) {
-          const time = (videoDuration / FRAME_COUNT) * i;
-          const frame = await captureFrame(time);
-          if (frame) frames.push(frame);
-        }
-        
-        resolve(frames);
-      };
-      
-      video.onerror = () => {
-        resolve([]);
-      };
-      
-      video.src = videoSrc;
-    });
-  };
-
   const clearVideo = () => {
-    // Clean up thumbnail URLs
-    clipThumbnails.forEach(frames => {
-      frames.forEach(url => {
-        if (url.startsWith('data:')) return; // Don't revoke data URLs
-      });
-    });
-    setClipThumbnails(new Map());
     setVideoUrl(null);
     setVideoClips([]);
     setCurrentTime(0);
@@ -3196,57 +3114,33 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                   
                                   {/* Thumbnails content area */}
                                   <div className="flex-1 flex relative overflow-hidden">
-                                    {(() => {
-                                      // Get thumbnails for this clip
-                                      const frames = clipThumbnails.get(clip.url) || [];
-                                      
-                                      return Array.from({ length: thumbCount }).map((_, i) => {
-                                        // Map thumbnail index to extracted frame
-                                        const frameIndex = frames.length > 0 
-                                          ? Math.floor((i / thumbCount) * frames.length) 
-                                          : -1;
-                                        const frameUrl = frameIndex >= 0 && frameIndex < frames.length 
-                                          ? frames[frameIndex] 
-                                          : null;
-                                        const thumbTime = clip.inPoint + (i / thumbCount) * getClipTrimmedDuration(clip);
-                                        
-                                        return (
-                                          <div
-                                            key={i}
-                                            className="w-[60px] h-full shrink-0 relative overflow-hidden"
+                                    {Array.from({ length: thumbCount }).map((_, i) => {
+                                      // Adjust thumbTime to account for inPoint
+                                      const thumbTime = clip.inPoint + (i / thumbCount) * getClipTrimmedDuration(clip);
+                                      return (
+                                        <div
+                                          key={i}
+                                          className="w-[60px] h-full shrink-0 relative overflow-hidden"
+                                          style={{
+                                            borderRight: i < thumbCount - 1 ? '1px solid rgba(90, 0, 0, 0.4)' : 'none',
+                                          }}
+                                        >
+                                          <div 
+                                            className="w-full h-full bg-cover bg-center"
                                             style={{
-                                              borderRight: i < thumbCount - 1 ? '1px solid rgba(90, 0, 0, 0.4)' : 'none',
+                                              backgroundImage: `linear-gradient(135deg, rgba(139,0,0,0.3), rgba(90,0,0,0.5))`,
+                                              backgroundColor: '#2A1515',
                                             }}
                                           >
-                                            {frameUrl ? (
-                                              <img 
-                                                src={frameUrl} 
-                                                alt="" 
-                                                className="w-full h-full object-cover"
-                                              />
-                                            ) : (
-                                              <div 
-                                                className="w-full h-full bg-cover bg-center"
-                                                style={{
-                                                  backgroundImage: `linear-gradient(135deg, rgba(139,0,0,0.3), rgba(90,0,0,0.5))`,
-                                                  backgroundColor: '#2A1515',
-                                                }}
-                                              >
-                                                <div className="w-full h-full flex items-center justify-center">
-                                                  {isExtractingFrames ? (
-                                                    <Loader2 className="w-3 h-3 text-white/40 animate-spin" />
-                                                  ) : (
-                                                    <span className="text-[8px] text-white/40 font-mono">
-                                                      {Math.floor(thumbTime)}s
-                                                    </span>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            )}
+                                            <div className="w-full h-full flex items-center justify-center">
+                                              <span className="text-[8px] text-white/40 font-mono">
+                                                {Math.floor(thumbTime)}s
+                                              </span>
+                                            </div>
                                           </div>
-                                        );
-                                      });
-                                    })()}
+                                        </div>
+                                      );
+                                    })}
                                     
                                     {/* Clip info overlay when selected */}
                                     {isSelected && (
