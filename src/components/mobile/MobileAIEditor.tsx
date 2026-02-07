@@ -88,8 +88,17 @@ const QUALITY_OPTIONS = ["720p", "1080p", "2K", "4K"];
 const PIXELS_PER_SECOND = 80.0; // Master time-to-pixel ratio
 const THUMBNAIL_HEIGHT = 48;
 
+// Video clip model for multi-clip timeline
+interface VideoClip {
+  id: string;
+  url: string;
+  duration: number;
+  startTime: number; // Position on timeline (auto-calculated when appending)
+}
+
 export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoClips, setVideoClips] = useState<VideoClip[]>([]); // Multi-clip support
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -504,19 +513,36 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setUploadProgress(50);
 
     try {
-      setVideoUrl(url);
-      setUploadProgress(100);
-      toast({
-        title: "Video loaded",
-        description: "Your video is ready for editing",
-      });
+      // If we already have a video, this is adding a new clip
+      if (videoUrl && videoClips.length > 0) {
+        // Create a temporary video element to get duration
+        const tempVideo = document.createElement('video');
+        tempVideo.src = url;
+        tempVideo.addEventListener('loadedmetadata', () => {
+          addVideoClip(url, tempVideo.duration);
+          setIsUploading(false);
+        });
+        tempVideo.addEventListener('error', () => {
+          // Fallback duration if can't load
+          addVideoClip(url, 10);
+          setIsUploading(false);
+        });
+      } else {
+        // First video - set as primary
+        setVideoUrl(url);
+        setUploadProgress(100);
+        toast({
+          title: "Video loaded",
+          description: "Your video is ready for editing",
+        });
+        setIsUploading(false);
+      }
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Error",
         description: "Failed to load video",
       });
-    } finally {
       setIsUploading(false);
     }
   };
@@ -570,12 +596,27 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
       clearInterval(progressInterval);
       setUploadProgress(100);
-      setVideoUrl(urlData.publicUrl);
       
-      toast({
-        title: "Video uploaded",
-        description: "Your video is ready for editing",
-      });
+      // If we already have a video, add as new clip
+      if (videoUrl && videoClips.length > 0) {
+        // Create a temporary video element to get duration
+        const tempVideo = document.createElement('video');
+        tempVideo.src = urlData.publicUrl;
+        tempVideo.addEventListener('loadedmetadata', () => {
+          addVideoClip(urlData.publicUrl, tempVideo.duration);
+        });
+        tempVideo.addEventListener('error', () => {
+          // Fallback duration
+          addVideoClip(urlData.publicUrl, 10);
+        });
+      } else {
+        // First video - set as primary
+        setVideoUrl(urlData.publicUrl);
+        toast({
+          title: "Video uploaded",
+          description: "Your video is ready for editing",
+        });
+      }
     } catch (error) {
       console.error("Upload error:", error);
       toast({
@@ -604,10 +645,44 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   const clearVideo = () => {
     setVideoUrl(null);
+    setVideoClips([]);
     setCurrentTime(0);
     setDuration(0);
     setIsPlaying(false);
   };
+
+  // Calculate total timeline duration from all clips
+  const totalTimelineDuration = videoClips.length > 0 
+    ? videoClips.reduce((sum, clip) => sum + clip.duration, 0)
+    : duration;
+
+  // Add a new video clip to the end of the timeline
+  const addVideoClip = (url: string, clipDuration: number) => {
+    const lastClip = videoClips[videoClips.length - 1];
+    const startTime = lastClip ? lastClip.startTime + lastClip.duration : 0;
+    
+    const newClip: VideoClip = {
+      id: Date.now().toString(),
+      url,
+      duration: clipDuration,
+      startTime,
+    };
+    
+    setVideoClips(prev => [...prev, newClip]);
+    toast({ title: "Video added", description: "Clip appended to timeline" });
+  };
+
+  // Initialize first clip when primary video is loaded
+  useEffect(() => {
+    if (videoUrl && duration > 0 && videoClips.length === 0) {
+      setVideoClips([{
+        id: 'primary',
+        url: videoUrl,
+        duration,
+        startTime: 0,
+      }]);
+    }
+  }, [videoUrl, duration]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -1735,7 +1810,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   const scrollLeft = e.currentTarget.scrollLeft;
                   // Convert scroll to time using pixelsPerSecond
                   const timeUnderPlayhead = scrollLeft / PIXELS_PER_SECOND;
-                  const clampedTime = Math.max(0, Math.min(duration, timeUnderPlayhead));
+                  const clampedTime = Math.max(0, Math.min(totalTimelineDuration, timeUnderPlayhead));
                   if (videoRef.current) {
                     videoRef.current.pause();
                     videoRef.current.currentTime = clampedTime;
@@ -1748,10 +1823,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 onTouchStart={() => setIsUserScrolling(true)}
                 onTouchEnd={() => setIsUserScrolling(false)}
               >
-                {/* Calculate dimensions using pixelsPerSecond */}
+                {/* Calculate dimensions using pixelsPerSecond - use totalTimelineDuration for multi-clip support */}
                 {(() => {
-                  const trackWidth = duration * PIXELS_PER_SECOND;
-                  const thumbCount = Math.ceil(trackWidth / 60);
+                  const trackWidth = totalTimelineDuration * PIXELS_PER_SECOND;
                   const halfScreen = typeof window !== 'undefined' ? window.innerWidth / 2 : 200;
                   
                   return (
@@ -1765,9 +1839,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     >
                       {/* Time Ruler using pixelsPerSecond */}
                       <div className="h-6 flex items-end relative" style={{ width: trackWidth }}>
-                        {Array.from({ length: Math.ceil(duration / 2) + 1 }).map((_, i) => {
+                        {Array.from({ length: Math.ceil(totalTimelineDuration / 2) + 1 }).map((_, i) => {
                           const seconds = i * 2;
-                          if (seconds > duration) return null;
+                          if (seconds > totalTimelineDuration) return null;
                           // Position using global constant
                           const position = seconds * PIXELS_PER_SECOND;
                           return (
@@ -1784,7 +1858,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           );
                         })}
                         {/* Minor ticks */}
-                        {Array.from({ length: Math.ceil(duration) + 1 }).map((_, i) => {
+                        {Array.from({ length: Math.ceil(totalTimelineDuration) + 1 }).map((_, i) => {
                           if (i % 2 === 0) return null;
                           const position = i * PIXELS_PER_SECOND;
                           return (
@@ -1797,28 +1871,80 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         })}
                       </div>
                       
-                      {/* Video Track Row - filmstrip with thumbnails */}
-                      <div className="flex items-center gap-2">
-                        {/* Video Track Filmstrip - using pixelsPerSecond with actual thumbnails */}
-                        <div className="relative">
-                          <div 
-                            className="flex h-[48px] rounded-lg overflow-hidden border-2"
-                            style={{ borderColor: '#AA2222', width: trackWidth }}
-                          >
-                            {Array.from({ length: thumbCount }).map((_, i) => {
-                              // Calculate the time position for this thumbnail
-                              const thumbTime = (i / thumbCount) * duration;
-                              // Use video element to extract frame (simulated with gradient for now)
-                              return (
-                                <div
-                                  key={i}
-                                  className="w-[60px] h-full shrink-0 relative overflow-hidden"
-                                  style={{
-                                    borderRight: i < thumbCount - 1 ? '1px solid rgba(90, 0, 0, 0.4)' : 'none',
-                                  }}
-                                >
-                                  {/* Video thumbnail frame - uses canvas extraction in production */}
-                                  {videoUrl ? (
+                      {/* Video Track Row - multi-clip filmstrip */}
+                      <div className="flex items-center gap-0">
+                        {/* Render all video clips snapped together */}
+                        <div className="flex h-[48px]">
+                          {videoClips.map((clip, clipIndex) => {
+                            const clipWidth = clip.duration * PIXELS_PER_SECOND;
+                            const thumbCount = Math.ceil(clipWidth / 60);
+                            
+                            return (
+                              <div 
+                                key={clip.id}
+                                className="relative h-[48px] rounded-lg overflow-hidden border-2"
+                                style={{ 
+                                  borderColor: '#AA2222', 
+                                  width: clipWidth,
+                                  // Remove left border-radius for non-first clips to create seamless join
+                                  borderTopLeftRadius: clipIndex === 0 ? undefined : 0,
+                                  borderBottomLeftRadius: clipIndex === 0 ? undefined : 0,
+                                  // Remove right border for non-last clips
+                                  borderRight: clipIndex < videoClips.length - 1 ? 'none' : undefined,
+                                }}
+                              >
+                                <div className="flex h-full">
+                                  {Array.from({ length: thumbCount }).map((_, i) => {
+                                    const thumbTime = clip.startTime + (i / thumbCount) * clip.duration;
+                                    return (
+                                      <div
+                                        key={i}
+                                        className="w-[60px] h-full shrink-0 relative overflow-hidden"
+                                        style={{
+                                          borderRight: i < thumbCount - 1 ? '1px solid rgba(90, 0, 0, 0.4)' : 'none',
+                                        }}
+                                      >
+                                        <div 
+                                          className="w-full h-full bg-cover bg-center"
+                                          style={{
+                                            backgroundImage: `linear-gradient(135deg, rgba(139,0,0,0.3), rgba(90,0,0,0.5))`,
+                                            backgroundColor: '#2A1515',
+                                          }}
+                                        >
+                                          <div className="w-full h-full flex items-center justify-center">
+                                            <span className="text-[8px] text-white/40 font-mono">
+                                              {Math.floor(thumbTime)}s
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                {/* Clip separator indicator */}
+                                {clipIndex < videoClips.length - 1 && (
+                                  <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-white/30" />
+                                )}
+                              </div>
+                            );
+                          })}
+                          
+                          {/* Fallback for single video without clips array */}
+                          {videoClips.length === 0 && videoUrl && (
+                            <div 
+                              className="relative h-[48px] rounded-lg overflow-hidden border-2 flex"
+                              style={{ borderColor: '#AA2222', width: duration * PIXELS_PER_SECOND }}
+                            >
+                              {Array.from({ length: Math.ceil((duration * PIXELS_PER_SECOND) / 60) }).map((_, i) => {
+                                const thumbTime = (i / Math.ceil((duration * PIXELS_PER_SECOND) / 60)) * duration;
+                                return (
+                                  <div
+                                    key={i}
+                                    className="w-[60px] h-full shrink-0 relative overflow-hidden"
+                                    style={{
+                                      borderRight: '1px solid rgba(90, 0, 0, 0.4)',
+                                    }}
+                                  >
                                     <div 
                                       className="w-full h-full bg-cover bg-center"
                                       style={{
@@ -1826,31 +1952,26 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                         backgroundColor: '#2A1515',
                                       }}
                                     >
-                                      {/* Simulated frame with time indicator */}
                                       <div className="w-full h-full flex items-center justify-center">
                                         <span className="text-[8px] text-white/40 font-mono">
                                           {Math.floor(thumbTime)}s
                                         </span>
                                       </div>
                                     </div>
-                                  ) : (
-                                    <div 
-                                      className="w-full h-full flex items-center justify-center"
-                                      style={{ background: 'linear-gradient(to bottom, #8B0000, #5A0000)' }}
-                                    >
-                                      <Video className="w-3.5 h-3.5 text-white/30" />
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                         
-                        {/* Add video button */}
+                        {/* Add video button - appends new clip */}
                         <button 
-                          onClick={handleShowMediaPicker}
-                          className="w-11 h-[48px] bg-white rounded-xl flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(255,255,255,0.25)]"
+                          onClick={() => {
+                            // Open media picker to add another video
+                            handleShowMediaPicker();
+                          }}
+                          className="w-11 h-[48px] bg-white rounded-xl flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(255,255,255,0.25)] ml-2"
                         >
                           <Plus className="w-6 h-6 text-black" />
                         </button>

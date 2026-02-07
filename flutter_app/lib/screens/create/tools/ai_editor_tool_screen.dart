@@ -122,6 +122,21 @@ class CaptionLayer {
   });
 }
 
+/// Video clip data model for multi-clip timeline
+class VideoClip {
+  String id;
+  String url;
+  double duration;
+  double startTime; // Position on timeline (auto-calculated when appending)
+  
+  VideoClip({
+    required this.id,
+    required this.url,
+    required this.duration,
+    this.startTime = 0,
+  });
+}
+
 /// Layer type enum for track management
 enum LayerType { text, audio, sticker, caption }
 
@@ -185,6 +200,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   String? _selectedCaptionId;
   bool _isGeneratingCaptions = false;
   
+  // Multi-clip video support
+  List<VideoClip> _videoClips = [];
+  
   // Layer dragging state
   String? _draggingLayerId;
   LayerType? _draggingLayerType;
@@ -198,6 +216,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Settings panel state - for dynamic UI overlap
   bool _isTextEditorInline = false; // For inline keyboard editing
   
+  // Calculate total timeline duration from all clips
+  double get _totalTimelineDuration {
+    if (_videoClips.isNotEmpty) {
+      return _videoClips.fold(0.0, (sum, clip) => sum + clip.duration);
+    }
+    return _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+  }
+
   // Quality options
   final List<String> _qualityOptions = ['720p', '1080p', '2K', '4K'];
 
@@ -686,6 +712,44 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
 
   // ============================================
+  // MULTI-CLIP VIDEO FUNCTIONS
+  // ============================================
+  
+  /// Add a new video clip to the end of the timeline
+  void _addVideoClip(String url, double clipDuration) {
+    final lastClip = _videoClips.isNotEmpty ? _videoClips.last : null;
+    final startTime = lastClip != null ? lastClip.startTime + lastClip.duration : 0.0;
+    
+    final newClip = VideoClip(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      url: url,
+      duration: clipDuration,
+      startTime: startTime,
+    );
+    
+    setState(() {
+      _videoClips.add(newClip);
+    });
+    
+    _showSnackBar('Video clip added to timeline');
+  }
+  
+  /// Initialize first clip when primary video is loaded
+  void _initializeFirstClip() {
+    if (_videoUrl != null && _videoController != null && _isVideoInitialized && _videoClips.isEmpty) {
+      final duration = _videoController!.value.duration.inSeconds.toDouble();
+      setState(() {
+        _videoClips.add(VideoClip(
+          id: 'primary',
+          url: _videoUrl!,
+          duration: duration,
+          startTime: 0,
+        ));
+      });
+    }
+  }
+
+  // ============================================
   // TIMELINE SYNC ENGINE - Core Logic
   // ============================================
   
@@ -699,10 +763,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     return scrollOffset / _pixelsPerSecond;
   }
   
-  /// Get total timeline width based on video duration
+  /// Get total timeline width based on video duration (supports multi-clip)
   double get _totalTimelineWidth {
-    final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
-    return duration * _pixelsPerSecond;
+    return _totalTimelineDuration * _pixelsPerSecond;
   }
 
   void _onTimelineScroll() {
@@ -1121,6 +1184,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       _videoController!.setLooping(true);
       _videoController!.addListener(_onVideoPositionChanged);
       setState(() => _isVideoInitialized = true);
+      
+      // Initialize first video clip if this is the primary video
+      _initializeFirstClip();
       
       // Extract thumbnails after video is initialized
       _extractThumbnails(url);
@@ -1646,23 +1712,23 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   Widget _buildTimelineSection() {
     final screenWidth = MediaQuery.of(context).size.width;
-    final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+    final duration = _totalTimelineDuration; // Use total duration for multi-clip support
     final trackWidth = _totalTimelineWidth; // duration * pixelsPerSecond
     
-    // Minimal edge padding for visual clarity
-    const double edgePadding = 16.0;
+    // Half-screen padding for perfect playhead alignment at scroll limits
+    final double halfScreenPadding = screenWidth / 2;
     
     // Fixed controls width (Mute/Cover buttons)
     const double fixedControlsWidth = 56.0;
     
-    // Total scrollable width: small padding + track + small padding
-    final totalScrollWidth = edgePadding + trackWidth + edgePadding;
+    // Total scrollable width: halfScreen + track + halfScreen
+    final totalScrollWidth = halfScreenPadding + trackWidth + halfScreenPadding;
     
     // Calculate height based on tracks
     const baseHeight = 200.0;
     
-    // Playhead positioned at left edge (with small offset for visibility)
-    const double playheadOffset = edgePadding;
+    // Playhead positioned at center (half screen width minus fixed controls)
+    final double playheadOffset = halfScreenPadding;
     
     return Container(
       height: baseHeight,
@@ -1777,27 +1843,27 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Time Ruler
-                          _buildTimeRuler(edgePadding),
+                          _buildTimeRuler(halfScreenPadding),
                           const SizedBox(height: 4),
                           
-                          // Video Track (filmstrip only - controls are fixed)
-                          _buildVideoTrackFilmstripOnly(edgePadding, trackWidth),
+                          // Video Track (filmstrip only - controls are fixed) - supports multi-clip
+                          _buildVideoTrackFilmstripOnly(halfScreenPadding, trackWidth),
                           const SizedBox(height: 6),
                           
                           // Audio Track (Green waveform layers)
-                          _buildAudioTrack(edgePadding, trackWidth, duration),
+                          _buildAudioTrack(halfScreenPadding, trackWidth, duration),
                           const SizedBox(height: 6),
                           
                           // Text Track (Purple/Yellow layers)
-                          _buildTextTrack(edgePadding, trackWidth, duration),
+                          _buildTextTrack(halfScreenPadding, trackWidth, duration),
                           const SizedBox(height: 6),
                           
                           // Caption/Subtitle Track (Cyan layers)
-                          _buildCaptionTrack(edgePadding, trackWidth, duration),
+                          _buildCaptionTrack(halfScreenPadding, trackWidth, duration),
                           const SizedBox(height: 6),
                           
                           // Add layer buttons row
-                          _buildAddLayerRow(edgePadding),
+                          _buildAddLayerRow(halfScreenPadding),
                         ],
                       ),
                     ),
@@ -1862,23 +1928,26 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
 
-  /// Build video track filmstrip only (no controls - they are fixed now)
+  /// Build video track filmstrip only (no controls - they are fixed now) - supports multi-clip
   Widget _buildVideoTrackFilmstripOnly(double startPadding, double trackWidth) {
     return SizedBox(
       height: _thumbnailHeight + 8,
       child: Row(
         children: [
-          // Left padding
+          // Left padding (half screen width)
           SizedBox(width: startPadding),
           
-          // Video Track Filmstrip
-          _buildVideoTrackFilmstrip(trackWidth),
+          // Video Track - Multi-clip filmstrip row
+          _buildMultiClipFilmstrip(trackWidth),
           
           const SizedBox(width: 10),
           
-          // Add clip button
+          // Add clip button - now adds to end of timeline
           GestureDetector(
-            onTap: _showMediaPickerSheet,
+            onTap: () {
+              // Show media picker to add another video clip
+              _showMediaPickerSheet();
+            },
             child: Container(
               width: 44,
               height: _thumbnailHeight,
@@ -1896,14 +1965,128 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             ),
           ),
           
-          // Minimal right padding
+          // Right padding (half screen width)
           SizedBox(width: startPadding),
         ],
       ),
     );
   }
-
-  // _buildVideoTrackWithControls removed - replaced by _buildVideoTrackFilmstripOnly with fixed controls
+  
+  /// Build multi-clip filmstrip row - renders all video clips snapped together
+  Widget _buildMultiClipFilmstrip(double trackWidth) {
+    if (_videoClips.isEmpty) {
+      // Fallback to single video filmstrip
+      return _buildVideoTrackFilmstrip(trackWidth);
+    }
+    
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (int clipIndex = 0; clipIndex < _videoClips.length; clipIndex++)
+          _buildSingleClipFilmstrip(
+            _videoClips[clipIndex], 
+            clipIndex, 
+            clipIndex == 0, 
+            clipIndex == _videoClips.length - 1,
+          ),
+      ],
+    );
+  }
+  
+  /// Build a single clip filmstrip segment
+  Widget _buildSingleClipFilmstrip(VideoClip clip, int clipIndex, bool isFirst, bool isLast) {
+    final clipWidth = clip.duration * _pixelsPerSecond;
+    final thumbCount = (clipWidth / _thumbnailWidth).ceil();
+    
+    return Container(
+      width: clipWidth,
+      height: _thumbnailHeight + 4,
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A1515),
+        // Only round corners on first/last clips for seamless join
+        borderRadius: BorderRadius.horizontal(
+          left: isFirst ? const Radius.circular(8) : Radius.zero,
+          right: isLast ? const Radius.circular(8) : Radius.zero,
+        ),
+        border: Border.all(color: const Color(0xFFAA2222), width: 2),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.horizontal(
+          left: isFirst ? const Radius.circular(6) : Radius.zero,
+          right: isLast ? const Radius.circular(6) : Radius.zero,
+        ),
+        child: Stack(
+          children: [
+            // Thumbnails row
+            ListView.builder(
+              scrollDirection: Axis.horizontal,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: thumbCount,
+              itemBuilder: (context, index) {
+                final thumbTime = clip.startTime + (index / thumbCount) * clip.duration;
+                
+                // Get thumbnail if available
+                final thumbnailIndex = _thumbnails.isNotEmpty 
+                    ? (index * _thumbnails.length / thumbCount).floor().clamp(0, _thumbnails.length - 1)
+                    : -1;
+                final thumbnail = thumbnailIndex >= 0 && thumbnailIndex < _thumbnails.length 
+                    ? _thumbnails[thumbnailIndex] 
+                    : null;
+                
+                return Container(
+                  width: _thumbnailWidth,
+                  height: _thumbnailHeight,
+                  decoration: BoxDecoration(
+                    border: Border(
+                      right: index < thumbCount - 1
+                          ? BorderSide(color: const Color(0xFF5A0000).withOpacity(0.4), width: 0.5)
+                          : BorderSide.none,
+                    ),
+                  ),
+                  child: thumbnail != null
+                      ? Image.memory(thumbnail, fit: BoxFit.cover, gaplessPlayback: true)
+                      : Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                const Color(0xFF8B0000).withOpacity(0.3),
+                                const Color(0xFF5A0000).withOpacity(0.5),
+                              ],
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${thumbTime.toInt()}s',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.4),
+                                fontSize: 8,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                        ),
+                );
+              },
+            ),
+            
+            // Clip separator indicator (thin white line between clips)
+            if (!isLast)
+              Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  width: 1,
+                  color: Colors.white.withOpacity(0.3),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
   /// Build filmstrip video track using ListView.builder with actual thumbnails
   Widget _buildVideoTrackFilmstrip(double trackWidth) {
