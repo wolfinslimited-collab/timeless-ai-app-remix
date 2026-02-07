@@ -3871,8 +3871,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             {isTextMenuMode ? (
               /* Text Menu - matches Adjust section style */
               <div className="animate-fade-in flex flex-col">
-                {/* Top Tabs: Text / Stickers */}
-                <div className="flex border-b border-border/20">
+                {/* Top Tabs: Back + Text / Stickers */}
+                <div className="flex items-center border-b border-border/20">
+                  {/* Back button */}
+                  <button
+                    onClick={() => setIsTextMenuMode(false)}
+                    className="shrink-0 flex items-center justify-center w-8 h-9 ml-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-primary" />
+                  </button>
                   {(['text', 'stickers'] as const).map((tab) => (
                     <button
                       key={tab}
