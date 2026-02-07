@@ -1679,9 +1679,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       <div className="px-4 py-3 flex items-center justify-between">
         <button
           onClick={onBack}
-          className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"
+          className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center"
         >
-          <ArrowLeft className="w-5 h-5 text-white" />
+          <ArrowLeft className="w-4 h-4 text-white" />
         </button>
         
         {videoUrl && (
@@ -1689,10 +1689,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             {/* Export Button */}
             <button 
               onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-primary/80 rounded-xl shadow-lg shadow-primary/30"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-primary to-primary/80 rounded-lg shadow-lg shadow-primary/30"
             >
-              <Download className="w-4 h-4 text-primary-foreground" />
-              <span className="text-primary-foreground text-sm font-semibold">Export</span>
+              <Download className="w-3.5 h-3.5 text-primary-foreground" />
+              <span className="text-primary-foreground text-xs font-semibold">Export</span>
             </button>
           </div>
         )}
