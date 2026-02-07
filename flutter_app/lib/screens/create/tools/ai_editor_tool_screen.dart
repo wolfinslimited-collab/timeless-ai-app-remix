@@ -2,10 +2,12 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../../../core/theme.dart';
 
 class RecentVideo {
@@ -59,17 +61,29 @@ class TextOverlay {
 class AudioLayer {
   String id;
   String name;
+  String filePath;
   double startTime;
   double endTime;
+  double volume;
   int trackIndex;
+  AudioPlayer? player;
+  Duration? duration;
   
   AudioLayer({
     required this.id,
     required this.name,
+    required this.filePath,
     this.startTime = 0,
-    this.endTime = 5,
+    this.endTime = 30,
+    this.volume = 1.0,
     this.trackIndex = 0,
+    this.player,
+    this.duration,
   });
+  
+  void dispose() {
+    player?.dispose();
+  }
 }
 
 /// Sticker layer data model
@@ -145,6 +159,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   String? _selectedTextId;
   final TextEditingController _textInputController = TextEditingController();
   TabController? _textTabController;
+  
+  // Audio layer state
+  List<AudioLayer> _audioLayers = [];
+  String? _selectedAudioId;
+  bool _isImportingAudio = false;
   
   // Layer dragging state
   String? _draggingLayerId;
@@ -362,7 +381,142 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     _videoController?.dispose();
     _textTabController?.dispose();
     _textInputController.dispose();
+    // Dispose all audio players
+    for (final audio in _audioLayers) {
+      audio.dispose();
+    }
     super.dispose();
+  }
+
+  // ============================================
+  // AUDIO LAYER FUNCTIONS
+  // ============================================
+  
+  /// Import audio file from device
+  Future<void> _importAudioFile() async {
+    setState(() => _isImportingAudio = true);
+    
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.audio,
+        allowMultiple: false,
+      );
+      
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        final filePath = file.path;
+        
+        if (filePath != null) {
+          // Create audio player to get duration
+          final player = AudioPlayer();
+          
+          // Load the audio file
+          await player.setSourceDeviceFile(filePath);
+          
+          // Get duration (may need a small delay for loading)
+          Duration? audioDuration;
+          try {
+            audioDuration = await player.getDuration();
+          } catch (e) {
+            debugPrint('Could not get audio duration: $e');
+          }
+          
+          final videoDuration = _videoController?.value.duration.inSeconds.toDouble() ?? 30.0;
+          final audioSeconds = audioDuration?.inSeconds.toDouble() ?? 30.0;
+          
+          final newAudio = AudioLayer(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            name: file.name,
+            filePath: filePath,
+            startTime: 0,
+            endTime: math.min(audioSeconds, videoDuration),
+            player: player,
+            duration: audioDuration,
+          );
+          
+          setState(() {
+            _audioLayers.add(newAudio);
+            _selectedAudioId = newAudio.id;
+          });
+          
+          _showSnackBar('Audio imported: ${file.name}');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error importing audio: $e');
+      _showSnackBar('Failed to import audio');
+    } finally {
+      setState(() => _isImportingAudio = false);
+    }
+  }
+  
+  /// Sync audio playback with video position
+  void _syncAudioWithVideo() {
+    if (_videoController == null || !_isVideoInitialized) return;
+    
+    final videoPosition = _videoController!.value.position.inMilliseconds / 1000.0;
+    final isVideoPlaying = _videoController!.value.isPlaying;
+    
+    for (final audio in _audioLayers) {
+      if (audio.player == null) continue;
+      
+      // Check if current video position is within audio layer's time range
+      if (videoPosition >= audio.startTime && videoPosition <= audio.endTime) {
+        final audioPosition = videoPosition - audio.startTime;
+        
+        if (isVideoPlaying) {
+          // Play audio and seek to correct position
+          audio.player!.seek(Duration(milliseconds: (audioPosition * 1000).round()));
+          audio.player!.resume();
+        } else {
+          audio.player!.pause();
+        }
+      } else {
+        // Outside audio range, pause
+        audio.player!.pause();
+      }
+    }
+  }
+  
+  /// Delete audio layer
+  void _deleteAudioLayer(String id) {
+    setState(() {
+      final index = _audioLayers.indexWhere((a) => a.id == id);
+      if (index != -1) {
+        _audioLayers[index].dispose();
+        _audioLayers.removeAt(index);
+      }
+      if (_selectedAudioId == id) {
+        _selectedAudioId = null;
+      }
+    });
+  }
+  
+  /// Select audio layer
+  void _selectAudioLayer(String? id) {
+    setState(() {
+      _selectedAudioId = id;
+    });
+  }
+  
+  /// Update audio volume
+  void _updateAudioVolume(String id, double volume) {
+    final index = _audioLayers.indexWhere((a) => a.id == id);
+    if (index != -1) {
+      setState(() {
+        _audioLayers[index].volume = volume.clamp(0.0, 1.0);
+        _audioLayers[index].player?.setVolume(volume);
+      });
+    }
+  }
+
+  AudioLayer? get _selectedAudioLayer {
+    if (_selectedAudioId == null) return null;
+    try {
+      return _audioLayers.firstWhere((a) => a.id == _selectedAudioId);
+    } catch (_) {
+      return null;
+    }
   }
 
   // Text overlay functions
@@ -471,6 +625,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     // Don't auto-scroll if user is manually scrolling
     if (_isUserScrolling || _videoController == null || !_isVideoInitialized) return;
     if (!_timelineScrollController.hasClients) return;
+    
+    // Sync audio layers with video position
+    _syncAudioWithVideo();
     
     // Only auto-scroll during playback
     if (!_videoController!.value.isPlaying) return;
@@ -1444,6 +1601,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     _buildVideoTrackWithControls(edgePadding, trackWidth),
                     const SizedBox(height: 6),
                     
+                    // Audio Track (Green waveform layers)
+                    _buildAudioTrack(edgePadding, trackWidth, duration),
+                    const SizedBox(height: 6),
+                    
                     // Text Track (Purple/Yellow layers)
                     _buildTextTrack(edgePadding, trackWidth, duration),
                     const SizedBox(height: 6),
@@ -1995,6 +2156,53 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         children: [
           SizedBox(width: startPadding),
           
+          // Add audio button
+          GestureDetector(
+            onTap: _isImportingAudio ? null : _importAudioFile,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A2A),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF22C55E).withOpacity(0.4)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF22C55E).withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: _isImportingAudio
+                        ? const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: Color(0xFF22C55E),
+                            ),
+                          )
+                        : const Icon(Icons.add, size: 12, color: Color(0xFF22C55E)),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Add audio',
+                    style: TextStyle(
+                      color: Color(0xFF22C55E),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(width: 10),
+          
           // Add text button
           GestureDetector(
             onTap: _addTextOverlay,
@@ -2075,6 +2283,285 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
+  /// Build audio track with waveform clips synchronized to pixelsPerSecond
+  Widget _buildAudioTrack(double startPadding, double trackWidth, double duration) {
+    if (_audioLayers.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    return SizedBox(
+      height: 44,
+      child: Row(
+        children: [
+          SizedBox(width: startPadding),
+          
+          SizedBox(
+            width: trackWidth,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: _audioLayers.map((audio) {
+                // Use pixelsPerSecond for consistent positioning
+                final leftOffset = audio.startTime * _pixelsPerSecond;
+                final itemWidth = ((audio.endTime - audio.startTime) * _pixelsPerSecond).clamp(60.0, trackWidth);
+                final isSelected = audio.id == _selectedAudioId;
+                final isDragging = audio.id == _draggingLayerId;
+                
+                return Positioned(
+                  left: leftOffset,
+                  child: GestureDetector(
+                    onTap: () => _selectAudioLayer(audio.id),
+                    onLongPressStart: (details) {
+                      setState(() {
+                        _draggingLayerId = audio.id;
+                        _draggingLayerType = LayerType.audio;
+                        _dragOffsetY = 0;
+                      });
+                    },
+                    onLongPressMoveUpdate: (details) {
+                      setState(() {
+                        _dragOffsetY = details.localOffsetFromOrigin.dy;
+                      });
+                    },
+                    onLongPressEnd: (details) {
+                      setState(() {
+                        _draggingLayerId = null;
+                        _draggingLayerType = null;
+                        _dragOffsetY = 0;
+                      });
+                    },
+                    onHorizontalDragUpdate: (details) {
+                      final delta = details.primaryDelta ?? 0;
+                      final timeDelta = delta / _pixelsPerSecond;
+                      final itemDuration = audio.endTime - audio.startTime;
+                      
+                      setState(() {
+                        var newStart = (audio.startTime + timeDelta).clamp(0.0, duration - itemDuration);
+                        
+                        // Snapping logic
+                        final playheadTime = _videoController?.value.position.inSeconds.toDouble() ?? 0;
+                        final snapTimeThreshold = _snapThreshold / _pixelsPerSecond;
+                        const playheadScreenOffset = 16.0;
+                        
+                        if ((newStart - playheadTime).abs() < snapTimeThreshold) {
+                          newStart = playheadTime;
+                          _snapLinePosition = playheadScreenOffset;
+                        } else if ((newStart + itemDuration - playheadTime).abs() < snapTimeThreshold) {
+                          newStart = playheadTime - itemDuration;
+                          _snapLinePosition = playheadScreenOffset;
+                        } else {
+                          _snapLinePosition = null;
+                        }
+                        
+                        audio.startTime = newStart;
+                        audio.endTime = newStart + itemDuration;
+                      });
+                    },
+                    onHorizontalDragEnd: (_) {
+                      setState(() => _snapLinePosition = null);
+                    },
+                    child: Transform.translate(
+                      offset: isDragging ? Offset(0, _dragOffsetY) : Offset.zero,
+                      child: _buildAudioClip(
+                        audio: audio,
+                        itemWidth: itemWidth,
+                        isSelected: isSelected,
+                        isDragging: isDragging,
+                        duration: duration,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          
+          SizedBox(width: startPadding),
+        ],
+      ),
+    );
+  }
+  
+  /// Build a single audio clip with waveform visualization
+  Widget _buildAudioClip({
+    required AudioLayer audio,
+    required double itemWidth,
+    required bool isSelected,
+    required bool isDragging,
+    required double duration,
+  }) {
+    const audioColor = Color(0xFF22C55E);
+    
+    return Container(
+      width: itemWidth,
+      height: 38,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isSelected 
+              ? [const Color(0xFF16A34A), const Color(0xFF15803D)]
+              : [audioColor, audioColor.withOpacity(0.8)],
+        ),
+        borderRadius: BorderRadius.circular(6),
+        border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
+        boxShadow: [
+          BoxShadow(
+            color: audioColor.withOpacity(isDragging ? 0.6 : 0.3),
+            blurRadius: isDragging ? 16 : 8,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Left trim handle
+          GestureDetector(
+            onHorizontalDragStart: (_) {
+              setState(() {
+                _trimmingLayerId = audio.id;
+                _isTrimmingStart = true;
+              });
+            },
+            onHorizontalDragUpdate: (details) {
+              final delta = details.primaryDelta ?? 0;
+              final timeDelta = delta / _pixelsPerSecond;
+              setState(() {
+                audio.startTime = (audio.startTime + timeDelta).clamp(0.0, audio.endTime - 0.5);
+              });
+            },
+            onHorizontalDragEnd: (_) {
+              setState(() {
+                _trimmingLayerId = null;
+                _isTrimmingStart = false;
+              });
+            },
+            child: Container(
+              width: 10,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(isSelected ? 0.5 : 0.3),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(6),
+                  bottomLeft: Radius.circular(6),
+                ),
+              ),
+              child: Center(
+                child: Container(
+                  width: 3,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(1.5),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          // Waveform content area
+          Expanded(
+            child: Stack(
+              children: [
+                // Waveform visualization
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: CustomPaint(
+                      painter: _AudioWaveformPainter(
+                        color: Colors.white.withOpacity(0.8),
+                        backgroundColor: Colors.transparent,
+                      ),
+                    ),
+                  ),
+                ),
+                // Audio info overlay
+                Positioned(
+                  left: 4,
+                  top: 4,
+                  right: 4,
+                  child: Row(
+                    children: [
+                      Icon(Icons.music_note, size: 12, color: Colors.white.withOpacity(0.9)),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          audio.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Delete button (when selected)
+                if (isSelected)
+                  Positioned(
+                    top: 2,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () => _deleteAudioLayer(audio.id),
+                      child: Container(
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close, size: 10, color: Colors.white),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          
+          // Right trim handle
+          GestureDetector(
+            onHorizontalDragStart: (_) {
+              setState(() {
+                _trimmingLayerId = audio.id;
+                _isTrimmingEnd = true;
+              });
+            },
+            onHorizontalDragUpdate: (details) {
+              final delta = details.primaryDelta ?? 0;
+              final timeDelta = delta / _pixelsPerSecond;
+              setState(() {
+                audio.endTime = (audio.endTime + timeDelta).clamp(audio.startTime + 0.5, duration);
+              });
+            },
+            onHorizontalDragEnd: (_) {
+              setState(() {
+                _trimmingLayerId = null;
+                _isTrimmingEnd = false;
+              });
+            },
+            child: Container(
+              width: 10,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(isSelected ? 0.5 : 0.3),
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(6),
+                  bottomRight: Radius.circular(6),
+                ),
+              ),
+              child: Center(
+                child: Container(
+                  width: 3,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(1.5),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
   Widget _buildTimeRuler(double startPadding) {
     final duration = _videoController?.value.duration ?? Duration.zero;
     final totalSeconds = duration.inSeconds > 0 ? duration.inSeconds : 10;
@@ -2099,7 +2586,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 ...List.generate(numMajorTicks, (i) {
                   final seconds = i * 2;
                   if (seconds > totalSeconds) return const SizedBox.shrink();
-                  final position = seconds * pixelsPerSecond;
+                  final position = seconds * _pixelsPerSecond;
                   return Positioned(
                     left: position.clamp(0, trackWidth - 30),
                     child: Column(
@@ -2127,7 +2614,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 // Minor ticks every 1 second (smaller)
                 ...List.generate(totalSeconds + 1, (i) {
                   if (i % 2 == 0) return const SizedBox.shrink(); // Skip major tick positions
-                  final position = i * pixelsPerSecond;
+                  final position = i * _pixelsPerSecond;
                   return Positioned(
                     left: position.clamp(0, trackWidth - 1),
                     child: Container(
@@ -2159,7 +2646,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Dynamic bottom area that switches between timeline and settings panel
   Widget _buildDynamicBottomArea() {
     // Check if a settings panel should be shown (overlays timeline)
-    final bool showSettingsPanel = _selectedTool == 'text' || _selectedTool == 'adjust';
+    final bool showSettingsPanel = _selectedTool == 'text' || _selectedTool == 'adjust' || _selectedTool == 'audio';
     
     if (showSettingsPanel) {
       return _buildContextualSettingsPanel();
@@ -2177,6 +2664,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   // Contextual settings panel that overlays the timeline area
   Widget _buildContextualSettingsPanel() {
+    String panelTitle = 'Editor';
+    if (_selectedTool == 'text') {
+      panelTitle = 'Text Editor';
+    } else if (_selectedTool == 'adjust') {
+      panelTitle = 'Adjust';
+    } else if (_selectedTool == 'audio') {
+      panelTitle = 'Audio';
+    }
+    
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF0A0A0A),
@@ -2206,7 +2702,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 const Spacer(),
                 // Title
                 Text(
-                  _selectedTool == 'text' ? 'Text Editor' : 'Adjust',
+                  panelTitle,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -2236,7 +2732,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           if (_selectedTool == 'text')
             _buildTextSettingsContent()
           else if (_selectedTool == 'adjust')
-            _buildAdjustSettingsContent(),
+            _buildAdjustSettingsContent()
+          else if (_selectedTool == 'audio')
+            _buildAudioSettingsContent(),
         ],
       ),
     );
@@ -2246,6 +2744,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     setState(() {
       _selectedTool = 'edit';
       _selectedTextId = null;
+      _selectedAudioId = null;
     });
   }
 
@@ -2382,6 +2881,196 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       ],
     );
   }
+  
+  /// Audio settings panel content
+  Widget _buildAudioSettingsContent() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Import audio button
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: GestureDetector(
+            onTap: _isImportingAudio ? null : _importAudioFile,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF22C55E).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF22C55E).withOpacity(0.4)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (_isImportingAudio)
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFF22C55E),
+                      ),
+                    )
+                  else
+                    const Icon(Icons.add, color: Color(0xFF22C55E), size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    _isImportingAudio ? 'Importing...' : 'Import Audio File',
+                    style: const TextStyle(
+                      color: Color(0xFF22C55E),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        
+        // Audio layers list
+        if (_audioLayers.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.music_note, size: 40, color: Colors.white.withOpacity(0.3)),
+                const SizedBox(height: 8),
+                Text(
+                  'No audio layers yet',
+                  style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Import audio to add to your video',
+                  style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
+                ),
+              ],
+            ),
+          )
+        else
+          SizedBox(
+            height: 160,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemCount: _audioLayers.length,
+              itemBuilder: (context, index) {
+                final audio = _audioLayers[index];
+                final isSelected = audio.id == _selectedAudioId;
+                
+                return GestureDetector(
+                  onTap: () => _selectAudioLayer(audio.id),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isSelected 
+                          ? const Color(0xFF22C55E).withOpacity(0.2)
+                          : Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: isSelected
+                          ? Border.all(color: const Color(0xFF22C55E), width: 2)
+                          : Border.all(color: Colors.white.withOpacity(0.1)),
+                    ),
+                    child: Row(
+                      children: [
+                        // Audio icon
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF22C55E).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.music_note,
+                            color: Color(0xFF22C55E),
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        
+                        // Audio info
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                audio.name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${audio.startTime.toStringAsFixed(1)}s - ${audio.endTime.toStringAsFixed(1)}s',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.5),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        // Volume slider (when selected)
+                        if (isSelected) ...[
+                          SizedBox(
+                            width: 80,
+                            child: SliderTheme(
+                              data: SliderThemeData(
+                                activeTrackColor: const Color(0xFF22C55E),
+                                inactiveTrackColor: Colors.white.withOpacity(0.2),
+                                thumbColor: Colors.white,
+                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                trackHeight: 3,
+                              ),
+                              child: Slider(
+                                value: audio.volume,
+                                onChanged: (value) => _updateAudioVolume(audio.id, value),
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            audio.volume > 0 ? Icons.volume_up : Icons.volume_off,
+                            size: 16,
+                            color: Colors.white.withOpacity(0.6),
+                          ),
+                        ],
+                        
+                        // Delete button
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => _deleteAudioLayer(audio.id),
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.red,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
 
   Widget _buildBottomToolbar() {
     return Container(
@@ -2398,7 +3087,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             return GestureDetector(
               onTap: () {
                 setState(() => _selectedTool = tool.id);
-                if (tool.id != 'adjust' && tool.id != 'text') {
+                if (tool.id != 'adjust' && tool.id != 'text' && tool.id != 'audio') {
                   _showSnackBar('${tool.name} coming soon');
                 }
               },
@@ -3050,393 +3739,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               Navigator.pop(context);
             },
             child: const Text('Done', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Dynamic bottom area that switches between timeline and settings panel
-  Widget _buildDynamicBottomArea() {
-    // Check if a settings panel should be shown
-    final bool showSettingsPanel = _selectedTool == 'text' || _selectedTool == 'adjust';
-    
-    if (showSettingsPanel) {
-      return _buildContextualSettingsPanel();
-    } else {
-      // Show normal timeline + toolbar
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildTimelineSection(),
-          _buildBottomToolbar(),
-        ],
-      );
-    }
-  }
-
-  // Contextual settings panel that overlays the timeline area
-  Widget _buildContextualSettingsPanel() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0A0A0A),
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header with Done (checkmark) and Cancel (X) buttons
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-            child: Row(
-              children: [
-                // Cancel button (X)
-                GestureDetector(
-                  onTap: _cancelSettingsPanel,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.close, color: Colors.white.withOpacity(0.8), size: 20),
-                  ),
-                ),
-                const Spacer(),
-                // Title
-                Text(
-                  _selectedTool == 'text' ? 'Text Editor' : 'Adjust',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                // Done button (checkmark)
-                GestureDetector(
-                  onTap: _confirmSettingsPanel,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary,
-                      shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: AppTheme.primary.withOpacity(0.4), blurRadius: 8)],
-                    ),
-                    child: const Icon(Icons.check, color: Colors.white, size: 22),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Content based on selected tool
-          if (_selectedTool == 'text')
-            _buildTextSettingsContent()
-          else if (_selectedTool == 'adjust')
-            _buildAdjustSettingsContent(),
-        ],
-      ),
-    );
-  }
-
-  void _cancelSettingsPanel() {
-    setState(() {
-      _selectedTool = 'edit';
-      _selectedTextId = null;
-    });
-  }
-
-  void _confirmSettingsPanel() {
-    setState(() {
-      _selectedTool = 'edit';
-    });
-    _showSnackBar('Changes applied');
-  }
-
-  Widget _buildTextSettingsContent() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Add text button if no text selected
-        if (_selectedTextId == null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: GestureDetector(
-              onTap: _addTextOverlay,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.primary.withOpacity(0.4)),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.add, color: AppTheme.primary, size: 20),
-                    SizedBox(width: 8),
-                    Text('Add Text', style: TextStyle(color: AppTheme.primary, fontSize: 15, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        
-        // Tab bar for text options
-        TabBar(
-          controller: _textTabController,
-          isScrollable: true,
-          indicatorColor: AppTheme.primary,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white.withOpacity(0.5),
-          indicatorSize: TabBarIndicatorSize.label,
-          labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          tabs: const [
-            Tab(icon: Icon(Icons.edit_note, size: 18), text: 'Input'),
-            Tab(icon: Icon(Icons.font_download_outlined, size: 18), text: 'Font'),
-            Tab(icon: Icon(Icons.style_outlined, size: 18), text: 'Style'),
-            Tab(icon: Icon(Icons.square_outlined, size: 18), text: 'Background'),
-            Tab(icon: Icon(Icons.format_align_center, size: 18), text: 'Align'),
-          ],
-        ),
-        
-        // Tab content
-        SizedBox(
-          height: 140,
-          child: _selectedTextId == null
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.text_fields, size: 32, color: Colors.white.withOpacity(0.3)),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Select or add text',
-                        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
-                      ),
-                    ],
-                  ),
-                )
-              : TabBarView(
-                  controller: _textTabController,
-                  children: [
-                    _buildTextInputTab(),
-                    _buildFontTab(),
-                    _buildStyleTab(),
-                    _buildBackgroundTab(),
-                    _buildAlignmentTab(),
-                  ],
-                ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAdjustSettingsContent() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Reset button
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              GestureDetector(
-                onTap: _resetAllAdjustments,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.primary.withOpacity(0.4)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.refresh, size: 14, color: AppTheme.primary),
-                      const SizedBox(width: 6),
-                      Text('Reset', style: TextStyle(color: AppTheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Sliders
-        SizedBox(
-          height: 180,
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            itemCount: _adjustmentTools.length,
-            itemBuilder: (context, index) {
-              final tool = _adjustmentTools[index];
-              return _buildAdjustmentSlider(tool);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAdjustPanel() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0A0A0A),
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header with back button and reset
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () => setState(() => _selectedTool = 'edit'),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.arrow_back, size: 16, color: Colors.white.withOpacity(0.8)),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Back',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  'Adjust',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: _resetAllAdjustments,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.primary.withOpacity(0.4)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.refresh, size: 16, color: AppTheme.primary),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Reset',
-                          style: TextStyle(
-                            color: AppTheme.primary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Adjustment sliders
-          SizedBox(
-            height: 200,
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              itemCount: _adjustmentTools.length,
-              itemBuilder: (context, index) {
-                final tool = _adjustmentTools[index];
-                return _buildAdjustmentSlider(tool);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAdjustmentSlider(AdjustmentTool tool) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                tool.icon,
-                size: 18,
-                color: tool.value != 0 ? AppTheme.primary : Colors.white.withOpacity(0.6),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                tool.name,
-                style: TextStyle(
-                  color: tool.value != 0 ? Colors.white : Colors.white.withOpacity(0.7),
-                  fontSize: 13,
-                  fontWeight: tool.value != 0 ? FontWeight.w600 : FontWeight.normal,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: tool.value != 0 
-                      ? AppTheme.primary.withOpacity(0.15)
-                      : Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  tool.value >= 0 ? '+${(tool.value * 100).toInt()}' : '${(tool.value * 100).toInt()}',
-                  style: TextStyle(
-                    color: tool.value != 0 ? AppTheme.primary : Colors.white.withOpacity(0.6),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: AppTheme.primary,
-              inactiveTrackColor: Colors.white.withOpacity(0.1),
-              thumbColor: Colors.white,
-              overlayColor: AppTheme.primary.withOpacity(0.2),
-              trackHeight: 4,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
-            ),
-            child: Slider(
-              value: tool.value,
-              min: -1.0,
-              max: 1.0,
-              onChanged: tool.onChanged,
-            ),
           ),
         ],
       ),
