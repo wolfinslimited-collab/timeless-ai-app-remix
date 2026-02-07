@@ -906,11 +906,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               <div 
                 className="mb-4 h-6 flex items-center cursor-pointer group"
                 onClick={(e) => {
-                  if (videoRef.current && duration > 0) {
+                  if (videoRef.current && totalTimelineDuration > 0) {
                     const rect = e.currentTarget.getBoundingClientRect();
                     const clickX = e.clientX - rect.left;
                     const progress = clickX / rect.width;
-                    const newTime = progress * duration;
+                    const newTime = progress * totalTimelineDuration;
                     videoRef.current.currentTime = newTime;
                     setCurrentTime(newTime);
                   }
@@ -920,12 +920,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   {/* Progress bar */}
                   <div 
                     className="absolute h-full bg-white rounded-full transition-all"
-                    style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                    style={{ width: `${totalTimelineDuration > 0 ? (currentTime / totalTimelineDuration) * 100 : 0}%` }}
                   />
                   {/* Seek thumb */}
                   <div 
                     className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg transition-all group-hover:scale-125"
-                    style={{ left: `calc(${duration > 0 ? (currentTime / duration) * 100 : 0}% - 6px)` }}
+                    style={{ left: `calc(${totalTimelineDuration > 0 ? (currentTime / totalTimelineDuration) * 100 : 0}% - 6px)` }}
                   />
                 </div>
               </div>
@@ -963,9 +963,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 
                 <div className="flex-1" />
                 
-                {/* Total duration */}
+                {/* Total duration - uses totalTimelineDuration for multi-clip support */}
                 <span className="text-white/60 text-sm font-mono w-[60px] text-right">
-                  {formatTime(duration)}
+                  {formatTime(totalTimelineDuration)}
                 </span>
               </div>
             </div>
@@ -1275,9 +1275,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       {/* Video Control Bar - Below video, above timeline */}
       {videoUrl && duration > 0 && (
         <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
-          {/* Time counter */}
+          {/* Time counter - uses totalTimelineDuration for dynamic multi-clip support */}
           <span className="text-white/60 text-xs font-mono">
-            {formatTime(currentTime)} / {formatTime(duration)}
+            {formatTime(currentTime)} / {formatTime(totalTimelineDuration)}
           </span>
           
           {/* Control buttons */}
