@@ -3687,7 +3687,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               decoration: BoxDecoration(
                 color: const Color(0xFF2A2A2A),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: const Color(0xFF22C55E).withOpacity(0.4)),
+                border: Border.all(color: Colors.white.withOpacity(0.15)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -3696,7 +3696,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     width: 16,
                     height: 16,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF22C55E).withOpacity(0.3),
+                      color: const Color(0xFF3A3A3A),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: _isImportingAudio
@@ -3705,10 +3705,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                             height: 12,
                             child: CircularProgressIndicator(
                               strokeWidth: 1.5,
-                              color: Color(0xFF22C55E),
+                              color: Colors.white,
                             ),
                           )
-                        : const Icon(Icons.add, size: 12, color: Color(0xFF22C55E)),
+                        : const Icon(Icons.add, size: 12, color: Colors.white),
                   ),
                   const SizedBox(width: 6),
                   const Text(
@@ -3739,7 +3739,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               decoration: BoxDecoration(
                 color: const Color(0xFF2A2A2A),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.4)),
+                border: Border.all(color: Colors.white.withOpacity(0.15)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -3748,10 +3748,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     width: 16,
                     height: 16,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF8B5CF6).withOpacity(0.3),
+                      color: const Color(0xFF3A3A3A),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Icon(Icons.add, size: 12, color: Color(0xFF8B5CF6)),
+                    child: const Icon(Icons.add, size: 12, color: Colors.white),
                   ),
                   const SizedBox(width: 6),
                   const Text(
