@@ -3392,106 +3392,69 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           {/* Bottom Toolbar - Switches between main, edit, and text menu mode */}
           <div className="shrink-0 bg-background border-t border-border/10 pb-safe">
             {isTextMenuMode ? (
-              /* Text Menu - matches Adjust section style */
+              /* Text Menu - single horizontal scrollable row matching Audio/Edit style */
               <div className="animate-fade-in flex flex-col">
-                {/* Top Tabs: Back + Text / Stickers */}
-                <div className="flex items-center border-b border-border/20">
-                  {/* Back button */}
+                {/* Header with back button and title */}
+                <div className="flex items-center px-2 py-2 border-b border-border/20">
                   <button
                     onClick={() => setIsTextMenuMode(false)}
-                    className="shrink-0 flex items-center justify-center w-8 h-9 ml-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
+                    className="shrink-0 flex items-center justify-center w-8 h-9 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
                   >
                     <ChevronLeft className="w-5 h-5 text-primary" />
                   </button>
-                  {(['text', 'stickers'] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setTextMenuTab(tab === 'text' ? 'add-text' : 'stickers')}
-                      className={cn(
-                        "flex-1 py-3 text-sm font-medium capitalize relative transition-colors",
-                        (tab === 'text' && textMenuTab !== 'stickers') || (tab === 'stickers' && textMenuTab === 'stickers')
-                          ? "text-foreground" 
-                          : "text-foreground/50"
-                      )}
-                    >
-                      {tab}
-                      {((tab === 'text' && textMenuTab !== 'stickers') || (tab === 'stickers' && textMenuTab === 'stickers')) && (
-                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-primary rounded-full" />
-                      )}
-                    </button>
-                  ))}
+                  <span className="ml-3 text-sm font-medium text-foreground">Text</span>
                 </div>
                 
-                {/* Horizontal Scrollable Icons - matching Adjust style */}
+                {/* Horizontal Scrollable Icons - single row */}
                 <div className="overflow-x-auto px-2 py-3">
                   <div className="flex gap-1 min-w-max">
-                    {textMenuTab !== 'stickers' ? (
-                      /* Text Tools */
-                      <>
-                        {[
-                          { id: 'add-text', name: 'Add text', icon: Type, action: () => { addTextOverlay(); setIsTextMenuMode(false); } },
-                          { id: 'auto-captions', name: 'Captions', icon: Subtitles, action: () => { generateAutoCaptions(); setIsTextMenuMode(false); } },
-                          { id: 'text-template', name: 'Template', icon: FileText, action: () => { addTextOverlay(); setIsTextMenuMode(false); } },
-                          { id: 'text-to-audio', name: 'To audio', icon: AudioLines, action: () => toast({ title: "Text to audio coming soon" }) },
-                          { id: 'auto-lyrics', name: 'Lyrics', icon: Music2, action: () => toast({ title: "Auto lyrics coming soon" }) },
-                          { id: 'draw', name: 'Draw', icon: Pencil, action: () => toast({ title: "Drawing tools coming soon" }) },
-                        ].map((tool) => {
-                          const IconComponent = tool.icon;
-                          return (
-                            <button
-                              key={tool.id}
-                              onClick={tool.action}
-                              className="flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all hover:bg-white/5"
-                            >
-                              <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10 text-foreground/70">
-                                <IconComponent className="w-5 h-5" />
-                              </div>
-                              <span className="text-[10px] font-medium text-foreground/60">
-                                {tool.name}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </>
-                    ) : (
-                      /* Sticker Categories as Icons */
-                      <>
-                        {stickerCategories.map((cat) => {
-                          const isSelected = selectedStickerCategory === cat.id;
-                          return (
-                            <button
-                              key={cat.id}
-                              onClick={() => setSelectedStickerCategory(cat.id)}
-                              className={cn(
-                                "flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all",
-                                isSelected ? "bg-primary/15" : "hover:bg-white/5"
-                              )}
-                            >
-                              <div className={cn(
-                                "w-11 h-11 rounded-full flex items-center justify-center mb-1 transition-all text-2xl",
-                                isSelected 
-                                  ? "bg-primary text-primary-foreground" 
-                                  : "bg-white/10"
-                              )}>
-                                {cat.stickers[0]}
-                              </div>
-                              <span className={cn(
-                                "text-[10px] font-medium",
-                                isSelected ? "text-primary" : "text-foreground/60"
-                              )}>
-                                {cat.name}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </>
-                    )}
+                    {[
+                      { id: 'add-text', name: 'Add text', icon: Type, action: () => { addTextOverlay(); setIsTextMenuMode(false); } },
+                      { id: 'auto-captions', name: 'Auto captions', icon: Subtitles, action: () => { generateAutoCaptions(); setIsTextMenuMode(false); } },
+                      { id: 'stickers', name: 'Stickers', icon: Smile, action: () => { setTextMenuTab('stickers'); } },
+                      { id: 'draw', name: 'Draw', icon: Pencil, action: () => toast({ title: "Drawing tools coming soon" }) },
+                      { id: 'text-template', name: 'Text template', icon: FileText, action: () => { addTextOverlay(); setIsTextMenuMode(false); } },
+                      { id: 'text-to-audio', name: 'Text to audio', icon: AudioLines, action: () => toast({ title: "Text to audio coming soon" }) },
+                      { id: 'auto-lyrics', name: 'Auto lyrics', icon: Music2, action: () => toast({ title: "Auto lyrics coming soon" }) },
+                    ].map((tool) => {
+                      const IconComponent = tool.icon;
+                      return (
+                        <button
+                          key={tool.id}
+                          onClick={tool.action}
+                          className="flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all hover:bg-white/5"
+                        >
+                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
+                            <IconComponent className="w-5 h-5 text-foreground" />
+                          </div>
+                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight">
+                            {tool.name}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
                 
-                {/* Sticker Grid - shows when stickers tab is active */}
+                {/* Sticker Grid - shows when stickers is selected */}
                 {textMenuTab === 'stickers' && (
-                  <div className="px-3 pb-3">
+                  <div className="px-3 pb-3 border-t border-border/20 pt-3">
+                    <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
+                      {stickerCategories.map((cat) => (
+                        <button
+                          key={cat.id}
+                          onClick={() => setSelectedStickerCategory(cat.id)}
+                          className={cn(
+                            "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                            selectedStickerCategory === cat.id
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-white/10 text-foreground/70"
+                          )}
+                        >
+                          {cat.name}
+                        </button>
+                      ))}
+                    </div>
                     <div className="grid grid-cols-8 gap-2">
                       {stickerCategories
                         .find((c) => c.id === selectedStickerCategory)
@@ -3519,52 +3482,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </div>
                   </div>
                 )}
-              </div>
-            ) : isAudioMenuMode ? (
-              /* Audio Menu - horizontal scrollable menu with audio tools */
-              <div className="animate-fade-in flex flex-col">
-                {/* Header with back button and title */}
-                <div className="flex items-center border-b border-border/20">
-                  {/* Back button */}
-                  <button
-                    onClick={() => setIsAudioMenuMode(false)}
-                    className="shrink-0 flex items-center justify-center w-8 h-9 ml-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
-                  >
-                    <ChevronLeft className="w-5 h-5 text-primary" />
-                  </button>
-                  <span className="flex-1 py-3 text-sm font-medium text-foreground text-center pr-10">
-                    Audio
-                  </span>
-                </div>
-                
-                {/* Horizontal Scrollable Audio Tools */}
-                <div className="overflow-x-auto px-2 py-3">
-                  <div className="flex gap-1 min-w-max">
-                    {[
-                      { id: 'extract', name: 'Extract', icon: Waves, action: () => toast({ title: "Extract audio coming soon" }) },
-                      { id: 'sounds', name: 'Sounds', icon: Music, action: () => toast({ title: "Sounds library coming soon" }) },
-                      { id: 'sound-fx', name: 'Sound FX', icon: Sparkles, action: () => toast({ title: "Sound effects coming soon" }) },
-                      { id: 'record', name: 'Record', icon: Circle, action: () => toast({ title: "Audio recording coming soon" }) },
-                      { id: 'text-to-audio', name: 'Text to audio', icon: AudioLines, action: () => toast({ title: "Text to audio coming soon" }) },
-                    ].map((tool) => {
-                      const IconComponent = tool.icon;
-                      return (
-                        <button
-                          key={tool.id}
-                          onClick={tool.action}
-                          className="flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all hover:bg-white/5"
-                        >
-                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
-                            <IconComponent className="w-5 h-5 text-white" />
-                          </div>
-                          <span className="text-[10px] font-medium text-foreground/60">
-                            {tool.name}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
               </div>
             ) : isEditMenuMode ? (
               /* Edit Menu - horizontal scrollable menu with edit tools (same style as audio) */
