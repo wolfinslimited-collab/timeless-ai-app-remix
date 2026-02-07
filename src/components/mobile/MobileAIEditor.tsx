@@ -1923,12 +1923,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 </div>
               ))}
               
-              <button
-                onClick={clearVideo}
-                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center"
-              >
-                <X className="w-4 h-4 text-white" />
-              </button>
             </div>
           </div>
         ) : (
