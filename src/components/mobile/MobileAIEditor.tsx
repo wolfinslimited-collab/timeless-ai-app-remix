@@ -101,6 +101,61 @@ interface VideoClip {
 // Helper to get trimmed duration
 const getClipTrimmedDuration = (clip: VideoClip) => clip.outPoint - clip.inPoint;
 
+// Editor state snapshot for undo/redo (without React refs/elements)
+interface EditorStateSnapshot {
+  videoClips: VideoClip[];
+  textOverlays: TextOverlayData[];
+  audioLayers: AudioLayerSnapshot[];
+  captionLayers: CaptionLayerData[];
+  effectLayers: EffectLayerData[];
+  timestamp: number;
+}
+
+// Audio layer snapshot without HTMLAudioElement
+interface AudioLayerSnapshot {
+  id: string;
+  name: string;
+  fileUrl: string;
+  volume: number;
+  startTime: number;
+  endTime: number;
+}
+
+// Data-only interfaces for snapshots
+interface TextOverlayData {
+  id: string;
+  text: string;
+  position: { x: number; y: number };
+  fontSize: number;
+  textColor: string;
+  fontFamily: string;
+  alignment: 'left' | 'center' | 'right';
+  hasBackground: boolean;
+  backgroundColor: string;
+  backgroundOpacity: number;
+  startTime: number;
+  endTime: number;
+}
+
+interface CaptionLayerData {
+  id: string;
+  text: string;
+  startTime: number;
+  endTime: number;
+}
+
+interface EffectLayerData {
+  id: string;
+  effectId: string;
+  name: string;
+  category: string;
+  intensity: number;
+  startTime: number;
+  endTime: number;
+}
+
+const MAX_HISTORY_LENGTH = 50;
+
 export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoClips, setVideoClips] = useState<VideoClip[]>([]); // Multi-clip support
@@ -144,56 +199,29 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [isTrimmingClipStart, setIsTrimmingClipStart] = useState(false);
   const [isTrimmingClipEnd, setIsTrimmingClipEnd] = useState(false);
 
-  // Text overlay state
-  interface TextOverlay {
-    id: string;
-    text: string;
-    position: { x: number; y: number };
-    fontSize: number;
-    textColor: string;
-    fontFamily: string;
-    alignment: 'left' | 'center' | 'right';
-    hasBackground: boolean;
-    backgroundColor: string;
-    backgroundOpacity: number;
-    startTime: number;
-    endTime: number;
-  }
+  // Undo/Redo history stacks
+  const [undoStack, setUndoStack] = useState<EditorStateSnapshot[]>([]);
+  const [redoStack, setRedoStack] = useState<EditorStateSnapshot[]>([]);
+  const isRestoringRef = useRef(false);
 
-  const [textOverlays, setTextOverlays] = useState<TextOverlay[]>([]);
+  // Text overlay state (using top-level interface)
+  const [textOverlays, setTextOverlays] = useState<TextOverlayData[]>([]);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [textTab, setTextTab] = useState<'input' | 'font' | 'style' | 'background' | 'align'>('input');
   const [textInput, setTextInput] = useState('');
   const [isEditingTextInline, setIsEditingTextInline] = useState(false);
   const [draggingTextId, setDraggingTextId] = useState<string | null>(null);
 
-  // Caption/Subtitle layer state
-  interface CaptionLayer {
-    id: string;
-    text: string;
-    startTime: number;
-    endTime: number;
-  }
-
-  const [captionLayers, setCaptionLayers] = useState<CaptionLayer[]>([]);
+  // Caption/Subtitle layer state (using top-level interface)
+  const [captionLayers, setCaptionLayers] = useState<CaptionLayerData[]>([]);
   const [selectedCaptionId, setSelectedCaptionId] = useState<string | null>(null);
   const [isGeneratingCaptions, setIsGeneratingCaptions] = useState(false);
   const [selectedCaptionStyle, setSelectedCaptionStyle] = useState('classic');
 
   const selectedCaptionLayer = captionLayers.find(c => c.id === selectedCaptionId);
 
-  // Effect layer state
-  interface EffectLayer {
-    id: string;
-    effectId: string;
-    name: string;
-    category: string;
-    intensity: number;
-    startTime: number;
-    endTime: number;
-  }
-
-  const [effectLayers, setEffectLayers] = useState<EffectLayer[]>([]);
+  // Effect layer state (using top-level interface)
+  const [effectLayers, setEffectLayers] = useState<EffectLayerData[]>([]);
   const [selectedEffectId, setSelectedEffectId] = useState<string | null>(null);
 
   const selectedEffectLayer = effectLayers.find(e => e.id === selectedEffectId);
@@ -217,11 +245,133 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     { id: 'flash', name: 'Flash', category: 'Motion', icon: '💥' },
   ];
 
+  // ============================================
+  // UNDO/REDO HISTORY MANAGEMENT
+  // ============================================
+  
+  // Create a snapshot of current editor state
+  const createStateSnapshot = (): EditorStateSnapshot => ({
+    videoClips: videoClips.map(c => ({ ...c })),
+    textOverlays: textOverlays.map(t => ({ ...t })),
+    audioLayers: audioLayers.map(a => ({
+      id: a.id,
+      name: a.name,
+      fileUrl: a.fileUrl,
+      volume: a.volume,
+      startTime: a.startTime,
+      endTime: a.endTime,
+    })),
+    captionLayers: captionLayers.map(c => ({ ...c })),
+    effectLayers: effectLayers.map(e => ({ ...e })),
+    timestamp: Date.now(),
+  });
+
+  // Save current state to undo history (call BEFORE making changes)
+  const saveStateToHistory = () => {
+    if (isRestoringRef.current) return;
+    
+    const snapshot = createStateSnapshot();
+    setUndoStack(prev => {
+      const newStack = [...prev, snapshot];
+      if (newStack.length > MAX_HISTORY_LENGTH) {
+        return newStack.slice(1);
+      }
+      return newStack;
+    });
+    // Clear redo stack when new action is performed
+    setRedoStack([]);
+  };
+
+  const canUndo = undoStack.length > 0;
+  const canRedo = redoStack.length > 0;
+
+  // Undo last action
+  const handleUndo = () => {
+    if (!canUndo) {
+      toast({ title: "Nothing to undo" });
+      return;
+    }
+
+    // Save current state to redo stack
+    setRedoStack(prev => [...prev, createStateSnapshot()]);
+
+    // Pop and restore previous state
+    const previousState = undoStack[undoStack.length - 1];
+    setUndoStack(prev => prev.slice(0, -1));
+    restoreState(previousState);
+    toast({ title: "Undo" });
+  };
+
+  // Redo last undone action
+  const handleRedo = () => {
+    if (!canRedo) {
+      toast({ title: "Nothing to redo" });
+      return;
+    }
+
+    // Save current state to undo stack
+    setUndoStack(prev => [...prev, createStateSnapshot()]);
+
+    // Pop and restore redo state
+    const redoState = redoStack[redoStack.length - 1];
+    setRedoStack(prev => prev.slice(0, -1));
+    restoreState(redoState);
+    toast({ title: "Redo" });
+  };
+
+  // Restore editor state from a snapshot
+  const restoreState = (snapshot: EditorStateSnapshot) => {
+    isRestoringRef.current = true;
+
+    // Restore video clips
+    setVideoClips(snapshot.videoClips.map(c => ({ ...c })));
+
+    // Restore text overlays
+    setTextOverlays(snapshot.textOverlays.map(t => ({ ...t })));
+
+    // Restore audio layers (preserve existing audio elements for matching IDs)
+    const existingAudioMap = new Map<string, HTMLAudioElement>();
+    audioRefs.current.forEach((el, id) => existingAudioMap.set(id, el));
+
+    setAudioLayers(snapshot.audioLayers.map(a => ({ ...a })));
+
+    // Clean up audio elements for removed layers
+    existingAudioMap.forEach((el, id) => {
+      if (!snapshot.audioLayers.some(a => a.id === id)) {
+        el.pause();
+        URL.revokeObjectURL(el.src);
+        audioRefs.current.delete(id);
+      }
+    });
+
+    // Restore caption layers
+    setCaptionLayers(snapshot.captionLayers.map(c => ({ ...c })));
+
+    // Restore effect layers
+    setEffectLayers(snapshot.effectLayers.map(e => ({ ...e })));
+
+    // Clear selections
+    setSelectedClipId(null);
+    setSelectedTextId(null);
+    setSelectedAudioId(null);
+    setSelectedCaptionId(null);
+    setSelectedEffectId(null);
+
+    setTimeout(() => {
+      isRestoringRef.current = false;
+    }, 0);
+  };
+
+  // ============================================
+  // EFFECT LAYER FUNCTIONS (with history)
+  // ============================================
+
   const addEffectLayer = (effectId: string) => {
     const preset = effectPresets.find(e => e.id === effectId);
     if (!preset) return;
     
-    const newEffect: EffectLayer = {
+    saveStateToHistory();
+    const newEffect: EffectLayerData = {
       id: Date.now().toString(),
       effectId: preset.id,
       name: preset.name,
@@ -235,7 +385,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setSelectedTool('effects');
   };
 
-  const updateSelectedEffect = (updates: Partial<EffectLayer>) => {
+  const updateSelectedEffect = (updates: Partial<EffectLayerData>) => {
     if (!selectedEffectId) return;
     setEffectLayers(prev => prev.map(e => 
       e.id === selectedEffectId ? { ...e, ...updates } : e
@@ -243,6 +393,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   };
 
   const deleteEffectLayer = (id: string) => {
+    saveStateToHistory();
     setEffectLayers(prev => prev.filter(e => e.id !== id));
     if (selectedEffectId === id) setSelectedEffectId(null);
   };
@@ -274,6 +425,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     // Create audio element to get duration
     const audioElement = new Audio(audioUrl);
     audioElement.addEventListener('loadedmetadata', () => {
+      saveStateToHistory();
       const audioDuration = audioElement.duration;
       const newAudio: AudioLayer = {
         id: Date.now().toString(),
@@ -305,6 +457,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   };
 
   const deleteAudioLayer = (id: string) => {
+    saveStateToHistory();
     // Clean up audio element
     const audioEl = audioRefs.current.get(id);
     if (audioEl) {
@@ -362,7 +515,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const selectedTextOverlay = textOverlays.find(t => t.id === selectedTextId);
 
   const addTextOverlay = () => {
-    const newText: TextOverlay = {
+    saveStateToHistory();
+    const newText: TextOverlayData = {
       id: Date.now().toString(),
       text: 'Sample Text',
       position: { x: 0.5, y: 0.5 },
@@ -382,7 +536,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setSelectedTool('text');
   };
 
-  const updateSelectedText = (updates: Partial<TextOverlay>) => {
+  const updateSelectedText = (updates: Partial<TextOverlayData>) => {
     if (!selectedTextId) return;
     setTextOverlays(prev => prev.map(t => 
       t.id === selectedTextId ? { ...t, ...updates } : t
@@ -390,6 +544,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   };
 
   const deleteTextOverlay = (id: string) => {
+    saveStateToHistory();
     setTextOverlays(prev => prev.filter(t => t.id !== id));
     if (selectedTextId === id) setSelectedTextId(null);
   };
@@ -401,6 +556,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       return;
     }
     
+    saveStateToHistory();
     setIsGeneratingCaptions(true);
     toast({ title: "Generating captions", description: "Analyzing audio..." });
     
@@ -411,7 +567,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       // Generate sample captions based on video duration
       const captionDuration = 3; // seconds per caption
       const numCaptions = Math.ceil(duration / captionDuration);
-      const newCaptions: CaptionLayer[] = [];
+      const newCaptions: CaptionLayerData[] = [];
       
       for (let i = 0; i < numCaptions; i++) {
         newCaptions.push({
@@ -432,7 +588,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     }
   };
 
-  const updateSelectedCaption = (updates: Partial<CaptionLayer>) => {
+  const updateSelectedCaption = (updates: Partial<CaptionLayerData>) => {
     if (!selectedCaptionId) return;
     setCaptionLayers(prev => prev.map(c => 
       c.id === selectedCaptionId ? { ...c, ...updates } : c
@@ -440,12 +596,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   };
 
   const deleteCaptionLayer = (id: string) => {
+    saveStateToHistory();
     setCaptionLayers(prev => prev.filter(c => c.id !== id));
     if (selectedCaptionId === id) setSelectedCaptionId(null);
   };
 
   const addCaptionLayer = () => {
-    const newCaption: CaptionLayer = {
+    saveStateToHistory();
+    const newCaption: CaptionLayerData = {
       id: `caption-${Date.now()}`,
       text: 'New caption',
       startTime: currentTime,
@@ -1302,16 +1460,24 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           {/* Control buttons */}
           <div className="flex items-center gap-1">
             <button 
-              onClick={() => toast({ title: "Undo", description: "Coming soon!" })}
+              onClick={handleUndo}
+              disabled={!canUndo}
               className="p-2"
             >
-              <Undo2 className="w-5 h-5 text-white/70" />
+              <Undo2 className={cn(
+                "w-5 h-5",
+                canUndo ? "text-white/90" : "text-white/30"
+              )} />
             </button>
             <button 
-              onClick={() => toast({ title: "Redo", description: "Coming soon!" })}
+              onClick={handleRedo}
+              disabled={!canRedo}
               className="p-2"
             >
-              <Redo2 className="w-5 h-5 text-white/70" />
+              <Redo2 className={cn(
+                "w-5 h-5",
+                canRedo ? "text-white/90" : "text-white/30"
+              )} />
             </button>
             <button 
               onClick={togglePlayPause} 
@@ -2102,6 +2268,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                     }}
                                     onMouseDown={(e) => {
                                       e.stopPropagation();
+                                      saveStateToHistory(); // Save before trimming
                                       setTrimmingClipId(clip.id);
                                       setIsTrimmingClipStart(true);
                                       setSelectedClipId(clip.id);
@@ -2184,6 +2351,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                     }}
                                     onMouseDown={(e) => {
                                       e.stopPropagation();
+                                      saveStateToHistory(); // Save before trimming
                                       setTrimmingClipId(clip.id);
                                       setIsTrimmingClipEnd(true);
                                       setSelectedClipId(clip.id);
