@@ -101,8 +101,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [isLoadingRecent, setIsLoadingRecent] = useState(false);
   const [selectedQuality, setSelectedQuality] = useState("1080p");
   const [isUserScrolling, setIsUserScrolling] = useState(false);
-  
-  // Adjustment values (range -1.0 to 1.0, default 0)
+  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
+  const timelineRef = useRef<HTMLDivElement>(null);
   const [adjustments, setAdjustments] = useState({
     brightness: 0,
     contrast: 0,
@@ -341,11 +341,23 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const { user } = useAuth();
   const { toast } = useToast();
 
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    const handleTimeUpdate = () => setCurrentTime(video.currentTime);
+    const handleTimeUpdate = () => {
+      setCurrentTime(video.currentTime);
+      
+      // Auto-scroll timeline when video is playing (not user scrolling)
+      if (!isUserScrolling && !isAutoScrolling && timelineRef.current) {
+        const halfScreen = window.innerWidth / 2;
+        const targetScroll = video.currentTime * PIXELS_PER_SECOND;
+        setIsAutoScrolling(true);
+        timelineRef.current.scrollLeft = targetScroll;
+        setTimeout(() => setIsAutoScrolling(false), 50);
+      }
+    };
     const handleLoadedMetadata = () => setDuration(video.duration);
     const handleEnded = () => setIsPlaying(false);
 
@@ -358,7 +370,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       video.removeEventListener("loadedmetadata", handleLoadedMetadata);
       video.removeEventListener("ended", handleEnded);
     };
-  }, [videoUrl]);
+  }, [videoUrl, isUserScrolling, isAutoScrolling]);
 
   const loadRecentVideos = async () => {
     if (!user) return;
@@ -1459,10 +1471,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               
               {/* Scrollable Timeline Content using pixelsPerSecond */}
               <div 
+                ref={timelineRef}
                 className="h-full overflow-x-auto scrollbar-hide"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 onScroll={(e) => {
-                  if (!isUserScrolling) return;
+                  if (!isUserScrolling || isAutoScrolling) return;
                   const scrollLeft = e.currentTarget.scrollLeft;
                   // Convert scroll to time using pixelsPerSecond
                   const timeUnderPlayhead = scrollLeft / PIXELS_PER_SECOND;
@@ -1596,17 +1609,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           <div
                             key={overlay.id}
                             className={cn(
-                              "absolute h-[34px] rounded-md flex items-center cursor-pointer transition-all",
+                              "absolute h-[34px] rounded-md flex items-center cursor-grab transition-all active:cursor-grabbing",
                               isSelected 
                                 ? "bg-gradient-to-r from-amber-500 to-amber-600 ring-2 ring-white shadow-lg shadow-amber-500/30"
-                                : "bg-gradient-to-r from-primary to-primary/80 shadow-md shadow-primary/30"
+                                : "bg-gradient-to-r from-primary to-primary/80 shadow-md shadow-primary/30",
+                              draggingLayerId === overlay.id && "opacity-90 scale-[1.02] z-10"
                             )}
                             style={{ left: leftOffset, width: itemWidth, top: 3 }}
-                            onClick={() => {
-                              setSelectedTextId(overlay.id);
-                              setTextInput(overlay.text);
-                              setSelectedTool('text');
-                            }}
                             draggable={false}
                           >
                             {/* Left trim handle */}
@@ -1647,8 +1656,77 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               <div className="w-0.5 h-4 bg-white/80 rounded-full" />
                             </div>
                             
-                            {/* Content */}
-                            <div className="flex-1 flex items-center gap-1 px-1 overflow-hidden">
+                            {/* Content - Draggable center area for moving entire clip */}
+                            <div 
+                              className="flex-1 flex items-center gap-1 px-1 overflow-hidden cursor-grab active:cursor-grabbing"
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                setDraggingLayerId(overlay.id);
+                                setSelectedTextId(overlay.id);
+                                setTextInput(overlay.text);
+                                
+                                const startX = e.clientX;
+                                const startTime = overlay.startTime;
+                                const clipDuration = overlay.endTime - overlay.startTime;
+                                const snapThreshold = 10 / PIXELS_PER_SECOND; // 10px snap threshold
+                                
+                                const handleMove = (moveE: MouseEvent) => {
+                                  const deltaX = moveE.clientX - startX;
+                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                  let newStart = Math.max(0, Math.min(duration - clipDuration, startTime + timeDelta));
+                                  
+                                  // Snap to playhead
+                                  const playheadTime = currentTime;
+                                  if (Math.abs(newStart - playheadTime) < snapThreshold) {
+                                    newStart = playheadTime;
+                                    setSnapLinePosition(window.innerWidth / 2);
+                                  } else if (Math.abs(newStart + clipDuration - playheadTime) < snapThreshold) {
+                                    newStart = playheadTime - clipDuration;
+                                    setSnapLinePosition(window.innerWidth / 2);
+                                  } else {
+                                    // Snap to other text clips
+                                    let snapped = false;
+                                    for (const other of textOverlays) {
+                                      if (other.id === overlay.id) continue;
+                                      if (Math.abs(newStart - other.endTime) < snapThreshold) {
+                                        newStart = other.endTime;
+                                        snapped = true;
+                                        break;
+                                      }
+                                      if (Math.abs(newStart + clipDuration - other.startTime) < snapThreshold) {
+                                        newStart = other.startTime - clipDuration;
+                                        snapped = true;
+                                        break;
+                                      }
+                                    }
+                                    if (!snapped) {
+                                      setSnapLinePosition(null);
+                                    }
+                                  }
+                                  
+                                  setTextOverlays(prev => prev.map(t => 
+                                    t.id === overlay.id 
+                                      ? { ...t, startTime: newStart, endTime: newStart + clipDuration } 
+                                      : t
+                                  ));
+                                };
+                                
+                                const handleUp = () => {
+                                  setDraggingLayerId(null);
+                                  setSnapLinePosition(null);
+                                  document.removeEventListener('mousemove', handleMove);
+                                  document.removeEventListener('mouseup', handleUp);
+                                };
+                                
+                                document.addEventListener('mousemove', handleMove);
+                                document.addEventListener('mouseup', handleUp);
+                              }}
+                              onClick={() => {
+                                setSelectedTextId(overlay.id);
+                                setTextInput(overlay.text);
+                                setSelectedTool('text');
+                              }}
+                            >
                               <Type className="w-3 h-3 text-white/90 shrink-0" />
                               <span className="text-[10px] text-white font-semibold truncate">
                                 {overlay.text}
@@ -1708,16 +1786,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           <div
                             key={audio.id}
                             className={cn(
-                              "absolute h-[34px] rounded-md flex items-center cursor-pointer transition-all",
+                              "absolute h-[34px] rounded-md flex items-center cursor-grab transition-all active:cursor-grabbing",
                               isSelected 
                                 ? "bg-gradient-to-r from-emerald-500 to-emerald-600 ring-2 ring-white shadow-lg shadow-emerald-500/30"
-                                : "bg-gradient-to-r from-emerald-600 to-emerald-700 shadow-md shadow-emerald-600/30"
+                                : "bg-gradient-to-r from-emerald-600 to-emerald-700 shadow-md shadow-emerald-600/30",
+                              draggingLayerId === audio.id && "opacity-90 scale-[1.02] z-10"
                             )}
                             style={{ left: leftOffset, width: itemWidth, top: 3 }}
-                            onClick={() => {
-                              setSelectedAudioId(audio.id);
-                              setSelectedTool('audio');
-                            }}
                           >
                             {/* Left trim handle */}
                             <div 
@@ -1751,8 +1826,75 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               <div className="w-0.5 h-4 bg-white/80 rounded-full" />
                             </div>
                             
-                            {/* Content */}
-                            <div className="flex-1 flex items-center gap-1 px-1 overflow-hidden">
+                            {/* Content - Draggable center area for moving entire clip */}
+                            <div 
+                              className="flex-1 flex items-center gap-1 px-1 overflow-hidden cursor-grab active:cursor-grabbing"
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                setDraggingLayerId(audio.id);
+                                setSelectedAudioId(audio.id);
+                                
+                                const startX = e.clientX;
+                                const startTime = audio.startTime;
+                                const clipDuration = audio.endTime - audio.startTime;
+                                const snapThreshold = 10 / PIXELS_PER_SECOND;
+                                
+                                const handleMove = (moveE: MouseEvent) => {
+                                  const deltaX = moveE.clientX - startX;
+                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                  let newStart = Math.max(0, Math.min(duration - clipDuration, startTime + timeDelta));
+                                  
+                                  // Snap to playhead
+                                  const playheadTime = currentTime;
+                                  if (Math.abs(newStart - playheadTime) < snapThreshold) {
+                                    newStart = playheadTime;
+                                    setSnapLinePosition(window.innerWidth / 2);
+                                  } else if (Math.abs(newStart + clipDuration - playheadTime) < snapThreshold) {
+                                    newStart = playheadTime - clipDuration;
+                                    setSnapLinePosition(window.innerWidth / 2);
+                                  } else {
+                                    // Snap to other audio clips
+                                    let snapped = false;
+                                    for (const other of audioLayers) {
+                                      if (other.id === audio.id) continue;
+                                      if (Math.abs(newStart - other.endTime) < snapThreshold) {
+                                        newStart = other.endTime;
+                                        snapped = true;
+                                        break;
+                                      }
+                                      if (Math.abs(newStart + clipDuration - other.startTime) < snapThreshold) {
+                                        newStart = other.startTime - clipDuration;
+                                        snapped = true;
+                                        break;
+                                      }
+                                    }
+                                    if (!snapped) {
+                                      setSnapLinePosition(null);
+                                    }
+                                  }
+                                  
+                                  setAudioLayers(prev => prev.map(a => 
+                                    a.id === audio.id 
+                                      ? { ...a, startTime: newStart, endTime: newStart + clipDuration } 
+                                      : a
+                                  ));
+                                };
+                                
+                                const handleUp = () => {
+                                  setDraggingLayerId(null);
+                                  setSnapLinePosition(null);
+                                  document.removeEventListener('mousemove', handleMove);
+                                  document.removeEventListener('mouseup', handleUp);
+                                };
+                                
+                                document.addEventListener('mousemove', handleMove);
+                                document.addEventListener('mouseup', handleUp);
+                              }}
+                              onClick={() => {
+                                setSelectedAudioId(audio.id);
+                                setSelectedTool('audio');
+                              }}
+                            >
                               <Music className="w-3 h-3 text-white/90 shrink-0" />
                               <span className="text-[10px] text-white font-semibold truncate">
                                 {audio.name}
