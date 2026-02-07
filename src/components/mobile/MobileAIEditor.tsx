@@ -238,12 +238,17 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [selectedAdjustmentId, setSelectedAdjustmentId] = useState<keyof typeof adjustments>('brightness');
   
   // Stickers, Aspect Ratio, Background state
-  const [selectedAspectRatio, setSelectedAspectRatio] = useState<'9:16' | '1:1' | '16:9' | '4:5' | '21:9'>('16:9');
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>('original');
   const [backgroundColor, setBackgroundColor] = useState('#000000');
   const [backgroundBlur, setBackgroundBlur] = useState(0);
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
   const [backgroundTab, setBackgroundTab] = useState<'color' | 'image' | 'blur'>('color');
   const [showStickersPanel, setShowStickersPanel] = useState(false);
+  
+  // Video position within frame (for drag repositioning)
+  const [videoPosition, setVideoPosition] = useState({ x: 0, y: 0 });
+  const [isDraggingVideo, setIsDraggingVideo] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
   
   // Text menu mode state - activated by clicking "+ Add text" row
   const [isTextMenuMode, setIsTextMenuMode] = useState(false);
@@ -257,14 +262,20 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   ];
   const [selectedStickerCategory, setSelectedStickerCategory] = useState('emoji');
   
-  // Aspect ratio presets
+  // Extended aspect ratio presets
   const aspectRatioPresets = [
-    { id: '9:16', label: '9:16', width: 9, height: 16, description: 'Vertical' },
-    { id: '1:1', label: '1:1', width: 1, height: 1, description: 'Square' },
-    { id: '16:9', label: '16:9', width: 16, height: 9, description: 'Landscape' },
-    { id: '4:5', label: '4:5', width: 4, height: 5, description: 'Portrait' },
-    { id: '21:9', label: '21:9', width: 21, height: 9, description: 'Cinematic' },
-  ] as const;
+    { id: 'original', label: 'Original', width: 16, height: 9 },
+    { id: '9:16', label: '9:16', width: 9, height: 16 },
+    { id: '16:9', label: '16:9', width: 16, height: 9 },
+    { id: '1:1', label: '1:1', width: 1, height: 1 },
+    { id: '4:3', label: '4:3', width: 4, height: 3 },
+    { id: '3:4', label: '3:4', width: 3, height: 4 },
+    { id: '5.8"', label: '5.8"', width: 9, height: 19.5 },
+    { id: '128:27', label: '128:27', width: 128, height: 27 },
+    { id: '2:1', label: '2:1', width: 2, height: 1 },
+    { id: '2.35:1', label: '2.35:1', width: 2.35, height: 1 },
+    { id: '1.85:1', label: '1.85:1', width: 1.85, height: 1 },
+  ];
   
   // Background color presets
   const backgroundColorPresets = [
@@ -2763,48 +2774,37 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 </div>
               </div>
             ) : selectedTool === 'aspect' ? (
-              // Aspect Ratio Panel
-              <div className="flex flex-col px-4 py-4">
-                <p className="text-foreground/70 text-xs mb-3">Select aspect ratio</p>
-                <div className="flex gap-3 justify-center flex-wrap">
-                  {aspectRatioPresets.map((preset) => {
-                    const isSelected = selectedAspectRatio === preset.id;
-                    // Calculate preview box dimensions
-                    const maxSize = 56;
-                    const scale = Math.min(maxSize / preset.width, maxSize / preset.height);
-                    const previewWidth = preset.width * scale;
-                    const previewHeight = preset.height * scale;
-                    
-                    return (
-                      <button
-                        key={preset.id}
-                        onClick={() => setSelectedAspectRatio(preset.id as any)}
-                        className={cn(
-                          "flex flex-col items-center gap-2 p-3 rounded-xl transition-all",
-                          isSelected 
-                            ? "bg-primary/15 ring-2 ring-primary" 
-                            : "bg-white/5 hover:bg-white/10"
-                        )}
-                      >
-                        <div 
+              // Aspect Ratio Panel - Horizontal Scrollable
+              <div className="flex flex-col py-3">
+                <div className="overflow-x-auto">
+                  <div className="flex gap-2 px-4 min-w-max">
+                    {aspectRatioPresets.map((preset) => {
+                      const isSelected = selectedAspectRatio === preset.id;
+                      return (
+                        <button
+                          key={preset.id}
+                          onClick={() => {
+                            setSelectedAspectRatio(preset.id);
+                            setVideoPosition({ x: 0, y: 0 }); // Reset position on ratio change
+                          }}
                           className={cn(
-                            "border-2 rounded-sm flex items-center justify-center",
-                            isSelected ? "border-primary bg-primary/20" : "border-foreground/30 bg-white/5"
+                            "flex items-center justify-center px-4 py-2.5 rounded-lg transition-all whitespace-nowrap",
+                            isSelected 
+                              ? "bg-primary text-primary-foreground" 
+                              : "bg-muted/50 text-foreground/70 hover:bg-muted"
                           )}
-                          style={{ width: previewWidth, height: previewHeight }}
                         >
-                          <span className="text-[9px] font-semibold text-foreground/70">{preset.label}</span>
-                        </div>
-                        <span className={cn(
-                          "text-[10px] font-medium",
-                          isSelected ? "text-primary" : "text-foreground/60"
-                        )}>
-                          {preset.description}
-                        </span>
-                      </button>
-                    );
-                  })}
+                          <span className="text-sm font-medium">{preset.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
+                
+                {/* Instruction */}
+                <p className="text-foreground/50 text-[10px] text-center mt-3 px-4">
+                  Drag the video to reposition within the frame
+                </p>
               </div>
             ) : selectedTool === 'background' ? (
               // Background Panel with Tabs
