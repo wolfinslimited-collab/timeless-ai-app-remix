@@ -1476,65 +1476,45 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       child: GestureDetector(
         onTap: _showMediaPickerSheet,
         child: Container(
-          margin: const EdgeInsets.all(24),
-          padding: const EdgeInsets.all(32),
+          margin: const EdgeInsets.symmetric(horizontal: 32, vertical: 80),
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 48),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: Colors.white.withOpacity(0.2),
+              color: AppTheme.primary.withOpacity(0.3),
               width: 2,
-              style: BorderStyle.solid,
             ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 64,
-                height: 64,
+                width: 80,
+                height: 80,
                 decoration: BoxDecoration(
-                  color: AppTheme.primary.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
+                  gradient: LinearGradient(
+                    colors: [AppTheme.primary.withOpacity(0.3), AppTheme.primary.withOpacity(0.1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
                 ),
-                child: const Icon(Icons.videocam_outlined, size: 32, color: AppTheme.primary),
+                child: const Icon(Icons.videocam_outlined, size: 40, color: AppTheme.primary),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 28),
               const Text(
                 'Upload Video',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
-                'Tap to select a video',
-                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.cloud_upload_outlined, color: Colors.white, size: 18),
-                    SizedBox(width: 8),
-                    Text(
-                      'Choose Video',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+                'Tap anywhere to select a video',
+                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 15),
               ),
             ],
           ),
