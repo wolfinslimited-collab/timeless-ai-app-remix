@@ -1697,7 +1697,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   void _toggleFullScreen() {
     if (!_isVideoInitialized || _videoController == null) return;
     
-    // Open fullscreen dialog
+    // Open fullscreen dialog with total timeline duration
+    final totalDuration = Duration(milliseconds: (_totalTimelineDuration * 1000).round());
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1705,6 +1706,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       builder: (context) => _FullScreenVideoDialog(
         videoController: _videoController!,
         onClose: () => Navigator.of(context).pop(),
+        totalDuration: totalDuration,
       ),
     );
   }
@@ -1717,6 +1719,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
 
   Widget _buildVideoControlBar() {
+    // Calculate total duration from all clips for dynamic display
+    final totalDuration = Duration(milliseconds: (_totalTimelineDuration * 1000).round());
+    
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -1727,12 +1732,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       ),
       child: Row(
         children: [
-          // Time counter
+          // Time counter - uses totalTimelineDuration for dynamic multi-clip support
           ValueListenableBuilder<VideoPlayerValue>(
             valueListenable: _videoController!,
             builder: (context, value, child) {
               return Text(
-                '${_formatDuration(value.position)} / ${_formatDuration(value.duration)}',
+                '${_formatDuration(value.position)} / ${_formatDuration(totalDuration)}',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.6),
                   fontSize: 12,
@@ -5155,10 +5160,12 @@ class EditorTool {
 class _FullScreenVideoDialog extends StatefulWidget {
   final VideoPlayerController videoController;
   final VoidCallback onClose;
+  final Duration totalDuration; // Total timeline duration for multi-clip support
 
   const _FullScreenVideoDialog({
     required this.videoController,
     required this.onClose,
+    required this.totalDuration,
   });
 
   @override
@@ -5207,9 +5214,9 @@ class _FullScreenVideoDialogState extends State<_FullScreenVideoDialog> {
   }
 
   void _seekToPosition(double progress) {
-    final duration = widget.videoController.value.duration;
+    // Use widget.totalDuration for seek calculation to support multi-clip timeline
     final newPosition = Duration(
-      milliseconds: (duration.inMilliseconds * progress).round(),
+      milliseconds: (widget.totalDuration.inMilliseconds * progress).round(),
     );
     widget.videoController.seekTo(newPosition);
   }
@@ -5288,8 +5295,9 @@ class _FullScreenVideoDialogState extends State<_FullScreenVideoDialog> {
                       child: ValueListenableBuilder<VideoPlayerValue>(
                         valueListenable: widget.videoController,
                         builder: (context, value, child) {
-                          final progress = value.duration.inMilliseconds > 0
-                              ? value.position.inMilliseconds / value.duration.inMilliseconds
+                          // Use widget.totalDuration for progress calculation to support multi-clip timeline
+                          final progress = widget.totalDuration.inMilliseconds > 0
+                              ? value.position.inMilliseconds / widget.totalDuration.inMilliseconds
                               : 0.0;
                           
                           return Column(
@@ -5413,11 +5421,11 @@ class _FullScreenVideoDialogState extends State<_FullScreenVideoDialog> {
                                   
                                   const Spacer(),
                                   
-                                  // Total duration
+                                  // Total duration - uses widget.totalDuration for multi-clip support
                                   SizedBox(
                                     width: 60,
                                     child: Text(
-                                      _formatDuration(value.duration),
+                                      _formatDuration(widget.totalDuration),
                                       textAlign: TextAlign.right,
                                       style: TextStyle(
                                         color: Colors.white.withOpacity(0.6),
