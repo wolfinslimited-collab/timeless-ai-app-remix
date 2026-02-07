@@ -1730,31 +1730,41 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     {isSelected && !draggingTextId && (
                       <>
                         {/* Delete button */}
-                        <button
+                        <div
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
+                            e.preventDefault();
                             deleteTextOverlay(overlay.id);
                           }}
-                          className="absolute -top-4 -right-4 w-7 h-7 rounded-full bg-destructive flex items-center justify-center shadow-lg"
+                          className="absolute -top-5 -right-5 w-8 h-8 rounded-full bg-destructive flex items-center justify-center shadow-lg cursor-pointer z-50 touch-manipulation"
+                          style={{ pointerEvents: 'auto' }}
                         >
-                          <X className="w-4 h-4 text-white" />
-                        </button>
+                          <X className="w-4 h-4 text-destructive-foreground" />
+                        </div>
                         {/* Edit button */}
-                        <button
+                        <div
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
+                            e.preventDefault();
                             setIsEditingTextInline(true);
                             setSelectedTool('text');
                           }}
-                          className="absolute -top-4 -left-4 w-7 h-7 rounded-full bg-primary flex items-center justify-center shadow-lg"
+                          className="absolute -top-5 -left-5 w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg cursor-pointer z-50 touch-manipulation"
+                          style={{ pointerEvents: 'auto' }}
                         >
-                          <Type className="w-4 h-4 text-white" />
-                        </button>
+                          <Type className="w-4 h-4 text-primary-foreground" />
+                        </div>
                         {/* Resize handle - interactive scaling */}
                         <div 
-                          className="absolute -bottom-3 -right-3 w-5 h-5 rounded-full bg-white border-2 border-primary flex items-center justify-center cursor-se-resize"
+                          className="absolute -bottom-4 -right-4 w-7 h-7 rounded-full bg-background border-2 border-primary flex items-center justify-center cursor-se-resize z-50 touch-manipulation"
+                          style={{ pointerEvents: 'auto' }}
                           onMouseDown={(e) => {
                             e.stopPropagation();
+                            e.preventDefault();
                             const startX = e.clientX;
                             const startY = e.clientY;
                             const startFontSize = overlay.fontSize;
@@ -1780,12 +1790,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           }}
                           onTouchStart={(e) => {
                             e.stopPropagation();
+                            e.preventDefault();
                             const touch = e.touches[0];
                             const startX = touch.clientX;
                             const startY = touch.clientY;
                             const startFontSize = overlay.fontSize;
                             
                             const handleTouchMove = (moveE: TouchEvent) => {
+                              moveE.preventDefault();
                               const currentTouch = moveE.touches[0];
                               const deltaX = currentTouch.clientX - startX;
                               const deltaY = currentTouch.clientY - startY;
@@ -1802,11 +1814,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               document.removeEventListener('touchend', handleTouchEnd);
                             };
                             
-                            document.addEventListener('touchmove', handleTouchMove);
+                            document.addEventListener('touchmove', handleTouchMove, { passive: false });
                             document.addEventListener('touchend', handleTouchEnd);
                           }}
                         >
-                          <svg className="w-2.5 h-2.5 text-primary" viewBox="0 0 24 24" fill="currentColor">
+                          <svg className="w-3 h-3 text-primary" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M22 22H20V20H22V22ZM22 18H20V16H22V18ZM18 22H16V20H18V22ZM22 14H20V12H22V14ZM18 18H16V16H18V18ZM14 22H12V20H14V22Z"/>
                           </svg>
                         </div>
