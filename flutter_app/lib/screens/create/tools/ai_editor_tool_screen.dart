@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../../core/theme.dart';
@@ -2262,7 +2263,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     }
   }
 
-  Future<void> _extractThumbnails(String videoUrl) async {
+  Future<void> _extractThumbnails(String videoPath) async {
     if (_videoController == null || !_isVideoInitialized) return;
     
     setState(() => _isExtractingThumbnails = true);
@@ -2271,24 +2272,34 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     final List<Uint8List?> thumbnails = List.filled(_thumbnailCount, null);
     
     try {
+      // Get temp directory for storing thumbnails
+      final tempDir = await getTemporaryDirectory();
+      
       for (int i = 0; i < _thumbnailCount; i++) {
         if (!mounted) break;
         
         final timeMs = (duration * i / _thumbnailCount).toInt();
         
         try {
-          // Use video player to capture frame (simple placeholder approach)
-          // Real thumbnail generation would require ffmpeg or native plugin
-          if (mounted && _videoController != null) {
-            // For now, use a simple placeholder - we'll just show timeline without thumbnails
-            // In production, you'd use ffmpeg_kit_flutter or similar
-            thumbnails[i] = null;
+          // Use video_thumbnail package to extract actual frames
+          final uint8list = await VideoThumbnail.thumbnailData(
+            video: videoPath,
+            imageFormat: ImageFormat.JPEG,
+            maxWidth: 80,
+            maxHeight: 60,
+            timeMs: timeMs,
+            quality: 50,
+          );
+          
+          if (mounted && uint8list != null) {
+            thumbnails[i] = uint8list;
             setState(() {
               _thumbnails = List.from(thumbnails);
             });
           }
         } catch (e) {
           debugPrint('Failed to extract thumbnail at $timeMs: $e');
+          // Keep null for this frame - will show placeholder
         }
       }
     } catch (e) {
