@@ -5855,64 +5855,81 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 ),
                 // Selection handles - only when selected
                 if (isSelected) ...[
-                  // Delete button (top-right)
+                  // Delete button (top-right) - larger hit area for mobile
                   Positioned(
-                    top: -24,
-                    right: -24,
+                    top: -28,
+                    right: -28,
                     child: GestureDetector(
-                      onTap: () => _deleteTextOverlay(overlay.id),
+                      onTap: () {
+                        _saveStateToHistory();
+                        setState(() {
+                          _textOverlays.removeWhere((t) => t.id == overlay.id);
+                          if (_selectedTextId == overlay.id) {
+                            _selectedTextId = null;
+                          }
+                        });
+                        _showSnackBar('Text deleted');
+                      },
                       behavior: HitTestBehavior.opaque,
                       child: Container(
-                        width: 28,
-                        height: 28,
+                        width: 36,
+                        height: 36,
                         decoration: BoxDecoration(
                           color: Colors.red,
                           shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.4), blurRadius: 8)],
+                          boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.5), blurRadius: 10, spreadRadius: 2)],
                         ),
-                        child: const Icon(Icons.close, color: Colors.white, size: 16),
+                        child: const Icon(Icons.close, color: Colors.white, size: 20),
                       ),
                     ),
                   ),
                   // Edit button (top-left) - opens inline editor
                   Positioned(
-                    top: -24,
-                    left: -24,
+                    top: -28,
+                    left: -28,
                     child: GestureDetector(
                       onTap: () => _openInlineTextEditor(overlay),
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary,
+                          shape: BoxShape.circle,
+                          boxShadow: [BoxShadow(color: AppTheme.primary.withOpacity(0.5), blurRadius: 10, spreadRadius: 2)],
+                        ),
+                        child: const Icon(Icons.edit, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ),
+                  // Scale handle (bottom-right corner) - larger for mobile touch
+                  Positioned(
+                    bottom: -20,
+                    right: -20,
+                    child: GestureDetector(
+                      onPanStart: (_) {
+                        // Capture initial scale
+                      },
+                      onPanUpdate: (details) {
+                        setState(() {
+                          final scaleDelta = 1 + (details.delta.dx + details.delta.dy) * 0.008;
+                          overlay.scale = (overlay.scale * scaleDelta).clamp(0.5, 3.0);
+                        });
+                      },
+                      onPanEnd: (_) {
+                        _showSnackBar('Scale: ${(overlay.scale * 100).round()}%');
+                      },
                       behavior: HitTestBehavior.opaque,
                       child: Container(
                         width: 28,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: AppTheme.primary,
-                          shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: AppTheme.primary.withOpacity(0.4), blurRadius: 8)],
-                        ),
-                        child: const Icon(Icons.edit, color: Colors.white, size: 16),
-                      ),
-                    ),
-                  ),
-                  // Scale handle (bottom-right corner)
-                  Positioned(
-                    bottom: -16,
-                    right: -16,
-                    child: GestureDetector(
-                      onPanUpdate: (details) {
-                        setState(() {
-                          final scaleDelta = 1 + (details.delta.dx + details.delta.dy) * 0.005;
-                          overlay.scale = (overlay.scale * scaleDelta).clamp(0.5, 3.0);
-                        });
-                      },
-                      child: Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
-                          border: Border.all(color: AppTheme.primary, width: 2),
+                          border: Border.all(color: AppTheme.primary, width: 3),
+                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8)],
                         ),
-                        child: const Icon(Icons.open_in_full, color: AppTheme.primary, size: 12),
+                        child: const Icon(Icons.open_in_full, color: AppTheme.primary, size: 16),
                       ),
                     ),
                   ),
