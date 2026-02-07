@@ -3141,10 +3141,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 );
                               })}
                             </div>
-                          )}
-                        </div>
+                        )}
                         
-                        {/* Add video button - appends new clip via direct file picker */}
+                        {/* Add video button - pinned directly to the right of video clips */}
                         <button 
                           onClick={handleDirectFilePick}
                           className="w-11 h-[48px] bg-white rounded-xl flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(255,255,255,0.25)] ml-2"
@@ -3153,391 +3152,288 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         </button>
                       </div>
                       
-                      {/* Text Track - using pixelsPerSecond for positioning */}
-                      {textOverlays.length > 0 && (
-                        <div className="relative h-10" style={{ width: trackWidth }}>
-                          {textOverlays.map(overlay => {
-                            const isSelected = overlay.id === selectedTextId;
-                            // Use pixelsPerSecond for consistent positioning
-                            const leftOffset = overlay.startTime * PIXELS_PER_SECOND;
-                            const itemWidth = Math.max(50, (overlay.endTime - overlay.startTime) * PIXELS_PER_SECOND);
-                        
-                        return (
-                          <div
-                            key={overlay.id}
-                            className={cn(
-                              "absolute h-[34px] rounded-md flex items-center cursor-grab transition-all active:cursor-grabbing group",
-                              isSelected 
-                                ? "bg-gradient-to-r from-amber-500 to-amber-600 ring-2 ring-white shadow-lg shadow-amber-500/30"
-                                : "bg-gradient-to-r from-primary to-primary/80 shadow-md shadow-primary/30",
-                              draggingLayerId === overlay.id && "opacity-90 scale-[1.02] z-10"
-                            )}
-                            style={{ left: leftOffset, width: itemWidth, top: 3 }}
-                            draggable={false}
-                            onClick={() => {
-                              setSelectedTextId(overlay.id);
-                              setSelectedTool('text');
-                            }}
-                          >
-                            {/* Left trim handle */}
-                            <div 
-                              className={cn(
-                                "w-2.5 h-full rounded-l-md flex items-center justify-center cursor-ew-resize",
-                                isSelected ? "bg-white/50" : "bg-white/30"
-                              )}
-                              onMouseDown={(e) => {
-                                e.stopPropagation();
-                                setTrimmingLayerId(overlay.id);
-                                setIsTrimmingStart(true);
-                                
-                                const startX = e.clientX;
-                                const startTime = overlay.startTime;
-                                
-                                const handleMove = (moveE: MouseEvent) => {
-                                  const deltaX = moveE.clientX - startX;
-                                  // Use PIXELS_PER_SECOND for time conversion
-                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
-                                  const newStart = Math.max(0, Math.min(overlay.endTime - 0.5, startTime + timeDelta));
-                                  setTextOverlays(prev => prev.map(t => 
-                                    t.id === overlay.id ? { ...t, startTime: newStart } : t
-                                  ));
-                                };
-                                
-                                const handleUp = () => {
-                                  setTrimmingLayerId(null);
-                                  setIsTrimmingStart(false);
-                                  document.removeEventListener('mousemove', handleMove);
-                                  document.removeEventListener('mouseup', handleUp);
-                                };
-                                
-                                document.addEventListener('mousemove', handleMove);
-                                document.addEventListener('mouseup', handleUp);
-                              }}
-                            >
-                              <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                      {/* + Add audio row - sleek semi-transparent track */}
+                      <div 
+                        className="relative h-10 cursor-pointer group"
+                        style={{ width: trackWidth }}
+                        onClick={() => audioInputRef.current?.click()}
+                      >
+                        <div className="h-[34px] mt-[3px] rounded-lg bg-emerald-600/15 border border-emerald-500/30 hover:bg-emerald-600/25 transition-all flex items-center gap-2 px-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 rounded-md bg-emerald-500/30 flex items-center justify-center">
+                              <Plus className="w-3 h-3 text-emerald-400" />
                             </div>
-                            
-                            {/* Content - Draggable center area for moving entire clip */}
-                            <div 
-                              className="flex-1 flex items-center gap-1 px-1 overflow-hidden cursor-grab active:cursor-grabbing"
-                              onMouseDown={(e) => {
-                                e.stopPropagation();
-                                setDraggingLayerId(overlay.id);
-                                setSelectedTextId(overlay.id);
-                                setTextInput(overlay.text);
-                                
-                                const startX = e.clientX;
-                                const startTime = overlay.startTime;
-                                const clipDuration = overlay.endTime - overlay.startTime;
-                                const snapThreshold = 10 / PIXELS_PER_SECOND; // 10px snap threshold
-                                
-                                const handleMove = (moveE: MouseEvent) => {
-                                  const deltaX = moveE.clientX - startX;
-                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
-                                  let newStart = Math.max(0, Math.min(duration - clipDuration, startTime + timeDelta));
-                                  
-                                  // Snap to playhead
-                                  const playheadTime = currentTime;
-                                  if (Math.abs(newStart - playheadTime) < snapThreshold) {
-                                    newStart = playheadTime;
-                                    setSnapLinePosition(window.innerWidth / 2);
-                                  } else if (Math.abs(newStart + clipDuration - playheadTime) < snapThreshold) {
-                                    newStart = playheadTime - clipDuration;
-                                    setSnapLinePosition(window.innerWidth / 2);
-                                  } else {
-                                    // Snap to other text clips
-                                    let snapped = false;
-                                    for (const other of textOverlays) {
-                                      if (other.id === overlay.id) continue;
-                                      if (Math.abs(newStart - other.endTime) < snapThreshold) {
-                                        newStart = other.endTime;
-                                        snapped = true;
-                                        break;
-                                      }
-                                      if (Math.abs(newStart + clipDuration - other.startTime) < snapThreshold) {
-                                        newStart = other.startTime - clipDuration;
-                                        snapped = true;
-                                        break;
-                                      }
-                                    }
-                                    if (!snapped) {
-                                      setSnapLinePosition(null);
-                                    }
-                                  }
-                                  
-                                  setTextOverlays(prev => prev.map(t => 
-                                    t.id === overlay.id 
-                                      ? { ...t, startTime: newStart, endTime: newStart + clipDuration } 
-                                      : t
-                                  ));
-                                };
-                                
-                                const handleUp = () => {
-                                  setDraggingLayerId(null);
-                                  setSnapLinePosition(null);
-                                  document.removeEventListener('mousemove', handleMove);
-                                  document.removeEventListener('mouseup', handleUp);
-                                };
-                                
-                                document.addEventListener('mousemove', handleMove);
-                                document.addEventListener('mouseup', handleUp);
-                              }}
-                              onClick={() => {
-                                setSelectedTextId(overlay.id);
-                                setTextInput(overlay.text);
-                                setSelectedTool('text');
-                              }}
-                            >
-                              <Type className="w-3 h-3 text-white/90 shrink-0" />
-                              <span className="text-[10px] text-white font-semibold truncate flex-1">
-                                {overlay.text}
-                              </span>
-                              {/* Delete button when selected */}
-                              {isSelected && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    deleteTextFromTimeline(overlay.id);
-                                  }}
-                                  className="w-4 h-4 bg-destructive/90 hover:bg-destructive rounded-full flex items-center justify-center shrink-0"
-                                >
-                                  <X className="w-2.5 h-2.5 text-white" />
-                                </button>
-                              )}
-                            </div>
-                            
-                            {/* Right trim handle */}
-                            <div 
-                              className={cn(
-                                "w-2.5 h-full rounded-r-md flex items-center justify-center cursor-ew-resize",
-                                isSelected ? "bg-white/50" : "bg-white/30"
-                              )}
-                              onMouseDown={(e) => {
-                                e.stopPropagation();
-                                setTrimmingLayerId(overlay.id);
-                                
-                                const startX = e.clientX;
-                                const endTime = overlay.endTime;
-                                
-                                const handleMove = (moveE: MouseEvent) => {
-                                  const deltaX = moveE.clientX - startX;
-                                  // Use PIXELS_PER_SECOND for time conversion
-                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
-                                  const newEnd = Math.min(duration, Math.max(overlay.startTime + 0.5, endTime + timeDelta));
-                                  setTextOverlays(prev => prev.map(t => 
-                                    t.id === overlay.id ? { ...t, endTime: newEnd } : t
-                                  ));
-                                };
-                                
-                                const handleUp = () => {
-                                  setTrimmingLayerId(null);
-                                  document.removeEventListener('mousemove', handleMove);
-                                  document.removeEventListener('mouseup', handleUp);
-                                };
-                                
-                                document.addEventListener('mousemove', handleMove);
-                                document.addEventListener('mouseup', handleUp);
-                              }}
-                            >
-                              <div className="w-0.5 h-4 bg-white/80 rounded-full" />
-                            </div>
+                            <Music className="w-3.5 h-3.5 text-emerald-400/80" />
+                            <span className="text-[11px] text-emerald-400/90 font-medium">Add audio</span>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  
-                  {/* Audio Track - Green themed */}
-                  {audioLayers.length > 0 && (
-                    <div className="relative h-10" style={{ width: trackWidth }}>
-                      {audioLayers.map(audio => {
-                        const isSelected = audio.id === selectedAudioId;
-                        const leftOffset = audio.startTime * PIXELS_PER_SECOND;
-                        const itemWidth = Math.max(50, (audio.endTime - audio.startTime) * PIXELS_PER_SECOND);
-                    
-                        return (
-                          <div
-                            key={audio.id}
-                            className={cn(
-                              "absolute h-[34px] rounded-md flex items-center cursor-grab transition-all active:cursor-grabbing",
-                              isSelected 
-                                ? "bg-gradient-to-r from-emerald-500 to-emerald-600 ring-2 ring-white shadow-lg shadow-emerald-500/30"
-                                : "bg-gradient-to-r from-emerald-600 to-emerald-700 shadow-md shadow-emerald-600/30",
-                              draggingLayerId === audio.id && "opacity-90 scale-[1.02] z-10"
-                            )}
-                            style={{ left: leftOffset, width: itemWidth, top: 3 }}
-                          >
-                            {/* Left trim handle */}
-                            <div 
+                        </div>
+                        {/* Render actual audio layers on top */}
+                        {audioLayers.map(audio => {
+                          const isSelected = audio.id === selectedAudioId;
+                          const leftOffset = audio.startTime * PIXELS_PER_SECOND;
+                          const itemWidth = Math.max(50, (audio.endTime - audio.startTime) * PIXELS_PER_SECOND);
+                          
+                          return (
+                            <div
+                              key={audio.id}
                               className={cn(
-                                "w-2.5 h-full rounded-l-md flex items-center justify-center cursor-ew-resize",
-                                isSelected ? "bg-white/50" : "bg-white/30"
+                                "absolute h-[34px] rounded-md flex items-center cursor-grab transition-all active:cursor-grabbing",
+                                isSelected 
+                                  ? "bg-gradient-to-r from-emerald-500 to-emerald-600 ring-2 ring-white shadow-lg shadow-emerald-500/30"
+                                  : "bg-gradient-to-r from-emerald-600 to-emerald-700 shadow-md shadow-emerald-600/30",
+                                draggingLayerId === audio.id && "opacity-90 scale-[1.02] z-10"
                               )}
-                              onMouseDown={(e) => {
+                              style={{ left: leftOffset, width: itemWidth, top: 3 }}
+                              onClick={(e) => {
                                 e.stopPropagation();
-                                const startX = e.clientX;
-                                const startTime = audio.startTime;
-                                
-                                const handleMove = (moveE: MouseEvent) => {
-                                  const deltaX = moveE.clientX - startX;
-                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
-                                  const newStart = Math.max(0, Math.min(audio.endTime - 0.5, startTime + timeDelta));
-                                  setAudioLayers(prev => prev.map(a => 
-                                    a.id === audio.id ? { ...a, startTime: newStart } : a
-                                  ));
-                                };
-                                
-                                const handleUp = () => {
-                                  document.removeEventListener('mousemove', handleMove);
-                                  document.removeEventListener('mouseup', handleUp);
-                                };
-                                
-                                document.addEventListener('mousemove', handleMove);
-                                document.addEventListener('mouseup', handleUp);
-                              }}
-                            >
-                              <div className="w-0.5 h-4 bg-white/80 rounded-full" />
-                            </div>
-                            
-                            {/* Content - Draggable center area for moving entire clip */}
-                            <div 
-                              className="flex-1 flex items-center gap-1 px-1 overflow-hidden cursor-grab active:cursor-grabbing"
-                              onMouseDown={(e) => {
-                                e.stopPropagation();
-                                setDraggingLayerId(audio.id);
-                                setSelectedAudioId(audio.id);
-                                
-                                const startX = e.clientX;
-                                const startTime = audio.startTime;
-                                const clipDuration = audio.endTime - audio.startTime;
-                                const snapThreshold = 10 / PIXELS_PER_SECOND;
-                                
-                                const handleMove = (moveE: MouseEvent) => {
-                                  const deltaX = moveE.clientX - startX;
-                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
-                                  let newStart = Math.max(0, Math.min(duration - clipDuration, startTime + timeDelta));
-                                  
-                                  // Snap to playhead
-                                  const playheadTime = currentTime;
-                                  if (Math.abs(newStart - playheadTime) < snapThreshold) {
-                                    newStart = playheadTime;
-                                    setSnapLinePosition(window.innerWidth / 2);
-                                  } else if (Math.abs(newStart + clipDuration - playheadTime) < snapThreshold) {
-                                    newStart = playheadTime - clipDuration;
-                                    setSnapLinePosition(window.innerWidth / 2);
-                                  } else {
-                                    // Snap to other audio clips
-                                    let snapped = false;
-                                    for (const other of audioLayers) {
-                                      if (other.id === audio.id) continue;
-                                      if (Math.abs(newStart - other.endTime) < snapThreshold) {
-                                        newStart = other.endTime;
-                                        snapped = true;
-                                        break;
-                                      }
-                                      if (Math.abs(newStart + clipDuration - other.startTime) < snapThreshold) {
-                                        newStart = other.startTime - clipDuration;
-                                        snapped = true;
-                                        break;
-                                      }
-                                    }
-                                    if (!snapped) {
-                                      setSnapLinePosition(null);
-                                    }
-                                  }
-                                  
-                                  setAudioLayers(prev => prev.map(a => 
-                                    a.id === audio.id 
-                                      ? { ...a, startTime: newStart, endTime: newStart + clipDuration } 
-                                      : a
-                                  ));
-                                };
-                                
-                                const handleUp = () => {
-                                  setDraggingLayerId(null);
-                                  setSnapLinePosition(null);
-                                  document.removeEventListener('mousemove', handleMove);
-                                  document.removeEventListener('mouseup', handleUp);
-                                };
-                                
-                                document.addEventListener('mousemove', handleMove);
-                                document.addEventListener('mouseup', handleUp);
-                              }}
-                              onClick={() => {
                                 setSelectedAudioId(audio.id);
                                 setSelectedTool('audio');
                               }}
                             >
-                              <Music className="w-3 h-3 text-white/90 shrink-0" />
-                              <span className="text-[10px] text-white font-semibold truncate flex-1">
-                                {audio.name}
-                              </span>
-                              {/* Delete button when selected */}
-                              {isSelected && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    deleteAudioFromTimeline(audio.id);
-                                  }}
-                                  className="w-4 h-4 bg-destructive/90 hover:bg-destructive rounded-full flex items-center justify-center shrink-0"
-                                >
-                                  <X className="w-2.5 h-2.5 text-white" />
-                                </button>
-                              )}
+                              <div 
+                                className={cn(
+                                  "w-2.5 h-full rounded-l-md flex items-center justify-center cursor-ew-resize",
+                                  isSelected ? "bg-white/50" : "bg-white/30"
+                                )}
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  const startX = e.clientX;
+                                  const startTime = audio.startTime;
+                                  
+                                  const handleMove = (moveE: MouseEvent) => {
+                                    const deltaX = moveE.clientX - startX;
+                                    const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                    const newStart = Math.max(0, Math.min(audio.endTime - 0.5, startTime + timeDelta));
+                                    setAudioLayers(prev => prev.map(a => 
+                                      a.id === audio.id ? { ...a, startTime: newStart } : a
+                                    ));
+                                  };
+                                  
+                                  const handleUp = () => {
+                                    document.removeEventListener('mousemove', handleMove);
+                                    document.removeEventListener('mouseup', handleUp);
+                                  };
+                                  
+                                  document.addEventListener('mousemove', handleMove);
+                                  document.addEventListener('mouseup', handleUp);
+                                }}
+                              >
+                                <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                              </div>
+                              
+                              <div 
+                                className="flex-1 flex items-center gap-1.5 px-1.5 overflow-hidden"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedAudioId(audio.id);
+                                  setSelectedTool('audio');
+                                }}
+                              >
+                                <Music className="w-3 h-3 text-white/90 shrink-0" />
+                                <span className="text-[10px] text-white font-semibold truncate flex-1">
+                                  {audio.name}
+                                </span>
+                                {isSelected && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      deleteAudioFromTimeline(audio.id);
+                                    }}
+                                    className="w-4 h-4 bg-destructive/90 hover:bg-destructive rounded-full flex items-center justify-center shrink-0"
+                                  >
+                                    <X className="w-2.5 h-2.5 text-white" />
+                                  </button>
+                                )}
+                              </div>
+                              
+                              <div className="flex-1 flex items-center justify-center gap-px px-1">
+                                {Array.from({ length: Math.min(20, Math.floor(itemWidth / 6)) }).map((_, i) => (
+                                  <div 
+                                    key={i}
+                                    className="w-0.5 bg-white/60 rounded-full"
+                                    style={{ height: `${Math.random() * 16 + 4}px` }}
+                                  />
+                                ))}
+                              </div>
+                              
+                              <div 
+                                className={cn(
+                                  "w-2.5 h-full rounded-r-md flex items-center justify-center cursor-ew-resize",
+                                  isSelected ? "bg-white/50" : "bg-white/30"
+                                )}
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  const startX = e.clientX;
+                                  const endTime = audio.endTime;
+                                  
+                                  const handleMove = (moveE: MouseEvent) => {
+                                    const deltaX = moveE.clientX - startX;
+                                    const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                    const newEnd = Math.min(duration, Math.max(audio.startTime + 0.5, endTime + timeDelta));
+                                    setAudioLayers(prev => prev.map(a => 
+                                      a.id === audio.id ? { ...a, endTime: newEnd } : a
+                                    ));
+                                  };
+                                  
+                                  const handleUp = () => {
+                                    document.removeEventListener('mousemove', handleMove);
+                                    document.removeEventListener('mouseup', handleUp);
+                                  };
+                                  
+                                  document.addEventListener('mousemove', handleMove);
+                                  document.addEventListener('mouseup', handleUp);
+                                }}
+                              >
+                                <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                              </div>
                             </div>
-                            
-                            {/* Audio waveform visualization */}
-                            <div className="flex-1 flex items-center justify-center gap-px px-1">
-                              {Array.from({ length: Math.min(20, Math.floor(itemWidth / 6)) }).map((_, i) => (
-                                <div 
-                                  key={i}
-                                  className="w-0.5 bg-white/60 rounded-full"
-                                  style={{ height: `${Math.random() * 16 + 4}px` }}
-                                />
-                              ))}
+                          );
+                        })}
+                      </div>
+                      
+                      {/* + Add text row - sleek semi-transparent track */}
+                      <div 
+                        className="relative h-10 cursor-pointer group"
+                        style={{ width: trackWidth }}
+                        onClick={addTextOverlay}
+                      >
+                        <div className="h-[34px] mt-[3px] rounded-lg bg-primary/15 border border-primary/30 hover:bg-primary/25 transition-all flex items-center gap-2 px-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 rounded-md bg-primary/30 flex items-center justify-center">
+                              <Plus className="w-3 h-3 text-primary" />
                             </div>
-                            
-                            {/* Right trim handle */}
-                            <div 
+                            <Type className="w-3.5 h-3.5 text-primary/80" />
+                            <span className="text-[11px] text-primary/90 font-medium">Add text</span>
+                          </div>
+                        </div>
+                        {/* Render actual text layers on top */}
+                        {textOverlays.map(overlay => {
+                          const isSelected = overlay.id === selectedTextId;
+                          const leftOffset = overlay.startTime * PIXELS_PER_SECOND;
+                          const itemWidth = Math.max(50, (overlay.endTime - overlay.startTime) * PIXELS_PER_SECOND);
+                          
+                          return (
+                            <div
+                              key={overlay.id}
                               className={cn(
-                                "w-2.5 h-full rounded-r-md flex items-center justify-center cursor-ew-resize",
-                                isSelected ? "bg-white/50" : "bg-white/30"
+                                "absolute h-[34px] rounded-md flex items-center cursor-grab transition-all active:cursor-grabbing group",
+                                isSelected 
+                                  ? "bg-gradient-to-r from-amber-500 to-amber-600 ring-2 ring-white shadow-lg shadow-amber-500/30"
+                                  : "bg-gradient-to-r from-primary to-primary/80 shadow-md shadow-primary/30",
+                                draggingLayerId === overlay.id && "opacity-90 scale-[1.02] z-10"
                               )}
-                              onMouseDown={(e) => {
+                              style={{ left: leftOffset, width: itemWidth, top: 3 }}
+                              draggable={false}
+                              onClick={(e) => {
                                 e.stopPropagation();
-                                const startX = e.clientX;
-                                const endTime = audio.endTime;
-                                
-                                const handleMove = (moveE: MouseEvent) => {
-                                  const deltaX = moveE.clientX - startX;
-                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
-                                  const newEnd = Math.min(duration, Math.max(audio.startTime + 0.5, endTime + timeDelta));
-                                  setAudioLayers(prev => prev.map(a => 
-                                    a.id === audio.id ? { ...a, endTime: newEnd } : a
-                                  ));
-                                };
-                                
-                                const handleUp = () => {
-                                  document.removeEventListener('mousemove', handleMove);
-                                  document.removeEventListener('mouseup', handleUp);
-                                };
-                                
-                                document.addEventListener('mousemove', handleMove);
-                                document.addEventListener('mouseup', handleUp);
+                                setSelectedTextId(overlay.id);
+                                setSelectedTool('text');
                               }}
                             >
-                              <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                              <div 
+                                className={cn(
+                                  "w-2.5 h-full rounded-l-md flex items-center justify-center cursor-ew-resize",
+                                  isSelected ? "bg-white/50" : "bg-white/30"
+                                )}
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  setTrimmingLayerId(overlay.id);
+                                  setIsTrimmingStart(true);
+                                  
+                                  const startX = e.clientX;
+                                  const startTime = overlay.startTime;
+                                  
+                                  const handleMove = (moveE: MouseEvent) => {
+                                    const deltaX = moveE.clientX - startX;
+                                    const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                    const newStart = Math.max(0, Math.min(overlay.endTime - 0.5, startTime + timeDelta));
+                                    setTextOverlays(prev => prev.map(t => 
+                                      t.id === overlay.id ? { ...t, startTime: newStart } : t
+                                    ));
+                                  };
+                                  
+                                  const handleUp = () => {
+                                    setTrimmingLayerId(null);
+                                    setIsTrimmingStart(false);
+                                    document.removeEventListener('mousemove', handleMove);
+                                    document.removeEventListener('mouseup', handleUp);
+                                  };
+                                  
+                                  document.addEventListener('mousemove', handleMove);
+                                  document.addEventListener('mouseup', handleUp);
+                                }}
+                              >
+                                <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                              </div>
+                              
+                              <div 
+                                className="flex-1 flex items-center gap-1.5 px-1.5 overflow-hidden cursor-grab"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTextId(overlay.id);
+                                  setTextInput(overlay.text);
+                                  setSelectedTool('text');
+                                }}
+                              >
+                                <Type className="w-3 h-3 text-white/90 shrink-0" />
+                                <span className="text-[10px] text-white font-semibold truncate flex-1">
+                                  {overlay.text}
+                                </span>
+                                {isSelected && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      deleteTextFromTimeline(overlay.id);
+                                    }}
+                                    className="w-4 h-4 bg-destructive/90 hover:bg-destructive rounded-full flex items-center justify-center shrink-0"
+                                  >
+                                    <X className="w-2.5 h-2.5 text-white" />
+                                  </button>
+                                )}
+                              </div>
+                              
+                              <div 
+                                className={cn(
+                                  "w-2.5 h-full rounded-r-md flex items-center justify-center cursor-ew-resize",
+                                  isSelected ? "bg-white/50" : "bg-white/30"
+                                )}
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  setTrimmingLayerId(overlay.id);
+                                  
+                                  const startX = e.clientX;
+                                  const endTime = overlay.endTime;
+                                  
+                                  const handleMove = (moveE: MouseEvent) => {
+                                    const deltaX = moveE.clientX - startX;
+                                    const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                    const newEnd = Math.min(duration, Math.max(overlay.startTime + 0.5, endTime + timeDelta));
+                                    setTextOverlays(prev => prev.map(t => 
+                                      t.id === overlay.id ? { ...t, endTime: newEnd } : t
+                                    ));
+                                  };
+                                  
+                                  const handleUp = () => {
+                                    setTrimmingLayerId(null);
+                                    document.removeEventListener('mousemove', handleMove);
+                                    document.removeEventListener('mouseup', handleUp);
+                                  };
+                                  
+                                  document.addEventListener('mousemove', handleMove);
+                                  document.addEventListener('mouseup', handleUp);
+                                }}
+                              >
+                                <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  
-                  {/* Caption/Subtitle Track - Cyan themed */}
-                  {captionLayers.length > 0 && (
-                    <div className="relative h-10" style={{ width: trackWidth }}>
-                      {captionLayers.map(caption => {
+                          );
+                        })}
+                      </div>
+                      
+                      {/* Caption/Subtitle Track - Cyan themed */}
+                      {captionLayers.length > 0 && (
+                        <div className="relative h-10" style={{ width: trackWidth }}>
+                          {captionLayers.map(caption => {
                         const isSelected = caption.id === selectedCaptionId;
                         const leftOffset = caption.startTime * PIXELS_PER_SECOND;
                         const itemWidth = Math.max(50, (caption.endTime - caption.startTime) * PIXELS_PER_SECOND);
@@ -3851,50 +3747,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       })}
                     </div>
                   )}
-                  
-                  {/* Add Layer Buttons Row */}
-                  <div className="flex items-center gap-2" style={{ marginLeft: '110px' }}>
-                    {/* Add text */}
-                    <button 
-                      onClick={addTextOverlay}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg"
-                      style={{ backgroundColor: '#2A2A2A', border: '1px solid rgba(139, 92, 246, 0.4)' }}
-                    >
-                      <div className="w-4 h-4 rounded flex items-center justify-center" style={{ backgroundColor: 'rgba(139, 92, 246, 0.3)' }}>
-                        <Plus className="w-3 h-3" style={{ color: '#8B5CF6' }} />
-                      </div>
-                      <span className="text-[11px] font-semibold" style={{ color: '#8B5CF6' }}>Add text</span>
-                    </button>
-                    
-                    {/* Add audio */}
-                    <button 
-                      onClick={() => audioInputRef.current?.click()}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg"
-                      style={{ backgroundColor: '#2A2A2A', border: '1px solid rgba(16, 185, 129, 0.4)' }}
-                    >
-                      <div className="w-4 h-4 rounded flex items-center justify-center" style={{ backgroundColor: 'rgba(16, 185, 129, 0.3)' }}>
-                        <Plus className="w-3 h-3" style={{ color: '#10B981' }} />
-                      </div>
-                      <span className="text-[11px] font-semibold" style={{ color: '#10B981' }}>Add audio</span>
-                    </button>
-                    
-                    {/* Add effect */}
-                    <button 
-                      onClick={() => setSelectedTool('effects')}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg"
-                      style={{ backgroundColor: '#2A2A2A', border: '1px solid rgba(245, 158, 11, 0.4)' }}
-                    >
-                      <div className="w-4 h-4 rounded flex items-center justify-center" style={{ backgroundColor: 'rgba(245, 158, 11, 0.3)' }}>
-                        <Plus className="w-3 h-3" style={{ color: '#F59E0B' }} />
-                      </div>
-                      <span className="text-[11px] font-semibold" style={{ color: '#F59E0B' }}>Add effect</span>
-                    </button>
-                  </div>
                 </div>
-                  );
-                })()}
-              </div>
-            </div>
+              );
+            })()}
+          </div>
+        </div>
 
             {/* Bottom Toolbar - Switches between main and edit mode */}
             <div className="shrink-0 bg-background border-t border-border/10 pb-safe">
