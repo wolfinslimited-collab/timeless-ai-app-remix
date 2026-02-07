@@ -205,6 +205,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [showAnimationsPanel, setShowAnimationsPanel] = useState(false);
   const [showBeatsPanel, setShowBeatsPanel] = useState(false);
   const [showCropPanel, setShowCropPanel] = useState(false);
+  const [isEditToolbarMode, setIsEditToolbarMode] = useState(false); // Edit toolbar replaces main toolbar
 
   // Undo/Redo history stacks
   const [undoStack, setUndoStack] = useState<EditorStateSnapshot[]>([]);
@@ -1145,12 +1146,17 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const handleToolClick = (tool: EditorTool) => {
     setSelectedTool(tool.id);
     
-    // Edit tool opens the clip editing panel
+    // Edit tool switches to edit toolbar mode
     if (tool.id === 'edit') {
-      // Open clip edit panel for the selected clip, or first clip if none selected
-      const clipToEdit = selectedClipId || (videoClips.length > 0 ? videoClips[0].id : null);
-      if (clipToEdit) {
-        openClipEditPanel(clipToEdit);
+      if (videoClips.length > 0) {
+        // Select first clip if none selected
+        if (!selectedClipId) {
+          setSelectedClipId(videoClips[0].id);
+          setEditingClipId(videoClips[0].id);
+        } else {
+          setEditingClipId(selectedClipId);
+        }
+        setIsEditToolbarMode(true);
       } else {
         toast({ title: "No clip selected", description: "Add a video clip first" });
       }
@@ -1164,6 +1170,20 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         description: "Coming soon!",
       });
     }
+  };
+
+  // Handle edit toolbar tool click
+  const handleEditToolClick = (toolId: string) => {
+    const tool = clipEditTools.find(t => t.id === toolId);
+    if (tool) {
+      tool.action();
+    }
+  };
+
+  // Exit edit toolbar mode
+  const exitEditToolbarMode = () => {
+    setIsEditToolbarMode(false);
+    setEditingClipId(null);
   };
 
   const handleExport = () => {
@@ -3550,37 +3570,81 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               </div>
             </div>
 
-            {/* Bottom Toolbar - Normal tool bar */}
+            {/* Bottom Toolbar - Switches between main and edit mode */}
             <div className="shrink-0 bg-background border-t border-border/10 pb-safe">
               <div className="overflow-x-auto">
-                <div className="flex px-2 py-3 min-w-max">
-                  {EDITOR_TOOLS.map((tool) => {
-                    const Icon = tool.icon;
-                    const isSelected = selectedTool === tool.id;
-
-                    return (
+                <div className="flex px-2 py-3 min-w-max animate-fade-in">
+                  {isEditToolbarMode ? (
+                    <>
+                      {/* Back button */}
                       <button
-                        key={tool.id}
-                        onClick={() => handleToolClick(tool)}
-                        className="flex flex-col items-center justify-center w-16 py-1"
+                        onClick={exitEditToolbarMode}
+                        className="flex flex-col items-center justify-center w-14 py-1 mr-1"
                       >
-                        <Icon
-                          className={cn(
-                            "w-6 h-6 mb-1",
-                            isSelected ? "text-white" : "text-white/60"
-                          )}
-                        />
-                        <span
-                          className={cn(
-                            "text-[11px]",
-                            isSelected ? "text-white font-medium" : "text-white/60"
-                          )}
-                        >
-                          {tool.name}
-                        </span>
+                        <ArrowLeft className="w-6 h-6 mb-1 text-primary" />
+                        <span className="text-[11px] text-primary font-medium">Back</span>
                       </button>
-                    );
-                  })}
+                      
+                      {/* Edit tools */}
+                      {clipEditTools.map((tool) => {
+                        const Icon = tool.icon;
+                        return (
+                          <button
+                            key={tool.id}
+                            onClick={() => handleEditToolClick(tool.id)}
+                            className={cn(
+                              "flex flex-col items-center justify-center w-14 py-1",
+                              tool.id === 'delete' && "text-destructive"
+                            )}
+                          >
+                            <Icon
+                              className={cn(
+                                "w-5 h-5 mb-1",
+                                tool.id === 'delete' ? "text-destructive" : "text-foreground/80"
+                              )}
+                            />
+                            <span
+                              className={cn(
+                                "text-[10px]",
+                                tool.id === 'delete' ? "text-destructive font-medium" : "text-foreground/70"
+                              )}
+                            >
+                              {tool.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </>
+                  ) : (
+                    /* Main toolbar */
+                    EDITOR_TOOLS.map((tool) => {
+                      const Icon = tool.icon;
+                      const isSelected = selectedTool === tool.id;
+
+                      return (
+                        <button
+                          key={tool.id}
+                          onClick={() => handleToolClick(tool)}
+                          className="flex flex-col items-center justify-center w-16 py-1"
+                        >
+                          <Icon
+                            className={cn(
+                              "w-6 h-6 mb-1",
+                              isSelected ? "text-foreground" : "text-foreground/60"
+                            )}
+                          />
+                          <span
+                            className={cn(
+                              "text-[11px]",
+                              isSelected ? "text-foreground font-medium" : "text-foreground/60"
+                            )}
+                          >
+                            {tool.name}
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
