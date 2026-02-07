@@ -5159,18 +5159,22 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           ),
           child: Row(
             children: [
-              // Back button
+              // Back button - Sleek rectangular chevron
               GestureDetector(
                 onTap: () => setState(() => _isTextMenuMode = false),
                 child: Container(
-                  width: 44,
-                  height: 44,
+                  width: 32,
+                  height: 36,
                   margin: const EdgeInsets.only(left: 8),
                   decoration: BoxDecoration(
                     color: AppTheme.primary.withOpacity(0.1),
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppTheme.primary.withOpacity(0.2),
+                      width: 1,
+                    ),
                   ),
-                  child: Icon(Icons.arrow_back, size: 20, color: AppTheme.primary),
+                  child: Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
                 ),
               ),
               
@@ -5504,21 +5508,25 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     return Row(
       key: const ValueKey('edit_toolbar'),
       children: [
-        // Fixed Back Icon Button (doesn't scroll)
+        // Fixed Back Icon Button - Sleek rectangular chevron
         Padding(
           padding: const EdgeInsets.only(left: 8, right: 4),
           child: GestureDetector(
             onTap: () => setState(() => _isEditToolbarMode = false),
             child: Container(
-              width: 44,
-              height: 44,
+              width: 32,
+              height: 36,
               decoration: BoxDecoration(
                 color: Theme.of(context).primaryColor.withOpacity(0.1),
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Theme.of(context).primaryColor.withOpacity(0.2),
+                  width: 1,
+                ),
               ),
               child: Icon(
                 Icons.chevron_left,
-                size: 24,
+                size: 22,
                 color: Theme.of(context).primaryColor,
               ),
             ),
