@@ -577,6 +577,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Audio menu mode state - activated by clicking "Audio" tool
   bool _isAudioMenuMode = false;
   
+  // Edit menu mode state - activated by clicking "Edit" tool
+  bool _isEditMenuMode = false;
+  
   // Background color presets
   final List<Color> _backgroundColorPresets = [
     const Color(0xFF000000), const Color(0xFFFFFFFF), const Color(0xFF1A1A1A), const Color(0xFF2D2D2D),
@@ -5106,8 +5109,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             ? _buildTextMenu()
             : (_isAudioMenuMode 
                 ? _buildAudioMenu()
-                : (_isEditToolbarMode 
-                    ? _buildEditToolbar()
+                : (_isEditMenuMode 
+                    ? _buildEditMenu()
                     : _buildMainToolbar())),
       ),
     );
@@ -5487,6 +5490,142 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
+  /// Build the edit menu - horizontal scrollable menu with edit tools (same style as audio)
+  Widget _buildEditMenu() {
+    final editTools = [
+      {'id': 'split', 'name': 'Split', 'icon': Icons.content_cut, 'action': () => _editingClipId != null ? _splitClipAtPlayhead(_editingClipId!) : null},
+      {'id': 'volume', 'name': 'Volume', 'icon': Icons.volume_up, 'action': _applyClipVolume},
+      {'id': 'animations', 'name': 'Animations', 'icon': Icons.auto_awesome, 'action': _showAnimationsBottomSheet},
+      {'id': 'effects', 'name': 'Effects', 'icon': Icons.star_outline, 'action': () { setState(() { _selectedTool = 'effects'; _isEditMenuMode = false; }); }},
+      {'id': 'delete', 'name': 'Delete', 'icon': Icons.delete_outline, 'action': () { if (_editingClipId != null) _deleteVideoClip(_editingClipId!); setState(() => _isEditMenuMode = false); }},
+      {'id': 'speed', 'name': 'Speed', 'icon': Icons.speed, 'action': _applyClipSpeed},
+      {'id': 'beats', 'name': 'Beats', 'icon': Icons.waves, 'action': _showBeatsBottomSheet},
+      {'id': 'crop', 'name': 'Crop', 'icon': Icons.crop, 'action': _showCropBottomSheet},
+      {'id': 'duplicate', 'name': 'Duplicate', 'icon': Icons.copy, 'action': () { if (_editingClipId != null) { _duplicateClipInline(_editingClipId!); } }},
+      {'id': 'replace', 'name': 'Replace', 'icon': Icons.swap_horiz, 'action': () { setState(() => _isEditMenuMode = false); _pickAndLoadVideo(); }},
+      {'id': 'overlay', 'name': 'Overlay', 'icon': Icons.layers_outlined, 'action': () { setState(() { _selectedTool = 'overlay'; _isEditMenuMode = false; }); }},
+      {'id': 'adjust', 'name': 'Adjust', 'icon': Icons.tune, 'action': () { setState(() { _selectedTool = 'adjust'; _isEditMenuMode = false; }); }},
+      {'id': 'filter', 'name': 'Filter', 'icon': Icons.auto_fix_high, 'action': () { setState(() { _selectedTool = 'filters'; _isEditMenuMode = false; }); }},
+    ];
+    
+    return Column(
+      key: const ValueKey('edit_menu'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Header with back button and title
+        Container(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+            ),
+          ),
+          child: Row(
+            children: [
+              // Back button
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _isEditMenuMode = false),
+                  child: Container(
+                    width: 32,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.primary.withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.chevron_left,
+                      size: 22,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                ),
+              ),
+              // Title
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'Edit',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 40), // Balance for the back button
+            ],
+          ),
+        ),
+        
+        // Horizontal Scrollable Edit Tools
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          child: Row(
+            children: editTools.map((tool) {
+              final isDelete = tool['id'] == 'delete';
+              return GestureDetector(
+                onTap: () {
+                  (tool['action'] as VoidCallback)();
+                  // Don't close for tools that need to stay open
+                  if (!['volume', 'speed', 'animations', 'beats', 'crop'].contains(tool['id'])) {
+                    setState(() => _isEditMenuMode = false);
+                  }
+                },
+                child: Container(
+                  width: 64,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: isDelete 
+                              ? Colors.red.withOpacity(0.2) 
+                              : Colors.white.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          tool['icon'] as IconData,
+                          size: 20,
+                          color: isDelete ? Colors.red : Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        tool['name'] as String,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: isDelete 
+                              ? Colors.red 
+                              : Colors.white.withOpacity(0.6),
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+  
   /// Build the main editor toolbar
   Widget _buildMainToolbar() {
     return SingleChildScrollView(
@@ -5515,7 +5654,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               
               setState(() => _selectedTool = tool.id);
               
-              // Edit tool switches to edit toolbar mode
+              // Edit tool opens the edit menu (same style as audio)
               if (tool.id == 'edit') {
                 if (_videoClips.isNotEmpty) {
                   if (_selectedClipId == null) {
@@ -5524,7 +5663,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   } else {
                     _editingClipId = _selectedClipId;
                   }
-                  setState(() => _isEditToolbarMode = true);
+                  setState(() => _isEditMenuMode = true);
                 } else {
                   _showSnackBar('Add a video clip first');
                 }

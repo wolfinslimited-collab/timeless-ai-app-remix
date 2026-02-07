@@ -257,6 +257,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Audio menu mode state - activated by clicking "Audio" tool
   const [isAudioMenuMode, setIsAudioMenuMode] = useState(false);
   
+  // Edit menu mode state - activated by clicking "Edit" tool
+  const [isEditMenuMode, setIsEditMenuMode] = useState(false);
+  
   // Sticker presets
   const stickerCategories = [
     { id: 'emoji', name: 'Emoji', stickers: ['😀', '😂', '🥰', '😎', '🔥', '💯', '⭐', '❤️', '👍', '🎉', '✨', '🚀'] },
@@ -1300,7 +1303,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     
     setSelectedTool(tool.id);
     
-    // Edit tool switches to edit toolbar mode
+    // Edit tool opens the edit menu (same style as audio)
     if (tool.id === 'edit') {
       if (videoClips.length > 0) {
         // Select first clip if none selected
@@ -1310,7 +1313,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         } else {
           setEditingClipId(selectedClipId);
         }
-        setIsEditToolbarMode(true);
+        setIsEditMenuMode(true);
       } else {
         toast({ title: "No clip selected", description: "Add a video clip first" });
       }
@@ -3563,43 +3566,53 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   </div>
                 </div>
               </div>
-            ) : isEditToolbarMode ? (
-              /* Edit toolbar with fixed back button */
-              <div className="flex items-center py-3 animate-fade-in">
-                {/* Fixed Back Icon Button - Sleek rectangular chevron */}
-                <button
-                  onClick={exitEditToolbarMode}
-                  className="shrink-0 flex items-center justify-center w-8 h-9 ml-2 mr-1 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
-                >
-                  <ChevronLeft className="w-5 h-5 text-primary" />
-                </button>
+            ) : isEditMenuMode ? (
+              /* Edit Menu - horizontal scrollable menu with edit tools (same style as audio) */
+              <div className="animate-fade-in flex flex-col">
+                {/* Header with back button and title */}
+                <div className="flex items-center border-b border-border/20">
+                  {/* Back button */}
+                  <button
+                    onClick={() => setIsEditMenuMode(false)}
+                    className="shrink-0 flex items-center justify-center w-8 h-9 ml-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-primary" />
+                  </button>
+                  <span className="flex-1 py-3 text-sm font-medium text-foreground text-center pr-10">
+                    Edit
+                  </span>
+                </div>
                 
-                {/* Scrollable Edit Tools */}
-                <div className="flex-1 overflow-x-auto">
-                  <div className="flex px-1 min-w-max">
+                {/* Horizontal Scrollable Edit Tools */}
+                <div className="overflow-x-auto px-2 py-3">
+                  <div className="flex gap-1 min-w-max">
                     {clipEditTools.map((tool) => {
-                      const Icon = tool.icon;
+                      const IconComponent = tool.icon;
+                      const isDelete = tool.id === 'delete';
                       return (
                         <button
                           key={tool.id}
-                          onClick={() => handleEditToolClick(tool.id)}
-                          className={cn(
-                            "flex flex-col items-center justify-center w-14 py-1",
-                            tool.id === 'delete' && "text-destructive"
-                          )}
+                          onClick={() => {
+                            tool.action();
+                            if (!['volume', 'speed', 'animations', 'beats', 'crop'].includes(tool.id)) {
+                              setIsEditMenuMode(false);
+                            }
+                          }}
+                          className="flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all hover:bg-white/5"
                         >
-                          <Icon
-                            className={cn(
-                              "w-5 h-5 mb-1",
-                              tool.id === 'delete' ? "text-destructive" : "text-foreground/80"
-                            )}
-                          />
-                          <span
-                            className={cn(
-                              "text-[10px]",
-                              tool.id === 'delete' ? "text-destructive font-medium" : "text-foreground/70"
-                            )}
-                          >
+                          <div className={cn(
+                            "w-11 h-11 rounded-full flex items-center justify-center mb-1",
+                            isDelete ? "bg-destructive/20" : "bg-white/10"
+                          )}>
+                            <IconComponent className={cn(
+                              "w-5 h-5",
+                              isDelete ? "text-destructive" : "text-white"
+                            )} />
+                          </div>
+                          <span className={cn(
+                            "text-[10px] font-medium",
+                            isDelete ? "text-destructive" : "text-foreground/60"
+                          )}>
                             {tool.name}
                           </span>
                         </button>
