@@ -160,6 +160,12 @@ class AppLogger {
     _print('$_green[${tag ?? 'SUCCESS'}]$_reset $message');
   }
 
+  /// Log error
+  void error(String message, [String? tag]) {
+    if (!_enabled) return;
+    _print('$_red[${tag ?? 'ERROR'}]$_reset $message');
+  }
+
   String _prettyJson(dynamic data) {
     try {
       if (data is String) {
