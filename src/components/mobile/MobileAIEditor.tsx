@@ -3169,18 +3169,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                       </button>
                                     )}
                                     
-                                    {/* Delete button when selected */}
-                                    {isSelected && videoClips.length > 1 && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          deleteVideoClip(clip.id);
-                                        }}
-                                        className="absolute right-1 top-0.5 w-5 h-5 bg-destructive/90 hover:bg-destructive rounded-full flex items-center justify-center"
-                                      >
-                                        <Trash2 className="w-3 h-3 text-white" />
-                                      </button>
-                                    )}
                                   </div>
                                   
                                   {/* Right trim handle */}
