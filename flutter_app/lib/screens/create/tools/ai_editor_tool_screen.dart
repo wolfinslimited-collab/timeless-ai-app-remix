@@ -5417,12 +5417,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           final isSelected = _selectedTool == tool.id;
           return GestureDetector(
             onTap: () {
-              // Show "coming soon" for audio, text, effects, and captions
-              if (tool.id == 'audio' || tool.id == 'text' || tool.id == 'effects' || tool.id == 'captions') {
-                _showSnackBar('${tool.name} coming soon!');
-                return;
-              }
-              
               setState(() => _selectedTool = tool.id);
               
               // Edit tool switches to edit toolbar mode
@@ -5441,8 +5435,17 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 return;
               }
               
+              // Text tool opens the text menu (same as "+ Add text" row)
+              if (tool.id == 'text') {
+                setState(() {
+                  _isTextMenuMode = true;
+                  _textMenuTab = 'add-text';
+                });
+                return;
+              }
+              
               // Only show coming soon for non-functional tools
-              if (tool.id != 'adjust' && tool.id != 'filters' && tool.id != 'overlay' && tool.id != 'stickers' && tool.id != 'aspect' && tool.id != 'background') {
+              if (tool.id != 'adjust' && tool.id != 'audio' && tool.id != 'captions' && tool.id != 'effects' && tool.id != 'filters' && tool.id != 'overlay' && tool.id != 'stickers' && tool.id != 'aspect' && tool.id != 'background') {
                 _showSnackBar('${tool.name} coming soon');
               }
             },
