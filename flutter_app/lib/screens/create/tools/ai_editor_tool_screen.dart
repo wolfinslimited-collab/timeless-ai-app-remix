@@ -527,6 +527,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   double _clipVolume = 1.0;
   bool _isEditToolbarMode = false; // Edit toolbar replaces main toolbar
   
+  // Adjust panel state
+  String _adjustPanelTab = 'adjust'; // 'filters' or 'adjust'
+  String _adjustSubTab = 'customize'; // 'smart' or 'customize'
+  String _selectedAdjustmentId = 'brightness';
+  
   // Undo/Redo history stacks
   static const int _maxHistoryLength = 50;
   final List<EditorStateSnapshot> _undoStack = [];
@@ -4329,49 +4334,311 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
 
   Widget _buildAdjustSettingsContent() {
+    // Get selected adjustment tool
+    final selectedTool = _adjustmentTools.firstWhere(
+      (t) => t.id == _selectedAdjustmentId,
+      orElse: () => _adjustmentTools.first,
+    );
+    
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Reset button
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        // Top Tabs: Filters / Adjust
+        Container(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+          ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              GestureDetector(
-                onTap: _resetAllAdjustments,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.primary.withOpacity(0.4)),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _adjustPanelTab = 'filters'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Filters',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: _adjustPanelTab == 'filters' ? Colors.white : Colors.white.withOpacity(0.5),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          height: 2,
+                          width: 48,
+                          decoration: BoxDecoration(
+                            color: _adjustPanelTab == 'filters' ? AppTheme.primary : Colors.transparent,
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.refresh, size: 14, color: AppTheme.primary),
-                      const SizedBox(width: 6),
-                      Text('Reset', style: TextStyle(color: AppTheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
-                    ],
+                ),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _adjustPanelTab = 'adjust'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Adjust',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: _adjustPanelTab == 'adjust' ? Colors.white : Colors.white.withOpacity(0.5),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          height: 2,
+                          width: 48,
+                          decoration: BoxDecoration(
+                            color: _adjustPanelTab == 'adjust' ? AppTheme.primary : Colors.transparent,
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ],
           ),
         ),
-        // Sliders
-        SizedBox(
-          height: 180,
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            itemCount: _adjustmentTools.length,
-            itemBuilder: (context, index) {
-              final tool = _adjustmentTools[index];
-              return _buildAdjustmentSlider(tool);
-            },
+        
+        if (_adjustPanelTab == 'adjust') ...[
+          // Sub-menu: Smart / Customize
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => setState(() => _adjustSubTab = 'smart'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _adjustSubTab == 'smart' ? AppTheme.primary.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _adjustSubTab == 'smart' ? AppTheme.primary.withOpacity(0.4) : Colors.transparent,
+                      ),
+                    ),
+                    child: Text(
+                      'Smart',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: _adjustSubTab == 'smart' ? AppTheme.primary : Colors.white.withOpacity(0.6),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                GestureDetector(
+                  onTap: () => setState(() => _adjustSubTab = 'customize'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _adjustSubTab == 'customize' ? AppTheme.primary.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _adjustSubTab == 'customize' ? AppTheme.primary.withOpacity(0.4) : Colors.transparent,
+                      ),
+                    ),
+                    child: Text(
+                      'Customize',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: _adjustSubTab == 'customize' ? AppTheme.primary : Colors.white.withOpacity(0.6),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+          
+          // Horizontal Scrollable Adjustment Icons
+          SizedBox(
+            height: 90,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              itemCount: _adjustmentTools.length,
+              itemBuilder: (context, index) {
+                final tool = _adjustmentTools[index];
+                final isSelected = tool.id == _selectedAdjustmentId;
+                final hasValue = tool.value != 0;
+                
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedAdjustmentId = tool.id),
+                  child: Container(
+                    width: 64,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppTheme.primary.withOpacity(0.15) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: isSelected 
+                                ? AppTheme.primary 
+                                : hasValue 
+                                    ? Colors.white.withOpacity(0.15) 
+                                    : Colors.white.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            tool.icon,
+                            size: 20,
+                            color: isSelected 
+                                ? Colors.white 
+                                : hasValue 
+                                    ? AppTheme.primary 
+                                    : Colors.white.withOpacity(0.7),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          tool.name,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: isSelected 
+                                ? AppTheme.primary 
+                                : hasValue 
+                                    ? Colors.white 
+                                    : Colors.white.withOpacity(0.6),
+                          ),
+                        ),
+                        if (hasValue)
+                          Text(
+                            '${tool.value >= 0 ? '+' : ''}${(tool.value * 100).round()}',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.primary,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          
+          // Single Slider for Selected Adjustment
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      selectedTool.name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: selectedTool.value != 0 
+                            ? AppTheme.primary.withOpacity(0.15) 
+                            : Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${selectedTool.value >= 0 ? '+' : ''}${(selectedTool.value * 100).round()}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'monospace',
+                          color: selectedTool.value != 0 ? AppTheme.primary : Colors.white.withOpacity(0.6),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 6,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
+                    activeTrackColor: AppTheme.primary,
+                    inactiveTrackColor: Colors.white.withOpacity(0.1),
+                    thumbColor: Colors.white,
+                  ),
+                  child: Slider(
+                    value: selectedTool.value,
+                    min: -1.0,
+                    max: 1.0,
+                    onChanged: selectedTool.onChanged,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Reset Button - Bottom Left
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: _resetAllAdjustments,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.refresh,
+                    size: 20,
+                    color: Colors.white.withOpacity(0.7),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+        
+        if (_adjustPanelTab == 'filters')
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.circle_outlined, size: 40, color: Colors.white.withOpacity(0.3)),
+                const SizedBox(height: 8),
+                Text(
+                  'Filter presets coming soon',
+                  style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
