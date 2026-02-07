@@ -4168,7 +4168,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Dynamic bottom area that switches between timeline and settings panel
   Widget _buildDynamicBottomArea() {
     // Check if a settings panel should be shown (overlays timeline)
-    final bool showSettingsPanel = _selectedTool == 'text' || _selectedTool == 'adjust' || _selectedTool == 'audio' || _selectedTool == 'captions' || _selectedTool == 'effects' || _selectedTool == 'stickers' || _selectedTool == 'aspect' || _selectedTool == 'background';
+    final bool showSettingsPanel = _selectedTool == 'adjust' || _selectedTool == 'stickers' || _selectedTool == 'aspect' || _selectedTool == 'background';
     
     if (showSettingsPanel) {
       return _buildContextualSettingsPanel();
@@ -4187,16 +4187,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Contextual settings panel that overlays the timeline area
   Widget _buildContextualSettingsPanel() {
     String panelTitle = 'Editor';
-    if (_selectedTool == 'text') {
-      panelTitle = 'Text Editor';
-    } else if (_selectedTool == 'adjust') {
+    if (_selectedTool == 'adjust') {
       panelTitle = 'Adjust';
-    } else if (_selectedTool == 'audio') {
-      panelTitle = 'Audio';
-    } else if (_selectedTool == 'captions') {
-      panelTitle = 'Captions';
-    } else if (_selectedTool == 'effects') {
-      panelTitle = 'Effects';
     } else if (_selectedTool == 'stickers') {
       panelTitle = 'Stickers';
     } else if (_selectedTool == 'aspect') {
@@ -4261,16 +4253,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           ),
           
           // Content based on selected tool
-          if (_selectedTool == 'text')
-            _buildTextSettingsContent()
-          else if (_selectedTool == 'adjust')
+          if (_selectedTool == 'adjust')
             _buildAdjustSettingsContent()
-          else if (_selectedTool == 'audio')
-            _buildAudioSettingsContent()
-          else if (_selectedTool == 'captions')
-            _buildCaptionsSettingsContent()
-          else if (_selectedTool == 'effects')
-            _buildEffectsSettingsContent()
           else if (_selectedTool == 'stickers')
             _buildStickersSettingsContent()
           else if (_selectedTool == 'aspect')
@@ -5406,6 +5390,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           final isSelected = _selectedTool == tool.id;
           return GestureDetector(
             onTap: () {
+              // Coming soon tools - show snackbar and don't change selection
+              if (tool.id == 'audio' || tool.id == 'text' || tool.id == 'effects' || tool.id == 'captions') {
+                _showSnackBar('${tool.name} coming soon');
+                return;
+              }
+              
               setState(() => _selectedTool = tool.id);
               
               // Edit tool switches to edit toolbar mode
@@ -5424,17 +5414,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 return;
               }
               
-              // Text tool opens the text menu (same as "+ Add text" row)
-              if (tool.id == 'text') {
-                setState(() {
-                  _isTextMenuMode = true;
-                  _textMenuTab = 'add-text';
-                });
-                return;
-              }
-              
               // Only show coming soon for non-functional tools
-              if (tool.id != 'adjust' && tool.id != 'audio' && tool.id != 'captions' && tool.id != 'effects' && tool.id != 'filters' && tool.id != 'overlay' && tool.id != 'stickers' && tool.id != 'aspect' && tool.id != 'background') {
+              if (tool.id != 'adjust' && tool.id != 'filters' && tool.id != 'overlay' && tool.id != 'stickers' && tool.id != 'aspect' && tool.id != 'background') {
                 _showSnackBar('${tool.name} coming soon');
               }
             },
