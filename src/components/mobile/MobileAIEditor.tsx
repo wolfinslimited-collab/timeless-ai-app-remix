@@ -19,6 +19,7 @@ import {
   Undo2,
   Redo2,
   VolumeX,
+  Volume2,
   Image,
   Plus,
   Clock,
@@ -33,7 +34,8 @@ import {
   Sunrise,
   Moon,
   Thermometer,
-  Droplets
+  Droplets,
+  Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -141,6 +143,115 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [textInput, setTextInput] = useState('');
   const [isEditingTextInline, setIsEditingTextInline] = useState(false);
   const [draggingTextId, setDraggingTextId] = useState<string | null>(null);
+
+  // Audio layer state
+  interface AudioLayer {
+    id: string;
+    name: string;
+    fileUrl: string;
+    volume: number;
+    startTime: number;
+    endTime: number;
+  }
+
+  const [audioLayers, setAudioLayers] = useState<AudioLayer[]>([]);
+  const [selectedAudioId, setSelectedAudioId] = useState<string | null>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
+  const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
+
+  const selectedAudioLayer = audioLayers.find(a => a.id === selectedAudioId);
+
+  const handleAudioImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Create local URL for the audio file
+    const audioUrl = URL.createObjectURL(file);
+    
+    // Create audio element to get duration
+    const audioElement = new Audio(audioUrl);
+    audioElement.addEventListener('loadedmetadata', () => {
+      const audioDuration = audioElement.duration;
+      const newAudio: AudioLayer = {
+        id: Date.now().toString(),
+        name: file.name,
+        fileUrl: audioUrl,
+        volume: 1.0,
+        startTime: 0,
+        endTime: Math.min(audioDuration, duration || 10),
+      };
+      setAudioLayers(prev => [...prev, newAudio]);
+      setSelectedAudioId(newAudio.id);
+      setSelectedTool('audio');
+      
+      // Store reference for sync
+      audioRefs.current.set(newAudio.id, audioElement);
+    });
+
+    // Reset input
+    if (audioInputRef.current) {
+      audioInputRef.current.value = '';
+    }
+  };
+
+  const updateSelectedAudio = (updates: Partial<AudioLayer>) => {
+    if (!selectedAudioId) return;
+    setAudioLayers(prev => prev.map(a => 
+      a.id === selectedAudioId ? { ...a, ...updates } : a
+    ));
+  };
+
+  const deleteAudioLayer = (id: string) => {
+    // Clean up audio element
+    const audioEl = audioRefs.current.get(id);
+    if (audioEl) {
+      audioEl.pause();
+      URL.revokeObjectURL(audioEl.src);
+      audioRefs.current.delete(id);
+    }
+    setAudioLayers(prev => prev.filter(a => a.id !== id));
+    if (selectedAudioId === id) setSelectedAudioId(null);
+  };
+
+  // Sync audio with video playback
+  useEffect(() => {
+    if (!videoRef.current) return;
+    
+    const syncAudio = () => {
+      const videoTime = videoRef.current?.currentTime || 0;
+      
+      audioLayers.forEach(audio => {
+        const audioEl = audioRefs.current.get(audio.id);
+        if (!audioEl) return;
+        
+        // Check if current time is within audio range
+        if (videoTime >= audio.startTime && videoTime <= audio.endTime) {
+          const audioTime = videoTime - audio.startTime;
+          
+          // Sync position if drifted
+          if (Math.abs(audioEl.currentTime - audioTime) > 0.1) {
+            audioEl.currentTime = audioTime;
+          }
+          
+          audioEl.volume = audio.volume;
+          
+          if (isPlaying && audioEl.paused) {
+            audioEl.play().catch(() => {});
+          } else if (!isPlaying && !audioEl.paused) {
+            audioEl.pause();
+          }
+        } else {
+          // Outside range, pause
+          if (!audioEl.paused) {
+            audioEl.pause();
+          }
+        }
+      });
+    };
+
+    const interval = setInterval(syncAudio, 100);
+    return () => clearInterval(interval);
+  }, [audioLayers, isPlaying]);
 
   const availableFonts = ['Roboto', 'Serif', 'Montserrat', 'Impact', 'Comic Sans'];
   const availableColors = ['#ffffff', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
@@ -446,6 +557,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         accept="video/*"
         className="hidden"
         onChange={handleFileSelect}
+      />
+      <input
+        ref={audioInputRef}
+        type="file"
+        accept="audio/*"
+        className="hidden"
+        onChange={handleAudioImport}
       />
 
       {/* Fullscreen Video Dialog */}
@@ -941,7 +1059,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
       {/* Dynamic Bottom Area - Timeline OR Settings Panel */}
       {videoUrl && duration > 0 && (
-        (selectedTool === 'text' || selectedTool === 'adjust') ? (
+        (selectedTool === 'text' || selectedTool === 'adjust' || selectedTool === 'audio') ? (
           // Contextual Settings Panel - OVERLAYS the timeline area
           <div className="shrink-0 bg-background border-t border-border/10 pb-safe">
             {/* Header with Cancel (X) and Done (checkmark) buttons */}
@@ -951,6 +1069,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 onClick={() => {
                   setSelectedTool('edit');
                   setSelectedTextId(null);
+                  setSelectedAudioId(null);
                   setIsEditingTextInline(false);
                 }}
                 className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center"
@@ -960,7 +1079,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               
               {/* Title */}
               <span className="text-white font-bold text-base">
-                {selectedTool === 'text' ? 'Text Editor' : 'Adjust'}
+                {selectedTool === 'text' ? 'Text Editor' : selectedTool === 'audio' ? 'Audio' : 'Adjust'}
               </span>
               
               {/* Done button (checkmark) */}
@@ -1037,7 +1156,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   })}
                 </div>
               </>
-            ) : (
+            ) : selectedTool === 'text' ? (
               // Text Editor Content
               <>
                 {/* Add text button if no text selected */}
@@ -1232,7 +1351,93 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   ) : null}
                 </div>
               </>
-            )}
+            ) : selectedTool === 'audio' ? (
+              // Audio Editor Content
+              <>
+                {/* Add audio button */}
+                <div className="px-4 pb-3">
+                  <button
+                    onClick={() => audioInputRef.current?.click()}
+                    className="w-full py-4 bg-emerald-500/15 border border-emerald-500/40 rounded-xl flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-5 h-5 text-emerald-400" />
+                    <span className="text-emerald-400 text-base font-semibold">Add Audio</span>
+                  </button>
+                </div>
+                
+                {/* Audio layers list */}
+                <div className="max-h-[200px] overflow-y-auto px-4 pb-4 space-y-3">
+                  {audioLayers.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-6 gap-2">
+                      <Music className="w-8 h-8 text-white/30" />
+                      <p className="text-white/50 text-sm">No audio layers added</p>
+                    </div>
+                  ) : (
+                    audioLayers.map((audio) => {
+                      const isSelected = audio.id === selectedAudioId;
+                      return (
+                        <div
+                          key={audio.id}
+                          onClick={() => setSelectedAudioId(audio.id)}
+                          className={cn(
+                            "p-3 rounded-xl cursor-pointer transition-all",
+                            isSelected 
+                              ? "bg-emerald-500/20 ring-2 ring-emerald-500" 
+                              : "bg-white/5 hover:bg-white/10"
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <div className={cn(
+                                "w-8 h-8 rounded-lg flex items-center justify-center",
+                                isSelected ? "bg-emerald-500/30" : "bg-white/10"
+                              )}>
+                                <Music className={cn("w-4 h-4", isSelected ? "text-emerald-400" : "text-white/60")} />
+                              </div>
+                              <span className="text-white text-sm font-medium truncate max-w-[150px]">
+                                {audio.name}
+                              </span>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteAudioLayer(audio.id);
+                              }}
+                              className="p-1.5 rounded-lg bg-destructive/20 hover:bg-destructive/30"
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </button>
+                          </div>
+                          
+                          {/* Volume slider */}
+                          {isSelected && (
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Volume2 className="w-4 h-4 text-white/70" />
+                                  <span className="text-white/70 text-xs">Volume</span>
+                                </div>
+                                <span className="text-white text-xs font-semibold">
+                                  {Math.round(audio.volume * 100)}%
+                                </span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={audio.volume * 100}
+                                onChange={(e) => updateSelectedAudio({ volume: Number(e.target.value) / 100 })}
+                                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            ) : null}
           </div>
         ) : (
           // Normal: Timeline + Toolbar
@@ -1491,6 +1696,117 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </div>
                   )}
                   
+                  {/* Audio Track - Green themed */}
+                  {audioLayers.length > 0 && (
+                    <div className="relative h-10" style={{ width: trackWidth }}>
+                      {audioLayers.map(audio => {
+                        const isSelected = audio.id === selectedAudioId;
+                        const leftOffset = audio.startTime * PIXELS_PER_SECOND;
+                        const itemWidth = Math.max(50, (audio.endTime - audio.startTime) * PIXELS_PER_SECOND);
+                    
+                        return (
+                          <div
+                            key={audio.id}
+                            className={cn(
+                              "absolute h-[34px] rounded-md flex items-center cursor-pointer transition-all",
+                              isSelected 
+                                ? "bg-gradient-to-r from-emerald-500 to-emerald-600 ring-2 ring-white shadow-lg shadow-emerald-500/30"
+                                : "bg-gradient-to-r from-emerald-600 to-emerald-700 shadow-md shadow-emerald-600/30"
+                            )}
+                            style={{ left: leftOffset, width: itemWidth, top: 3 }}
+                            onClick={() => {
+                              setSelectedAudioId(audio.id);
+                              setSelectedTool('audio');
+                            }}
+                          >
+                            {/* Left trim handle */}
+                            <div 
+                              className={cn(
+                                "w-2.5 h-full rounded-l-md flex items-center justify-center cursor-ew-resize",
+                                isSelected ? "bg-white/50" : "bg-white/30"
+                              )}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                const startX = e.clientX;
+                                const startTime = audio.startTime;
+                                
+                                const handleMove = (moveE: MouseEvent) => {
+                                  const deltaX = moveE.clientX - startX;
+                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                  const newStart = Math.max(0, Math.min(audio.endTime - 0.5, startTime + timeDelta));
+                                  setAudioLayers(prev => prev.map(a => 
+                                    a.id === audio.id ? { ...a, startTime: newStart } : a
+                                  ));
+                                };
+                                
+                                const handleUp = () => {
+                                  document.removeEventListener('mousemove', handleMove);
+                                  document.removeEventListener('mouseup', handleUp);
+                                };
+                                
+                                document.addEventListener('mousemove', handleMove);
+                                document.addEventListener('mouseup', handleUp);
+                              }}
+                            >
+                              <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                            </div>
+                            
+                            {/* Content */}
+                            <div className="flex-1 flex items-center gap-1 px-1 overflow-hidden">
+                              <Music className="w-3 h-3 text-white/90 shrink-0" />
+                              <span className="text-[10px] text-white font-semibold truncate">
+                                {audio.name}
+                              </span>
+                            </div>
+                            
+                            {/* Audio waveform visualization */}
+                            <div className="flex-1 flex items-center justify-center gap-px px-1">
+                              {Array.from({ length: Math.min(20, Math.floor(itemWidth / 6)) }).map((_, i) => (
+                                <div 
+                                  key={i}
+                                  className="w-0.5 bg-white/60 rounded-full"
+                                  style={{ height: `${Math.random() * 16 + 4}px` }}
+                                />
+                              ))}
+                            </div>
+                            
+                            {/* Right trim handle */}
+                            <div 
+                              className={cn(
+                                "w-2.5 h-full rounded-r-md flex items-center justify-center cursor-ew-resize",
+                                isSelected ? "bg-white/50" : "bg-white/30"
+                              )}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                const startX = e.clientX;
+                                const endTime = audio.endTime;
+                                
+                                const handleMove = (moveE: MouseEvent) => {
+                                  const deltaX = moveE.clientX - startX;
+                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                  const newEnd = Math.min(duration, Math.max(audio.startTime + 0.5, endTime + timeDelta));
+                                  setAudioLayers(prev => prev.map(a => 
+                                    a.id === audio.id ? { ...a, endTime: newEnd } : a
+                                  ));
+                                };
+                                
+                                const handleUp = () => {
+                                  document.removeEventListener('mousemove', handleMove);
+                                  document.removeEventListener('mouseup', handleUp);
+                                };
+                                
+                                document.addEventListener('mousemove', handleMove);
+                                document.addEventListener('mouseup', handleUp);
+                              }}
+                            >
+                              <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
                   {/* Add Layer Buttons Row */}
                   <div className="flex items-center gap-2" style={{ marginLeft: '110px' }}>
                     {/* Add text */}
@@ -1503,6 +1819,18 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         <Plus className="w-3 h-3" style={{ color: '#8B5CF6' }} />
                       </div>
                       <span className="text-[11px] font-semibold" style={{ color: '#8B5CF6' }}>Add text</span>
+                    </button>
+                    
+                    {/* Add audio */}
+                    <button 
+                      onClick={() => audioInputRef.current?.click()}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg"
+                      style={{ backgroundColor: '#2A2A2A', border: '1px solid rgba(16, 185, 129, 0.4)' }}
+                    >
+                      <div className="w-4 h-4 rounded flex items-center justify-center" style={{ backgroundColor: 'rgba(16, 185, 129, 0.3)' }}>
+                        <Plus className="w-3 h-3" style={{ color: '#10B981' }} />
+                      </div>
+                      <span className="text-[11px] font-semibold" style={{ color: '#10B981' }}>Add audio</span>
                     </button>
                     
                     {/* Add sticker */}
