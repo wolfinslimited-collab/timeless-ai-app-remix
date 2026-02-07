@@ -396,19 +396,15 @@ export function MobileRetouch({ onBack }: MobileRetouchProps) {
         ) : (
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="h-full w-full bg-secondary rounded-2xl border-2 border-dashed border-border flex flex-col items-center justify-center hover:border-primary/50 transition-colors"
+            className="h-full w-full mx-8 my-20 bg-secondary rounded-3xl border-2 border-primary/30 flex flex-col items-center justify-center py-12 hover:bg-secondary/80 transition-colors"
           >
-            <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mb-6">
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center mb-7">
               <Upload className="w-10 h-10 text-primary" />
             </div>
-            <h2 className="text-foreground text-xl font-bold mb-2">Upload Video</h2>
-            <p className="text-muted-foreground text-sm mb-6">
-              Tap to select a video from your device
+            <h2 className="text-foreground text-xl font-bold mb-3">Upload Video</h2>
+            <p className="text-muted-foreground text-sm text-center">
+              Tap anywhere to select a video
             </p>
-            <div className="bg-primary text-primary-foreground px-5 py-3 rounded-full flex items-center gap-2">
-              <Upload className="w-4 h-4" />
-              <span className="text-sm font-semibold">Choose Video</span>
-            </div>
           </button>
         )}
         <input

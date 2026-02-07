@@ -874,22 +874,18 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center p-6">
+          <div className="flex-1 flex items-center justify-center px-8 py-20">
             <button
               onClick={handleShowMediaPicker}
-              className="w-full max-w-sm aspect-video bg-white/5 rounded-2xl border-2 border-dashed border-white/20 flex flex-col items-center justify-center hover:bg-white/10 transition-colors"
+              className="w-full max-w-sm py-12 bg-white/5 rounded-3xl border-2 border-primary/30 flex flex-col items-center justify-center hover:bg-white/10 transition-colors"
             >
-              <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center mb-4">
-                <Video className="w-8 h-8 text-primary" />
+              <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center mb-7">
+                <Video className="w-10 h-10 text-primary" />
               </div>
-              <h2 className="text-white text-lg font-bold mb-2">Upload Video</h2>
-              <p className="text-white/50 text-sm mb-4 text-center">
-                Tap to select a video
+              <h2 className="text-white text-xl font-bold mb-3">Upload Video</h2>
+              <p className="text-white/50 text-sm text-center">
+                Tap anywhere to select a video
               </p>
-              <div className="flex items-center gap-2 px-4 py-2 bg-primary rounded-full">
-                <Upload className="w-4 h-4 text-primary-foreground" />
-                <span className="text-primary-foreground text-sm font-semibold">Choose Video</span>
-              </div>
             </button>
           </div>
         )}
