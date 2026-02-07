@@ -533,16 +533,18 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   String _selectedAdjustmentId = 'brightness';
   
   // Stickers, Aspect Ratio, Background state
-  String _selectedAspectRatio = '16:9';
+  String _selectedAspectRatio = 'original';
   Color _backgroundColor = Colors.black;
   double _backgroundBlur = 0.0;
   String? _backgroundImage;
   String _backgroundTab = 'color'; // 'color', 'image', 'blur'
   String _selectedStickerCategory = 'emoji';
   
-  // Text menu mode state - activated by clicking "+ Add text" row
-  bool _isTextMenuMode = false;
-  String _textMenuTab = 'add-text'; // 'add-text', 'auto-captions', 'stickers', 'draw'
+  // Video position within frame (for drag repositioning)
+  Offset _videoPosition = Offset.zero;
+  bool _isDraggingVideo = false;
+  Offset _dragStartPosition = Offset.zero;
+  Offset _dragStartVideoPosition = Offset.zero;
   
   // Sticker presets
   final List<Map<String, dynamic>> _stickerCategories = [
@@ -551,14 +553,24 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     {'id': 'arrows', 'name': 'Arrows', 'stickers': ['→', '←', '↑', '↓', '↗', '↘', '↙', '↖', '⇒', '⇐', '⇑', '⇓']},
   ];
   
-  // Aspect ratio presets
+  // Extended aspect ratio presets
   final List<Map<String, dynamic>> _aspectRatioPresets = [
-    {'id': '9:16', 'label': '9:16', 'width': 9, 'height': 16, 'description': 'Vertical'},
-    {'id': '1:1', 'label': '1:1', 'width': 1, 'height': 1, 'description': 'Square'},
-    {'id': '16:9', 'label': '16:9', 'width': 16, 'height': 9, 'description': 'Landscape'},
-    {'id': '4:5', 'label': '4:5', 'width': 4, 'height': 5, 'description': 'Portrait'},
-    {'id': '21:9', 'label': '21:9', 'width': 21, 'height': 9, 'description': 'Cinematic'},
+    {'id': 'original', 'label': 'Original', 'width': 16, 'height': 9},
+    {'id': '9:16', 'label': '9:16', 'width': 9, 'height': 16},
+    {'id': '16:9', 'label': '16:9', 'width': 16, 'height': 9},
+    {'id': '1:1', 'label': '1:1', 'width': 1, 'height': 1},
+    {'id': '4:3', 'label': '4:3', 'width': 4, 'height': 3},
+    {'id': '3:4', 'label': '3:4', 'width': 3, 'height': 4},
+    {'id': '5.8"', 'label': '5.8"', 'width': 9, 'height': 19.5},
+    {'id': '128:27', 'label': '128:27', 'width': 128, 'height': 27},
+    {'id': '2:1', 'label': '2:1', 'width': 2, 'height': 1},
+    {'id': '2.35:1', 'label': '2.35:1', 'width': 2.35, 'height': 1},
+    {'id': '1.85:1', 'label': '1.85:1', 'width': 1.85, 'height': 1},
   ];
+  
+  // Text menu mode state - activated by clicking "+ Add text" row
+  bool _isTextMenuMode = false;
+  String _textMenuTab = 'add-text'; // 'add-text', 'auto-captions', 'stickers', 'draw'
   
   // Background color presets
   final List<Color> _backgroundColorPresets = [
@@ -6040,84 +6052,56 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   /// Aspect Ratio settings content panel
   Widget _buildAspectRatioSettingsContent() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Select aspect ratio',
-            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
+    return Column(
+      children: [
+        // Horizontal scrollable ratio row
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
             children: _aspectRatioPresets.map((preset) {
               final isSelected = _selectedAspectRatio == preset['id'];
-              final width = (preset['width'] as int);
-              final height = (preset['height'] as int);
-              
-              // Calculate preview dimensions
-              const maxSize = 56.0;
-              final scale = maxSize / (width > height ? width : height);
-              final previewWidth = width * scale;
-              final previewHeight = height * scale;
-              
-              return GestureDetector(
-                onTap: () => setState(() => _selectedAspectRatio = preset['id'] as String),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppTheme.primary.withOpacity(0.15) : Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected ? AppTheme.primary : Colors.transparent,
-                      width: 2,
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() {
+                    _selectedAspectRatio = preset['id'] as String;
+                    _videoPosition = Offset.zero; // Reset position on ratio change
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: previewWidth,
-                        height: previewHeight,
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppTheme.primary.withOpacity(0.2) : Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(2),
-                          border: Border.all(
-                            color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.3),
-                            width: 2,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            preset['label'] as String,
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white.withOpacity(0.7),
-                            ),
-                          ),
-                        ),
+                    child: Text(
+                      preset['label'] as String,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        preset['description'] as String,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.6),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               );
             }).toList(),
           ),
-        ],
-      ),
+        ),
+        
+        // Instruction
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'Drag the video to reposition within the frame',
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.white.withOpacity(0.5),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
     );
   }
 
