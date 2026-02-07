@@ -21,6 +21,7 @@ import {
   Volume2,
   Plus,
   ChevronDown,
+  ChevronLeft,
   Download,
   Sun,
   Contrast,
@@ -3773,12 +3774,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               <div className="animate-fade-in">
                 {/* Tab Navigation */}
                 <div className="flex items-center border-b border-border/20">
-                  {/* Back button */}
+                  {/* Back button - Sleek rectangular chevron */}
                   <button
                     onClick={() => setIsTextMenuMode(false)}
-                    className="shrink-0 flex items-center justify-center w-11 h-11 ml-2 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                    className="shrink-0 flex items-center justify-center w-8 h-9 ml-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
                   >
-                    <ArrowLeft className="w-5 h-5 text-primary" />
+                    <ChevronLeft className="w-5 h-5 text-primary" />
                   </button>
                   
                   {/* Tab Buttons */}
@@ -3940,12 +3941,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             ) : isEditToolbarMode ? (
               /* Edit toolbar with fixed back button */
               <div className="flex items-center py-3 animate-fade-in">
-                {/* Fixed Back Icon Button */}
+                {/* Fixed Back Icon Button - Sleek rectangular chevron */}
                 <button
                   onClick={exitEditToolbarMode}
-                  className="shrink-0 flex items-center justify-center w-11 h-11 ml-2 mr-1 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                  className="shrink-0 flex items-center justify-center w-8 h-9 ml-2 mr-1 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
                 >
-                  <ArrowLeft className="w-5 h-5 text-primary" />
+                  <ChevronLeft className="w-5 h-5 text-primary" />
                 </button>
                 
                 {/* Scrollable Edit Tools */}
