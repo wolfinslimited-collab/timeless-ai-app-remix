@@ -2365,15 +2365,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 {/* Calculate dimensions using pixelsPerSecond - use totalTimelineDuration for multi-clip support */}
                 {(() => {
                   const trackWidth = totalTimelineDuration * PIXELS_PER_SECOND;
-                  const halfScreen = typeof window !== 'undefined' ? window.innerWidth / 2 : 200;
                   
                   return (
                     <div 
                       className="flex flex-col gap-1.5 pt-1"
                       style={{ 
-                        paddingLeft: halfScreen, 
-                        paddingRight: halfScreen,
-                        width: trackWidth + halfScreen * 2,
+                        paddingLeft: '50%', 
+                        paddingRight: '50%',
+                        width: trackWidth,
+                        boxSizing: 'content-box',
                       }}
                     >
                       {/* Time Ruler using pixelsPerSecond */}

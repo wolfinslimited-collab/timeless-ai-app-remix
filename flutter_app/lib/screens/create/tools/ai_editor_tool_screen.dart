@@ -2496,10 +2496,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     final duration = _totalTimelineDuration; // Use total duration for multi-clip support
     final trackWidth = _totalTimelineWidth; // duration * pixelsPerSecond
     
-    // Half-screen padding for perfect playhead alignment at scroll limits
-    final double halfScreenPadding = screenWidth / 2;
+    // Fixed 50% padding for perfect playhead alignment at scroll limits
+    final double halfScreenPadding = screenWidth * 0.5;
     
-    // Total scrollable width: halfScreen + track + halfScreen
+    // Total scrollable width: 50% + track + 50%
     final totalScrollWidth = halfScreenPadding + trackWidth + halfScreenPadding;
     
     // Calculate height based on tracks
