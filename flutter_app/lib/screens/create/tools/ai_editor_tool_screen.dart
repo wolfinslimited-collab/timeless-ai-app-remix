@@ -1203,6 +1203,71 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       });
     }
   }
+  
+  /// Delete a video clip from the timeline
+  void _deleteVideoClip(String clipId) {
+    _saveStateToHistory();
+    setState(() {
+      _videoClips.removeWhere((c) => c.id == clipId);
+      _recalculateClipStartTimes();
+      if (_selectedClipId == clipId) {
+        _selectedClipId = null;
+      }
+    });
+    _showSnackBar('Clip deleted');
+  }
+  
+  /// Delete a text overlay from the timeline
+  void _deleteTextFromTimeline(String id) {
+    _saveStateToHistory();
+    setState(() {
+      _textOverlays.removeWhere((t) => t.id == id);
+      if (_selectedTextId == id) {
+        _selectedTextId = null;
+      }
+    });
+    _showSnackBar('Text deleted');
+  }
+  
+  /// Delete a caption layer from the timeline
+  void _deleteCaptionFromTimeline(String id) {
+    _saveStateToHistory();
+    setState(() {
+      _captionLayers.removeWhere((c) => c.id == id);
+      if (_selectedCaptionId == id) {
+        _selectedCaptionId = null;
+      }
+    });
+    _showSnackBar('Caption deleted');
+  }
+  
+  /// Delete an effect layer from the timeline
+  void _deleteEffectFromTimeline(String id) {
+    _saveStateToHistory();
+    setState(() {
+      _effectLayers.removeWhere((e) => e.id == id);
+      if (_selectedEffectId == id) {
+        _selectedEffectId = null;
+      }
+    });
+    _showSnackBar('Effect deleted');
+  }
+  
+  /// Delete an audio layer from the timeline
+  void _deleteAudioFromTimeline(String id) {
+    _saveStateToHistory();
+    setState(() {
+      final index = _audioLayers.indexWhere((a) => a.id == id);
+      if (index != -1) {
+        _audioLayers[index].dispose();
+        _audioLayers.removeAt(index);
+      }
+      if (_selectedAudioId == id) {
+        _selectedAudioId = null;
+      }
+    });
+    _showSnackBar('Audio deleted');
+  }
 
   // ============================================
   // TIMELINE SYNC ENGINE - Core Logic
@@ -2358,6 +2423,25 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                           ),
                         ),
                       ),
+                    
+                    // Delete button when selected and more than 1 clip
+                    if (isSelected && _videoClips.length > 1)
+                      Positioned(
+                        right: 4,
+                        top: 2,
+                        child: GestureDetector(
+                          onTap: () => _deleteVideoClip(clip.id),
+                          child: Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.9),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.delete, size: 12, color: Colors.white),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -2710,11 +2794,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(icon, size: 12, color: Colors.white.withOpacity(0.9)),
                   const SizedBox(width: 4),
-                  Flexible(
+                  Expanded(
                     child: Text(
                       label,
                       style: const TextStyle(
@@ -2725,6 +2808,20 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  // Delete button when selected
+                  if (isSelected)
+                    GestureDetector(
+                      onTap: () => _deleteTextFromTimeline(overlay.id),
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close, size: 10, color: Colors.white),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -3951,6 +4048,21 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                           const Icon(Icons.subtitles, size: 12, color: Colors.white),
                           const SizedBox(width: 4),
                           Expanded(child: Text(caption.text, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                          // Delete button when selected
+                          if (isSelected)
+                            GestureDetector(
+                              onTap: () => _deleteCaptionFromTimeline(caption.id),
+                              child: Container(
+                                width: 16,
+                                height: 16,
+                                margin: const EdgeInsets.only(right: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.9),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close, size: 10, color: Colors.white),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -4117,11 +4229,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 4),
                                 child: Row(
-                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(effect.icon, style: const TextStyle(fontSize: 12)),
                                     const SizedBox(width: 4),
-                                    Flexible(
+                                    Expanded(
                                       child: Text(
                                         effect.name,
                                         style: const TextStyle(
@@ -4132,6 +4243,20 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
+                                    // Delete button when selected
+                                    if (isSelected)
+                                      GestureDetector(
+                                        onTap: () => _deleteEffectFromTimeline(effect.id),
+                                        child: Container(
+                                          width: 16,
+                                          height: 16,
+                                          decoration: BoxDecoration(
+                                            color: Colors.red.withOpacity(0.9),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(Icons.close, size: 10, color: Colors.white),
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),

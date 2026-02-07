@@ -766,6 +766,56 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setIsPlaying(false);
   };
 
+  // Delete a specific video clip
+  const deleteVideoClip = (clipId: string) => {
+    saveStateToHistory();
+    setVideoClips(prev => {
+      const newClips = prev.filter(c => c.id !== clipId);
+      // Recalculate start times
+      return recalculateClipStartTimes(newClips);
+    });
+    if (selectedClipId === clipId) setSelectedClipId(null);
+    toast({ title: "Clip deleted" });
+  };
+
+  // Delete text overlay from timeline
+  const deleteTextFromTimeline = (id: string) => {
+    saveStateToHistory();
+    setTextOverlays(prev => prev.filter(t => t.id !== id));
+    if (selectedTextId === id) setSelectedTextId(null);
+    toast({ title: "Text deleted" });
+  };
+
+  // Delete caption from timeline  
+  const deleteCaptionFromTimeline = (id: string) => {
+    saveStateToHistory();
+    setCaptionLayers(prev => prev.filter(c => c.id !== id));
+    if (selectedCaptionId === id) setSelectedCaptionId(null);
+    toast({ title: "Caption deleted" });
+  };
+
+  // Delete effect from timeline
+  const deleteEffectFromTimeline = (id: string) => {
+    saveStateToHistory();
+    setEffectLayers(prev => prev.filter(e => e.id !== id));
+    if (selectedEffectId === id) setSelectedEffectId(null);
+    toast({ title: "Effect deleted" });
+  };
+
+  // Delete audio from timeline
+  const deleteAudioFromTimeline = (id: string) => {
+    saveStateToHistory();
+    const audioEl = audioRefs.current.get(id);
+    if (audioEl) {
+      audioEl.pause();
+      URL.revokeObjectURL(audioEl.src);
+      audioRefs.current.delete(id);
+    }
+    setAudioLayers(prev => prev.filter(a => a.id !== id));
+    if (selectedAudioId === id) setSelectedAudioId(null);
+    toast({ title: "Audio deleted" });
+  };
+
   // Calculate total timeline duration from all clips (using trimmed durations)
   const totalTimelineDuration = videoClips.length > 0 
     ? videoClips.reduce((sum, clip) => sum + getClipTrimmedDuration(clip), 0)
@@ -2160,6 +2210,19 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                         {getClipTrimmedDuration(clip).toFixed(1)}s
                                       </div>
                                     )}
+                                    
+                                    {/* Delete button when selected */}
+                                    {isSelected && videoClips.length > 1 && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          deleteVideoClip(clip.id);
+                                        }}
+                                        className="absolute right-1 top-0.5 w-5 h-5 bg-destructive/90 hover:bg-destructive rounded-full flex items-center justify-center"
+                                      >
+                                        <Trash2 className="w-3 h-3 text-white" />
+                                      </button>
+                                    )}
                                   </div>
                                   
                                   {/* Right trim handle */}
@@ -2268,7 +2331,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           <div
                             key={overlay.id}
                             className={cn(
-                              "absolute h-[34px] rounded-md flex items-center cursor-grab transition-all active:cursor-grabbing",
+                              "absolute h-[34px] rounded-md flex items-center cursor-grab transition-all active:cursor-grabbing group",
                               isSelected 
                                 ? "bg-gradient-to-r from-amber-500 to-amber-600 ring-2 ring-white shadow-lg shadow-amber-500/30"
                                 : "bg-gradient-to-r from-primary to-primary/80 shadow-md shadow-primary/30",
@@ -2276,6 +2339,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             )}
                             style={{ left: leftOffset, width: itemWidth, top: 3 }}
                             draggable={false}
+                            onClick={() => {
+                              setSelectedTextId(overlay.id);
+                              setSelectedTool('text');
+                            }}
                           >
                             {/* Left trim handle */}
                             <div 
@@ -2387,9 +2454,21 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               }}
                             >
                               <Type className="w-3 h-3 text-white/90 shrink-0" />
-                              <span className="text-[10px] text-white font-semibold truncate">
+                              <span className="text-[10px] text-white font-semibold truncate flex-1">
                                 {overlay.text}
                               </span>
+                              {/* Delete button when selected */}
+                              {isSelected && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteTextFromTimeline(overlay.id);
+                                  }}
+                                  className="w-4 h-4 bg-destructive/90 hover:bg-destructive rounded-full flex items-center justify-center shrink-0"
+                                >
+                                  <X className="w-2.5 h-2.5 text-white" />
+                                </button>
+                              )}
                             </div>
                             
                             {/* Right trim handle */}
@@ -2555,9 +2634,21 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               }}
                             >
                               <Music className="w-3 h-3 text-white/90 shrink-0" />
-                              <span className="text-[10px] text-white font-semibold truncate">
+                              <span className="text-[10px] text-white font-semibold truncate flex-1">
                                 {audio.name}
                               </span>
+                              {/* Delete button when selected */}
+                              {isSelected && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteAudioFromTimeline(audio.id);
+                                  }}
+                                  className="w-4 h-4 bg-destructive/90 hover:bg-destructive rounded-full flex items-center justify-center shrink-0"
+                                >
+                                  <X className="w-2.5 h-2.5 text-white" />
+                                </button>
+                              )}
                             </div>
                             
                             {/* Audio waveform visualization */}
@@ -2713,9 +2804,21 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               }}
                             >
                               <Subtitles className="w-3 h-3 text-white/90 shrink-0" />
-                              <span className="text-[10px] text-white font-semibold truncate">
+                              <span className="text-[10px] text-white font-semibold truncate flex-1">
                                 {caption.text}
                               </span>
+                              {/* Delete button when selected */}
+                              {isSelected && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteCaptionFromTimeline(caption.id);
+                                  }}
+                                  className="w-4 h-4 bg-destructive/90 hover:bg-destructive rounded-full flex items-center justify-center shrink-0"
+                                >
+                                  <X className="w-2.5 h-2.5 text-white" />
+                                </button>
+                              )}
                             </div>
                             
                             {/* Right trim handle */}
@@ -2860,9 +2963,21 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               }}
                             >
                               <Star className="w-3 h-3 text-white/90 shrink-0" />
-                              <span className="text-[10px] text-white font-semibold truncate">
+                              <span className="text-[10px] text-white font-semibold truncate flex-1">
                                 {effect.name}
                               </span>
+                              {/* Delete button when selected */}
+                              {isSelected && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteEffectFromTimeline(effect.id);
+                                  }}
+                                  className="w-4 h-4 bg-destructive/90 hover:bg-destructive rounded-full flex items-center justify-center shrink-0"
+                                >
+                                  <X className="w-2.5 h-2.5 text-white" />
+                                </button>
+                              )}
                             </div>
                             
                             {/* Right trim handle */}
