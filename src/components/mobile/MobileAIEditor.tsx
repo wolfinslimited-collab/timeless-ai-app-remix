@@ -3869,176 +3869,123 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           {/* Bottom Toolbar - Switches between main, edit, and text menu mode */}
           <div className="shrink-0 bg-background border-t border-border/10 pb-safe">
             {isTextMenuMode ? (
-              /* Text Menu - appears when clicking "+ Add text" on timeline */
-              <div className="animate-fade-in">
-                {/* Header with back button */}
-                <div className="flex items-center px-3 py-2">
-                  {/* Back button - Sleek rectangular chevron */}
-                  <button
-                    onClick={() => setIsTextMenuMode(false)}
-                    className="shrink-0 flex items-center justify-center w-8 h-9 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
-                  >
-                    <ChevronLeft className="w-5 h-5 text-primary" />
-                  </button>
-                  <span className="ml-3 text-foreground font-medium text-sm">Text & Stickers</span>
+              /* Text Menu - matches Adjust section style */
+              <div className="animate-fade-in flex flex-col">
+                {/* Top Tabs: Text / Stickers */}
+                <div className="flex border-b border-border/20">
+                  {(['text', 'stickers'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setTextMenuTab(tab === 'text' ? 'add-text' : 'stickers')}
+                      className={cn(
+                        "flex-1 py-3 text-sm font-medium capitalize relative transition-colors",
+                        (tab === 'text' && textMenuTab !== 'stickers') || (tab === 'stickers' && textMenuTab === 'stickers')
+                          ? "text-foreground" 
+                          : "text-foreground/50"
+                      )}
+                    >
+                      {tab}
+                      {((tab === 'text' && textMenuTab !== 'stickers') || (tab === 'stickers' && textMenuTab === 'stickers')) && (
+                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-primary rounded-full" />
+                      )}
+                    </button>
+                  ))}
                 </div>
                 
-                {/* Horizontal divider */}
-                <div className="h-px bg-border/30" />
-                
-                {/* Single Horizontal Scrollable Row with all options */}
-                <div className="py-3 px-3 overflow-x-auto">
-                  <div className="flex gap-2 min-w-max">
-                    {/* Add text */}
-                    <button
-                      onClick={() => {
-                        addTextOverlay();
-                        setIsTextMenuMode(false);
-                      }}
-                      className="flex flex-col items-center gap-1.5 py-3 px-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors min-w-[72px]"
-                    >
-                      <Type className="w-5 h-5 text-foreground/70" />
-                      <span className="text-[10px] text-foreground/80 font-medium whitespace-nowrap">Add text</span>
-                    </button>
-                    
-                    {/* Auto captions */}
-                    <button
-                      onClick={() => {
-                        generateAutoCaptions();
-                        setIsTextMenuMode(false);
-                      }}
-                      className="flex flex-col items-center gap-1.5 py-3 px-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors min-w-[72px]"
-                    >
-                      <Subtitles className="w-5 h-5 text-foreground/70" />
-                      <span className="text-[10px] text-foreground/80 font-medium whitespace-nowrap">Auto captions</span>
-                    </button>
-                    
-                    {/* Stickers */}
-                    <button
-                      onClick={() => {
-                        setTextMenuTab('stickers');
-                      }}
-                      className="flex flex-col items-center gap-1.5 py-3 px-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors min-w-[72px]"
-                    >
-                      <Smile className="w-5 h-5 text-foreground/70" />
-                      <span className="text-[10px] text-foreground/80 font-medium whitespace-nowrap">Stickers</span>
-                    </button>
-                    
-                    {/* Draw */}
-                    <button
-                      onClick={() => {
-                        setTextMenuTab('draw');
-                      }}
-                      className="flex flex-col items-center gap-1.5 py-3 px-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors min-w-[72px]"
-                    >
-                      <Pencil className="w-5 h-5 text-foreground/70" />
-                      <span className="text-[10px] text-foreground/80 font-medium whitespace-nowrap">Draw</span>
-                    </button>
-                    
-                    {/* Text template */}
-                    <button
-                      onClick={() => {
-                        addTextOverlay();
-                        setIsTextMenuMode(false);
-                      }}
-                      className="flex flex-col items-center gap-1.5 py-3 px-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors min-w-[72px]"
-                    >
-                      <FileText className="w-5 h-5 text-foreground/70" />
-                      <span className="text-[10px] text-foreground/80 font-medium whitespace-nowrap">Text template</span>
-                    </button>
-                    
-                    {/* Text to audio */}
-                    <button
-                      onClick={() => {
-                        toast({ title: "Text to audio coming soon" });
-                      }}
-                      className="flex flex-col items-center gap-1.5 py-3 px-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors min-w-[72px]"
-                    >
-                      <AudioLines className="w-5 h-5 text-foreground/70" />
-                      <span className="text-[10px] text-foreground/80 font-medium whitespace-nowrap">Text to audio</span>
-                    </button>
-                    
-                    {/* Auto lyrics */}
-                    <button
-                      onClick={() => {
-                        toast({ title: "Auto lyrics coming soon" });
-                      }}
-                      className="flex flex-col items-center gap-1.5 py-3 px-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors min-w-[72px]"
-                    >
-                      <Music2 className="w-5 h-5 text-foreground/70" />
-                      <span className="text-[10px] text-foreground/80 font-medium whitespace-nowrap">Auto lyrics</span>
-                    </button>
+                {/* Horizontal Scrollable Icons - matching Adjust style */}
+                <div className="overflow-x-auto px-2 py-3">
+                  <div className="flex gap-1 min-w-max">
+                    {textMenuTab !== 'stickers' ? (
+                      /* Text Tools */
+                      <>
+                        {[
+                          { id: 'add-text', name: 'Add text', icon: Type, action: () => { addTextOverlay(); setIsTextMenuMode(false); } },
+                          { id: 'auto-captions', name: 'Captions', icon: Subtitles, action: () => { generateAutoCaptions(); setIsTextMenuMode(false); } },
+                          { id: 'text-template', name: 'Template', icon: FileText, action: () => { addTextOverlay(); setIsTextMenuMode(false); } },
+                          { id: 'text-to-audio', name: 'To audio', icon: AudioLines, action: () => toast({ title: "Text to audio coming soon" }) },
+                          { id: 'auto-lyrics', name: 'Lyrics', icon: Music2, action: () => toast({ title: "Auto lyrics coming soon" }) },
+                          { id: 'draw', name: 'Draw', icon: Pencil, action: () => toast({ title: "Drawing tools coming soon" }) },
+                        ].map((tool) => {
+                          const IconComponent = tool.icon;
+                          return (
+                            <button
+                              key={tool.id}
+                              onClick={tool.action}
+                              className="flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all hover:bg-white/5"
+                            >
+                              <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10 text-foreground/70">
+                                <IconComponent className="w-5 h-5" />
+                              </div>
+                              <span className="text-[10px] font-medium text-foreground/60">
+                                {tool.name}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </>
+                    ) : (
+                      /* Sticker Categories as Icons */
+                      <>
+                        {stickerCategories.map((cat) => {
+                          const isSelected = selectedStickerCategory === cat.id;
+                          return (
+                            <button
+                              key={cat.id}
+                              onClick={() => setSelectedStickerCategory(cat.id)}
+                              className={cn(
+                                "flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all",
+                                isSelected ? "bg-primary/15" : "hover:bg-white/5"
+                              )}
+                            >
+                              <div className={cn(
+                                "w-11 h-11 rounded-full flex items-center justify-center mb-1 transition-all text-2xl",
+                                isSelected 
+                                  ? "bg-primary text-primary-foreground" 
+                                  : "bg-white/10"
+                              )}>
+                                {cat.stickers[0]}
+                              </div>
+                              <span className={cn(
+                                "text-[10px] font-medium",
+                                isSelected ? "text-primary" : "text-foreground/60"
+                              )}>
+                                {cat.name}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </>
+                    )}
                   </div>
                 </div>
                 
-                {/* Show stickers content if stickers tab is selected */}
+                {/* Sticker Grid - shows when stickers tab is active */}
                 {textMenuTab === 'stickers' && (
                   <div className="px-3 pb-3">
-                    <div className="h-px bg-border/30 mb-3" />
-                    <div className="space-y-3">
-                      {/* Category tabs */}
-                      <div className="flex gap-2">
-                        {stickerCategories.map((cat) => (
+                    <div className="grid grid-cols-8 gap-2">
+                      {stickerCategories
+                        .find((c) => c.id === selectedStickerCategory)
+                        ?.stickers.map((sticker, idx) => (
                           <button
-                            key={cat.id}
-                            onClick={() => setSelectedStickerCategory(cat.id)}
-                            className={cn(
-                              "px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
-                              selectedStickerCategory === cat.id
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-muted text-foreground/70"
-                            )}
+                            key={idx}
+                            onClick={() => {
+                              addTextOverlay();
+                              setTextOverlays((prev) => {
+                                const lastOverlay = prev[prev.length - 1];
+                                if (lastOverlay) {
+                                  return prev.map((t) =>
+                                    t.id === lastOverlay.id ? { ...t, text: sticker, fontSize: 48 } : t
+                                  );
+                                }
+                                return prev;
+                              });
+                              setIsTextMenuMode(false);
+                            }}
+                            className="w-9 h-9 flex items-center justify-center text-xl hover:bg-white/10 rounded-lg transition-colors"
                           >
-                            {cat.name}
+                            {sticker}
                           </button>
                         ))}
-                      </div>
-                      
-                      {/* Sticker grid */}
-                      <div className="grid grid-cols-6 gap-2">
-                        {stickerCategories
-                          .find((c) => c.id === selectedStickerCategory)
-                          ?.stickers.map((sticker, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => {
-                                addTextOverlay();
-                                setTextOverlays((prev) => {
-                                  const lastOverlay = prev[prev.length - 1];
-                                  if (lastOverlay) {
-                                    return prev.map((t) =>
-                                      t.id === lastOverlay.id ? { ...t, text: sticker, fontSize: 48 } : t
-                                    );
-                                  }
-                                  return prev;
-                                });
-                                setIsTextMenuMode(false);
-                              }}
-                              className="w-10 h-10 flex items-center justify-center text-2xl hover:bg-muted rounded-lg transition-colors"
-                            >
-                              {sticker}
-                            </button>
-                          ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Show draw content if draw tab is selected */}
-                {textMenuTab === 'draw' && (
-                  <div className="px-3 pb-3">
-                    <div className="h-px bg-border/30 mb-3" />
-                    <div className="flex flex-col items-center gap-3 py-4">
-                      <Pencil className="w-8 h-8 text-foreground/50" />
-                      <p className="text-sm text-foreground/60 text-center">
-                        Draw on your video
-                      </p>
-                      <button
-                        onClick={() => toast({ title: "Drawing tools coming soon" })}
-                        className="px-6 py-2 bg-muted text-foreground/80 rounded-lg font-medium text-sm"
-                      >
-                        Coming Soon
-                      </button>
                     </div>
                   </div>
                 )}
