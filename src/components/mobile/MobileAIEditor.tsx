@@ -3817,21 +3817,20 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   </div>
                 </div>
                 
+                {/* Horizontal divider */}
+                <div className="h-px bg-border/30" />
+                
                 {/* Tab Content */}
-                <div className="py-3 px-4">
+                <div className="py-3 px-3">
                   {textMenuTab === 'add-text' && (
-                    <div className="flex items-center gap-3">
-                      {/* Vertical separator line */}
-                      <div className="w-px h-12 bg-border/40" />
-                      
-                      {/* Text options */}
-                      <div className="flex-1 flex gap-2">
+                    <div className="overflow-x-auto">
+                      <div className="flex gap-2 min-w-max">
                         <button
                           onClick={() => {
                             addTextOverlay();
                             setIsTextMenuMode(false);
                           }}
-                          className="flex-1 flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
+                          className="flex flex-col items-center gap-1.5 py-3 px-5 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
                         >
                           <FileText className="w-5 h-5 text-foreground/70" />
                           <span className="text-[11px] text-foreground/80 font-medium">Text template</span>
@@ -3841,7 +3840,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           onClick={() => {
                             toast({ title: "Text to audio coming soon" });
                           }}
-                          className="flex-1 flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
+                          className="flex flex-col items-center gap-1.5 py-3 px-5 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
                         >
                           <AudioLines className="w-5 h-5 text-foreground/70" />
                           <span className="text-[11px] text-foreground/80 font-medium">Text to audio</span>
@@ -3851,7 +3850,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           onClick={() => {
                             toast({ title: "Auto lyrics coming soon" });
                           }}
-                          className="flex-1 flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
+                          className="flex flex-col items-center gap-1.5 py-3 px-5 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
                         >
                           <Music2 className="w-5 h-5 text-foreground/70" />
                           <span className="text-[11px] text-foreground/80 font-medium">Auto lyrics</span>
