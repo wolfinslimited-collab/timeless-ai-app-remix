@@ -88,13 +88,18 @@ const QUALITY_OPTIONS = ["720p", "1080p", "2K", "4K"];
 const PIXELS_PER_SECOND = 80.0; // Master time-to-pixel ratio
 const THUMBNAIL_HEIGHT = 48;
 
-// Video clip model for multi-clip timeline
+// Video clip model for multi-clip timeline with trim support
 interface VideoClip {
   id: string;
   url: string;
-  duration: number;
+  duration: number; // Total source duration
   startTime: number; // Position on timeline (auto-calculated when appending)
+  inPoint: number; // Trim in point (0 = start of clip)
+  outPoint: number; // Trim out point (duration = end of clip)
 }
+
+// Helper to get trimmed duration
+const getClipTrimmedDuration = (clip: VideoClip) => clip.outPoint - clip.inPoint;
 
 export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -132,6 +137,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [trimmingLayerId, setTrimmingLayerId] = useState<string | null>(null);
   const [isTrimmingStart, setIsTrimmingStart] = useState(false);
   const [snapLinePosition, setSnapLinePosition] = useState<number | null>(null);
+  
+  // Video clip selection and trimming state
+  const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
+  const [trimmingClipId, setTrimmingClipId] = useState<string | null>(null);
+  const [isTrimmingClipStart, setIsTrimmingClipStart] = useState(false);
+  const [isTrimmingClipEnd, setIsTrimmingClipEnd] = useState(false);
 
   // Text overlay state
   interface TextOverlay {
@@ -717,25 +728,37 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setIsPlaying(false);
   };
 
-  // Calculate total timeline duration from all clips
+  // Calculate total timeline duration from all clips (using trimmed durations)
   const totalTimelineDuration = videoClips.length > 0 
-    ? videoClips.reduce((sum, clip) => sum + clip.duration, 0)
+    ? videoClips.reduce((sum, clip) => sum + getClipTrimmedDuration(clip), 0)
     : duration;
 
   // Add a new video clip to the end of the timeline
   const addVideoClip = (url: string, clipDuration: number) => {
     const lastClip = videoClips[videoClips.length - 1];
-    const startTime = lastClip ? lastClip.startTime + lastClip.duration : 0;
+    const startTime = lastClip ? lastClip.startTime + getClipTrimmedDuration(lastClip) : 0;
     
     const newClip: VideoClip = {
       id: Date.now().toString(),
       url,
       duration: clipDuration,
       startTime,
+      inPoint: 0,
+      outPoint: clipDuration,
     };
     
     setVideoClips(prev => [...prev, newClip]);
     toast({ title: "Video added", description: "Clip appended to timeline" });
+  };
+
+  // Recalculate clip start times after a trim operation
+  const recalculateClipStartTimes = (clips: VideoClip[]): VideoClip[] => {
+    let currentStart = 0;
+    return clips.map(clip => {
+      const updatedClip = { ...clip, startTime: currentStart };
+      currentStart += getClipTrimmedDuration(updatedClip);
+      return updatedClip;
+    });
   };
 
   // Initialize first clip when primary video is loaded
@@ -746,6 +769,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         url: videoUrl,
         duration,
         startTime: 0,
+        inPoint: 0,
+        outPoint: duration,
       }]);
     }
   }, [videoUrl, duration]);
@@ -2035,60 +2060,161 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         })}
                       </div>
                       
-                      {/* Video Track Row - multi-clip filmstrip */}
+                      {/* Video Track Row - multi-clip filmstrip with trim handles */}
                       <div className="flex items-center gap-0">
                         {/* Render all video clips snapped together */}
                         <div className="flex h-[48px]">
                           {videoClips.map((clip, clipIndex) => {
-                            const clipWidth = clip.duration * PIXELS_PER_SECOND;
-                            const thumbCount = Math.ceil(clipWidth / 60);
+                            const clipWidth = getClipTrimmedDuration(clip) * PIXELS_PER_SECOND;
+                            const thumbCount = Math.max(1, Math.ceil(clipWidth / 60));
+                            const isFirst = clipIndex === 0;
+                            const isLast = clipIndex === videoClips.length - 1;
+                            const isSelected = clip.id === selectedClipId;
                             
                             return (
                               <div 
                                 key={clip.id}
-                                className="relative h-[48px] rounded-lg overflow-hidden border-2"
+                                className={cn(
+                                  "relative h-[48px] overflow-hidden cursor-pointer transition-all",
+                                  isSelected && "ring-2 ring-white shadow-lg"
+                                )}
                                 style={{ 
-                                  borderColor: '#AA2222', 
+                                  borderColor: isSelected ? '#ffffff' : '#AA2222', 
+                                  borderWidth: isSelected ? 2.5 : 2,
+                                  borderStyle: 'solid',
                                   width: clipWidth,
-                                  // Remove left border-radius for non-first clips to create seamless join
-                                  borderTopLeftRadius: clipIndex === 0 ? undefined : 0,
-                                  borderBottomLeftRadius: clipIndex === 0 ? undefined : 0,
-                                  // Remove right border for non-last clips
-                                  borderRight: clipIndex < videoClips.length - 1 ? 'none' : undefined,
+                                  borderRadius: `${isFirst ? 8 : 0}px ${isLast ? 8 : 0}px ${isLast ? 8 : 0}px ${isFirst ? 8 : 0}px`,
+                                  backgroundColor: '#2A1515',
+                                  boxShadow: isSelected ? '0 0 12px rgba(170, 34, 34, 0.5)' : undefined,
                                 }}
+                                onClick={() => setSelectedClipId(clip.id)}
                               >
                                 <div className="flex h-full">
-                                  {Array.from({ length: thumbCount }).map((_, i) => {
-                                    const thumbTime = clip.startTime + (i / thumbCount) * clip.duration;
-                                    return (
-                                      <div
-                                        key={i}
-                                        className="w-[60px] h-full shrink-0 relative overflow-hidden"
-                                        style={{
-                                          borderRight: i < thumbCount - 1 ? '1px solid rgba(90, 0, 0, 0.4)' : 'none',
-                                        }}
-                                      >
-                                        <div 
-                                          className="w-full h-full bg-cover bg-center"
+                                  {/* Left trim handle */}
+                                  <div 
+                                    className={cn(
+                                      "w-3 h-full flex items-center justify-center cursor-ew-resize z-10 shrink-0",
+                                      isSelected ? "bg-white/60" : "bg-[#AA2222]/80"
+                                    )}
+                                    style={{
+                                      borderTopLeftRadius: isFirst ? 6 : 0,
+                                      borderBottomLeftRadius: isFirst ? 6 : 0,
+                                    }}
+                                    onMouseDown={(e) => {
+                                      e.stopPropagation();
+                                      setTrimmingClipId(clip.id);
+                                      setIsTrimmingClipStart(true);
+                                      setSelectedClipId(clip.id);
+                                      
+                                      const startX = e.clientX;
+                                      const originalInPoint = clip.inPoint;
+                                      
+                                      const handleMove = (moveE: MouseEvent) => {
+                                        const deltaX = moveE.clientX - startX;
+                                        const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                        const newInPoint = Math.max(0, Math.min(clip.outPoint - 0.5, originalInPoint + timeDelta));
+                                        
+                                        setVideoClips(prev => recalculateClipStartTimes(
+                                          prev.map(c => c.id === clip.id ? { ...c, inPoint: newInPoint } : c)
+                                        ));
+                                      };
+                                      
+                                      const handleUp = () => {
+                                        setTrimmingClipId(null);
+                                        setIsTrimmingClipStart(false);
+                                        document.removeEventListener('mousemove', handleMove);
+                                        document.removeEventListener('mouseup', handleUp);
+                                      };
+                                      
+                                      document.addEventListener('mousemove', handleMove);
+                                      document.addEventListener('mouseup', handleUp);
+                                    }}
+                                  >
+                                    <div className="w-0.5 h-5 bg-white/90 rounded-full" />
+                                  </div>
+                                  
+                                  {/* Thumbnails content area */}
+                                  <div className="flex-1 flex relative overflow-hidden">
+                                    {Array.from({ length: thumbCount }).map((_, i) => {
+                                      // Adjust thumbTime to account for inPoint
+                                      const thumbTime = clip.inPoint + (i / thumbCount) * getClipTrimmedDuration(clip);
+                                      return (
+                                        <div
+                                          key={i}
+                                          className="w-[60px] h-full shrink-0 relative overflow-hidden"
                                           style={{
-                                            backgroundImage: `linear-gradient(135deg, rgba(139,0,0,0.3), rgba(90,0,0,0.5))`,
-                                            backgroundColor: '#2A1515',
+                                            borderRight: i < thumbCount - 1 ? '1px solid rgba(90, 0, 0, 0.4)' : 'none',
                                           }}
                                         >
-                                          <div className="w-full h-full flex items-center justify-center">
-                                            <span className="text-[8px] text-white/40 font-mono">
-                                              {Math.floor(thumbTime)}s
-                                            </span>
+                                          <div 
+                                            className="w-full h-full bg-cover bg-center"
+                                            style={{
+                                              backgroundImage: `linear-gradient(135deg, rgba(139,0,0,0.3), rgba(90,0,0,0.5))`,
+                                              backgroundColor: '#2A1515',
+                                            }}
+                                          >
+                                            <div className="w-full h-full flex items-center justify-center">
+                                              <span className="text-[8px] text-white/40 font-mono">
+                                                {Math.floor(thumbTime)}s
+                                              </span>
+                                            </div>
                                           </div>
                                         </div>
+                                      );
+                                    })}
+                                    
+                                    {/* Clip info overlay when selected */}
+                                    {isSelected && (
+                                      <div className="absolute left-1 top-0.5 px-1 py-0.5 bg-black/60 rounded text-[9px] text-white font-semibold flex items-center gap-1">
+                                        <Video className="w-2.5 h-2.5" />
+                                        {getClipTrimmedDuration(clip).toFixed(1)}s
                                       </div>
-                                    );
-                                  })}
+                                    )}
+                                  </div>
+                                  
+                                  {/* Right trim handle */}
+                                  <div 
+                                    className={cn(
+                                      "w-3 h-full flex items-center justify-center cursor-ew-resize z-10 shrink-0",
+                                      isSelected ? "bg-white/60" : "bg-[#AA2222]/80"
+                                    )}
+                                    style={{
+                                      borderTopRightRadius: isLast ? 6 : 0,
+                                      borderBottomRightRadius: isLast ? 6 : 0,
+                                    }}
+                                    onMouseDown={(e) => {
+                                      e.stopPropagation();
+                                      setTrimmingClipId(clip.id);
+                                      setIsTrimmingClipEnd(true);
+                                      setSelectedClipId(clip.id);
+                                      
+                                      const startX = e.clientX;
+                                      const originalOutPoint = clip.outPoint;
+                                      
+                                      const handleMove = (moveE: MouseEvent) => {
+                                        const deltaX = moveE.clientX - startX;
+                                        const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                        const newOutPoint = Math.min(clip.duration, Math.max(clip.inPoint + 0.5, originalOutPoint + timeDelta));
+                                        
+                                        setVideoClips(prev => recalculateClipStartTimes(
+                                          prev.map(c => c.id === clip.id ? { ...c, outPoint: newOutPoint } : c)
+                                        ));
+                                      };
+                                      
+                                      const handleUp = () => {
+                                        setTrimmingClipId(null);
+                                        setIsTrimmingClipEnd(false);
+                                        document.removeEventListener('mousemove', handleMove);
+                                        document.removeEventListener('mouseup', handleUp);
+                                      };
+                                      
+                                      document.addEventListener('mousemove', handleMove);
+                                      document.addEventListener('mouseup', handleUp);
+                                    }}
+                                  >
+                                    <div className="w-0.5 h-5 bg-white/90 rounded-full" />
+                                  </div>
                                 </div>
-                                {/* Clip separator indicator */}
-                                {clipIndex < videoClips.length - 1 && (
-                                  <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-white/30" />
-                                )}
                               </div>
                             );
                           })}

@@ -126,15 +126,23 @@ class CaptionLayer {
 class VideoClip {
   String id;
   String url;
-  double duration;
+  double duration; // Total source duration
   double startTime; // Position on timeline (auto-calculated when appending)
+  double inPoint; // Trim in point (0 = start of clip)
+  double outPoint; // Trim out point (duration = end of clip)
   
   VideoClip({
     required this.id,
     required this.url,
     required this.duration,
     this.startTime = 0,
-  });
+    double? inPoint,
+    double? outPoint,
+  }) : inPoint = inPoint ?? 0,
+       outPoint = outPoint ?? duration;
+  
+  /// Get the trimmed duration (what's visible on timeline)
+  double get trimmedDuration => outPoint - inPoint;
 }
 
 /// Effect layer data model
@@ -263,6 +271,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   
   // Multi-clip video support
   List<VideoClip> _videoClips = [];
+  String? _selectedClipId;
+  
+  // Video clip trimming state
+  String? _trimmingClipId;
+  bool _isTrimmingClipStart = false;
+  bool _isTrimmingClipEnd = false;
   
   // Layer dragging state
   String? _draggingLayerId;
@@ -277,12 +291,21 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Settings panel state - for dynamic UI overlap
   bool _isTextEditorInline = false; // For inline keyboard editing
   
-  // Calculate total timeline duration from all clips
+  // Calculate total timeline duration from all clips (using trimmed durations)
   double get _totalTimelineDuration {
     if (_videoClips.isNotEmpty) {
-      return _videoClips.fold(0.0, (sum, clip) => sum + clip.duration);
+      return _videoClips.fold(0.0, (sum, clip) => sum + clip.trimmedDuration);
     }
     return _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+  }
+  
+  /// Recalculate clip start times after a trim operation
+  void _recalculateClipStartTimes() {
+    double currentStart = 0;
+    for (final clip in _videoClips) {
+      clip.startTime = currentStart;
+      currentStart += clip.trimmedDuration;
+    }
   }
 
   // Quality options
@@ -1973,96 +1996,237 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
-  /// Build a single clip filmstrip segment
+  /// Build a single clip filmstrip segment with trim handles
   Widget _buildSingleClipFilmstrip(VideoClip clip, int clipIndex, bool isFirst, bool isLast) {
-    final clipWidth = clip.duration * _pixelsPerSecond;
-    final thumbCount = (clipWidth / _thumbnailWidth).ceil();
+    final clipWidth = clip.trimmedDuration * _pixelsPerSecond;
+    final thumbCount = (clipWidth / _thumbnailWidth).ceil().clamp(1, 100);
+    final isSelected = clip.id == _selectedClipId;
+    final isTrimming = clip.id == _trimmingClipId;
     
-    return Container(
-      width: clipWidth,
-      height: _thumbnailHeight + 4,
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A1515),
-        // Only round corners on first/last clips for seamless join
-        borderRadius: BorderRadius.horizontal(
-          left: isFirst ? const Radius.circular(8) : Radius.zero,
-          right: isLast ? const Radius.circular(8) : Radius.zero,
+    const videoColor = Color(0xFFAA2222);
+    
+    return GestureDetector(
+      onTap: () => setState(() => _selectedClipId = clip.id),
+      child: Container(
+        width: clipWidth,
+        height: _thumbnailHeight + 4,
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A1515),
+          // Only round corners on first/last clips for seamless join
+          borderRadius: BorderRadius.horizontal(
+            left: isFirst ? const Radius.circular(8) : Radius.zero,
+            right: isLast ? const Radius.circular(8) : Radius.zero,
+          ),
+          border: Border.all(
+            color: isSelected ? Colors.white : videoColor, 
+            width: isSelected ? 2.5 : 2,
+          ),
+          boxShadow: isSelected ? [
+            BoxShadow(
+              color: videoColor.withOpacity(0.5),
+              blurRadius: 12,
+            ),
+          ] : null,
         ),
-        border: Border.all(color: const Color(0xFFAA2222), width: 2),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.horizontal(
-          left: isFirst ? const Radius.circular(6) : Radius.zero,
-          right: isLast ? const Radius.circular(6) : Radius.zero,
-        ),
-        child: Stack(
-          children: [
-            // Thumbnails row
-            ListView.builder(
-              scrollDirection: Axis.horizontal,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: thumbCount,
-              itemBuilder: (context, index) {
-                final thumbTime = clip.startTime + (index / thumbCount) * clip.duration;
-                
-                // Get thumbnail if available
-                final thumbnailIndex = _thumbnails.isNotEmpty 
-                    ? (index * _thumbnails.length / thumbCount).floor().clamp(0, _thumbnails.length - 1)
-                    : -1;
-                final thumbnail = thumbnailIndex >= 0 && thumbnailIndex < _thumbnails.length 
-                    ? _thumbnails[thumbnailIndex] 
-                    : null;
-                
-                return Container(
-                  width: _thumbnailWidth,
-                  height: _thumbnailHeight,
+        child: ClipRRect(
+          borderRadius: BorderRadius.horizontal(
+            left: isFirst ? const Radius.circular(6) : Radius.zero,
+            right: isLast ? const Radius.circular(6) : Radius.zero,
+          ),
+          child: Row(
+            children: [
+              // Left trim handle
+              GestureDetector(
+                onHorizontalDragStart: (_) {
+                  setState(() {
+                    _trimmingClipId = clip.id;
+                    _isTrimmingClipStart = true;
+                    _selectedClipId = clip.id;
+                  });
+                },
+                onHorizontalDragUpdate: (details) {
+                  final delta = details.primaryDelta ?? 0;
+                  final timeDelta = delta / _pixelsPerSecond;
+                  setState(() {
+                    // Adjust in point - min 0, max outPoint - 0.5s
+                    clip.inPoint = (clip.inPoint + timeDelta).clamp(0.0, clip.outPoint - 0.5);
+                    _recalculateClipStartTimes();
+                  });
+                },
+                onHorizontalDragEnd: (_) {
+                  setState(() {
+                    _trimmingClipId = null;
+                    _isTrimmingClipStart = false;
+                  });
+                },
+                child: Container(
+                  width: 12,
                   decoration: BoxDecoration(
-                    border: Border(
-                      right: index < thumbCount - 1
-                          ? BorderSide(color: const Color(0xFF5A0000).withOpacity(0.4), width: 0.5)
-                          : BorderSide.none,
+                    color: isSelected 
+                        ? Colors.white.withOpacity(0.6) 
+                        : videoColor.withOpacity(0.8),
+                    borderRadius: isFirst 
+                        ? const BorderRadius.only(
+                            topLeft: Radius.circular(6),
+                            bottomLeft: Radius.circular(6),
+                          ) 
+                        : null,
+                  ),
+                  child: Center(
+                    child: Container(
+                      width: 3,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(1.5),
+                      ),
                     ),
                   ),
-                  child: thumbnail != null
-                      ? Image.memory(thumbnail, fit: BoxFit.cover, gaplessPlayback: true)
-                      : Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                const Color(0xFF8B0000).withOpacity(0.3),
-                                const Color(0xFF5A0000).withOpacity(0.5),
-                              ],
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${thumbTime.toInt()}s',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.4),
-                                fontSize: 8,
-                                fontFamily: 'monospace',
-                              ),
-                            ),
-                          ),
-                        ),
-                );
-              },
-            ),
-            
-            // Clip separator indicator (thin white line between clips)
-            if (!isLast)
-              Positioned(
-                right: 0,
-                top: 0,
-                bottom: 0,
-                child: Container(
-                  width: 1,
-                  color: Colors.white.withOpacity(0.3),
                 ),
               ),
-          ],
+              
+              // Thumbnails content area
+              Expanded(
+                child: Stack(
+                  children: [
+                    // Thumbnails row
+                    ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: thumbCount,
+                      itemBuilder: (context, index) {
+                        // Adjust thumbTime to account for inPoint
+                        final thumbTime = clip.inPoint + (index / thumbCount) * clip.trimmedDuration;
+                        
+                        // Get thumbnail if available
+                        final thumbnailIndex = _thumbnails.isNotEmpty 
+                            ? (index * _thumbnails.length / thumbCount).floor().clamp(0, _thumbnails.length - 1)
+                            : -1;
+                        final thumbnail = thumbnailIndex >= 0 && thumbnailIndex < _thumbnails.length 
+                            ? _thumbnails[thumbnailIndex] 
+                            : null;
+                        
+                        return Container(
+                          width: _thumbnailWidth,
+                          height: _thumbnailHeight,
+                          decoration: BoxDecoration(
+                            border: Border(
+                              right: index < thumbCount - 1
+                                  ? BorderSide(color: const Color(0xFF5A0000).withOpacity(0.4), width: 0.5)
+                                  : BorderSide.none,
+                            ),
+                          ),
+                          child: thumbnail != null
+                              ? Image.memory(thumbnail, fit: BoxFit.cover, gaplessPlayback: true)
+                              : Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        const Color(0xFF8B0000).withOpacity(0.3),
+                                        const Color(0xFF5A0000).withOpacity(0.5),
+                                      ],
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '${thumbTime.toInt()}s',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.4),
+                                        fontSize: 8,
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                        );
+                      },
+                    ),
+                    
+                    // Clip info overlay when selected
+                    if (isSelected)
+                      Positioned(
+                        left: 4,
+                        top: 2,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.videocam, size: 10, color: Colors.white.withOpacity(0.9)),
+                              const SizedBox(width: 3),
+                              Text(
+                                '${clip.trimmedDuration.toStringAsFixed(1)}s',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              
+              // Right trim handle
+              GestureDetector(
+                onHorizontalDragStart: (_) {
+                  setState(() {
+                    _trimmingClipId = clip.id;
+                    _isTrimmingClipEnd = true;
+                    _selectedClipId = clip.id;
+                  });
+                },
+                onHorizontalDragUpdate: (details) {
+                  final delta = details.primaryDelta ?? 0;
+                  final timeDelta = delta / _pixelsPerSecond;
+                  setState(() {
+                    // Adjust out point - min inPoint + 0.5s, max duration
+                    clip.outPoint = (clip.outPoint + timeDelta).clamp(clip.inPoint + 0.5, clip.duration);
+                    _recalculateClipStartTimes();
+                  });
+                },
+                onHorizontalDragEnd: (_) {
+                  setState(() {
+                    _trimmingClipId = null;
+                    _isTrimmingClipEnd = false;
+                  });
+                },
+                child: Container(
+                  width: 12,
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                        ? Colors.white.withOpacity(0.6) 
+                        : videoColor.withOpacity(0.8),
+                    borderRadius: isLast 
+                        ? const BorderRadius.only(
+                            topRight: Radius.circular(6),
+                            bottomRight: Radius.circular(6),
+                          ) 
+                        : null,
+                  ),
+                  child: Center(
+                    child: Container(
+                      width: 3,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(1.5),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
