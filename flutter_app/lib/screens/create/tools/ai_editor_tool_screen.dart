@@ -2429,13 +2429,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),
             child: Container(
-              width: 36,
-              height: 36,
+              width: 28,
+              height: 28,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+              child: const Icon(Icons.arrow_back, color: Colors.white, size: 16),
             ),
           ),
           const Spacer(),
@@ -2444,12 +2444,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             GestureDetector(
               onTap: _handleExport,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [AppTheme.primary, AppTheme.primary.withOpacity(0.8)],
                   ),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                   boxShadow: [
                     BoxShadow(
                       color: AppTheme.primary.withOpacity(0.3),
@@ -2460,13 +2460,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.file_upload_outlined, color: Colors.white, size: 18),
-                    SizedBox(width: 6),
+                    Icon(Icons.file_upload_outlined, color: Colors.white, size: 14),
+                    SizedBox(width: 4),
                     Text(
                       'Export',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 14,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
