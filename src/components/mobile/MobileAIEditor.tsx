@@ -254,6 +254,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [isTextMenuMode, setIsTextMenuMode] = useState(false);
   const [textMenuTab, setTextMenuTab] = useState<'add-text' | 'auto-captions' | 'stickers' | 'draw'>('add-text');
   
+  // Audio menu mode state - activated by clicking "Audio" tool
+  const [isAudioMenuMode, setIsAudioMenuMode] = useState(false);
+  
   // Sticker presets
   const stickerCategories = [
     { id: 'emoji', name: 'Emoji', stickers: ['😀', '😂', '🥰', '😎', '🔥', '💯', '⭐', '❤️', '👍', '🎉', '✨', '🚀'] },
@@ -1279,8 +1282,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   };
 
   const handleToolClick = (tool: EditorTool) => {
+    // Audio tool opens the audio menu
+    if (tool.id === 'audio') {
+      setIsAudioMenuMode(true);
+      setSelectedTool('audio');
+      return;
+    }
+    
     // Coming soon tools - show toast and don't change selection
-    if (['audio', 'text', 'effects', 'captions'].includes(tool.id)) {
+    if (['text', 'effects', 'captions'].includes(tool.id)) {
       toast({
         title: tool.name,
         description: "Coming soon!",
@@ -3506,6 +3516,52 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </div>
                   </div>
                 )}
+              </div>
+            ) : isAudioMenuMode ? (
+              /* Audio Menu - horizontal scrollable menu with audio tools */
+              <div className="animate-fade-in flex flex-col">
+                {/* Header with back button and title */}
+                <div className="flex items-center border-b border-border/20">
+                  {/* Back button */}
+                  <button
+                    onClick={() => setIsAudioMenuMode(false)}
+                    className="shrink-0 flex items-center justify-center w-8 h-9 ml-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-primary" />
+                  </button>
+                  <span className="flex-1 py-3 text-sm font-medium text-foreground text-center pr-10">
+                    Audio
+                  </span>
+                </div>
+                
+                {/* Horizontal Scrollable Audio Tools */}
+                <div className="overflow-x-auto px-2 py-3">
+                  <div className="flex gap-1 min-w-max">
+                    {[
+                      { id: 'extract', name: 'Extract', icon: Waves, action: () => toast({ title: "Extract audio coming soon" }) },
+                      { id: 'sounds', name: 'Sounds', icon: Music, action: () => toast({ title: "Sounds library coming soon" }) },
+                      { id: 'sound-fx', name: 'Sound FX', icon: Sparkles, action: () => toast({ title: "Sound effects coming soon" }) },
+                      { id: 'record', name: 'Record', icon: Circle, action: () => toast({ title: "Audio recording coming soon" }) },
+                      { id: 'text-to-audio', name: 'Text to audio', icon: AudioLines, action: () => toast({ title: "Text to audio coming soon" }) },
+                    ].map((tool) => {
+                      const IconComponent = tool.icon;
+                      return (
+                        <button
+                          key={tool.id}
+                          onClick={tool.action}
+                          className="flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all hover:bg-white/5"
+                        >
+                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
+                            <IconComponent className="w-5 h-5 text-white" />
+                          </div>
+                          <span className="text-[10px] font-medium text-foreground/60">
+                            {tool.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             ) : isEditToolbarMode ? (
               /* Edit toolbar with fixed back button */
