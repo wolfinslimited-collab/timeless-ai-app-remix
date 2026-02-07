@@ -5,6 +5,7 @@
 -keep class io.flutter.view.** { *; }
 -keep class io.flutter.** { *; }
 -keep class io.flutter.plugins.** { *; }
+-keep class io.flutter.embedding.** { *; }
 
 # Keep Supabase/HTTP classes
 -keep class com.google.gson.** { *; }
@@ -14,6 +15,12 @@
 # Firebase
 -keep class com.google.firebase.** { *; }
 -keep class com.google.android.gms.** { *; }
+
+# Google Play Core (deferred components / split install)
+-dontwarn com.google.android.play.core.splitcompat.SplitCompatApplication
+-dontwarn com.google.android.play.core.splitinstall.**
+-dontwarn com.google.android.play.core.tasks.**
+-keep class com.google.android.play.core.** { *; }
 
 # In-App Purchase
 -keep class com.android.vending.billing.** { *; }
