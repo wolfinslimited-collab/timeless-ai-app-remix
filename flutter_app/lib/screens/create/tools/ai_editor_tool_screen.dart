@@ -130,6 +130,7 @@ class VideoClip {
   double startTime; // Position on timeline (auto-calculated when appending)
   double inPoint; // Trim in point (0 = start of clip)
   double outPoint; // Trim out point (duration = end of clip)
+  List<Uint8List>? thumbnails; // Array of thumbnail image bytes
   
   VideoClip({
     required this.id,
@@ -138,6 +139,7 @@ class VideoClip {
     this.startTime = 0,
     double? inPoint,
     double? outPoint,
+    this.thumbnails,
   }) : inPoint = inPoint ?? 0,
        outPoint = outPoint ?? duration;
   
@@ -1360,11 +1362,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       url: url,
       duration: clipDuration,
       startTime: startTime,
+      thumbnails: [],
     );
     
     setState(() {
       _videoClips.add(newClip);
     });
+    
+    // Extract thumbnails for this clip
+    _extractClipThumbnails(newClip.id, url, clipDuration);
     
     _showSnackBar('Video clip added to timeline');
   }
@@ -1379,8 +1385,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           url: _videoUrl!,
           duration: duration,
           startTime: 0,
+          thumbnails: [],
         ));
       });
+      
+      // Extract thumbnails for primary clip
+      _extractClipThumbnails('primary', _videoUrl!, duration);
     }
   }
   
@@ -2265,34 +2275,59 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   Future<void> _extractThumbnails(String videoUrl) async {
     if (_videoController == null || !_isVideoInitialized) return;
     
+    // Thumbnails are now extracted per-clip via _extractClipThumbnails
+    // This method is kept for backwards compatibility but defers to clip-based extraction
+    if (_videoClips.isNotEmpty) {
+      final primaryClip = _videoClips.firstWhere((c) => c.id == 'primary', orElse: () => _videoClips.first);
+      if (primaryClip.thumbnails == null || primaryClip.thumbnails!.isEmpty) {
+        await _extractClipThumbnails(primaryClip.id, videoUrl, primaryClip.duration);
+      }
+    }
+  }
+  
+  /// Extract thumbnails for a specific video clip using the video controller
+  Future<void> _extractClipThumbnails(String clipId, String videoPath, double clipDuration) async {
+    if (!mounted) return;
+    
     setState(() => _isExtractingThumbnails = true);
     
-    final duration = _videoController!.value.duration.inMilliseconds;
-    final List<Uint8List?> thumbnails = List.filled(_thumbnailCount, null);
-    
     try {
-      for (int i = 0; i < _thumbnailCount; i++) {
+      // Create a temporary controller for thumbnail extraction
+      final tempController = VideoPlayerController.file(File(videoPath));
+      await tempController.initialize();
+      
+      final numThumbnails = math.min(15, (clipDuration * 2).ceil()); // Max 2 per second, up to 15
+      final List<Uint8List> thumbnails = [];
+      
+      for (int i = 0; i < numThumbnails; i++) {
         if (!mounted) break;
         
-        final timeMs = (duration * i / _thumbnailCount).toInt();
+        final time = Duration(milliseconds: ((i / numThumbnails) * clipDuration * 1000).toInt());
+        await tempController.seekTo(time);
+        await Future.delayed(const Duration(milliseconds: 100)); // Wait for seek
         
-        try {
-          // Use video player to capture frame (simple placeholder approach)
-          // Real thumbnail generation would require ffmpeg or native plugin
-          if (mounted && _videoController != null) {
-            // For now, use a simple placeholder - we'll just show timeline without thumbnails
-            // In production, you'd use ffmpeg_kit_flutter or similar
-            thumbnails[i] = null;
-            setState(() {
-              _thumbnails = List.from(thumbnails);
-            });
+        // Note: VideoPlayer doesn't provide direct frame capture
+        // We'll generate placeholder thumbnails with gradient colors based on position
+        // In production, you'd use ffmpeg_kit_flutter or video_thumbnail package
+        
+        // For now, create a colored placeholder that varies with time
+        // This gives visual variety on the timeline
+        thumbnails.add(Uint8List(0)); // Empty bytes as placeholder marker
+      }
+      
+      await tempController.dispose();
+      
+      // Update the clip with thumbnails
+      if (mounted) {
+        setState(() {
+          final clipIndex = _videoClips.indexWhere((c) => c.id == clipId);
+          if (clipIndex >= 0) {
+            _videoClips[clipIndex].thumbnails = thumbnails;
           }
-        } catch (e) {
-          debugPrint('Failed to extract thumbnail at $timeMs: $e');
-        }
+        });
       }
     } catch (e) {
-      debugPrint('Failed to extract thumbnails: $e');
+      debugPrint('Failed to extract clip thumbnails: $e');
     } finally {
       if (mounted) {
         setState(() => _isExtractingThumbnails = false);
@@ -3113,13 +3148,22 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         // Adjust thumbTime to account for inPoint
                         final thumbTime = clip.inPoint + (index / thumbCount) * clip.trimmedDuration;
                         
-                        // Get thumbnail if available
-                        final thumbnailIndex = _thumbnails.isNotEmpty 
-                            ? (index * _thumbnails.length / thumbCount).floor().clamp(0, _thumbnails.length - 1)
+                        // Get thumbnail from clip's thumbnails array
+                        final clipThumbnails = clip.thumbnails;
+                        final hasThumbnails = clipThumbnails != null && clipThumbnails.isNotEmpty;
+                        final thumbnailIndex = hasThumbnails 
+                            ? (index * clipThumbnails.length / thumbCount).floor().clamp(0, clipThumbnails.length - 1)
                             : -1;
-                        final thumbnail = thumbnailIndex >= 0 && thumbnailIndex < _thumbnails.length 
-                            ? _thumbnails[thumbnailIndex] 
+                        final thumbnail = thumbnailIndex >= 0 && clipThumbnails != null && thumbnailIndex < clipThumbnails.length 
+                            ? clipThumbnails[thumbnailIndex] 
                             : null;
+                        final hasValidThumbnail = thumbnail != null && thumbnail.isNotEmpty;
+                        
+                        // Generate a gradient color that varies based on position for visual variety
+                        final gradientProgress = index / thumbCount;
+                        final baseHue = 0.0; // Red hue for video
+                        final saturation = 0.7 + (gradientProgress * 0.1);
+                        final lightness = 0.15 + (math.sin(gradientProgress * math.pi) * 0.05);
                         
                         return Container(
                           width: _thumbnailWidth,
@@ -3131,7 +3175,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                                   : BorderSide.none,
                             ),
                           ),
-                          child: thumbnail != null
+                          child: hasValidThumbnail
                               ? Image.memory(thumbnail, fit: BoxFit.cover, gaplessPlayback: true)
                               : Container(
                                   decoration: BoxDecoration(
@@ -3139,20 +3183,41 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                                       begin: Alignment.topLeft,
                                       end: Alignment.bottomRight,
                                       colors: [
-                                        const Color(0xFF8B0000).withOpacity(0.3),
-                                        const Color(0xFF5A0000).withOpacity(0.5),
+                                        HSLColor.fromAHSL(1.0, baseHue, saturation, lightness + 0.05).toColor(),
+                                        HSLColor.fromAHSL(1.0, baseHue, saturation - 0.1, lightness).toColor(),
                                       ],
                                     ),
                                   ),
-                                  child: Center(
-                                    child: Text(
-                                      '${thumbTime.toInt()}s',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.4),
-                                        fontSize: 8,
-                                        fontFamily: 'monospace',
+                                  child: Stack(
+                                    children: [
+                                      // Film grain effect
+                                      Positioned.fill(
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [
+                                                Colors.white.withOpacity(0.03),
+                                                Colors.transparent,
+                                                Colors.black.withOpacity(0.1),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                      // Timestamp
+                                      Center(
+                                        child: Text(
+                                          '${thumbTime.toInt()}s',
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(0.4),
+                                            fontSize: 8,
+                                            fontFamily: 'monospace',
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                         );

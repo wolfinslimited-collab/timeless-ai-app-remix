@@ -107,6 +107,7 @@ interface VideoClip {
   startTime: number; // Position on timeline (auto-calculated when appending)
   inPoint: number; // Trim in point (0 = start of clip)
   outPoint: number; // Trim out point (duration = end of clip)
+  thumbnails?: string[]; // Array of data URLs for frame thumbnails
 }
 
 // Helper to get trimmed duration
@@ -1159,22 +1160,87 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     toast({ title: "Audio deleted" });
   };
 
+  // Extract thumbnails from a video URL
+  const extractThumbnails = async (url: string, clipDuration: number, clipId: string, numThumbnails: number = 10): Promise<void> => {
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.src = url;
+    video.muted = true;
+    
+    return new Promise((resolve) => {
+      video.addEventListener('loadedmetadata', async () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve();
+          return;
+        }
+        
+        // Set canvas size proportional to thumbnail height
+        const aspectRatio = video.videoWidth / video.videoHeight;
+        canvas.height = THUMBNAIL_HEIGHT;
+        canvas.width = Math.round(THUMBNAIL_HEIGHT * aspectRatio);
+        
+        const thumbnails: string[] = [];
+        const actualThumbnails = Math.min(numThumbnails, Math.ceil(clipDuration * 2)); // At most 2 per second
+        
+        for (let i = 0; i < actualThumbnails; i++) {
+          const time = (i / actualThumbnails) * clipDuration;
+          
+          try {
+            video.currentTime = time;
+            await new Promise<void>((seekResolve) => {
+              const onSeeked = () => {
+                video.removeEventListener('seeked', onSeeked);
+                seekResolve();
+              };
+              video.addEventListener('seeked', onSeeked);
+            });
+            
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            thumbnails.push(canvas.toDataURL('image/jpeg', 0.6));
+          } catch (e) {
+            console.warn('Failed to extract thumbnail at', time);
+          }
+        }
+        
+        // Update the clip with thumbnails
+        setVideoClips(prev => prev.map(clip => 
+          clip.id === clipId ? { ...clip, thumbnails } : clip
+        ));
+        
+        video.remove();
+        resolve();
+      });
+      
+      video.addEventListener('error', () => {
+        console.warn('Failed to load video for thumbnails');
+        resolve();
+      });
+    });
+  };
+
   // Add a new video clip to the end of the timeline
   const addVideoClip = (url: string, clipDuration: number) => {
     const lastClip = videoClips[videoClips.length - 1];
     const startTime = lastClip ? lastClip.startTime + getClipTrimmedDuration(lastClip) : 0;
     
+    const clipId = Date.now().toString();
     const newClip: VideoClip = {
-      id: Date.now().toString(),
+      id: clipId,
       url,
       duration: clipDuration,
       startTime,
       inPoint: 0,
       outPoint: clipDuration,
+      thumbnails: [],
     };
     
     setVideoClips(prev => [...prev, newClip]);
     toast({ title: "Video added", description: "Clip appended to timeline" });
+    
+    // Extract thumbnails async
+    extractThumbnails(url, clipDuration, clipId, 15);
   };
 
   // Recalculate clip start times after a trim operation
@@ -1190,14 +1256,19 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Initialize first clip when primary video is loaded
   useEffect(() => {
     if (videoUrl && duration > 0 && videoClips.length === 0) {
+      const clipId = 'primary';
       setVideoClips([{
-        id: 'primary',
+        id: clipId,
         url: videoUrl,
         duration,
         startTime: 0,
         inPoint: 0,
         outPoint: duration,
+        thumbnails: [],
       }]);
+      
+      // Extract thumbnails for the primary clip
+      extractThumbnails(videoUrl, duration, clipId, 15);
     }
   }, [videoUrl, duration]);
 
@@ -2595,6 +2666,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                     {Array.from({ length: thumbCount }).map((_, i) => {
                                       // Adjust thumbTime to account for inPoint
                                       const thumbTime = clip.inPoint + (i / thumbCount) * getClipTrimmedDuration(clip);
+                                      // Get corresponding thumbnail from clip thumbnails array
+                                      const thumbIndex = clip.thumbnails && clip.thumbnails.length > 0
+                                        ? Math.floor((i / thumbCount) * clip.thumbnails.length)
+                                        : -1;
+                                      const thumbnailSrc = thumbIndex >= 0 && clip.thumbnails 
+                                        ? clip.thumbnails[thumbIndex] 
+                                        : null;
+                                      
                                       return (
                                         <div
                                           key={i}
@@ -2603,19 +2682,28 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                             borderRight: i < thumbCount - 1 ? '1px solid rgba(90, 0, 0, 0.4)' : 'none',
                                           }}
                                         >
-                                          <div 
-                                            className="w-full h-full bg-cover bg-center"
-                                            style={{
-                                              backgroundImage: `linear-gradient(135deg, rgba(139,0,0,0.3), rgba(90,0,0,0.5))`,
-                                              backgroundColor: '#2A1515',
-                                            }}
-                                          >
-                                            <div className="w-full h-full flex items-center justify-center">
-                                              <span className="text-[8px] text-white/40 font-mono">
-                                                {Math.floor(thumbTime)}s
-                                              </span>
+                                          {thumbnailSrc ? (
+                                            <img 
+                                              src={thumbnailSrc} 
+                                              alt="" 
+                                              className="w-full h-full object-cover"
+                                              draggable={false}
+                                            />
+                                          ) : (
+                                            <div 
+                                              className="w-full h-full bg-cover bg-center"
+                                              style={{
+                                                backgroundImage: `linear-gradient(135deg, rgba(139,0,0,0.3), rgba(90,0,0,0.5))`,
+                                                backgroundColor: '#2A1515',
+                                              }}
+                                            >
+                                              <div className="w-full h-full flex items-center justify-center">
+                                                <span className="text-[8px] text-white/40 font-mono">
+                                                  {Math.floor(thumbTime)}s
+                                                </span>
+                                              </div>
                                             </div>
-                                          </div>
+                                          )}
                                         </div>
                                       );
                                     })}
