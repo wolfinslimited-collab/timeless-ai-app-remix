@@ -4905,71 +4905,67 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       _ClipEditTool(id: 'filter', name: 'Filter', icon: Icons.auto_fix_high, onTap: () { setState(() { _selectedTool = 'filters'; _isEditToolbarMode = false; }); }),
     ];
     
-    return SingleChildScrollView(
+    return Row(
       key: const ValueKey('edit_toolbar'),
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      child: Row(
-        children: [
-          // Back button
-          GestureDetector(
+      children: [
+        // Fixed Back Icon Button (doesn't scroll)
+        Padding(
+          padding: const EdgeInsets.only(left: 8, right: 4),
+          child: GestureDetector(
             onTap: () => setState(() => _isEditToolbarMode = false),
             child: Container(
-              width: 56,
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              margin: const EdgeInsets.only(right: 4),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.arrow_back,
-                    size: 24,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Back',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  ),
-                ],
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.chevron_left,
+                size: 24,
+                color: Theme.of(context).primaryColor,
               ),
             ),
           ),
-          
-          // Edit tools
-          ...editTools.map((tool) {
-            return GestureDetector(
-              onTap: tool.onTap,
-              child: Container(
-                width: 56,
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      tool.icon,
-                      size: 20,
-                      color: tool.isDestructive ? Colors.red : Colors.white.withOpacity(0.8),
+        ),
+        
+        // Scrollable Edit Tools
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+            child: Row(
+              children: editTools.map((tool) {
+                return GestureDetector(
+                  onTap: tool.onTap,
+                  child: Container(
+                    width: 56,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          tool.icon,
+                          size: 20,
+                          color: tool.isDestructive ? Colors.red : Colors.white.withOpacity(0.8),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          tool.name,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: tool.isDestructive ? Colors.red : Colors.white.withOpacity(0.7),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      tool.name,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: tool.isDestructive ? Colors.red : Colors.white.withOpacity(0.7),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
     );
   }
   

@@ -3629,20 +3629,20 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
             {/* Bottom Toolbar - Switches between main and edit mode */}
             <div className="shrink-0 bg-background border-t border-border/10 pb-safe">
-              <div className="overflow-x-auto">
-                <div className="flex px-2 py-3 min-w-max animate-fade-in">
-                  {isEditToolbarMode ? (
-                    <>
-                      {/* Back button */}
-                      <button
-                        onClick={exitEditToolbarMode}
-                        className="flex flex-col items-center justify-center w-14 py-1 mr-1"
-                      >
-                        <ArrowLeft className="w-6 h-6 mb-1 text-primary" />
-                        <span className="text-[11px] text-primary font-medium">Back</span>
-                      </button>
-                      
-                      {/* Edit tools */}
+              {isEditToolbarMode ? (
+                /* Edit toolbar with fixed back button */
+                <div className="flex items-center py-3 animate-fade-in">
+                  {/* Fixed Back Icon Button */}
+                  <button
+                    onClick={exitEditToolbarMode}
+                    className="shrink-0 flex items-center justify-center w-11 h-11 ml-2 mr-1 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                  >
+                    <ArrowLeft className="w-5 h-5 text-primary" />
+                  </button>
+                  
+                  {/* Scrollable Edit Tools */}
+                  <div className="flex-1 overflow-x-auto">
+                    <div className="flex px-1 min-w-max">
                       {clipEditTools.map((tool) => {
                         const Icon = tool.icon;
                         return (
@@ -3671,10 +3671,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           </button>
                         );
                       })}
-                    </>
-                  ) : (
-                    /* Main toolbar */
-                    EDITOR_TOOLS.map((tool) => {
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Main toolbar */
+                <div className="overflow-x-auto">
+                  <div className="flex px-2 py-3 min-w-max">
+                    {EDITOR_TOOLS.map((tool) => {
                       const Icon = tool.icon;
                       const isSelected = selectedTool === tool.id;
 
@@ -3700,10 +3704,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           </span>
                         </button>
                       );
-                    })
-                  )}
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </>
         )
