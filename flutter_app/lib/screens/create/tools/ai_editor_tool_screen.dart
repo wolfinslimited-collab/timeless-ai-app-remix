@@ -6,7 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../../core/theme.dart';
 
@@ -883,9 +883,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     final tempR = _temperature > 0 ? _temperature * 30 : 0;
     final tempB = _temperature < 0 ? -_temperature * 30 : 0;
     matrix = _multiplyMatrix(matrix, [
-      1, 0, 0, 0, tempR,
+      1, 0, 0, 0, tempR.toDouble(),
       0, 1, 0, 0, 0,
-      0, 0, 1, 0, tempB,
+      0, 0, 1, 0, tempB.toDouble(),
       0, 0, 0, 1, 0,
     ]);
 
@@ -2277,16 +2277,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         final timeMs = (duration * i / _thumbnailCount).toInt();
         
         try {
-          final thumbnail = await VideoThumbnail.thumbnailData(
-            video: videoUrl,
-            imageFormat: ImageFormat.JPEG,
-            maxWidth: 120,
-            quality: 50,
-            timeMs: timeMs,
-          );
-          
-          if (mounted && thumbnail != null) {
-            thumbnails[i] = thumbnail;
+          // Use video player to capture frame (simple placeholder approach)
+          // Real thumbnail generation would require ffmpeg or native plugin
+          if (mounted && _videoController != null) {
+            // For now, use a simple placeholder - we'll just show timeline without thumbnails
+            // In production, you'd use ffmpeg_kit_flutter or similar
+            thumbnails[i] = null;
             setState(() {
               _thumbnails = List.from(thumbnails);
             });
@@ -4373,7 +4369,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     _buildTextInputTab(),
                     _buildFontTab(),
                     _buildStyleTab(),
-                    _buildBackgroundTab(),
+                    _buildTextBackgroundTab(),
                     _buildAlignmentTab(),
                   ],
                 ),
@@ -6497,7 +6493,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       _buildTextInputTab(),
                       _buildFontTab(),
                       _buildStyleTab(),
-                      _buildBackgroundTab(),
+                      _buildTextBackgroundTab(),
                       _buildAlignmentTab(),
                     ],
                   ),
@@ -6665,7 +6661,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
 
-  Widget _buildBackgroundTab() {
+  Widget _buildTextBackgroundTab() {
     final overlay = _selectedTextOverlay;
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -7043,6 +7039,105 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             child: const Text('Done', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold)),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Pick and load a new video (for replace functionality)
+  Future<void> _pickAndLoadVideo() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+        allowMultiple: false,
+      );
+      
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (file.path != null) {
+          // Load the selected video
+          await _initializeFromUrl(file.path!);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking video: $e');
+      _showSnackBar('Failed to pick video');
+    }
+  }
+
+  /// Generate auto captions (placeholder)
+  void _generateCaptions() {
+    _showSnackBar('Auto captions coming soon!');
+    // TODO: Implement actual caption generation using speech-to-text
+  }
+
+  /// Show media picker bottom sheet
+  void _showMediaPickerSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Add Media',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.video_library, color: AppTheme.primary),
+              ),
+              title: const Text('Video from Gallery', style: TextStyle(color: Colors.white)),
+              subtitle: Text('Select a video file', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndLoadVideo();
+              },
+            ),
+            ListTile(
+              leading: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.cloud_download, color: Colors.blue),
+              ),
+              title: const Text('Recent Videos', style: TextStyle(color: Colors.white)),
+              subtitle: Text('From your uploads', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+              onTap: () {
+                Navigator.pop(context);
+                // Show recent videos
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }

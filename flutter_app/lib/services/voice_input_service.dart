@@ -92,9 +92,11 @@ class VoiceInputService {
           }
         },
         localeId: localeId,
-        listenMode: stt.ListenMode.dictation,
-        cancelOnError: true,
-        partialResults: true,
+        listenOptions: stt.SpeechListenOptions(
+          listenMode: stt.ListenMode.dictation,
+          cancelOnError: true,
+          partialResults: true,
+        ),
         listenFor: const Duration(seconds: 30),
         pauseFor: const Duration(seconds: 3),
       );
