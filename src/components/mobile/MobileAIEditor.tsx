@@ -93,7 +93,7 @@ const EDITOR_TOOLS: EditorTool[] = [
   { id: "background", name: "Background", icon: Paintbrush },
 ];
 
-const QUALITY_OPTIONS = ["720p", "1080p", "2K", "4K"];
+// Export settings removed - coming soon
 
 // Timeline Sync Engine - Global Constants
 const PIXELS_PER_SECOND = 80.0; // Master time-to-pixel ratio
@@ -179,8 +179,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [selectedTool, setSelectedTool] = useState("edit");
   const [isMuted, setIsMuted] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const [showQualityPicker, setShowQualityPicker] = useState(false);
-  const [selectedQuality, setSelectedQuality] = useState("1080p");
+  // Export settings removed - coming soon
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -1332,8 +1331,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   const handleExport = () => {
     toast({
-      title: "Exporting",
-      description: `Exporting video in ${selectedQuality}...`,
+      title: "Coming soon!",
+      description: "Export feature is coming soon.",
     });
   };
 
@@ -1473,48 +1472,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Quality Picker Sheet */}
-      <Sheet open={showQualityPicker} onOpenChange={setShowQualityPicker}>
-        <SheetContent side="bottom" className="bg-[#1a1a1a] border-t border-white/10 rounded-t-3xl p-0">
-          <div className="flex flex-col">
-            <div className="w-10 h-1 bg-white/30 rounded-full mx-auto mt-3" />
-            
-            <SheetHeader className="px-5 pt-5 pb-4">
-              <SheetTitle className="text-white text-base font-bold text-center">
-                Export Quality
-              </SheetTitle>
-            </SheetHeader>
-
-            <div className="px-2 pb-6">
-              {QUALITY_OPTIONS.map((quality) => (
-                <button
-                  key={quality}
-                  onClick={() => {
-                    setSelectedQuality(quality);
-                    setShowQualityPicker(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-lg transition-colors"
-                >
-                  <div className={cn(
-                    "w-5 h-5 rounded-full border-2 flex items-center justify-center",
-                    selectedQuality === quality ? "border-primary" : "border-white/30"
-                  )}>
-                    {selectedQuality === quality && (
-                      <div className="w-2.5 h-2.5 rounded-full bg-primary" />
-                    )}
-                  </div>
-                  <span className={cn(
-                    "text-sm",
-                    selectedQuality === quality ? "text-white font-medium" : "text-white/70"
-                  )}>
-                    {quality}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* Quality Picker Sheet removed - coming soon */}
 
       {/* Video Clip Edit Panel Sheet */}
       <Sheet open={showClipEditPanel} onOpenChange={setShowClipEditPanel}>
@@ -1717,15 +1675,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         
         {videoUrl && (
           <div className="flex items-center gap-3">
-            {/* Quality Selector */}
-            <button 
-              onClick={() => setShowQualityPicker(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white/10 rounded-lg border border-white/20"
-            >
-              <span className="text-white text-sm font-medium">{selectedQuality}</span>
-              <ChevronDown className="w-4 h-4 text-white/70" />
-            </button>
-            
             {/* Export Button */}
             <button 
               onClick={handleExport}

@@ -437,7 +437,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   bool _isFullScreen = false;
   List<RecentVideo> _recentVideos = [];
   bool _isLoadingRecent = false;
-  String _selectedQuality = '1080p';
+  // Export settings removed - coming soon
 
   // Timeline Sync Engine - Global Constants
   static const double _pixelsPerSecond = 80.0; // Master time-to-pixel ratio
@@ -604,8 +604,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     }
   }
 
-  // Quality options
-  final List<String> _qualityOptions = ['720p', '1080p', '2K', '4K'];
+  // Quality options removed - coming soon
 
   // Available fonts
   final List<String> _availableFonts = [
@@ -2374,71 +2373,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     return '$minutes:$seconds';
   }
 
-  void _showQualityPicker() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(top: 12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Export Quality',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ..._qualityOptions.map((quality) => ListTile(
-              onTap: () {
-                setState(() => _selectedQuality = quality);
-                Navigator.pop(context);
-              },
-              leading: Icon(
-                _selectedQuality == quality
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_off,
-                color: _selectedQuality == quality
-                    ? AppTheme.primary
-                    : Colors.white.withOpacity(0.5),
-              ),
-              title: Text(
-                quality,
-                style: TextStyle(
-                  color: _selectedQuality == quality
-                      ? Colors.white
-                      : Colors.white.withOpacity(0.7),
-                  fontWeight: _selectedQuality == quality
-                      ? FontWeight.w600
-                      : FontWeight.normal,
-                ),
-              ),
-            )),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _handleExport() {
-    _showSnackBar('Exporting video in $_selectedQuality...');
+    _showSnackBar('Coming soon!');
   }
 
   @override
@@ -2485,37 +2421,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           ),
           const Spacer(),
           if (_isVideoInitialized) ...[
-            // Quality Selector
-            GestureDetector(
-              onTap: _showQualityPicker,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white.withOpacity(0.2)),
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      _selectedQuality,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.keyboard_arrow_down,
-                      color: Colors.white.withOpacity(0.7),
-                      size: 18,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
             // Export Button
             GestureDetector(
               onTap: _handleExport,
