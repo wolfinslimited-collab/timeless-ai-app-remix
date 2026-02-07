@@ -3181,7 +3181,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             <div className="w-4 h-4 rounded bg-emerald-500/30 flex items-center justify-center">
                               <Plus className="w-2.5 h-2.5 text-emerald-400" />
                             </div>
-                            <span className="text-[11px] text-emerald-400 font-semibold">Add audio</span>
+                            <span className="text-[11px] text-foreground font-semibold">Add audio</span>
                           </div>
                         </div>
                         {/* Render actual audio layers on top */}
@@ -3322,7 +3322,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             <div className="w-4 h-4 rounded bg-primary/30 flex items-center justify-center">
                               <Plus className="w-2.5 h-2.5 text-primary" />
                             </div>
-                            <span className="text-[11px] text-primary font-semibold">Add text</span>
+                            <span className="text-[11px] text-foreground font-semibold">Add text</span>
                           </div>
                         </div>
                         {/* Render actual text layers on top */}

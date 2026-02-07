@@ -3714,7 +3714,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   const Text(
                     'Add audio',
                     style: TextStyle(
-                      color: Color(0xFF22C55E),
+                      color: Colors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -3757,7 +3757,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   const Text(
                     'Add text',
                     style: TextStyle(
-                      color: Color(0xFF8B5CF6),
+                      color: Colors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
