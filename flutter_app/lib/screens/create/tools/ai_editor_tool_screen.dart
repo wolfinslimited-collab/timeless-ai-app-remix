@@ -5142,242 +5142,238 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
-  /// Build the text menu - appears when clicking "+ Add text" on timeline
+  /// Build the text menu - matches Adjust section style
   Widget _buildTextMenu() {
+    final isStickersTab = _textMenuTab == 'stickers';
+    
     return Column(
       key: const ValueKey('text_menu'),
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Header with back button
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        // Top Tabs: Text / Stickers - matching Adjust style
+        Container(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+          ),
           child: Row(
             children: [
-              // Back button - Sleek rectangular chevron
-              GestureDetector(
-                onTap: () => setState(() => _isTextMenuMode = false),
-                child: Container(
-                  width: 32,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppTheme.primary.withOpacity(0.2),
-                      width: 1,
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _textMenuTab = 'add-text'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Text',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: !isStickersTab ? Colors.white : Colors.white.withOpacity(0.5),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          height: 2,
+                          width: 48,
+                          decoration: BoxDecoration(
+                            color: !isStickersTab ? AppTheme.primary : Colors.transparent,
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                'Text & Stickers',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _textMenuTab = 'stickers'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Stickers',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: isStickersTab ? Colors.white : Colors.white.withOpacity(0.5),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          height: 2,
+                          width: 48,
+                          decoration: BoxDecoration(
+                            color: isStickersTab ? AppTheme.primary : Colors.transparent,
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
         ),
         
-        // Horizontal divider
-        Container(
-          height: 1,
-          color: Colors.white.withOpacity(0.1),
-        ),
-        
-        // Single Horizontal Scrollable Row with all options
+        // Horizontal Scrollable Icons - matching Adjust style
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: [
-                // Add text
-                _buildTextMenuButton('Add text', Icons.text_fields, () {
+              children: !isStickersTab ? [
+                // Text Tools
+                _buildTextToolIcon('Add text', Icons.text_fields, false, () {
                   _addTextOverlay();
                   setState(() => _isTextMenuMode = false);
                 }),
-                const SizedBox(width: 8),
-                
-                // Auto captions
-                _buildTextMenuButton('Auto captions', Icons.subtitles_outlined, () {
+                _buildTextToolIcon('Captions', Icons.subtitles_outlined, false, () {
                   _generateCaptions();
                   setState(() => _isTextMenuMode = false);
                 }),
-                const SizedBox(width: 8),
-                
-                // Stickers
-                _buildTextMenuButton('Stickers', Icons.emoji_emotions_outlined, () {
-                  setState(() => _textMenuTab = 'stickers');
-                }),
-                const SizedBox(width: 8),
-                
-                // Draw
-                _buildTextMenuButton('Draw', Icons.edit_outlined, () {
-                  setState(() => _textMenuTab = 'draw');
-                }),
-                const SizedBox(width: 8),
-                
-                // Text template
-                _buildTextMenuButton('Text template', Icons.description_outlined, () {
+                _buildTextToolIcon('Template', Icons.description_outlined, false, () {
                   _addTextOverlay();
                   setState(() => _isTextMenuMode = false);
                 }),
-                const SizedBox(width: 8),
-                
-                // Text to audio
-                _buildTextMenuButton('Text to audio', Icons.audiotrack_outlined, () {
+                _buildTextToolIcon('To audio', Icons.audiotrack_outlined, false, () {
                   _showSnackBar('Text to audio coming soon');
                 }),
-                const SizedBox(width: 8),
-                
-                // Auto lyrics
-                _buildTextMenuButton('Auto lyrics', Icons.music_note_outlined, () {
+                _buildTextToolIcon('Lyrics', Icons.music_note_outlined, false, () {
                   _showSnackBar('Auto lyrics coming soon');
                 }),
+                _buildTextToolIcon('Draw', Icons.edit_outlined, false, () {
+                  _showSnackBar('Drawing tools coming soon');
+                }),
+              ] : [
+                // Sticker Categories as Icons
+                ..._stickerCategories.map((cat) {
+                  final isSelected = _selectedStickerCategory == cat['id'];
+                  return _buildStickerCategoryIcon(
+                    cat['name'] as String,
+                    (cat['stickers'] as List<String>).first,
+                    isSelected,
+                    () => setState(() => _selectedStickerCategory = cat['id']),
+                  );
+                }).toList(),
               ],
             ),
           ),
         ),
         
-        // Show stickers content if stickers tab is selected
-        if (_textMenuTab == 'stickers') ...[
-          Container(
-            height: 1,
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            color: Colors.white.withOpacity(0.1),
-          ),
+        // Sticker Grid - shows when stickers tab is active
+        if (isStickersTab)
           Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Category tabs
-                Row(
-                  children: _stickerCategories.map((cat) {
-                    final isActive = _selectedStickerCategory == cat['id'];
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedStickerCategory = cat['id']),
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: isActive ? AppTheme.primary : Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          cat['name'],
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: isActive ? Colors.white : Colors.white.withOpacity(0.7),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 12),
-                
-                // Sticker grid
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: (_stickerCategories.firstWhere((c) => c['id'] == _selectedStickerCategory)['stickers'] as List<String>).map((sticker) {
-                    return GestureDetector(
-                      onTap: () {
-                        _addTextOverlay();
-                        if (_textOverlays.isNotEmpty) {
-                          final lastOverlay = _textOverlays.last;
-                          lastOverlay.text = sticker;
-                          lastOverlay.fontSize = 48;
-                        }
-                        setState(() => _isTextMenuMode = false);
-                      },
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(sticker, style: const TextStyle(fontSize: 24)),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-        ],
-        
-        // Show draw content if draw tab is selected
-        if (_textMenuTab == 'draw') ...[
-          Container(
-            height: 1,
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            color: Colors.white.withOpacity(0.1),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Center(
-              child: Column(
-                children: [
-                  Icon(Icons.edit_outlined, size: 32, color: Colors.white.withOpacity(0.5)),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Draw on your video',
-                    style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.6)),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: (_stickerCategories.firstWhere((c) => c['id'] == _selectedStickerCategory)['stickers'] as List<String>).map((sticker) {
+                return GestureDetector(
+                  onTap: () {
+                    _addTextOverlay();
+                    if (_textOverlays.isNotEmpty) {
+                      final lastOverlay = _textOverlays.last;
+                      lastOverlay.text = sticker;
+                      lastOverlay.fontSize = 48;
+                    }
+                    setState(() => _isTextMenuMode = false);
+                  },
+                  child: Container(
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.white.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
-                      'Coming Soon',
-                      style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
+                    alignment: Alignment.center,
+                    child: Text(sticker, style: const TextStyle(fontSize: 20)),
                   ),
-                ],
-              ),
+                );
+              }).toList(),
             ),
           ),
-        ],
       ],
     );
   }
   
-  Widget _buildTextMenuButton(String label, IconData icon, VoidCallback onTap) {
+  Widget _buildTextToolIcon(String label, IconData icon, bool isSelected, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        constraints: const BoxConstraints(minWidth: 72),
+        width: 64,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        margin: const EdgeInsets.symmetric(horizontal: 2),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          color: isSelected ? AppTheme.primary.withOpacity(0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: Colors.white.withOpacity(0.7)),
-            const SizedBox(height: 6),
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 20,
+                color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+              ),
+            ),
+            const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 fontSize: 10,
-                color: Colors.white.withOpacity(0.8),
                 fontWeight: FontWeight.w500,
+                color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.6),
               ),
-              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildStickerCategoryIcon(String label, String emoji, bool isSelected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 64,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primary.withOpacity(0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(emoji, style: const TextStyle(fontSize: 22)),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.6),
+              ),
             ),
           ],
         ),
