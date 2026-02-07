@@ -170,6 +170,68 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   const selectedCaptionLayer = captionLayers.find(c => c.id === selectedCaptionId);
 
+  // Effect layer state
+  interface EffectLayer {
+    id: string;
+    effectId: string;
+    name: string;
+    category: string;
+    intensity: number;
+    startTime: number;
+    endTime: number;
+  }
+
+  const [effectLayers, setEffectLayers] = useState<EffectLayer[]>([]);
+  const [selectedEffectId, setSelectedEffectId] = useState<string | null>(null);
+
+  const selectedEffectLayer = effectLayers.find(e => e.id === selectedEffectId);
+
+  // Available effects
+  const effectPresets = [
+    { id: 'blur', name: 'Blur', category: 'Basic', icon: '🌫️' },
+    { id: 'glow', name: 'Glow', category: 'Basic', icon: '✨' },
+    { id: 'vignette', name: 'Vignette', category: 'Basic', icon: '🔲' },
+    { id: 'shake', name: 'Shake', category: 'Motion', icon: '📳' },
+    { id: 'zoom-pulse', name: 'Zoom Pulse', category: 'Motion', icon: '🔍' },
+    { id: 'film-grain', name: 'Film Grain', category: 'Cinematic', icon: '🎞️' },
+    { id: 'vhs', name: 'VHS', category: 'Retro', icon: '📼' },
+    { id: 'glitch', name: 'Glitch', category: 'Retro', icon: '⚡' },
+    { id: 'chromatic', name: 'Chromatic', category: 'Retro', icon: '🌈' },
+    { id: 'letterbox', name: 'Letterbox', category: 'Cinematic', icon: '🎬' },
+    { id: 'light-leak', name: 'Light Leak', category: 'Cinematic', icon: '☀️' },
+    { id: 'flash', name: 'Flash', category: 'Motion', icon: '💥' },
+  ];
+
+  const addEffectLayer = (effectId: string) => {
+    const preset = effectPresets.find(e => e.id === effectId);
+    if (!preset) return;
+    
+    const newEffect: EffectLayer = {
+      id: Date.now().toString(),
+      effectId: preset.id,
+      name: preset.name,
+      category: preset.category,
+      intensity: 0.7,
+      startTime: currentTime,
+      endTime: Math.min(currentTime + 3, duration || 10),
+    };
+    setEffectLayers(prev => [...prev, newEffect]);
+    setSelectedEffectId(newEffect.id);
+    setSelectedTool('effects');
+  };
+
+  const updateSelectedEffect = (updates: Partial<EffectLayer>) => {
+    if (!selectedEffectId) return;
+    setEffectLayers(prev => prev.map(e => 
+      e.id === selectedEffectId ? { ...e, ...updates } : e
+    ));
+  };
+
+  const deleteEffectLayer = (id: string) => {
+    setEffectLayers(prev => prev.filter(e => e.id !== id));
+    if (selectedEffectId === id) setSelectedEffectId(null);
+  };
+
   // Audio layer state
   interface AudioLayer {
     id: string;
@@ -1754,6 +1816,96 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   )}
                 </div>
               </>
+            ) : selectedTool === 'effects' ? (
+              // Effects Editor Content
+              <>
+                {/* Effects Grid */}
+                <div className="px-4 pb-4">
+                  <p className="text-white/70 text-xs mb-3">Select an effect to add</p>
+                  <div className="grid grid-cols-4 gap-2 max-h-[200px] overflow-y-auto">
+                    {effectPresets.map((effect) => (
+                      <button
+                        key={effect.id}
+                        onClick={() => addEffectLayer(effect.id)}
+                        className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-amber-500/20 hover:border-amber-500/40 transition-all flex flex-col items-center gap-1"
+                      >
+                        <span className="text-xl">{effect.icon}</span>
+                        <span className="text-[10px] text-white/80 font-medium">{effect.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Selected effect controls */}
+                {effectLayers.length > 0 && (
+                  <div className="px-4 pb-4 space-y-3">
+                    <p className="text-white/70 text-xs">Applied Effects</p>
+                    {effectLayers.map((effect) => {
+                      const isSelected = effect.id === selectedEffectId;
+                      return (
+                        <div
+                          key={effect.id}
+                          onClick={() => setSelectedEffectId(effect.id)}
+                          className={cn(
+                            "p-3 rounded-xl cursor-pointer transition-all",
+                            isSelected 
+                              ? "bg-amber-500/20 ring-2 ring-amber-500" 
+                              : "bg-white/5 hover:bg-white/10"
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className={cn(
+                                "w-8 h-8 rounded-lg flex items-center justify-center",
+                                isSelected ? "bg-amber-500/30" : "bg-white/10"
+                              )}>
+                                <Star className={cn("w-4 h-4", isSelected ? "text-amber-400" : "text-white/60")} />
+                              </div>
+                              <div>
+                                <span className="text-white text-sm font-medium block">
+                                  {effect.name}
+                                </span>
+                                <span className="text-white/50 text-[10px]">
+                                  {formatTime(effect.startTime)} - {formatTime(effect.endTime)}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteEffectLayer(effect.id);
+                              }}
+                              className="p-1.5 rounded-lg bg-destructive/20 hover:bg-destructive/30"
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </button>
+                          </div>
+                          
+                          {/* Intensity slider */}
+                          {isSelected && (
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-white/70 text-xs">Intensity</span>
+                                <span className="text-white text-xs font-semibold">
+                                  {Math.round(effect.intensity * 100)}%
+                                </span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={effect.intensity * 100}
+                                onChange={(e) => updateSelectedEffect({ intensity: Number(e.target.value) / 100 })}
+                                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             ) : null}
           </div>
         ) : (
@@ -2451,6 +2603,153 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </div>
                   )}
                   
+                  {/* Effects Track - Amber/Gold themed */}
+                  {effectLayers.length > 0 && (
+                    <div className="relative h-10" style={{ width: trackWidth }}>
+                      {effectLayers.map(effect => {
+                        const isSelected = effect.id === selectedEffectId;
+                        const leftOffset = effect.startTime * PIXELS_PER_SECOND;
+                        const itemWidth = Math.max(50, (effect.endTime - effect.startTime) * PIXELS_PER_SECOND);
+                    
+                        return (
+                          <div
+                            key={effect.id}
+                            className={cn(
+                              "absolute h-[34px] rounded-md flex items-center cursor-grab transition-all active:cursor-grabbing",
+                              isSelected 
+                                ? "bg-gradient-to-r from-amber-500 to-orange-500 ring-2 ring-white shadow-lg shadow-amber-500/30"
+                                : "bg-gradient-to-r from-amber-600 to-orange-600 shadow-md shadow-amber-600/30",
+                              draggingLayerId === effect.id && "opacity-90 scale-[1.02] z-10"
+                            )}
+                            style={{ left: leftOffset, width: itemWidth, top: 3 }}
+                          >
+                            {/* Left trim handle */}
+                            <div 
+                              className={cn(
+                                "w-2.5 h-full rounded-l-md flex items-center justify-center cursor-ew-resize",
+                                isSelected ? "bg-white/50" : "bg-white/30"
+                              )}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                const startX = e.clientX;
+                                const startTime = effect.startTime;
+                                
+                                const handleMove = (moveE: MouseEvent) => {
+                                  const deltaX = moveE.clientX - startX;
+                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                  const newStart = Math.max(0, Math.min(effect.endTime - 0.5, startTime + timeDelta));
+                                  setEffectLayers(prev => prev.map(e => 
+                                    e.id === effect.id ? { ...e, startTime: newStart } : e
+                                  ));
+                                };
+                                
+                                const handleUp = () => {
+                                  document.removeEventListener('mousemove', handleMove);
+                                  document.removeEventListener('mouseup', handleUp);
+                                };
+                                
+                                document.addEventListener('mousemove', handleMove);
+                                document.addEventListener('mouseup', handleUp);
+                              }}
+                            >
+                              <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                            </div>
+                            
+                            {/* Content - Draggable */}
+                            <div 
+                              className="flex-1 flex items-center gap-1 px-1 overflow-hidden cursor-grab active:cursor-grabbing"
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                setDraggingLayerId(effect.id);
+                                setSelectedEffectId(effect.id);
+                                
+                                const startX = e.clientX;
+                                const startTime = effect.startTime;
+                                const clipDuration = effect.endTime - effect.startTime;
+                                const snapThreshold = 10 / PIXELS_PER_SECOND;
+                                
+                                const handleMove = (moveE: MouseEvent) => {
+                                  const deltaX = moveE.clientX - startX;
+                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                  let newStart = Math.max(0, Math.min(duration - clipDuration, startTime + timeDelta));
+                                  
+                                  // Snap to playhead
+                                  const playheadTime = currentTime;
+                                  if (Math.abs(newStart - playheadTime) < snapThreshold) {
+                                    newStart = playheadTime;
+                                    setSnapLinePosition(window.innerWidth / 2);
+                                  } else if (Math.abs(newStart + clipDuration - playheadTime) < snapThreshold) {
+                                    newStart = playheadTime - clipDuration;
+                                    setSnapLinePosition(window.innerWidth / 2);
+                                  } else {
+                                    setSnapLinePosition(null);
+                                  }
+                                  
+                                  setEffectLayers(prev => prev.map(e => 
+                                    e.id === effect.id 
+                                      ? { ...e, startTime: newStart, endTime: newStart + clipDuration } 
+                                      : e
+                                  ));
+                                };
+                                
+                                const handleUp = () => {
+                                  setDraggingLayerId(null);
+                                  setSnapLinePosition(null);
+                                  document.removeEventListener('mousemove', handleMove);
+                                  document.removeEventListener('mouseup', handleUp);
+                                };
+                                
+                                document.addEventListener('mousemove', handleMove);
+                                document.addEventListener('mouseup', handleUp);
+                              }}
+                              onClick={() => {
+                                setSelectedEffectId(effect.id);
+                                setSelectedTool('effects');
+                              }}
+                            >
+                              <Star className="w-3 h-3 text-white/90 shrink-0" />
+                              <span className="text-[10px] text-white font-semibold truncate">
+                                {effect.name}
+                              </span>
+                            </div>
+                            
+                            {/* Right trim handle */}
+                            <div 
+                              className={cn(
+                                "w-2.5 h-full rounded-r-md flex items-center justify-center cursor-ew-resize",
+                                isSelected ? "bg-white/50" : "bg-white/30"
+                              )}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                const startX = e.clientX;
+                                const endTime = effect.endTime;
+                                
+                                const handleMove = (moveE: MouseEvent) => {
+                                  const deltaX = moveE.clientX - startX;
+                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                  const newEnd = Math.min(duration, Math.max(effect.startTime + 0.5, endTime + timeDelta));
+                                  setEffectLayers(prev => prev.map(e => 
+                                    e.id === effect.id ? { ...e, endTime: newEnd } : e
+                                  ));
+                                };
+                                
+                                const handleUp = () => {
+                                  document.removeEventListener('mousemove', handleMove);
+                                  document.removeEventListener('mouseup', handleUp);
+                                };
+                                
+                                document.addEventListener('mousemove', handleMove);
+                                document.addEventListener('mouseup', handleUp);
+                              }}
+                            >
+                              <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
                   {/* Add Layer Buttons Row */}
                   <div className="flex items-center gap-2" style={{ marginLeft: '110px' }}>
                     {/* Add text */}
@@ -2477,16 +2776,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       <span className="text-[11px] font-semibold" style={{ color: '#10B981' }}>Add audio</span>
                     </button>
                     
-                    {/* Add sticker */}
+                    {/* Add effect */}
                     <button 
-                      onClick={() => toast({ title: "Add Sticker", description: "Coming soon!" })}
+                      onClick={() => setSelectedTool('effects')}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-lg"
-                      style={{ backgroundColor: '#2A2A2A', border: '1px solid rgba(236, 72, 153, 0.4)' }}
+                      style={{ backgroundColor: '#2A2A2A', border: '1px solid rgba(245, 158, 11, 0.4)' }}
                     >
-                      <div className="w-4 h-4 rounded flex items-center justify-center" style={{ backgroundColor: 'rgba(236, 72, 153, 0.3)' }}>
-                        <Plus className="w-3 h-3" style={{ color: '#EC4899' }} />
+                      <div className="w-4 h-4 rounded flex items-center justify-center" style={{ backgroundColor: 'rgba(245, 158, 11, 0.3)' }}>
+                        <Plus className="w-3 h-3" style={{ color: '#F59E0B' }} />
                       </div>
-                      <span className="text-[11px] font-semibold" style={{ color: '#EC4899' }}>Add sticker</span>
+                      <span className="text-[11px] font-semibold" style={{ color: '#F59E0B' }}>Add effect</span>
                     </button>
                   </div>
                 </div>
