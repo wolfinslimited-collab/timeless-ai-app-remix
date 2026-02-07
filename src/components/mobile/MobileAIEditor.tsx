@@ -241,6 +241,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [selectedAspectRatio, setSelectedAspectRatio] = useState<'9:16' | '1:1' | '16:9' | '4:5' | '21:9'>('16:9');
   const [backgroundColor, setBackgroundColor] = useState('#000000');
   const [backgroundBlur, setBackgroundBlur] = useState(0);
+  const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
+  const [backgroundTab, setBackgroundTab] = useState<'color' | 'image' | 'blur'>('color');
   const [showStickersPanel, setShowStickersPanel] = useState(false);
   
   // Text menu mode state - activated by clicking "+ Add text" row
@@ -2805,46 +2807,150 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 </div>
               </div>
             ) : selectedTool === 'background' ? (
-              // Background Panel
-              <div className="flex flex-col px-4 py-4">
-                {/* Color Presets */}
-                <div className="mb-4">
-                  <p className="text-foreground/70 text-xs mb-3">Background Color</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {backgroundColorPresets.map((color) => {
-                      const isSelected = backgroundColor === color;
-                      return (
-                        <button
-                          key={color}
-                          onClick={() => setBackgroundColor(color)}
-                          className={cn(
-                            "w-9 h-9 rounded-full transition-all",
-                            isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
-                          )}
-                          style={{ backgroundColor: color }}
-                        />
-                      );
-                    })}
-                  </div>
+              // Background Panel with Tabs
+              <div className="flex flex-col">
+                {/* Tab Navigation */}
+                <div className="flex px-4 pt-3 pb-0">
+                  {[
+                    { id: 'color', label: 'Color', icon: Palette },
+                    { id: 'image', label: 'Image', icon: Image },
+                    { id: 'blur', label: 'Blur', icon: Focus },
+                  ].map((tab) => {
+                    const TabIcon = tab.icon;
+                    const isActive = backgroundTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setBackgroundTab(tab.id as typeof backgroundTab)}
+                        className={cn(
+                          "flex-1 flex flex-col items-center justify-center py-2.5 relative transition-colors",
+                          isActive ? "text-primary" : "text-foreground/60"
+                        )}
+                      >
+                        <TabIcon className="w-4 h-4 mb-1" />
+                        <span className="text-[10px] font-medium">{tab.label}</span>
+                        {isActive && (
+                          <div className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
                 
-                {/* Blur Slider */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-foreground/70 text-xs">Background Blur</p>
-                    <span className="text-foreground text-xs font-mono">{backgroundBlur}px</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="50"
-                    value={backgroundBlur}
-                    onChange={(e) => setBackgroundBlur(Number(e.target.value))}
-                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
-                    style={{
-                      background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${(backgroundBlur / 50) * 100}%, rgba(255,255,255,0.1) ${(backgroundBlur / 50) * 100}%, rgba(255,255,255,0.1) 100%)`
-                    }}
-                  />
+                {/* Horizontal Divider */}
+                <div className="h-px bg-border/30 mx-4" />
+                
+                {/* Tab Content */}
+                <div className="px-4 py-4">
+                  {backgroundTab === 'color' && (
+                    <div className="flex gap-2 flex-wrap">
+                      {backgroundColorPresets.map((color) => {
+                        const isSelected = backgroundColor === color;
+                        return (
+                          <button
+                            key={color}
+                            onClick={() => setBackgroundColor(color)}
+                            className={cn(
+                              "w-9 h-9 rounded-lg transition-all",
+                              isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                            )}
+                            style={{ backgroundColor: color }}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  {backgroundTab === 'image' && (
+                    <div className="flex flex-col gap-3">
+                      {/* Image Presets */}
+                      <div className="grid grid-cols-4 gap-2">
+                        {['gradient-sunset', 'gradient-ocean', 'gradient-forest', 'gradient-night', 'pattern-dots', 'pattern-lines', 'abstract-1', 'abstract-2'].map((preset) => (
+                          <button
+                            key={preset}
+                            onClick={() => setBackgroundImage(preset)}
+                            className={cn(
+                              "aspect-square rounded-lg overflow-hidden transition-all",
+                              backgroundImage === preset && "ring-2 ring-primary"
+                            )}
+                          >
+                            <div 
+                              className="w-full h-full"
+                              style={{
+                                background: preset.includes('sunset') ? 'linear-gradient(135deg, #FF6B6B, #FFA07A)' :
+                                           preset.includes('ocean') ? 'linear-gradient(135deg, #4ECDC4, #45B7D1)' :
+                                           preset.includes('forest') ? 'linear-gradient(135deg, #96CEB4, #2E8B57)' :
+                                           preset.includes('night') ? 'linear-gradient(135deg, #1A1A2E, #16213E)' :
+                                           preset.includes('dots') ? 'radial-gradient(circle, #444 1px, transparent 1px)' :
+                                           preset.includes('lines') ? 'repeating-linear-gradient(45deg, #333, #333 2px, transparent 2px, transparent 8px)' :
+                                           preset.includes('abstract-1') ? 'linear-gradient(45deg, #667eea, #764ba2)' :
+                                           'linear-gradient(135deg, #f093fb, #f5576c)',
+                                backgroundSize: preset.includes('dots') ? '8px 8px' : preset.includes('lines') ? '10px 10px' : 'cover'
+                              }}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                      
+                      {/* Upload Custom */}
+                      <button
+                        onClick={() => toast({ title: "Upload background coming soon" })}
+                        className="flex items-center justify-center gap-2 py-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                      >
+                        <Upload className="w-4 h-4 text-foreground/70" />
+                        <span className="text-sm text-foreground/70">Upload Custom Image</span>
+                      </button>
+                    </div>
+                  )}
+                  
+                  {backgroundTab === 'blur' && (
+                    <div className="flex flex-col gap-4">
+                      {/* Blur Intensity Presets */}
+                      <div className="grid grid-cols-4 gap-2">
+                        {[
+                          { label: 'None', value: 0 },
+                          { label: 'Light', value: 10 },
+                          { label: 'Medium', value: 25 },
+                          { label: 'Heavy', value: 50 },
+                        ].map((preset) => {
+                          const isSelected = backgroundBlur === preset.value;
+                          return (
+                            <button
+                              key={preset.value}
+                              onClick={() => setBackgroundBlur(preset.value)}
+                              className={cn(
+                                "py-3 rounded-lg transition-all text-sm font-medium",
+                                isSelected 
+                                  ? "bg-primary text-primary-foreground" 
+                                  : "bg-muted/50 text-foreground/70 hover:bg-muted"
+                              )}
+                            >
+                              {preset.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      
+                      {/* Custom Slider */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-foreground/70 text-xs">Custom Intensity</p>
+                          <span className="text-foreground text-xs font-mono">{backgroundBlur}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="50"
+                          value={backgroundBlur}
+                          onChange={(e) => setBackgroundBlur(Number(e.target.value))}
+                          className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer"
+                          style={{
+                            background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${(backgroundBlur / 50) * 100}%, hsl(var(--muted)) ${(backgroundBlur / 50) * 100}%, hsl(var(--muted)) 100%)`
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : null}
