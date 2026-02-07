@@ -1329,324 +1329,101 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     }
   }
 
-  void _showMediaPickerSheet() {
-    _loadRecentVideos();
-    
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => _buildMediaPickerSheet(),
-    );
-  }
-
-  Widget _buildMediaPickerSheet() {
-    return StatefulBuilder(
-      builder: (context, setSheetState) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          decoration: const BoxDecoration(
-            color: Color(0xFF1A1A1A),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(top: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Select Video',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    _pickNewVideo();
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [AppTheme.primary, AppTheme.primary.withOpacity(0.8)],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primary.withOpacity(0.3),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.cloud_upload_outlined, color: Colors.white, size: 24),
-                        SizedBox(width: 12),
-                        Text(
-                          'Upload New Video',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Icon(Icons.history, color: Colors.white.withOpacity(0.6), size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Recent Uploads',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: _isLoadingRecent
-                    ? const Center(
-                        child: CircularProgressIndicator(color: AppTheme.primary),
-                      )
-                    : _recentVideos.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.video_library_outlined,
-                                  size: 48,
-                                  color: Colors.white.withOpacity(0.3),
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'No recent videos',
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Upload a video to get started',
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.3),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : GridView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 1,
-                            ),
-                            itemCount: _recentVideos.length,
-                            itemBuilder: (context, index) {
-                              final video = _recentVideos[index];
-                              return _buildRecentVideoThumbnail(video);
-                            },
-                          ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildRecentVideoThumbnail(RecentVideo video) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.pop(context);
-        _loadVideoFromUrl(video.url);
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
-          ),
-        ),
-        child: Stack(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                width: double.infinity,
-                height: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.purple.shade900.withOpacity(0.5),
-                      Colors.blue.shade900.withOpacity(0.5),
-                    ],
-                  ),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.play_circle_outline,
-                    color: Colors.white.withOpacity(0.8),
-                    size: 32,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 6,
-              right: 6,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  'Video',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _loadVideoFromUrl(String url) async {
-    setState(() {
-      _isUploading = true;
-      _uploadProgress = 0.5;
-    });
-
+  /// Pick video directly from device - no upload, fully local processing
+  Future<void> _pickLocalVideo() async {
     try {
-      setState(() {
-        _videoUrl = url;
-        _uploadProgress = 1.0;
-      });
-
-      await _initializeVideoPlayer(url);
-      _showSnackBar('Video loaded successfully');
-    } catch (e) {
-      _showSnackBar('Failed to load video: $e');
-    } finally {
-      setState(() => _isUploading = false);
-    }
-  }
-
-  Future<void> _pickNewVideo() async {
-    final picker = ImagePicker();
-    final video = await picker.pickVideo(source: ImageSource.gallery);
-    if (video == null) return;
-
-    setState(() {
-      _isUploading = true;
-      _uploadProgress = 0;
-      _videoFile = File(video.path);
-    });
-
-    _simulateUploadProgress();
-
-    try {
-      final session = Supabase.instance.client.auth.currentSession;
-      if (session == null) throw Exception('Not authenticated');
-
-      final file = File(video.path);
-      final bytes = await file.readAsBytes();
-      final fileName =
-          '${session.user.id}/${DateTime.now().millisecondsSinceEpoch}-${video.name}';
-
-      await Supabase.instance.client.storage
-          .from('generation-inputs')
-          .uploadBinary(fileName, bytes);
-
-      final publicUrl = Supabase.instance.client.storage
-          .from('generation-inputs')
-          .getPublicUrl(fileName);
-
-      setState(() {
-        _videoUrl = publicUrl;
-        _uploadProgress = 1.0;
-      });
-
-      await _initializeVideoPlayer(publicUrl);
-      _showSnackBar('Video uploaded successfully');
-    } catch (e) {
-      _showSnackBar('Failed to upload video: $e');
-      setState(() {
-        _videoFile = null;
-      });
-    } finally {
-      setState(() => _isUploading = false);
-    }
-  }
-
-  void _simulateUploadProgress() async {
-    for (var i = 0; i < 9; i++) {
-      await Future.delayed(const Duration(milliseconds: 200));
-      if (mounted && _isUploading && _uploadProgress < 0.9) {
-        setState(() => _uploadProgress = (i + 1) * 0.1);
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+        allowMultiple: false,
+      );
+      
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        final filePath = file.path;
+        
+        if (filePath != null) {
+          setState(() {
+            _isUploading = true;
+            _uploadProgress = 0.3;
+            _videoFile = File(filePath);
+          });
+          
+          // Initialize video directly from local file - no server upload
+          await _initializeVideoFromLocalFile(filePath);
+        }
       }
+    } catch (e) {
+      debugPrint('Error picking video: $e');
+      _showSnackBar('Failed to load video: $e');
+      setState(() => _isUploading = false);
     }
   }
-
-  Future<void> _initializeVideoPlayer(String url) async {
-    _videoController?.removeListener(_onVideoPositionChanged);
-    _videoController?.dispose();
-    _videoController = VideoPlayerController.networkUrl(Uri.parse(url));
-
+  
+  /// Initialize video player from local file path (no network required)
+  Future<void> _initializeVideoFromLocalFile(String filePath) async {
     try {
+      setState(() => _uploadProgress = 0.5);
+      
+      _videoController?.removeListener(_onVideoPositionChanged);
+      _videoController?.dispose();
+      
+      // Use local file controller instead of network URL
+      _videoController = VideoPlayerController.file(File(filePath));
+      
       await _videoController!.initialize();
       _videoController!.setLooping(true);
       _videoController!.addListener(_onVideoPositionChanged);
-      setState(() => _isVideoInitialized = true);
       
-      // Initialize first video clip if this is the primary video
+      setState(() {
+        _videoUrl = filePath; // Store local path
+        _uploadProgress = 1.0;
+        _isVideoInitialized = true;
+        _isUploading = false;
+      });
+      
+      // Initialize first video clip
       _initializeFirstClip();
       
-      // Extract thumbnails after video is initialized
-      _extractThumbnails(url);
+      // Extract thumbnails from local file
+      _extractThumbnails(filePath);
+      
+      _showSnackBar('Video loaded successfully');
     } catch (e) {
-      debugPrint('Failed to initialize video: $e');
+      debugPrint('Failed to initialize local video: $e');
+      _showSnackBar('Failed to initialize video: $e');
+      setState(() {
+        _isUploading = false;
+        _videoFile = null;
+      });
+    }
+  }
+
+  /// Add another video clip to the timeline from local device
+  Future<void> _addLocalVideoClip() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+        allowMultiple: false,
+      );
+      
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        final filePath = file.path;
+        
+        if (filePath != null) {
+          // Create a temporary controller to get duration
+          final tempController = VideoPlayerController.file(File(filePath));
+          await tempController.initialize();
+          final clipDuration = tempController.value.duration.inSeconds.toDouble();
+          await tempController.dispose();
+          
+          // Add clip to timeline
+          _addVideoClip(filePath, clipDuration);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error adding video clip: $e');
+      _showSnackBar('Failed to add video clip: $e');
     }
   }
 
@@ -2126,9 +1903,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       );
     }
 
+    // Direct file picker - no popup, just tap to select local video
     return Center(
       child: GestureDetector(
-        onTap: _showMediaPickerSheet,
+        onTap: _pickLocalVideo,
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 32, vertical: 80),
           padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 48),
@@ -2154,11 +1932,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   ),
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: const Icon(Icons.videocam_outlined, size: 40, color: AppTheme.primary),
+                child: const Icon(Icons.folder_open_outlined, size: 40, color: AppTheme.primary),
               ),
               const SizedBox(height: 28),
               const Text(
-                'Upload Video',
+                'Select Video',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 20,
@@ -2167,8 +1945,27 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               ),
               const SizedBox(height: 12),
               Text(
-                'Tap anywhere to select a video',
+                'Tap to pick from device',
                 style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 15),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.lock_outline, color: Colors.green.shade400, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Private • No upload',
+                      style: TextStyle(color: Colors.green.shade400, fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

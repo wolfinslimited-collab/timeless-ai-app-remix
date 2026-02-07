@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { 
   ArrowLeft, 
-  Video, 
   Upload, 
   Play, 
   Pause, 
@@ -20,10 +19,7 @@ import {
   Redo2,
   VolumeX,
   Volume2,
-  Image,
   Plus,
-  Clock,
-  PlayCircle,
   ChevronDown,
   Download,
   Sun,
@@ -38,11 +34,10 @@ import {
   Trash2,
   Subtitles,
   Loader2,
-  MessageSquare
+  MessageSquare,
+  Video
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import {
   Sheet,
@@ -63,12 +58,6 @@ interface EditorTool {
   id: string;
   name: string;
   icon: React.ComponentType<{ className?: string }>;
-}
-
-interface RecentVideo {
-  url: string;
-  name: string;
-  uploadedAt: Date;
 }
 
 const EDITOR_TOOLS: EditorTool[] = [
@@ -167,10 +156,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [selectedTool, setSelectedTool] = useState("edit");
   const [isMuted, setIsMuted] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [showQualityPicker, setShowQualityPicker] = useState(false);
-  const [recentVideos, setRecentVideos] = useState<RecentVideo[]>([]);
-  const [isLoadingRecent, setIsLoadingRecent] = useState(false);
   const [selectedQuality, setSelectedQuality] = useState("1080p");
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
@@ -661,7 +647,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const { user } = useAuth();
   const { toast } = useToast();
 
 
@@ -695,94 +680,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     };
   }, [videoUrl, isUserScrolling, isAutoScrolling]);
 
-  const loadRecentVideos = async () => {
-    if (!user) return;
-    
-    setIsLoadingRecent(true);
-    try {
-      const { data, error } = await supabase.storage
-        .from("generation-inputs")
-        .list(user.id);
-
-      if (error) throw error;
-
-      const videos = data
-        .filter((file) => 
-          file.name.endsWith('.mp4') || 
-          file.name.endsWith('.mov') || 
-          file.name.endsWith('.webm') ||
-          file.name.endsWith('.avi'))
-        .map((file) => {
-          const { data: urlData } = supabase.storage
-            .from("generation-inputs")
-            .getPublicUrl(`${user.id}/${file.name}`);
-          return {
-            url: urlData.publicUrl,
-            name: file.name,
-            uploadedAt: new Date(file.created_at || Date.now()),
-          };
-        });
-
-      videos.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
-      setRecentVideos(videos.slice(0, 12));
-    } catch (error) {
-      console.error("Failed to load recent videos:", error);
-    } finally {
-      setIsLoadingRecent(false);
-    }
-  };
-
-  const handleShowMediaPicker = () => {
-    loadRecentVideos();
-    setShowMediaPicker(true);
-  };
-
-  const handleUploadClick = () => {
-    setShowMediaPicker(false);
-    fileInputRef.current?.click();
-  };
-
-  const handleSelectRecentVideo = async (url: string) => {
-    setShowMediaPicker(false);
-    setIsUploading(true);
-    setUploadProgress(50);
-
-    try {
-      // If we already have a video, this is adding a new clip
-      if (videoUrl && videoClips.length > 0) {
-        // Create a temporary video element to get duration
-        const tempVideo = document.createElement('video');
-        tempVideo.src = url;
-        tempVideo.addEventListener('loadedmetadata', () => {
-          addVideoClip(url, tempVideo.duration);
-          setIsUploading(false);
-        });
-        tempVideo.addEventListener('error', () => {
-          // Fallback duration if can't load
-          addVideoClip(url, 10);
-          setIsUploading(false);
-        });
-      } else {
-        // First video - set as primary
-        setVideoUrl(url);
-        setUploadProgress(100);
-        toast({
-          title: "Video loaded",
-          description: "Your video is ready for editing",
-        });
-        setIsUploading(false);
-      }
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to load video",
-      });
-      setIsUploading(false);
-    }
-  };
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Direct local file picking - no server upload
+  const handleLocalFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -795,76 +694,57 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       return;
     }
 
-    if (!user) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please sign in to upload videos",
-      });
-      return;
-    }
-
     setIsUploading(true);
-    setUploadProgress(0);
-
-    const progressInterval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 90) {
-          clearInterval(progressInterval);
-          return prev;
-        }
-        return prev + 10;
-      });
-    }, 200);
+    setUploadProgress(30);
 
     try {
-      const fileName = `${user.id}/${Date.now()}-${file.name}`;
-      const { error } = await supabase.storage
-        .from("generation-inputs")
-        .upload(fileName, file);
-
-      if (error) throw error;
-
-      const { data: urlData } = supabase.storage
-        .from("generation-inputs")
-        .getPublicUrl(fileName);
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
+      // Create local object URL - no server upload, fully client-side
+      const localUrl = URL.createObjectURL(file);
       
-      // If we already have a video, add as new clip
+      setUploadProgress(70);
+      
+      // If we already have a video, this is adding a new clip
       if (videoUrl && videoClips.length > 0) {
         // Create a temporary video element to get duration
         const tempVideo = document.createElement('video');
-        tempVideo.src = urlData.publicUrl;
+        tempVideo.src = localUrl;
         tempVideo.addEventListener('loadedmetadata', () => {
-          addVideoClip(urlData.publicUrl, tempVideo.duration);
+          addVideoClip(localUrl, tempVideo.duration);
+          setIsUploading(false);
         });
         tempVideo.addEventListener('error', () => {
           // Fallback duration
-          addVideoClip(urlData.publicUrl, 10);
+          addVideoClip(localUrl, 10);
+          setIsUploading(false);
         });
       } else {
         // First video - set as primary
-        setVideoUrl(urlData.publicUrl);
+        setVideoUrl(localUrl);
+        setUploadProgress(100);
         toast({
-          title: "Video uploaded",
-          description: "Your video is ready for editing",
+          title: "Video loaded",
+          description: "Your video is ready for editing (local)",
         });
+        setIsUploading(false);
       }
     } catch (error) {
-      console.error("Upload error:", error);
+      console.error("File loading error:", error);
       toast({
         variant: "destructive",
-        title: "Upload failed",
+        title: "Load failed",
         description: error instanceof Error ? error.message : "Something went wrong",
       });
-    } finally {
       setIsUploading(false);
+    } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     }
+  };
+
+  // Trigger direct file picker
+  const handleDirectFilePick = () => {
+    fileInputRef.current?.click();
   };
 
   const togglePlayPause = () => {
@@ -972,7 +852,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         type="file"
         accept="video/*"
         className="hidden"
-        onChange={handleFileSelect}
+        onChange={handleLocalFileSelect}
       />
       <input
         ref={audioInputRef}
@@ -1092,69 +972,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Media Picker Sheet */}
-      <Sheet open={showMediaPicker} onOpenChange={setShowMediaPicker}>
-        <SheetContent side="bottom" className="h-[70vh] bg-[#1a1a1a] border-t border-white/10 rounded-t-3xl p-0">
-          <div className="flex flex-col h-full">
-            <div className="w-10 h-1 bg-white/30 rounded-full mx-auto mt-3" />
-            
-            <SheetHeader className="px-5 pt-5 pb-2">
-              <SheetTitle className="text-white text-lg font-bold text-center">
-                Select Video
-              </SheetTitle>
-            </SheetHeader>
-
-            <div className="px-5 pt-3">
-              <button
-                onClick={handleUploadClick}
-                className="w-full py-4 bg-gradient-to-r from-primary to-primary/80 rounded-2xl flex items-center justify-center gap-3 shadow-lg shadow-primary/30"
-              >
-                <Upload className="w-6 h-6 text-primary-foreground" />
-                <span className="text-primary-foreground text-base font-semibold">
-                  Upload New Video
-                </span>
-              </button>
-            </div>
-
-            <div className="px-5 pt-6 pb-4 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-white/60" />
-              <span className="text-white/80 text-sm font-medium">Recent Uploads</span>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-5 pb-safe">
-              {isLoadingRecent ? (
-                <div className="flex items-center justify-center h-32">
-                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : recentVideos.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-32 gap-3">
-                  <Video className="w-12 h-12 text-white/30" />
-                  <p className="text-white/50 text-sm">No recent videos</p>
-                  <p className="text-white/30 text-xs">Upload a video to get started</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-3">
-                  {recentVideos.map((video, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleSelectRecentVideo(video.url)}
-                      className="aspect-square bg-white/10 rounded-xl border border-white/10 overflow-hidden relative group"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
-                        <PlayCircle className="w-8 h-8 text-white/80 group-hover:scale-110 transition-transform" />
-                      </div>
-                      <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 bg-black/70 rounded text-[9px] text-white font-medium">
-                        Video
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
 
       {/* Quality Picker Sheet */}
       <Sheet open={showQualityPicker} onOpenChange={setShowQualityPicker}>
@@ -1434,16 +1251,22 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         ) : (
           <div className="flex-1 flex items-center justify-center px-8 py-20">
             <button
-              onClick={handleShowMediaPicker}
+              onClick={handleDirectFilePick}
               className="w-full max-w-sm py-12 bg-white/5 rounded-3xl border-2 border-primary/30 flex flex-col items-center justify-center hover:bg-white/10 transition-colors"
             >
               <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center mb-7">
-                <Video className="w-10 h-10 text-primary" />
+                <Upload className="w-10 h-10 text-primary" />
               </div>
-              <h2 className="text-white text-xl font-bold mb-3">Upload Video</h2>
-              <p className="text-white/50 text-sm text-center">
-                Tap anywhere to select a video
+              <h2 className="text-white text-xl font-bold mb-3">Select Video</h2>
+              <p className="text-white/50 text-sm text-center mb-3">
+                Tap to pick from device
               </p>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/20">
+                <div className="w-3 h-3 rounded-full bg-emerald-500/50 flex items-center justify-center">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                </div>
+                <span className="text-emerald-400 text-xs font-medium">Private • No upload</span>
+              </div>
             </button>
           </div>
         )}
@@ -2423,12 +2246,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           )}
                         </div>
                         
-                        {/* Add video button - appends new clip */}
+                        {/* Add video button - appends new clip via direct file picker */}
                         <button 
-                          onClick={() => {
-                            // Open media picker to add another video
-                            handleShowMediaPicker();
-                          }}
+                          onClick={handleDirectFilePick}
                           className="w-11 h-[48px] bg-white rounded-xl flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(255,255,255,0.25)] ml-2"
                         >
                           <Plus className="w-6 h-6 text-black" />
