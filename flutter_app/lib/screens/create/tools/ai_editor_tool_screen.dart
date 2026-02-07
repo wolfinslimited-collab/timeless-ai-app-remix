@@ -3212,6 +3212,23 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       ),
                     
                     // Delete button when selected and more than 1 clip
+                    if (isSelected && _videoClips.length > 1)
+                      Positioned(
+                        right: 4,
+                        top: 2,
+                        child: GestureDetector(
+                          onTap: () => _deleteVideoClip(clip.id),
+                          child: Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.9),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.delete, size: 12, color: Colors.white),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
