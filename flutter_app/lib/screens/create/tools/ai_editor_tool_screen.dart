@@ -7055,7 +7055,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         final file = result.files.first;
         if (file.path != null) {
           // Load the selected video
-          await _initializeFromUrl(file.path!);
+          await _initializeVideoFromLocalFile(file.path!);
         }
       }
     } catch (e) {
