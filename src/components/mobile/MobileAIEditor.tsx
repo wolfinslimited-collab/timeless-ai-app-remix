@@ -167,6 +167,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [captionLayers, setCaptionLayers] = useState<CaptionLayer[]>([]);
   const [selectedCaptionId, setSelectedCaptionId] = useState<string | null>(null);
   const [isGeneratingCaptions, setIsGeneratingCaptions] = useState(false);
+  const [selectedCaptionStyle, setSelectedCaptionStyle] = useState('classic');
 
   const selectedCaptionLayer = captionLayers.find(c => c.id === selectedCaptionId);
 
@@ -186,8 +187,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   const selectedEffectLayer = effectLayers.find(e => e.id === selectedEffectId);
 
-  // Available effects
+  // Available effects - expanded with filter presets
   const effectPresets = [
+    { id: 'bw', name: 'B&W', category: 'Filter', icon: '🖤' },
+    { id: 'sepia', name: 'Sepia', category: 'Filter', icon: '🟤' },
+    { id: 'vintage', name: 'Vintage', category: 'Filter', icon: '📷' },
     { id: 'blur', name: 'Blur', category: 'Basic', icon: '🌫️' },
     { id: 'glow', name: 'Glow', category: 'Basic', icon: '✨' },
     { id: 'vignette', name: 'Vignette', category: 'Basic', icon: '🔲' },
@@ -1693,6 +1697,40 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             ) : selectedTool === 'captions' ? (
               // Captions Editor Content
               <>
+                {/* Subtitle Styles Section */}
+                <div className="px-4 pb-3">
+                  <p className="text-white/70 text-xs mb-2">Subtitle Style</p>
+                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    {[
+                      { id: 'classic', name: 'Classic', preview: 'Aa', bgColor: '#000000', textColor: '#FFFFFF' },
+                      { id: 'bold', name: 'Bold', preview: 'Aa', bgColor: '#FFFFFF', textColor: '#000000' },
+                      { id: 'neon', name: 'Neon', preview: 'Aa', bgColor: '#000000', textColor: '#00FF88' },
+                      { id: 'minimal', name: 'Minimal', preview: 'Aa', bgColor: 'transparent', textColor: '#FFFFFF' },
+                      { id: 'cinematic', name: 'Cinematic', preview: 'Aa', bgColor: '#1A1A2E', textColor: '#EAB308' },
+                      { id: 'karaoke', name: 'Karaoke', preview: 'Aa', bgColor: '#7C3AED', textColor: '#FFFFFF' },
+                    ].map((style) => (
+                      <button
+                        key={style.id}
+                        onClick={() => setSelectedCaptionStyle(style.id)}
+                        className={cn(
+                          "flex-shrink-0 w-[70px] h-[70px] rounded-xl flex flex-col items-center justify-center gap-1 border transition-all",
+                          selectedCaptionStyle === style.id
+                            ? "border-cyan-500 ring-2 ring-cyan-500/40 shadow-lg shadow-cyan-500/20"
+                            : "border-white/20 hover:border-white/40"
+                        )}
+                        style={{ backgroundColor: style.bgColor }}
+                      >
+                        <span className="text-lg font-bold" style={{ color: style.textColor }}>
+                          {style.preview}
+                        </span>
+                        <span className="text-[9px] font-medium" style={{ color: style.textColor, opacity: 0.8 }}>
+                          {style.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
                 {/* Auto-Caption button */}
                 <div className="px-4 pb-3">
                   <button
@@ -1703,10 +1741,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     {isGeneratingCaptions ? (
                       <Loader2 className="w-5 h-5 text-cyan-400 animate-spin" />
                     ) : (
-                      <Subtitles className="w-5 h-5 text-cyan-400" />
+                      <Star className="w-5 h-5 text-cyan-400" />
                     )}
                     <span className="text-cyan-400 text-base font-semibold">
-                      {isGeneratingCaptions ? 'Generating...' : 'Auto-Caption'}
+                      {isGeneratingCaptions ? 'Generating...' : 'Auto-Generate'}
                     </span>
                   </button>
                 </div>

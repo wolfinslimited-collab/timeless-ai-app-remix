@@ -242,8 +242,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   List<EffectLayer> _effectLayers = [];
   String? _selectedEffectId;
   
-  // Available effect presets
+  // Available effect presets - expanded with filter effects
   final List<EffectPreset> _effectPresets = const [
+    EffectPreset(id: 'bw', name: 'B&W', category: 'Filter', icon: '🖤'),
+    EffectPreset(id: 'sepia', name: 'Sepia', category: 'Filter', icon: '🟤'),
+    EffectPreset(id: 'vintage', name: 'Vintage', category: 'Filter', icon: '📷'),
     EffectPreset(id: 'blur', name: 'Blur', category: 'Basic', icon: '🌫️'),
     EffectPreset(id: 'glow', name: 'Glow', category: 'Basic', icon: '✨'),
     EffectPreset(id: 'vignette', name: 'Vignette', category: 'Basic', icon: '🔲'),
@@ -3379,11 +3382,88 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
 
+  // Caption style options
+  String _selectedCaptionStyle = 'classic';
+  final List<Map<String, dynamic>> _captionStyles = const [
+    {'id': 'classic', 'name': 'Classic', 'preview': 'Aa', 'bgColor': Color(0xFF000000), 'textColor': Color(0xFFFFFFFF)},
+    {'id': 'bold', 'name': 'Bold', 'preview': 'Aa', 'bgColor': Color(0xFFFFFFFF), 'textColor': Color(0xFF000000)},
+    {'id': 'neon', 'name': 'Neon', 'preview': 'Aa', 'bgColor': Color(0xFF000000), 'textColor': Color(0xFF00FF88)},
+    {'id': 'minimal', 'name': 'Minimal', 'preview': 'Aa', 'bgColor': Colors.transparent, 'textColor': Color(0xFFFFFFFF)},
+    {'id': 'cinematic', 'name': 'Cinematic', 'preview': 'Aa', 'bgColor': Color(0xFF1A1A2E), 'textColor': Color(0xFFEAB308)},
+    {'id': 'karaoke', 'name': 'Karaoke', 'preview': 'Aa', 'bgColor': Color(0xFF7C3AED), 'textColor': Color(0xFFFFFFFF)},
+  ];
+
   /// Captions/Subtitles settings panel content
   Widget _buildCaptionsSettingsContent() {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Subtitle Styles Section
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Subtitle Style',
+                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 70,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _captionStyles.length,
+                  itemBuilder: (context, index) {
+                    final style = _captionStyles[index];
+                    final isSelected = _selectedCaptionStyle == style['id'];
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedCaptionStyle = style['id'] as String),
+                      child: Container(
+                        width: 70,
+                        margin: const EdgeInsets.only(right: 10),
+                        decoration: BoxDecoration(
+                          color: style['bgColor'] as Color,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFF06B6D4) : Colors.white.withOpacity(0.2),
+                            width: isSelected ? 2 : 1,
+                          ),
+                          boxShadow: isSelected
+                              ? [BoxShadow(color: const Color(0xFF06B6D4).withOpacity(0.4), blurRadius: 8)]
+                              : null,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              style['preview'] as String,
+                              style: TextStyle(
+                                color: style['textColor'] as Color,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              style['name'] as String,
+                              style: TextStyle(
+                                color: (style['textColor'] as Color).withOpacity(0.8),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        
         // Auto-Caption button
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -3402,9 +3482,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   if (_isGeneratingCaptions)
                     const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF06B6D4)))
                   else
-                    const Icon(Icons.subtitles, color: Color(0xFF06B6D4), size: 20),
+                    const Icon(Icons.auto_awesome, color: Color(0xFF06B6D4), size: 20),
                   const SizedBox(width: 8),
-                  Text(_isGeneratingCaptions ? 'Generating...' : 'Auto-Caption', style: const TextStyle(color: Color(0xFF06B6D4), fontSize: 15, fontWeight: FontWeight.w600)),
+                  Text(_isGeneratingCaptions ? 'Generating...' : 'Auto-Generate', style: const TextStyle(color: Color(0xFF06B6D4), fontSize: 15, fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
@@ -3545,7 +3625,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             return GestureDetector(
               onTap: () {
                 setState(() => _selectedTool = tool.id);
-                if (tool.id != 'adjust' && tool.id != 'text' && tool.id != 'audio' && tool.id != 'captions') {
+                // Only show coming soon for non-functional tools
+                if (tool.id != 'adjust' && tool.id != 'text' && tool.id != 'audio' && tool.id != 'captions' && tool.id != 'effects') {
                   _showSnackBar('${tool.name} coming soon');
                 }
               },
