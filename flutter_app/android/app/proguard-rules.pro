@@ -20,6 +20,8 @@
 -dontwarn com.google.android.play.core.splitcompat.SplitCompatApplication
 -dontwarn com.google.android.play.core.splitinstall.**
 -dontwarn com.google.android.play.core.tasks.**
+-dontwarn com.google.android.play.core.ktx.**
+-dontwarn com.google.android.gms.common.annotation.**
 -keep class com.google.android.play.core.** { *; }
 
 # In-App Purchase
