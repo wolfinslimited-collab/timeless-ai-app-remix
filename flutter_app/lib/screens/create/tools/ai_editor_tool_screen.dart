@@ -3686,7 +3686,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFF2A2A2A),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: const Color(0xFF22C55E).withOpacity(0.4)),
               ),
               child: Row(
@@ -3738,7 +3738,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFF2A2A2A),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.4)),
               ),
               child: Row(
