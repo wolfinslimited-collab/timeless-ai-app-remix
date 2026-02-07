@@ -5537,35 +5537,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             },
           ),
           const SizedBox(height: 16),
-          if (_selectedTextId != null)
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      if (_selectedTextId != null) {
-                        _deleteTextOverlay(_selectedTextId!);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                          SizedBox(width: 8),
-                          Text('Delete Text', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
         ],
       ),
     );
