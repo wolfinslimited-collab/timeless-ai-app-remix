@@ -532,6 +532,35 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   String _adjustSubTab = 'customize'; // 'smart' or 'customize'
   String _selectedAdjustmentId = 'brightness';
   
+  // Stickers, Aspect Ratio, Background state
+  String _selectedAspectRatio = '16:9';
+  Color _backgroundColor = Colors.black;
+  double _backgroundBlur = 0.0;
+  String _selectedStickerCategory = 'emoji';
+  
+  // Sticker presets
+  final List<Map<String, dynamic>> _stickerCategories = [
+    {'id': 'emoji', 'name': 'Emoji', 'stickers': ['😀', '😂', '🥰', '😎', '🔥', '💯', '⭐', '❤️', '👍', '🎉', '✨', '🚀']},
+    {'id': 'shapes', 'name': 'Shapes', 'stickers': ['⬤', '◆', '★', '▲', '◯', '□', '♦', '♠', '♥', '♣', '●', '■']},
+    {'id': 'arrows', 'name': 'Arrows', 'stickers': ['→', '←', '↑', '↓', '↗', '↘', '↙', '↖', '⇒', '⇐', '⇑', '⇓']},
+  ];
+  
+  // Aspect ratio presets
+  final List<Map<String, dynamic>> _aspectRatioPresets = [
+    {'id': '9:16', 'label': '9:16', 'width': 9, 'height': 16, 'description': 'Vertical'},
+    {'id': '1:1', 'label': '1:1', 'width': 1, 'height': 1, 'description': 'Square'},
+    {'id': '16:9', 'label': '16:9', 'width': 16, 'height': 9, 'description': 'Landscape'},
+    {'id': '4:5', 'label': '4:5', 'width': 4, 'height': 5, 'description': 'Portrait'},
+    {'id': '21:9', 'label': '21:9', 'width': 21, 'height': 9, 'description': 'Cinematic'},
+  ];
+  
+  // Background color presets
+  final List<Color> _backgroundColorPresets = [
+    const Color(0xFF000000), const Color(0xFFFFFFFF), const Color(0xFF1A1A1A), const Color(0xFF2D2D2D),
+    const Color(0xFFFF6B6B), const Color(0xFF4ECDC4), const Color(0xFF45B7D1), const Color(0xFF96CEB4),
+    const Color(0xFFFFEAA7), const Color(0xFFDDA0DD), const Color(0xFF98D8C8), const Color(0xFFF7DC6F),
+  ];
+  
   // Undo/Redo history stacks
   static const int _maxHistoryLength = 50;
   final List<EditorStateSnapshot> _undoStack = [];
@@ -602,6 +631,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     EditorTool(id: 'captions', name: 'Captions', icon: Icons.subtitles_outlined),
     EditorTool(id: 'filters', name: 'Filters', icon: Icons.blur_circular),
     EditorTool(id: 'adjust', name: 'Adjust', icon: Icons.tune),
+    EditorTool(id: 'stickers', name: 'Stickers', icon: Icons.emoji_emotions_outlined),
+    EditorTool(id: 'aspect', name: 'Aspect', icon: Icons.aspect_ratio),
+    EditorTool(id: 'background', name: 'Background', icon: Icons.format_paint_outlined),
   ];
 
   // Adjustment tool definitions
@@ -4135,7 +4167,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Dynamic bottom area that switches between timeline and settings panel
   Widget _buildDynamicBottomArea() {
     // Check if a settings panel should be shown (overlays timeline)
-    final bool showSettingsPanel = _selectedTool == 'text' || _selectedTool == 'adjust' || _selectedTool == 'audio' || _selectedTool == 'captions' || _selectedTool == 'effects';
+    final bool showSettingsPanel = _selectedTool == 'text' || _selectedTool == 'adjust' || _selectedTool == 'audio' || _selectedTool == 'captions' || _selectedTool == 'effects' || _selectedTool == 'stickers' || _selectedTool == 'aspect' || _selectedTool == 'background';
     
     if (showSettingsPanel) {
       return _buildContextualSettingsPanel();
@@ -4164,6 +4196,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       panelTitle = 'Captions';
     } else if (_selectedTool == 'effects') {
       panelTitle = 'Effects';
+    } else if (_selectedTool == 'stickers') {
+      panelTitle = 'Stickers';
+    } else if (_selectedTool == 'aspect') {
+      panelTitle = 'Aspect Ratio';
+    } else if (_selectedTool == 'background') {
+      panelTitle = 'Background';
     }
     
     return Container(
@@ -4231,7 +4269,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           else if (_selectedTool == 'captions')
             _buildCaptionsSettingsContent()
           else if (_selectedTool == 'effects')
-            _buildEffectsSettingsContent(),
+            _buildEffectsSettingsContent()
+          else if (_selectedTool == 'stickers')
+            _buildStickersSettingsContent()
+          else if (_selectedTool == 'aspect')
+            _buildAspectRatioSettingsContent()
+          else if (_selectedTool == 'background')
+            _buildBackgroundSettingsContent(),
         ],
       ),
     );
@@ -5121,7 +5165,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               }
               
               // Only show coming soon for non-functional tools
-              if (tool.id != 'adjust' && tool.id != 'text' && tool.id != 'audio' && tool.id != 'captions' && tool.id != 'effects' && tool.id != 'filters' && tool.id != 'overlay') {
+              if (tool.id != 'adjust' && tool.id != 'text' && tool.id != 'audio' && tool.id != 'captions' && tool.id != 'effects' && tool.id != 'filters' && tool.id != 'overlay' && tool.id != 'stickers' && tool.id != 'aspect' && tool.id != 'background') {
                 _showSnackBar('${tool.name} coming soon');
               }
             },
@@ -5602,7 +5646,275 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
 
-  /// Add a new effect layer
+  /// Stickers settings content panel
+  Widget _buildStickersSettingsContent() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Category tabs
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: _stickerCategories.map((cat) {
+              final isSelected = _selectedStickerCategory == cat['id'];
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedStickerCategory = cat['id'] as String),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppTheme.primary.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected ? AppTheme.primary.withOpacity(0.4) : Colors.transparent,
+                      ),
+                    ),
+                    child: Text(
+                      cat['name'] as String,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.6),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        
+        // Stickers grid
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: (_stickerCategories.firstWhere(
+              (c) => c['id'] == _selectedStickerCategory,
+              orElse: () => _stickerCategories.first,
+            )['stickers'] as List<String>).map((sticker) {
+              return GestureDetector(
+                onTap: () {
+                  final currentPos = _videoController?.value.position.inSeconds.toDouble() ?? 0;
+                  final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10;
+                  
+                  final newSticker = TextOverlay(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    text: sticker,
+                    position: const Offset(0.5, 0.5),
+                    fontSize: 48,
+                    textColor: Colors.white,
+                    fontFamily: 'Arial',
+                    alignment: TextAlign.center,
+                    hasBackground: false,
+                    startTime: currentPos,
+                    endTime: (currentPos + 3).clamp(0, duration),
+                  );
+                  
+                  setState(() {
+                    _textOverlays.add(newSticker);
+                    _selectedTextId = newSticker.id;
+                  });
+                  _showSnackBar('Sticker added!');
+                },
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  ),
+                  child: Center(
+                    child: Text(sticker, style: const TextStyle(fontSize: 24)),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  /// Aspect Ratio settings content panel
+  Widget _buildAspectRatioSettingsContent() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Select aspect ratio',
+            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.center,
+            children: _aspectRatioPresets.map((preset) {
+              final isSelected = _selectedAspectRatio == preset['id'];
+              final width = (preset['width'] as int);
+              final height = (preset['height'] as int);
+              
+              // Calculate preview dimensions
+              const maxSize = 56.0;
+              final scale = maxSize / (width > height ? width : height);
+              final previewWidth = width * scale;
+              final previewHeight = height * scale;
+              
+              return GestureDetector(
+                onTap: () => setState(() => _selectedAspectRatio = preset['id'] as String),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppTheme.primary.withOpacity(0.15) : Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? AppTheme.primary : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: previewWidth,
+                        height: previewHeight,
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppTheme.primary.withOpacity(0.2) : Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(2),
+                          border: Border.all(
+                            color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.3),
+                            width: 2,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            preset['label'] as String,
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white.withOpacity(0.7),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        preset['description'] as String,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Background settings content panel
+  Widget _buildBackgroundSettingsContent() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Color presets
+          Text(
+            'Background Color',
+            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _backgroundColorPresets.map((color) {
+              final isSelected = _backgroundColor == color;
+              return GestureDetector(
+                onTap: () => setState(() => _backgroundColor = color),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected ? AppTheme.primary : Colors.transparent,
+                      width: 2,
+                    ),
+                    boxShadow: isSelected ? [
+                      BoxShadow(
+                        color: AppTheme.primary.withOpacity(0.4),
+                        blurRadius: 8,
+                      ),
+                    ] : null,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Blur slider
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Background Blur',
+                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${_backgroundBlur.round()}px',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    fontFamily: 'monospace',
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 6,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
+              activeTrackColor: AppTheme.primary,
+              inactiveTrackColor: Colors.white.withOpacity(0.1),
+              thumbColor: Colors.white,
+            ),
+            child: Slider(
+              value: _backgroundBlur,
+              min: 0,
+              max: 50,
+              onChanged: (value) => setState(() => _backgroundBlur = value),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _addEffectLayer(EffectPreset preset) {
     _saveStateToHistory();
     final currentPos = _videoController?.value.position.inSeconds.toDouble() ?? 0;
