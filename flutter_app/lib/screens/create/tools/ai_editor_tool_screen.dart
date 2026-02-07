@@ -1652,206 +1652,226 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     // Minimal edge padding for visual clarity
     const double edgePadding = 16.0;
     
+    // Fixed controls width (Mute/Cover buttons)
+    const double fixedControlsWidth = 56.0;
+    
     // Total scrollable width: small padding + track + small padding
     final totalScrollWidth = edgePadding + trackWidth + edgePadding;
     
     // Calculate height based on tracks
     const baseHeight = 200.0;
     
-    // Playhead positioned at left edge with small offset
+    // Playhead positioned at left edge (with small offset for visibility)
     const double playheadOffset = edgePadding;
     
     return Container(
       height: baseHeight,
       color: const Color(0xFF0D0D0D),
-      child: Stack(
+      child: Row(
         children: [
-          // Scrollable timeline content with manual scroll detection
-          NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollStartNotification) {
-                setState(() => _isUserScrolling = true);
-                // Pause video when user starts scrolling
-                if (_videoController?.value.isPlaying ?? false) {
-                  _videoController!.pause();
-                }
-              } else if (notification is ScrollUpdateNotification) {
-                // Continuous seeking while scrolling
-                _onTimelineScroll();
-              } else if (notification is ScrollEndNotification) {
-                setState(() => _isUserScrolling = false);
-                // Final sync when scrolling stops
-                _onScrollEnd();
-              }
-              return false;
-            },
-            child: SingleChildScrollView(
-              controller: _timelineScrollController,
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              child: SizedBox(
-                width: totalScrollWidth,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Time Ruler
-                    _buildTimeRuler(edgePadding),
-                    const SizedBox(height: 4),
-                    
-                    // Video Track with Controls (scrollable together)
-                    _buildVideoTrackWithControls(edgePadding, trackWidth),
-                    const SizedBox(height: 6),
-                    
-                    // Audio Track (Green waveform layers)
-                    _buildAudioTrack(edgePadding, trackWidth, duration),
-                    const SizedBox(height: 6),
-                    
-                    // Text Track (Purple/Yellow layers)
-                    _buildTextTrack(edgePadding, trackWidth, duration),
-                    const SizedBox(height: 6),
-                    
-                    // Caption/Subtitle Track (Cyan layers)
-                    _buildCaptionTrack(edgePadding, trackWidth, duration),
-                    const SizedBox(height: 6),
-                    
-                    // Add layer buttons row
-                    _buildAddLayerRow(edgePadding),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          
-          // Fixed Playhead at left edge (with small offset for visibility)
-          Positioned(
-            left: playheadOffset,
-            top: 0,
-            bottom: 0,
-            child: IgnorePointer(
-              child: Stack(
-                children: [
-                  // Main playhead line
-                  Container(
-                    width: 2,
+          // Fixed Mute/Cover buttons at very beginning (outside scroll area)
+          Container(
+            width: fixedControlsWidth,
+            padding: const EdgeInsets.only(left: 4, right: 2),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Mute button
+                GestureDetector(
+                  onTap: _toggleMute,
+                  child: Container(
+                    width: 48,
+                    height: 28,
+                    margin: const EdgeInsets.only(bottom: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.white.withOpacity(0.5),
-                          blurRadius: 4,
+                      color: _isMuted 
+                          ? AppTheme.primary.withOpacity(0.15)
+                          : Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: _isMuted 
+                            ? AppTheme.primary.withOpacity(0.4)
+                            : Colors.white.withOpacity(0.1),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _isMuted ? Icons.volume_off : Icons.volume_up,
+                          size: 12,
+                          color: _isMuted ? AppTheme.primary : Colors.white.withOpacity(0.7),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          'Mute',
+                          style: TextStyle(
+                            color: _isMuted ? AppTheme.primary : Colors.white.withOpacity(0.5),
+                            fontSize: 8,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  // Playhead top indicator
-                  Positioned(
-                    top: 0,
-                    left: -5,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
+                ),
+                
+                // Cover button
+                GestureDetector(
+                  onTap: () => _showSnackBar('Set cover image'),
+                  child: Container(
+                    width: 48,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.image_outlined, size: 12, color: Colors.white.withOpacity(0.6)),
+                        const SizedBox(width: 3),
+                        Text(
+                          'Cover',
+                          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 8),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           
-          // Snap indicator (green line when snapping)
-          if (_snapLinePosition != null)
-            Positioned(
-              left: _snapLinePosition!,
-              top: 0,
-              bottom: 0,
-              child: Container(
-                width: 2,
-                color: const Color(0xFF00FF00).withOpacity(0.8),
-              ),
+          // Scrollable timeline content
+          Expanded(
+            child: Stack(
+              children: [
+                // Scrollable timeline content with manual scroll detection
+                NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification is ScrollStartNotification) {
+                      setState(() => _isUserScrolling = true);
+                      // Pause video when user starts scrolling
+                      if (_videoController?.value.isPlaying ?? false) {
+                        _videoController!.pause();
+                      }
+                    } else if (notification is ScrollUpdateNotification) {
+                      // Continuous seeking while scrolling
+                      _onTimelineScroll();
+                    } else if (notification is ScrollEndNotification) {
+                      setState(() => _isUserScrolling = false);
+                      // Final sync when scrolling stops
+                      _onScrollEnd();
+                    }
+                    return false;
+                  },
+                  child: SingleChildScrollView(
+                    controller: _timelineScrollController,
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: SizedBox(
+                      width: totalScrollWidth,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Time Ruler
+                          _buildTimeRuler(edgePadding),
+                          const SizedBox(height: 4),
+                          
+                          // Video Track (filmstrip only - controls are fixed)
+                          _buildVideoTrackFilmstripOnly(edgePadding, trackWidth),
+                          const SizedBox(height: 6),
+                          
+                          // Audio Track (Green waveform layers)
+                          _buildAudioTrack(edgePadding, trackWidth, duration),
+                          const SizedBox(height: 6),
+                          
+                          // Text Track (Purple/Yellow layers)
+                          _buildTextTrack(edgePadding, trackWidth, duration),
+                          const SizedBox(height: 6),
+                          
+                          // Caption/Subtitle Track (Cyan layers)
+                          _buildCaptionTrack(edgePadding, trackWidth, duration),
+                          const SizedBox(height: 6),
+                          
+                          // Add layer buttons row
+                          _buildAddLayerRow(edgePadding),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                
+                // Fixed Playhead at left edge (with small offset for visibility)
+                Positioned(
+                  left: playheadOffset,
+                  top: 0,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    child: Stack(
+                      children: [
+                        // Main playhead line
+                        Container(
+                          width: 2,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.white.withOpacity(0.5),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Playhead top indicator
+                        Positioned(
+                          top: 0,
+                          left: -5,
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Snap indicator (green line when snapping)
+                if (_snapLinePosition != null)
+                  Positioned(
+                    left: _snapLinePosition!,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 2,
+                      color: const Color(0xFF00FF00).withOpacity(0.8),
+                    ),
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildVideoTrackWithControls(double startPadding, double trackWidth) {
+  /// Build video track filmstrip only (no controls - they are fixed now)
+  Widget _buildVideoTrackFilmstripOnly(double startPadding, double trackWidth) {
     return SizedBox(
       height: _thumbnailHeight + 8,
       child: Row(
         children: [
-          // Minimal left padding to align with screen edge
+          // Left padding
           SizedBox(width: startPadding),
           
-          // Mute button (scrolls with timeline)
-          GestureDetector(
-            onTap: _toggleMute,
-            child: Container(
-              width: 50,
-              height: _thumbnailHeight,
-              margin: const EdgeInsets.only(right: 6),
-              decoration: BoxDecoration(
-                color: _isMuted 
-                    ? AppTheme.primary.withOpacity(0.15)
-                    : Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: _isMuted 
-                      ? AppTheme.primary.withOpacity(0.4)
-                      : Colors.white.withOpacity(0.1),
-                  width: 1,
-                ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _isMuted ? Icons.volume_off : Icons.volume_up,
-                    size: 18,
-                    color: _isMuted ? AppTheme.primary : Colors.white.withOpacity(0.7),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Mute',
-                    style: TextStyle(
-                      color: _isMuted ? AppTheme.primary : Colors.white.withOpacity(0.5),
-                      fontSize: 8,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          // Cover button (scrolls with timeline)
-          GestureDetector(
-            onTap: () => _showSnackBar('Set cover image'),
-            child: Container(
-              width: 50,
-              height: _thumbnailHeight,
-              margin: const EdgeInsets.only(right: 10),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.image_outlined, size: 18, color: Colors.white.withOpacity(0.6)),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Cover',
-                    style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 8),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          // Video Track - Filmstrip using ListView.builder
+          // Video Track Filmstrip
           _buildVideoTrackFilmstrip(trackWidth),
           
           const SizedBox(width: 10),
@@ -1883,7 +1903,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
 
-  /// Build filmstrip video track using ListView.builder for performance
+  // _buildVideoTrackWithControls removed - replaced by _buildVideoTrackFilmstripOnly with fixed controls
+
+  /// Build filmstrip video track using ListView.builder with actual thumbnails
   Widget _buildVideoTrackFilmstrip(double trackWidth) {
     final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
     // Calculate how many thumbnails fit in the track
@@ -1893,7 +1915,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       width: trackWidth,
       height: _thumbnailHeight + 4,
       decoration: BoxDecoration(
-        color: const Color(0xFF8B0000),
+        color: const Color(0xFF2A1515),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFFAA2222), width: 2),
       ),
@@ -1912,13 +1934,16 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 ? _thumbnails[thumbnailIndex] 
                 : null;
             
+            // Calculate the time position for this frame
+            final thumbTime = (index / thumbCount) * duration;
+            
             return Container(
               width: _thumbnailWidth,
               height: _thumbnailHeight,
               decoration: BoxDecoration(
                 border: Border(
                   right: index < thumbCount - 1
-                      ? BorderSide(color: const Color(0xFF5A0000).withOpacity(0.5), width: 0.5)
+                      ? BorderSide(color: const Color(0xFF5A0000).withOpacity(0.4), width: 0.5)
                       : BorderSide.none,
                 ),
               ),
@@ -1929,11 +1954,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       gaplessPlayback: true,
                     )
                   : Container(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0xFF8B0000), Color(0xFF5A0000)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            const Color(0xFF8B0000).withOpacity(0.3),
+                            const Color(0xFF5A0000).withOpacity(0.5),
+                          ],
                         ),
                       ),
                       child: _isExtractingThumbnails
@@ -1948,10 +1976,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                               ),
                             )
                           : Center(
-                              child: Icon(
-                                Icons.movie_outlined,
-                                size: 14,
-                                color: Colors.white.withOpacity(0.3),
+                              // Show time indicator while loading
+                              child: Text(
+                                '${thumbTime.toInt()}s',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.4),
+                                  fontSize: 8,
+                                  fontFamily: 'monospace',
+                                ),
                               ),
                             ),
                     ),
