@@ -35,7 +35,10 @@ import {
   Moon,
   Thermometer,
   Droplets,
-  Trash2
+  Trash2,
+  Subtitles,
+  Loader2,
+  MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -143,6 +146,20 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [textInput, setTextInput] = useState('');
   const [isEditingTextInline, setIsEditingTextInline] = useState(false);
   const [draggingTextId, setDraggingTextId] = useState<string | null>(null);
+
+  // Caption/Subtitle layer state
+  interface CaptionLayer {
+    id: string;
+    text: string;
+    startTime: number;
+    endTime: number;
+  }
+
+  const [captionLayers, setCaptionLayers] = useState<CaptionLayer[]>([]);
+  const [selectedCaptionId, setSelectedCaptionId] = useState<string | null>(null);
+  const [isGeneratingCaptions, setIsGeneratingCaptions] = useState(false);
+
+  const selectedCaptionLayer = captionLayers.find(c => c.id === selectedCaptionId);
 
   // Audio layer state
   interface AudioLayer {
@@ -289,6 +306,68 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const deleteTextOverlay = (id: string) => {
     setTextOverlays(prev => prev.filter(t => t.id !== id));
     if (selectedTextId === id) setSelectedTextId(null);
+  };
+
+  // Caption/Subtitle functions
+  const generateAutoCaptions = async () => {
+    if (!videoUrl || !duration) {
+      toast({ variant: "destructive", title: "Error", description: "Please load a video first" });
+      return;
+    }
+    
+    setIsGeneratingCaptions(true);
+    toast({ title: "Generating captions", description: "Analyzing audio..." });
+    
+    try {
+      // Mock caption generation - in production this would call a transcription API
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Generate sample captions based on video duration
+      const captionDuration = 3; // seconds per caption
+      const numCaptions = Math.ceil(duration / captionDuration);
+      const newCaptions: CaptionLayer[] = [];
+      
+      for (let i = 0; i < numCaptions; i++) {
+        newCaptions.push({
+          id: `caption-${Date.now()}-${i}`,
+          text: `Caption ${i + 1}`,
+          startTime: i * captionDuration,
+          endTime: Math.min((i + 1) * captionDuration, duration),
+        });
+      }
+      
+      setCaptionLayers(newCaptions);
+      setSelectedTool('captions');
+      toast({ title: "Captions generated", description: `${numCaptions} captions created` });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to generate captions" });
+    } finally {
+      setIsGeneratingCaptions(false);
+    }
+  };
+
+  const updateSelectedCaption = (updates: Partial<CaptionLayer>) => {
+    if (!selectedCaptionId) return;
+    setCaptionLayers(prev => prev.map(c => 
+      c.id === selectedCaptionId ? { ...c, ...updates } : c
+    ));
+  };
+
+  const deleteCaptionLayer = (id: string) => {
+    setCaptionLayers(prev => prev.filter(c => c.id !== id));
+    if (selectedCaptionId === id) setSelectedCaptionId(null);
+  };
+
+  const addCaptionLayer = () => {
+    const newCaption: CaptionLayer = {
+      id: `caption-${Date.now()}`,
+      text: 'New caption',
+      startTime: currentTime,
+      endTime: Math.min(currentTime + 3, duration || 10),
+    };
+    setCaptionLayers(prev => [...prev, newCaption]);
+    setSelectedCaptionId(newCaption.id);
+    setSelectedTool('captions');
   };
 
   const adjustmentTools: { id: keyof typeof adjustments; name: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -538,7 +617,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   const handleToolClick = (tool: EditorTool) => {
     setSelectedTool(tool.id);
-    if (tool.id !== 'adjust') {
+    // Handle tools that have implementations
+    if (!['adjust', 'text', 'audio', 'captions'].includes(tool.id)) {
       toast({
         title: tool.name,
         description: "Coming soon!",
@@ -995,6 +1075,30 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 );
               })}
               
+              {/* Caption Overlays - Display at bottom of video */}
+              {captionLayers.filter(caption => 
+                currentTime >= caption.startTime && currentTime <= caption.endTime
+              ).map(caption => (
+                <div
+                  key={`caption-overlay-${caption.id}`}
+                  className={cn(
+                    "absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg max-w-[90%] text-center transition-all",
+                    caption.id === selectedCaptionId && "ring-2 ring-cyan-500"
+                  )}
+                  style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                  }}
+                  onClick={() => {
+                    setSelectedCaptionId(caption.id);
+                    setSelectedTool('captions');
+                  }}
+                >
+                  <span className="text-white text-sm font-medium">
+                    {caption.text}
+                  </span>
+                </div>
+              ))}
+              
               <button
                 onClick={clearVideo}
                 className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center"
@@ -1441,6 +1545,132 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 onChange={(e) => updateSelectedAudio({ volume: Number(e.target.value) / 100 })}
                                 className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                               />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            ) : selectedTool === 'captions' ? (
+              // Captions Editor Content
+              <>
+                {/* Auto-Caption button */}
+                <div className="px-4 pb-3">
+                  <button
+                    onClick={generateAutoCaptions}
+                    disabled={isGeneratingCaptions}
+                    className="w-full py-4 bg-cyan-500/15 border border-cyan-500/40 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isGeneratingCaptions ? (
+                      <Loader2 className="w-5 h-5 text-cyan-400 animate-spin" />
+                    ) : (
+                      <Subtitles className="w-5 h-5 text-cyan-400" />
+                    )}
+                    <span className="text-cyan-400 text-base font-semibold">
+                      {isGeneratingCaptions ? 'Generating...' : 'Auto-Caption'}
+                    </span>
+                  </button>
+                </div>
+                
+                {/* Add caption button */}
+                <div className="px-4 pb-3">
+                  <button
+                    onClick={addCaptionLayer}
+                    className="w-full py-3 bg-cyan-500/10 border border-cyan-500/30 rounded-xl flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-4 h-4 text-cyan-400" />
+                    <span className="text-cyan-400 text-sm font-semibold">Add Caption</span>
+                  </button>
+                </div>
+                
+                {/* Caption layers list */}
+                <div className="max-h-[200px] overflow-y-auto px-4 pb-4 space-y-3">
+                  {captionLayers.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-6 gap-2">
+                      <Subtitles className="w-8 h-8 text-white/30" />
+                      <p className="text-white/50 text-sm">No captions added</p>
+                      <p className="text-white/30 text-xs">Use Auto-Caption or add manually</p>
+                    </div>
+                  ) : (
+                    captionLayers.map((caption) => {
+                      const isSelected = caption.id === selectedCaptionId;
+                      return (
+                        <div
+                          key={caption.id}
+                          onClick={() => setSelectedCaptionId(caption.id)}
+                          className={cn(
+                            "p-3 rounded-xl cursor-pointer transition-all",
+                            isSelected 
+                              ? "bg-cyan-500/20 ring-2 ring-cyan-500" 
+                              : "bg-white/5 hover:bg-white/10"
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className={cn(
+                                "w-8 h-8 rounded-lg flex items-center justify-center",
+                                isSelected ? "bg-cyan-500/30" : "bg-white/10"
+                              )}>
+                                <MessageSquare className={cn("w-4 h-4", isSelected ? "text-cyan-400" : "text-white/60")} />
+                              </div>
+                              <div>
+                                <span className="text-white text-sm font-medium block truncate max-w-[150px]">
+                                  {caption.text}
+                                </span>
+                                <span className="text-white/50 text-[10px]">
+                                  {formatTime(caption.startTime)} - {formatTime(caption.endTime)}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteCaptionLayer(caption.id);
+                              }}
+                              className="p-1.5 rounded-lg bg-destructive/20 hover:bg-destructive/30"
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </button>
+                          </div>
+                          
+                          {/* Edit caption text */}
+                          {isSelected && (
+                            <div className="space-y-3">
+                              <textarea
+                                value={caption.text}
+                                onChange={(e) => updateSelectedCaption({ text: e.target.value })}
+                                className="w-full bg-white/10 text-white rounded-lg p-2 border-0 focus:ring-2 focus:ring-cyan-500 resize-none text-sm"
+                                rows={2}
+                                placeholder="Enter caption text..."
+                              />
+                              <div className="flex gap-3">
+                                <div className="flex-1">
+                                  <label className="text-white/50 text-[10px] block mb-1">Start (s)</label>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    value={caption.startTime.toFixed(1)}
+                                    onChange={(e) => updateSelectedCaption({ 
+                                      startTime: Math.max(0, Math.min(caption.endTime - 0.5, Number(e.target.value))) 
+                                    })}
+                                    className="w-full bg-white/10 text-white rounded-lg px-2 py-1 text-sm text-center"
+                                  />
+                                </div>
+                                <div className="flex-1">
+                                  <label className="text-white/50 text-[10px] block mb-1">End (s)</label>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    value={caption.endTime.toFixed(1)}
+                                    onChange={(e) => updateSelectedCaption({ 
+                                      endTime: Math.min(duration, Math.max(caption.startTime + 0.5, Number(e.target.value))) 
+                                    })}
+                                    className="w-full bg-white/10 text-white rounded-lg px-2 py-1 text-sm text-center"
+                                  />
+                                </div>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1929,6 +2159,153 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                   const newEnd = Math.min(duration, Math.max(audio.startTime + 0.5, endTime + timeDelta));
                                   setAudioLayers(prev => prev.map(a => 
                                     a.id === audio.id ? { ...a, endTime: newEnd } : a
+                                  ));
+                                };
+                                
+                                const handleUp = () => {
+                                  document.removeEventListener('mousemove', handleMove);
+                                  document.removeEventListener('mouseup', handleUp);
+                                };
+                                
+                                document.addEventListener('mousemove', handleMove);
+                                document.addEventListener('mouseup', handleUp);
+                              }}
+                            >
+                              <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  {/* Caption/Subtitle Track - Cyan themed */}
+                  {captionLayers.length > 0 && (
+                    <div className="relative h-10" style={{ width: trackWidth }}>
+                      {captionLayers.map(caption => {
+                        const isSelected = caption.id === selectedCaptionId;
+                        const leftOffset = caption.startTime * PIXELS_PER_SECOND;
+                        const itemWidth = Math.max(50, (caption.endTime - caption.startTime) * PIXELS_PER_SECOND);
+                    
+                        return (
+                          <div
+                            key={caption.id}
+                            className={cn(
+                              "absolute h-[34px] rounded-md flex items-center cursor-grab transition-all active:cursor-grabbing",
+                              isSelected 
+                                ? "bg-gradient-to-r from-cyan-500 to-cyan-600 ring-2 ring-white shadow-lg shadow-cyan-500/30"
+                                : "bg-gradient-to-r from-cyan-600 to-cyan-700 shadow-md shadow-cyan-600/30",
+                              draggingLayerId === caption.id && "opacity-90 scale-[1.02] z-10"
+                            )}
+                            style={{ left: leftOffset, width: itemWidth, top: 3 }}
+                          >
+                            {/* Left trim handle */}
+                            <div 
+                              className={cn(
+                                "w-2.5 h-full rounded-l-md flex items-center justify-center cursor-ew-resize",
+                                isSelected ? "bg-white/50" : "bg-white/30"
+                              )}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                const startX = e.clientX;
+                                const startTime = caption.startTime;
+                                
+                                const handleMove = (moveE: MouseEvent) => {
+                                  const deltaX = moveE.clientX - startX;
+                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                  const newStart = Math.max(0, Math.min(caption.endTime - 0.5, startTime + timeDelta));
+                                  setCaptionLayers(prev => prev.map(c => 
+                                    c.id === caption.id ? { ...c, startTime: newStart } : c
+                                  ));
+                                };
+                                
+                                const handleUp = () => {
+                                  document.removeEventListener('mousemove', handleMove);
+                                  document.removeEventListener('mouseup', handleUp);
+                                };
+                                
+                                document.addEventListener('mousemove', handleMove);
+                                document.addEventListener('mouseup', handleUp);
+                              }}
+                            >
+                              <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                            </div>
+                            
+                            {/* Content - Draggable center area */}
+                            <div 
+                              className="flex-1 flex items-center gap-1 px-1 overflow-hidden cursor-grab active:cursor-grabbing"
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                setDraggingLayerId(caption.id);
+                                setSelectedCaptionId(caption.id);
+                                
+                                const startX = e.clientX;
+                                const startTime = caption.startTime;
+                                const clipDuration = caption.endTime - caption.startTime;
+                                const snapThreshold = 10 / PIXELS_PER_SECOND;
+                                
+                                const handleMove = (moveE: MouseEvent) => {
+                                  const deltaX = moveE.clientX - startX;
+                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                  let newStart = Math.max(0, Math.min(duration - clipDuration, startTime + timeDelta));
+                                  
+                                  // Snap to playhead
+                                  const playheadTime = currentTime;
+                                  if (Math.abs(newStart - playheadTime) < snapThreshold) {
+                                    newStart = playheadTime;
+                                    setSnapLinePosition(window.innerWidth / 2);
+                                  } else if (Math.abs(newStart + clipDuration - playheadTime) < snapThreshold) {
+                                    newStart = playheadTime - clipDuration;
+                                    setSnapLinePosition(window.innerWidth / 2);
+                                  } else {
+                                    setSnapLinePosition(null);
+                                  }
+                                  
+                                  setCaptionLayers(prev => prev.map(c => 
+                                    c.id === caption.id 
+                                      ? { ...c, startTime: newStart, endTime: newStart + clipDuration } 
+                                      : c
+                                  ));
+                                };
+                                
+                                const handleUp = () => {
+                                  setDraggingLayerId(null);
+                                  setSnapLinePosition(null);
+                                  document.removeEventListener('mousemove', handleMove);
+                                  document.removeEventListener('mouseup', handleUp);
+                                };
+                                
+                                document.addEventListener('mousemove', handleMove);
+                                document.addEventListener('mouseup', handleUp);
+                              }}
+                              onClick={() => {
+                                setSelectedCaptionId(caption.id);
+                                setSelectedTool('captions');
+                              }}
+                            >
+                              <Subtitles className="w-3 h-3 text-white/90 shrink-0" />
+                              <span className="text-[10px] text-white font-semibold truncate">
+                                {caption.text}
+                              </span>
+                            </div>
+                            
+                            {/* Right trim handle */}
+                            <div 
+                              className={cn(
+                                "w-2.5 h-full rounded-r-md flex items-center justify-center cursor-ew-resize",
+                                isSelected ? "bg-white/50" : "bg-white/30"
+                              )}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                const startX = e.clientX;
+                                const endTime = caption.endTime;
+                                
+                                const handleMove = (moveE: MouseEvent) => {
+                                  const deltaX = moveE.clientX - startX;
+                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                  const newEnd = Math.min(duration, Math.max(caption.startTime + 0.5, endTime + timeDelta));
+                                  setCaptionLayers(prev => prev.map(c => 
+                                    c.id === caption.id ? { ...c, endTime: newEnd } : c
                                   ));
                                 };
                                 

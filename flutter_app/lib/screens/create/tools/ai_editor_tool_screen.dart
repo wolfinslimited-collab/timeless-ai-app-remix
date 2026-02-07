@@ -107,8 +107,23 @@ class StickerLayer {
   });
 }
 
+/// Caption/Subtitle layer data model
+class CaptionLayer {
+  String id;
+  String text;
+  double startTime;
+  double endTime;
+  
+  CaptionLayer({
+    required this.id,
+    this.text = 'Caption',
+    this.startTime = 0,
+    this.endTime = 3,
+  });
+}
+
 /// Layer type enum for track management
-enum LayerType { text, audio, sticker }
+enum LayerType { text, audio, sticker, caption }
 
 class AIEditorToolScreen extends StatefulWidget {
   const AIEditorToolScreen({super.key});
@@ -164,6 +179,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   List<AudioLayer> _audioLayers = [];
   String? _selectedAudioId;
   bool _isImportingAudio = false;
+  
+  // Caption/Subtitle layer state
+  List<CaptionLayer> _captionLayers = [];
+  String? _selectedCaptionId;
+  bool _isGeneratingCaptions = false;
   
   // Layer dragging state
   String? _draggingLayerId;
@@ -560,6 +580,107 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       if (id != null) {
         final overlay = _textOverlays.firstWhere((t) => t.id == id);
         _textInputController.text = overlay.text;
+      }
+    });
+  }
+
+  // ============================================
+  // CAPTION/SUBTITLE FUNCTIONS
+  // ============================================
+  
+  CaptionLayer? get _selectedCaptionLayer {
+    if (_selectedCaptionId == null) return null;
+    try {
+      return _captionLayers.firstWhere((c) => c.id == _selectedCaptionId);
+    } catch (_) {
+      return null;
+    }
+  }
+  
+  /// Add a new caption layer at current playhead position
+  void _addCaptionLayer() {
+    final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+    final currentTime = _videoController?.value.position.inMilliseconds.toDouble() ?? 0;
+    final startTime = currentTime / 1000.0;
+    
+    final newCaption = CaptionLayer(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      text: 'New caption',
+      startTime: startTime,
+      endTime: math.min(startTime + 3.0, duration),
+    );
+    
+    setState(() {
+      _captionLayers.add(newCaption);
+      _selectedCaptionId = newCaption.id;
+      _selectedTool = 'captions';
+    });
+  }
+  
+  /// Generate auto-captions from video audio
+  Future<void> _generateAutoCaptions() async {
+    if (_videoController == null || !_isVideoInitialized) {
+      _showSnackBar('Please load a video first');
+      return;
+    }
+    
+    setState(() => _isGeneratingCaptions = true);
+    _showSnackBar('Generating captions...');
+    
+    try {
+      // Mock caption generation - in production this would call a transcription API
+      await Future.delayed(const Duration(seconds: 2));
+      
+      final duration = _videoController!.value.duration.inSeconds.toDouble();
+      const captionDuration = 3.0; // seconds per caption
+      final numCaptions = (duration / captionDuration).ceil();
+      
+      final newCaptions = <CaptionLayer>[];
+      for (int i = 0; i < numCaptions; i++) {
+        newCaptions.add(CaptionLayer(
+          id: '${DateTime.now().millisecondsSinceEpoch}_$i',
+          text: 'Caption ${i + 1}',
+          startTime: i * captionDuration,
+          endTime: math.min((i + 1) * captionDuration, duration),
+        ));
+      }
+      
+      setState(() {
+        _captionLayers = newCaptions;
+        _selectedTool = 'captions';
+      });
+      
+      _showSnackBar('$numCaptions captions generated');
+    } catch (e) {
+      _showSnackBar('Failed to generate captions');
+    } finally {
+      setState(() => _isGeneratingCaptions = false);
+    }
+  }
+  
+  /// Delete a caption layer
+  void _deleteCaptionLayer(String id) {
+    setState(() {
+      _captionLayers.removeWhere((c) => c.id == id);
+      if (_selectedCaptionId == id) {
+        _selectedCaptionId = null;
+      }
+    });
+  }
+  
+  /// Select a caption layer
+  void _selectCaptionLayer(String? id) {
+    setState(() {
+      _selectedCaptionId = id;
+    });
+  }
+  
+  /// Update caption text
+  void _updateCaptionText(String id, String newText) {
+    setState(() {
+      final index = _captionLayers.indexWhere((c) => c.id == id);
+      if (index != -1) {
+        _captionLayers[index].text = newText;
       }
     });
   }
@@ -1587,6 +1708,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     
                     // Text Track (Purple/Yellow layers)
                     _buildTextTrack(edgePadding, trackWidth, duration),
+                    const SizedBox(height: 6),
+                    
+                    // Caption/Subtitle Track (Cyan layers)
+                    _buildCaptionTrack(edgePadding, trackWidth, duration),
                     const SizedBox(height: 6),
                     
                     // Add layer buttons row
@@ -2626,7 +2751,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Dynamic bottom area that switches between timeline and settings panel
   Widget _buildDynamicBottomArea() {
     // Check if a settings panel should be shown (overlays timeline)
-    final bool showSettingsPanel = _selectedTool == 'text' || _selectedTool == 'adjust' || _selectedTool == 'audio';
+    final bool showSettingsPanel = _selectedTool == 'text' || _selectedTool == 'adjust' || _selectedTool == 'audio' || _selectedTool == 'captions';
     
     if (showSettingsPanel) {
       return _buildContextualSettingsPanel();
@@ -2651,6 +2776,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       panelTitle = 'Adjust';
     } else if (_selectedTool == 'audio') {
       panelTitle = 'Audio';
+    } else if (_selectedTool == 'captions') {
+      panelTitle = 'Captions';
     }
     
     return Container(
@@ -2714,7 +2841,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           else if (_selectedTool == 'adjust')
             _buildAdjustSettingsContent()
           else if (_selectedTool == 'audio')
-            _buildAudioSettingsContent(),
+            _buildAudioSettingsContent()
+          else if (_selectedTool == 'captions')
+            _buildCaptionsSettingsContent(),
         ],
       ),
     );
@@ -2725,6 +2854,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       _selectedTool = 'edit';
       _selectedTextId = null;
       _selectedAudioId = null;
+      _selectedCaptionId = null;
     });
   }
 
@@ -3052,6 +3182,157 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
 
+  /// Captions/Subtitles settings panel content
+  Widget _buildCaptionsSettingsContent() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Auto-Caption button
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: GestureDetector(
+            onTap: _isGeneratingCaptions ? null : _generateAutoCaptions,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF06B6D4).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.4)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (_isGeneratingCaptions)
+                    const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF06B6D4)))
+                  else
+                    const Icon(Icons.subtitles, color: Color(0xFF06B6D4), size: 20),
+                  const SizedBox(width: 8),
+                  Text(_isGeneratingCaptions ? 'Generating...' : 'Auto-Caption', style: const TextStyle(color: Color(0xFF06B6D4), fontSize: 15, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Add caption button
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: GestureDetector(
+            onTap: _addCaptionLayer,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF06B6D4).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.3)),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add, color: Color(0xFF06B6D4), size: 18),
+                  SizedBox(width: 6),
+                  Text('Add Caption', style: TextStyle(color: Color(0xFF06B6D4), fontSize: 13, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Caption layers list
+        if (_captionLayers.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.subtitles_off, size: 40, color: Colors.white.withOpacity(0.3)),
+                const SizedBox(height: 8),
+                Text('No captions yet', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14)),
+              ],
+            ),
+          )
+        else
+          SizedBox(
+            height: 120,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemCount: _captionLayers.length,
+              itemBuilder: (context, index) {
+                final caption = _captionLayers[index];
+                final isSelected = caption.id == _selectedCaptionId;
+                return GestureDetector(
+                  onTap: () => _selectCaptionLayer(caption.id),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xFF06B6D4).withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: isSelected ? Border.all(color: const Color(0xFF06B6D4), width: 2) : Border.all(color: Colors.white.withOpacity(0.1)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(width: 36, height: 36, decoration: BoxDecoration(color: const Color(0xFF06B6D4).withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.chat_bubble_outline, color: Color(0xFF06B6D4), size: 18)),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(caption.text, style: const TextStyle(color: Colors.white, fontSize: 13), overflow: TextOverflow.ellipsis)),
+                        GestureDetector(onTap: () => _deleteCaptionLayer(caption.id), child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.red.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.delete_outline, color: Colors.red, size: 16))),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Build caption track in timeline (Cyan themed)
+  Widget _buildCaptionTrack(double startPadding, double trackWidth, double duration) {
+    if (_captionLayers.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 40,
+      child: Row(
+        children: [
+          SizedBox(width: startPadding),
+          SizedBox(
+            width: trackWidth,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: _captionLayers.map((caption) {
+                final leftOffset = caption.startTime * _pixelsPerSecond;
+                final itemWidth = ((caption.endTime - caption.startTime) * _pixelsPerSecond).clamp(50.0, trackWidth);
+                final isSelected = caption.id == _selectedCaptionId;
+                return Positioned(
+                  left: leftOffset,
+                  child: GestureDetector(
+                    onTap: () => _selectCaptionLayer(caption.id),
+                    child: Container(
+                      width: itemWidth,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: isSelected ? [const Color(0xFF0891B2), const Color(0xFF0E7490)] : [const Color(0xFF06B6D4), const Color(0xFF0891B2)]),
+                        borderRadius: BorderRadius.circular(6),
+                        border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 8),
+                          const Icon(Icons.subtitles, size: 12, color: Colors.white),
+                          const SizedBox(width: 4),
+                          Expanded(child: Text(caption.text, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          SizedBox(width: startPadding),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBottomToolbar() {
     return Container(
       decoration: BoxDecoration(
@@ -3067,7 +3348,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             return GestureDetector(
               onTap: () {
                 setState(() => _selectedTool = tool.id);
-                if (tool.id != 'adjust' && tool.id != 'text' && tool.id != 'audio') {
+                if (tool.id != 'adjust' && tool.id != 'text' && tool.id != 'audio' && tool.id != 'captions') {
                   _showSnackBar('${tool.name} coming soon');
                 }
               },
