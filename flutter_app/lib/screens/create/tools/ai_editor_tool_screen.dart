@@ -945,30 +945,149 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     }
   }
   
-  /// Sync audio playback with video position
-  void _syncAudioWithVideo() {
-    if (_videoController == null || !_isVideoInitialized) return;
+  // ============================================
+  // UNIFIED PLAYBACK CONTROLLER
+  // Multi-layer synchronization engine
+  // ============================================
+  
+  /// Current playhead position on timeline (in seconds)
+  double _currentTimelinePosition = 0.0;
+  
+  /// Track which clip is currently active
+  int _activeClipIndex = 0;
+  
+  /// Map of clip controllers for multi-clip playback
+  final Map<String, VideoPlayerController> _clipControllers = {};
+  
+  /// Get the active clip and local time based on timeline position
+  ({VideoClip clip, double localTime})? _getActiveClipAtTime(double timelineTime) {
+    for (int i = 0; i < _videoClips.length; i++) {
+      final clip = _videoClips[i];
+      final clipEnd = clip.startTime + clip.trimmedDuration;
+      if (timelineTime >= clip.startTime && timelineTime < clipEnd) {
+        final localTime = clip.inPoint + (timelineTime - clip.startTime);
+        return (clip: clip, localTime: localTime);
+      }
+    }
+    // Return last clip if past all clips
+    if (_videoClips.isNotEmpty) {
+      final lastClip = _videoClips.last;
+      return (clip: lastClip, localTime: lastClip.outPoint);
+    }
+    return null;
+  }
+  
+  /// Sync all layers to the current timeline position
+  void _syncAllLayersToTime(double timelineTime) {
+    _currentTimelinePosition = timelineTime;
     
-    final videoPosition = _videoController!.value.position.inMilliseconds / 1000.0;
-    final isVideoPlaying = _videoController!.value.isPlaying;
+    // 1. Sync video - seek to correct position within active clip
+    final activeResult = _getActiveClipAtTime(timelineTime);
+    if (activeResult != null && _videoController != null && _isVideoInitialized) {
+      final localTime = activeResult.localTime;
+      final newPosition = Duration(milliseconds: (localTime * 1000).toInt());
+      
+      // Only seek if position has drifted significantly
+      final currentPos = _videoController!.value.position.inMilliseconds / 1000.0;
+      if ((currentPos - localTime).abs() > 0.1) {
+        _videoController!.seekTo(newPosition);
+      }
+    }
+    
+    // 2. Sync audio layers
+    _syncAudioLayersToTime(timelineTime);
+    
+    // Update UI
+    if (mounted) {
+      setState(() {});
+    }
+  }
+  
+  /// Sync audio playback with timeline position
+  void _syncAudioLayersToTime(double timelineTime) {
+    final isPlaying = _videoController?.value.isPlaying ?? false;
     
     for (final audio in _audioLayers) {
       if (audio.player == null) continue;
       
-      // Check if current video position is within audio layer's time range
-      if (videoPosition >= audio.startTime && videoPosition <= audio.endTime) {
-        final audioPosition = videoPosition - audio.startTime;
+      // Check if current time is within audio layer's time range
+      if (timelineTime >= audio.startTime && timelineTime <= audio.endTime) {
+        final audioTime = timelineTime - audio.startTime;
         
-        if (isVideoPlaying) {
+        if (isPlaying) {
           // Play audio and seek to correct position
-          audio.player!.seek(Duration(milliseconds: (audioPosition * 1000).round()));
+          audio.player!.seek(Duration(milliseconds: (audioTime * 1000).round()));
           audio.player!.resume();
         } else {
           audio.player!.pause();
         }
+        
+        // Apply volume
+        audio.player!.setVolume(audio.volume);
       } else {
-        // Outside audio range, pause
+        // Outside range, pause
         audio.player!.pause();
+      }
+    }
+  }
+  
+  /// Legacy sync function - now calls the unified sync
+  void _syncAudioWithVideo() {
+    if (_videoController == null || !_isVideoInitialized) return;
+    final videoPosition = _videoController!.value.position.inMilliseconds / 1000.0;
+    _syncAudioLayersToTime(videoPosition);
+  }
+  
+  /// Unified play function - starts all active layers
+  void _unifiedPlay() {
+    if (_videoController == null || !_isVideoInitialized) return;
+    
+    // Sync all layers to current position first
+    final currentPos = _videoController!.value.position.inMilliseconds / 1000.0;
+    _syncAllLayersToTime(currentPos);
+    
+    // Start video playback
+    _videoController!.play();
+    
+    // Audio layers will start via the sync listener
+  }
+  
+  /// Unified pause function - pauses all layers
+  void _unifiedPause() {
+    // Pause video
+    _videoController?.pause();
+    
+    // Pause all audio layers
+    for (final audio in _audioLayers) {
+      audio.player?.pause();
+    }
+  }
+  
+  /// Unified toggle play/pause
+  void _unifiedTogglePlayPause() {
+    if (_videoController == null || !_isVideoInitialized) return;
+    
+    if (_videoController!.value.isPlaying) {
+      _unifiedPause();
+    } else {
+      _unifiedPlay();
+    }
+  }
+  
+  /// Unified seek function - seeks all layers to timeline position
+  void _unifiedSeekTo(double timelineSeconds) {
+    final clampedTime = timelineSeconds.clamp(0.0, _totalTimelineDuration);
+    _currentTimelinePosition = clampedTime;
+    
+    // Sync all layers to new position
+    _syncAllLayersToTime(clampedTime);
+    
+    // Seek video
+    if (_videoController != null && _isVideoInitialized) {
+      final activeResult = _getActiveClipAtTime(clampedTime);
+      if (activeResult != null) {
+        final newPosition = Duration(milliseconds: (activeResult.localTime * 1000).toInt());
+        _videoController!.seekTo(newPosition);
       }
     }
   }
@@ -1293,36 +1412,33 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     if (!_isUserScrolling || _isAutoScrolling) return;
     if (_videoController == null || !_isVideoInitialized) return;
     
-    // PAUSE video immediately when user starts manual scrubbing
+    // PAUSE all layers immediately when user starts manual scrubbing
     if (_videoController!.value.isPlaying) {
-      _videoController!.pause();
+      _unifiedPause();
     }
     
     final scrollOffset = _timelineScrollController.offset;
     
     // Calculate exact time position under the center playhead
     final timeUnderPlayhead = _scrollToTime(scrollOffset);
-    final duration = _videoController!.value.duration;
-    final clampedTime = timeUnderPlayhead.clamp(0.0, duration.inSeconds.toDouble());
-    final newPosition = Duration(milliseconds: (clampedTime * 1000).toInt());
+    final clampedTime = timeUnderPlayhead.clamp(0.0, _totalTimelineDuration);
     
-    // Seek video to exact millisecond under playhead
-    _videoController!.seekTo(newPosition);
+    // Update timeline position and sync all layers
+    _currentTimelinePosition = clampedTime;
+    _syncAllLayersToTime(clampedTime);
   }
 
   void _onScrollEnd() {
-    // Called when user stops scrolling - ensure video is at exact playhead position
+    // Called when user stops scrolling - sync all layers to exact playhead position
     if (_videoController == null || !_isVideoInitialized) return;
     if (!_timelineScrollController.hasClients) return;
     
     final scrollOffset = _timelineScrollController.offset;
     final timeUnderPlayhead = _scrollToTime(scrollOffset);
-    final duration = _videoController!.value.duration;
-    final clampedTime = timeUnderPlayhead.clamp(0.0, duration.inSeconds.toDouble());
-    final exactPosition = Duration(milliseconds: (clampedTime * 1000).toInt());
+    final clampedTime = timeUnderPlayhead.clamp(0.0, _totalTimelineDuration);
     
-    // Jump to exact millisecond when scrolling stops
-    _videoController!.seekTo(exactPosition);
+    // Use unified seek to sync all layers
+    _unifiedSeekTo(clampedTime);
   }
 
   void _onVideoPositionChanged() {
@@ -1330,13 +1446,17 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     if (_isUserScrolling || _videoController == null || !_isVideoInitialized) return;
     if (!_timelineScrollController.hasClients) return;
     
-    // Sync audio layers with video position
-    _syncAudioWithVideo();
+    final positionSeconds = _videoController!.value.position.inMilliseconds / 1000.0;
+    
+    // Update current timeline position
+    _currentTimelinePosition = positionSeconds;
+    
+    // Sync all layers (audio, text visibility, etc.) to current time
+    _syncAudioLayersToTime(positionSeconds);
     
     // Only auto-scroll during playback
     if (!_videoController!.value.isPlaying) return;
     
-    final positionSeconds = _videoController!.value.position.inMilliseconds / 1000.0;
     final targetScroll = _timeToScroll(positionSeconds);
     
     // Use flag to prevent feedback loops
@@ -1348,6 +1468,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
     
     _isAutoScrolling = false;
+    
+    // Trigger rebuild for text/caption/effect visibility
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _loadRecentVideos() async {
@@ -1553,14 +1678,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
 
   void _togglePlayPause() {
-    if (_videoController == null) return;
-    setState(() {
-      if (_videoController!.value.isPlaying) {
-        _videoController!.pause();
-      } else {
-        _videoController!.play();
-      }
-    });
+    if (_videoController == null || !_isVideoInitialized) return;
+    // Use unified play/pause to sync all layers
+    _unifiedTogglePlayPause();
+    setState(() {});
   }
 
   void _toggleMute() {
@@ -1963,6 +2084,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       VideoPlayer(_videoController!),
                       // Text overlays for editing
                       ..._buildTextOverlays(constraints),
+                      // Caption overlays at bottom of video
+                      ..._buildCaptionOverlays(constraints),
                     ],
                   ),
                 ),
@@ -4946,7 +5069,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
 
   List<Widget> _buildTextOverlays(BoxConstraints constraints) {
-    final currentTime = _videoController?.value.position.inSeconds.toDouble() ?? 0;
+    // Use unified timeline position for layer visibility
+    final currentTime = _currentTimelinePosition;
     
     return _textOverlays.where((overlay) {
       // Only show text if current time is within the overlay's time range
@@ -5076,6 +5200,59 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   ),
                 ],
               ],
+            ),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  /// Build caption overlays positioned at bottom of video preview
+  /// Synced with unified timeline position
+  List<Widget> _buildCaptionOverlays(BoxConstraints constraints) {
+    // Use unified timeline position for layer visibility
+    final currentTime = _currentTimelinePosition;
+    
+    return _captionLayers.where((caption) {
+      // Only show caption if current time is within its time range
+      return currentTime >= caption.startTime && currentTime <= caption.endTime;
+    }).map((caption) {
+      final isSelected = caption.id == _selectedCaptionId;
+      
+      return Positioned(
+        bottom: 16,
+        left: 16,
+        right: 16,
+        child: GestureDetector(
+          onTap: () {
+            setState(() {
+              _selectedCaptionId = caption.id;
+              _selectedTool = 'captions';
+            });
+          },
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.75),
+                borderRadius: BorderRadius.circular(8),
+                border: isSelected 
+                    ? Border.all(color: const Color(0xFF06B6D4), width: 2)
+                    : null,
+                boxShadow: isSelected 
+                    ? [BoxShadow(color: const Color(0xFF06B6D4).withOpacity(0.3), blurRadius: 12)]
+                    : null,
+              ),
+              child: Text(
+                caption.text,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
           ),
         ),

@@ -455,45 +455,162 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     if (selectedAudioId === id) setSelectedAudioId(null);
   };
 
-  // Sync audio with video playback
-  useEffect(() => {
-    if (!videoRef.current) return;
+  // ============================================
+  // UNIFIED PLAYBACK CONTROLLER
+  // Multi-layer synchronization engine
+  // ============================================
+  
+  // Calculate total timeline duration from all clips (using trimmed durations)
+  // This must be defined BEFORE the playback loop that uses it
+  const totalTimelineDuration = videoClips.length > 0 
+    ? videoClips.reduce((sum, clip) => sum + getClipTrimmedDuration(clip), 0)
+    : duration;
+  
+  // Track which clip is currently active
+  const [activeClipIndex, setActiveClipIndex] = useState(0);
+  const clipVideoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
+  
+  // Get the active clip based on current timeline position
+  const getActiveClipAtTime = (time: number): { clip: VideoClip; localTime: number } | null => {
+    for (const clip of videoClips) {
+      const clipEnd = clip.startTime + getClipTrimmedDuration(clip);
+      if (time >= clip.startTime && time < clipEnd) {
+        const localTime = clip.inPoint + (time - clip.startTime);
+        return { clip, localTime };
+      }
+    }
+    // Return last clip if past all clips
+    if (videoClips.length > 0) {
+      const lastClip = videoClips[videoClips.length - 1];
+      return { clip: lastClip, localTime: lastClip.outPoint };
+    }
+    return null;
+  };
+  
+  // Unified playback - sync all layers to timeline position
+  const syncAllLayersToTime = (timelineTime: number) => {
+    // 1. Sync video clips - determine which clip should be visible/playing
+    const activeResult = getActiveClipAtTime(timelineTime);
     
-    const syncAudio = () => {
-      const videoTime = videoRef.current?.currentTime || 0;
+    if (activeResult) {
+      const { clip, localTime } = activeResult;
+      const activeIndex = videoClips.findIndex(c => c.id === clip.id);
       
+      // Switch video source if different clip
+      if (activeIndex !== activeClipIndex && videoRef.current) {
+        setActiveClipIndex(activeIndex);
+        // Only change source if it's actually different
+        if (videoRef.current.src !== clip.url) {
+          videoRef.current.src = clip.url;
+          videoRef.current.load();
+        }
+      }
+      
+      // Seek to correct position within clip
+      if (videoRef.current && Math.abs(videoRef.current.currentTime - localTime) > 0.1) {
+        videoRef.current.currentTime = localTime;
+      }
+    }
+    
+    // 2. Sync audio layers
+    audioLayers.forEach(audio => {
+      const audioEl = audioRefs.current.get(audio.id);
+      if (!audioEl) return;
+      
+      // Check if current time is within audio range
+      if (timelineTime >= audio.startTime && timelineTime <= audio.endTime) {
+        const audioTime = timelineTime - audio.startTime;
+        
+        // Sync position if drifted
+        if (Math.abs(audioEl.currentTime - audioTime) > 0.1) {
+          audioEl.currentTime = audioTime;
+        }
+        
+        audioEl.volume = audio.volume;
+        
+        if (isPlaying && audioEl.paused) {
+          audioEl.play().catch(() => {});
+        } else if (!isPlaying && !audioEl.paused) {
+          audioEl.pause();
+        }
+      } else {
+        // Outside range, pause
+        if (!audioEl.paused) {
+          audioEl.pause();
+        }
+      }
+    });
+  };
+  
+  // Master playback loop - runs at 60fps for smooth sync
+  useEffect(() => {
+    if (!isPlaying) return;
+    
+    let animationId: number;
+    let lastTime = performance.now();
+    
+    const playbackLoop = (now: number) => {
+      const deltaMs = now - lastTime;
+      lastTime = now;
+      
+      // Update current time based on real elapsed time
+      setCurrentTime(prev => {
+        const newTime = prev + (deltaMs / 1000);
+        // Loop back to start if past end
+        if (newTime >= totalTimelineDuration) {
+          return 0;
+        }
+        return newTime;
+      });
+      
+      animationId = requestAnimationFrame(playbackLoop);
+    };
+    
+    animationId = requestAnimationFrame(playbackLoop);
+    
+    return () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    };
+  }, [isPlaying, totalTimelineDuration]);
+  
+  // Sync all layers whenever currentTime changes
+  useEffect(() => {
+    syncAllLayersToTime(currentTime);
+  }, [currentTime, videoClips, audioLayers]);
+  
+  // Handle unified play/pause for all layers
+  const unifiedPlayPause = () => {
+    if (isPlaying) {
+      // Pause all
+      if (videoRef.current) {
+        videoRef.current.pause();
+      }
       audioLayers.forEach(audio => {
         const audioEl = audioRefs.current.get(audio.id);
-        if (!audioEl) return;
-        
-        // Check if current time is within audio range
-        if (videoTime >= audio.startTime && videoTime <= audio.endTime) {
-          const audioTime = videoTime - audio.startTime;
-          
-          // Sync position if drifted
-          if (Math.abs(audioEl.currentTime - audioTime) > 0.1) {
-            audioEl.currentTime = audioTime;
-          }
-          
-          audioEl.volume = audio.volume;
-          
-          if (isPlaying && audioEl.paused) {
-            audioEl.play().catch(() => {});
-          } else if (!isPlaying && !audioEl.paused) {
-            audioEl.pause();
-          }
-        } else {
-          // Outside range, pause
-          if (!audioEl.paused) {
-            audioEl.pause();
-          }
-        }
+        if (audioEl) audioEl.pause();
       });
-    };
-
-    const interval = setInterval(syncAudio, 100);
-    return () => clearInterval(interval);
-  }, [audioLayers, isPlaying]);
+      setIsPlaying(false);
+    } else {
+      // Play all - sync first, then play
+      syncAllLayersToTime(currentTime);
+      
+      if (videoRef.current) {
+        videoRef.current.play().catch(() => {});
+      }
+      
+      // Audio layers will be started by the sync function
+      setIsPlaying(true);
+    }
+  };
+  
+  // Unified seek function
+  const unifiedSeekTo = (timelineTime: number) => {
+    const clampedTime = Math.max(0, Math.min(timelineTime, totalTimelineDuration));
+    setCurrentTime(clampedTime);
+    syncAllLayersToTime(clampedTime);
+  };
 
   const availableFonts = ['Roboto', 'Serif', 'Montserrat', 'Impact', 'Comic Sans'];
   const availableColors = ['#ffffff', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
@@ -748,14 +865,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   };
 
   const togglePlayPause = () => {
-    if (!videoRef.current) return;
-    
-    if (isPlaying) {
-      videoRef.current.pause();
-    } else {
-      videoRef.current.play();
-    }
-    setIsPlaying(!isPlaying);
+    unifiedPlayPause();
   };
 
   const clearVideo = () => {
@@ -815,11 +925,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     if (selectedAudioId === id) setSelectedAudioId(null);
     toast({ title: "Audio deleted" });
   };
-
-  // Calculate total timeline duration from all clips (using trimmed durations)
-  const totalTimelineDuration = videoClips.length > 0 
-    ? videoClips.reduce((sum, clip) => sum + getClipTrimmedDuration(clip), 0)
-    : duration;
 
   // Add a new video clip to the end of the timeline
   const addVideoClip = (url: string, clipDuration: number) => {
