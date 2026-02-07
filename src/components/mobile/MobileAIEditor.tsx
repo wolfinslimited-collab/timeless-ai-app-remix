@@ -3871,107 +3871,110 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             {isTextMenuMode ? (
               /* Text Menu - appears when clicking "+ Add text" on timeline */
               <div className="animate-fade-in">
-                {/* Tab Navigation */}
-                <div className="flex items-center border-b border-border/20">
+                {/* Header with back button */}
+                <div className="flex items-center px-3 py-2">
                   {/* Back button - Sleek rectangular chevron */}
                   <button
                     onClick={() => setIsTextMenuMode(false)}
-                    className="shrink-0 flex items-center justify-center w-8 h-9 ml-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
+                    className="shrink-0 flex items-center justify-center w-8 h-9 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
                   >
                     <ChevronLeft className="w-5 h-5 text-primary" />
                   </button>
-                  
-                  {/* Tab Buttons */}
-                  <div className="flex-1 flex px-2">
-                    {[
-                      { id: 'add-text', label: 'Add text', icon: Type },
-                      { id: 'auto-captions', label: 'Auto captions', icon: Subtitles },
-                      { id: 'stickers', label: 'Stickers', icon: Smile },
-                      { id: 'draw', label: 'Draw', icon: Pencil },
-                    ].map((tab) => {
-                      const TabIcon = tab.icon;
-                      const isActive = textMenuTab === tab.id;
-                      return (
-                        <button
-                          key={tab.id}
-                          onClick={() => setTextMenuTab(tab.id as typeof textMenuTab)}
-                          className={cn(
-                            "flex-1 flex flex-col items-center justify-center py-2.5 relative transition-colors",
-                            isActive ? "text-primary" : "text-foreground/60"
-                          )}
-                        >
-                          <TabIcon className="w-4 h-4 mb-1" />
-                          <span className="text-[10px] font-medium">{tab.label}</span>
-                          {isActive && (
-                            <div className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <span className="ml-3 text-foreground font-medium text-sm">Text & Stickers</span>
                 </div>
                 
                 {/* Horizontal divider */}
                 <div className="h-px bg-border/30" />
                 
-                {/* Tab Content */}
-                <div className="py-3 px-3">
-                  {textMenuTab === 'add-text' && (
-                    <div className="overflow-x-auto">
-                      <div className="flex gap-2 min-w-max">
-                        <button
-                          onClick={() => {
-                            addTextOverlay();
-                            setIsTextMenuMode(false);
-                          }}
-                          className="flex flex-col items-center gap-1.5 py-3 px-5 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
-                        >
-                          <FileText className="w-5 h-5 text-foreground/70" />
-                          <span className="text-[11px] text-foreground/80 font-medium">Text template</span>
-                        </button>
-                        
-                        <button
-                          onClick={() => {
-                            toast({ title: "Text to audio coming soon" });
-                          }}
-                          className="flex flex-col items-center gap-1.5 py-3 px-5 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
-                        >
-                          <AudioLines className="w-5 h-5 text-foreground/70" />
-                          <span className="text-[11px] text-foreground/80 font-medium">Text to audio</span>
-                        </button>
-                        
-                        <button
-                          onClick={() => {
-                            toast({ title: "Auto lyrics coming soon" });
-                          }}
-                          className="flex flex-col items-center gap-1.5 py-3 px-5 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
-                        >
-                          <Music2 className="w-5 h-5 text-foreground/70" />
-                          <span className="text-[11px] text-foreground/80 font-medium">Auto lyrics</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {textMenuTab === 'auto-captions' && (
-                    <div className="flex flex-col items-center gap-3 py-4">
-                      <Subtitles className="w-8 h-8 text-foreground/50" />
-                      <p className="text-sm text-foreground/60 text-center">
-                        Auto-generate captions from audio
-                      </p>
-                      <button
-                        onClick={() => {
-                          generateAutoCaptions();
-                          setIsTextMenuMode(false);
-                        }}
-                        className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm"
-                      >
-                        Generate Captions
-                      </button>
-                    </div>
-                  )}
-                  
-                  {textMenuTab === 'stickers' && (
+                {/* Single Horizontal Scrollable Row with all options */}
+                <div className="py-3 px-3 overflow-x-auto">
+                  <div className="flex gap-2 min-w-max">
+                    {/* Add text */}
+                    <button
+                      onClick={() => {
+                        addTextOverlay();
+                        setIsTextMenuMode(false);
+                      }}
+                      className="flex flex-col items-center gap-1.5 py-3 px-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors min-w-[72px]"
+                    >
+                      <Type className="w-5 h-5 text-foreground/70" />
+                      <span className="text-[10px] text-foreground/80 font-medium whitespace-nowrap">Add text</span>
+                    </button>
+                    
+                    {/* Auto captions */}
+                    <button
+                      onClick={() => {
+                        generateAutoCaptions();
+                        setIsTextMenuMode(false);
+                      }}
+                      className="flex flex-col items-center gap-1.5 py-3 px-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors min-w-[72px]"
+                    >
+                      <Subtitles className="w-5 h-5 text-foreground/70" />
+                      <span className="text-[10px] text-foreground/80 font-medium whitespace-nowrap">Auto captions</span>
+                    </button>
+                    
+                    {/* Stickers */}
+                    <button
+                      onClick={() => {
+                        setTextMenuTab('stickers');
+                      }}
+                      className="flex flex-col items-center gap-1.5 py-3 px-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors min-w-[72px]"
+                    >
+                      <Smile className="w-5 h-5 text-foreground/70" />
+                      <span className="text-[10px] text-foreground/80 font-medium whitespace-nowrap">Stickers</span>
+                    </button>
+                    
+                    {/* Draw */}
+                    <button
+                      onClick={() => {
+                        setTextMenuTab('draw');
+                      }}
+                      className="flex flex-col items-center gap-1.5 py-3 px-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors min-w-[72px]"
+                    >
+                      <Pencil className="w-5 h-5 text-foreground/70" />
+                      <span className="text-[10px] text-foreground/80 font-medium whitespace-nowrap">Draw</span>
+                    </button>
+                    
+                    {/* Text template */}
+                    <button
+                      onClick={() => {
+                        addTextOverlay();
+                        setIsTextMenuMode(false);
+                      }}
+                      className="flex flex-col items-center gap-1.5 py-3 px-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors min-w-[72px]"
+                    >
+                      <FileText className="w-5 h-5 text-foreground/70" />
+                      <span className="text-[10px] text-foreground/80 font-medium whitespace-nowrap">Text template</span>
+                    </button>
+                    
+                    {/* Text to audio */}
+                    <button
+                      onClick={() => {
+                        toast({ title: "Text to audio coming soon" });
+                      }}
+                      className="flex flex-col items-center gap-1.5 py-3 px-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors min-w-[72px]"
+                    >
+                      <AudioLines className="w-5 h-5 text-foreground/70" />
+                      <span className="text-[10px] text-foreground/80 font-medium whitespace-nowrap">Text to audio</span>
+                    </button>
+                    
+                    {/* Auto lyrics */}
+                    <button
+                      onClick={() => {
+                        toast({ title: "Auto lyrics coming soon" });
+                      }}
+                      className="flex flex-col items-center gap-1.5 py-3 px-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors min-w-[72px]"
+                    >
+                      <Music2 className="w-5 h-5 text-foreground/70" />
+                      <span className="text-[10px] text-foreground/80 font-medium whitespace-nowrap">Auto lyrics</span>
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Show stickers content if stickers tab is selected */}
+                {textMenuTab === 'stickers' && (
+                  <div className="px-3 pb-3">
+                    <div className="h-px bg-border/30 mb-3" />
                     <div className="space-y-3">
                       {/* Category tabs */}
                       <div className="flex gap-2">
@@ -4018,9 +4021,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           ))}
                       </div>
                     </div>
-                  )}
-                  
-                  {textMenuTab === 'draw' && (
+                  </div>
+                )}
+                
+                {/* Show draw content if draw tab is selected */}
+                {textMenuTab === 'draw' && (
+                  <div className="px-3 pb-3">
+                    <div className="h-px bg-border/30 mb-3" />
                     <div className="flex flex-col items-center gap-3 py-4">
                       <Pencil className="w-8 h-8 text-foreground/50" />
                       <p className="text-sm text-foreground/60 text-center">
@@ -4033,8 +4040,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         Coming Soon
                       </button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             ) : isEditToolbarMode ? (
               /* Edit toolbar with fixed back button */
