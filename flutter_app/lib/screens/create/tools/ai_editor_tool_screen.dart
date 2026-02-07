@@ -536,6 +536,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   String _selectedAspectRatio = '16:9';
   Color _backgroundColor = Colors.black;
   double _backgroundBlur = 0.0;
+  String? _backgroundImage;
+  String _backgroundTab = 'color'; // 'color', 'image', 'blur'
   String _selectedStickerCategory = 'emoji';
   
   // Text menu mode state - activated by clicking "+ Add text" row
@@ -6121,94 +6123,268 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   /// Background settings content panel
   Widget _buildBackgroundSettingsContent() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Color presets
-          Text(
-            'Background Color',
-            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _backgroundColorPresets.map((color) {
-              final isSelected = _backgroundColor == color;
-              return GestureDetector(
-                onTap: () => setState(() => _backgroundColor = color),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected ? AppTheme.primary : Colors.transparent,
-                      width: 2,
-                    ),
-                    boxShadow: isSelected ? [
-                      BoxShadow(
-                        color: AppTheme.primary.withOpacity(0.4),
-                        blurRadius: 8,
-                      ),
-                    ] : null,
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Blur slider
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      children: [
+        // Tab Navigation
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
             children: [
-              Text(
-                'Background Blur',
-                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  '${_backgroundBlur.round()}px',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    fontFamily: 'monospace',
-                    color: Colors.white,
-                  ),
-                ),
-              ),
+              _buildBackgroundTab('color', 'Color', Icons.palette_outlined),
+              _buildBackgroundTab('image', 'Image', Icons.image_outlined),
+              _buildBackgroundTab('blur', 'Blur', Icons.blur_on),
             ],
           ),
-          const SizedBox(height: 8),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 6,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
-              activeTrackColor: AppTheme.primary,
-              inactiveTrackColor: Colors.white.withOpacity(0.1),
-              thumbColor: Colors.white,
+        ),
+        
+        // Horizontal Divider
+        Container(
+          height: 1,
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          color: Colors.white.withOpacity(0.1),
+        ),
+        
+        // Tab Content
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: _buildBackgroundTabContent(),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildBackgroundTab(String id, String label, IconData icon) {
+    final isActive = _backgroundTab == id;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _backgroundTab = id),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isActive ? AppTheme.primary : Colors.white.withOpacity(0.6),
             ),
-            child: Slider(
-              value: _backgroundBlur,
-              min: 0,
-              max: 50,
-              onChanged: (value) => setState(() => _backgroundBlur = value),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: isActive ? AppTheme.primary : Colors.white.withOpacity(0.6),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 6),
+            Container(
+              height: 2,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: isActive ? AppTheme.primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+  
+  Widget _buildBackgroundTabContent() {
+    switch (_backgroundTab) {
+      case 'color':
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _backgroundColorPresets.map((color) {
+            final isSelected = _backgroundColor == color;
+            return GestureDetector(
+              onTap: () => setState(() => _backgroundColor = color),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isSelected ? AppTheme.primary : Colors.transparent,
+                    width: 2,
+                  ),
+                  boxShadow: isSelected ? [
+                    BoxShadow(
+                      color: AppTheme.primary.withOpacity(0.4),
+                      blurRadius: 8,
+                    ),
+                  ] : null,
+                ),
+              ),
+            );
+          }).toList(),
+        );
+        
+      case 'image':
+        final imagePresets = [
+          {'id': 'gradient-sunset', 'colors': [const Color(0xFFFF6B6B), const Color(0xFFFFA07A)]},
+          {'id': 'gradient-ocean', 'colors': [const Color(0xFF4ECDC4), const Color(0xFF45B7D1)]},
+          {'id': 'gradient-forest', 'colors': [const Color(0xFF96CEB4), const Color(0xFF2E8B57)]},
+          {'id': 'gradient-night', 'colors': [const Color(0xFF1A1A2E), const Color(0xFF16213E)]},
+          {'id': 'gradient-purple', 'colors': [const Color(0xFF667eea), const Color(0xFF764ba2)]},
+          {'id': 'gradient-pink', 'colors': [const Color(0xFFf093fb), const Color(0xFFf5576c)]},
+          {'id': 'gradient-gold', 'colors': [const Color(0xFFf7971e), const Color(0xFFffd200)]},
+          {'id': 'gradient-mint', 'colors': [const Color(0xFF56ab2f), const Color(0xFFa8e063)]},
+        ];
+        
+        return Column(
+          children: [
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemCount: imagePresets.length,
+              itemBuilder: (context, index) {
+                final preset = imagePresets[index];
+                final isSelected = _backgroundImage == preset['id'];
+                final colors = preset['colors'] as List<Color>;
+                return GestureDetector(
+                  onTap: () => setState(() => _backgroundImage = preset['id'] as String),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: colors,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSelected ? AppTheme.primary : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: () => _showSnackBar('Upload background coming soon'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.upload_outlined, size: 18, color: Colors.white.withOpacity(0.7)),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Upload Custom Image',
+                      style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.7)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+        
+      case 'blur':
+        final blurPresets = [
+          {'label': 'None', 'value': 0.0},
+          {'label': 'Light', 'value': 10.0},
+          {'label': 'Medium', 'value': 25.0},
+          {'label': 'Heavy', 'value': 50.0},
+        ];
+        
+        return Column(
+          children: [
+            // Blur Presets
+            Row(
+              children: blurPresets.map((preset) {
+                final isSelected = _backgroundBlur == preset['value'];
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _backgroundBlur = preset['value'] as double),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Text(
+                            preset['label'] as String,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Custom Slider
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Custom Intensity',
+                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${_backgroundBlur.round()}px',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: 'monospace',
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 6,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
+                activeTrackColor: AppTheme.primary,
+                inactiveTrackColor: Colors.white.withOpacity(0.1),
+                thumbColor: Colors.white,
+              ),
+              child: Slider(
+                value: _backgroundBlur,
+                min: 0,
+                max: 50,
+                onChanged: (value) => setState(() => _backgroundBlur = value),
+              ),
+            ),
+          ],
+        );
+        
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   void _addEffectLayer(EffectPreset preset) {
