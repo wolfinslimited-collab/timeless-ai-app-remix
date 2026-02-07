@@ -525,6 +525,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   String? _editingClipId;
   double _clipSpeed = 1.0;
   double _clipVolume = 1.0;
+  bool _isEditToolbarMode = false; // Edit toolbar replaces main toolbar
   
   // Undo/Redo history stacks
   static const int _maxHistoryLength = 50;
@@ -4814,60 +4815,186 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         color: const Color(0xFF0A0A0A),
         border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        child: Row(
-          children: _editorTools.map((tool) {
-            final isSelected = _selectedTool == tool.id;
-            return GestureDetector(
-              onTap: () {
-                setState(() => _selectedTool = tool.id);
-                
-                // Edit tool opens the clip editing panel
-                if (tool.id == 'edit') {
-                  final clipToEdit = _selectedClipId ?? (_videoClips.isNotEmpty ? _videoClips.first.id : null);
-                  if (clipToEdit != null) {
-                    _openClipEditPanel(clipToEdit);
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        child: _isEditToolbarMode 
+            ? _buildEditToolbar()
+            : _buildMainToolbar(),
+      ),
+    );
+  }
+  
+  /// Build the main editor toolbar
+  Widget _buildMainToolbar() {
+    return SingleChildScrollView(
+      key: const ValueKey('main_toolbar'),
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      child: Row(
+        children: _editorTools.map((tool) {
+          final isSelected = _selectedTool == tool.id;
+          return GestureDetector(
+            onTap: () {
+              setState(() => _selectedTool = tool.id);
+              
+              // Edit tool switches to edit toolbar mode
+              if (tool.id == 'edit') {
+                if (_videoClips.isNotEmpty) {
+                  if (_selectedClipId == null) {
+                    _selectedClipId = _videoClips.first.id;
+                    _editingClipId = _videoClips.first.id;
                   } else {
-                    _showSnackBar('Add a video clip first');
+                    _editingClipId = _selectedClipId;
                   }
-                  return;
+                  setState(() => _isEditToolbarMode = true);
+                } else {
+                  _showSnackBar('Add a video clip first');
                 }
-                
-                // Only show coming soon for non-functional tools
-                if (tool.id != 'adjust' && tool.id != 'text' && tool.id != 'audio' && tool.id != 'captions' && tool.id != 'effects' && tool.id != 'filters' && tool.id != 'overlay') {
-                  _showSnackBar('${tool.name} coming soon');
-                }
-              },
+                return;
+              }
+              
+              // Only show coming soon for non-functional tools
+              if (tool.id != 'adjust' && tool.id != 'text' && tool.id != 'audio' && tool.id != 'captions' && tool.id != 'effects' && tool.id != 'filters' && tool.id != 'overlay') {
+                _showSnackBar('${tool.name} coming soon');
+              }
+            },
+            child: Container(
+              width: 64,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    tool.icon,
+                    size: 24,
+                    color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    tool.name,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                      color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+  
+  /// Build the edit mode toolbar with all clip editing tools
+  Widget _buildEditToolbar() {
+    final editTools = [
+      _ClipEditTool(id: 'split', name: 'Split', icon: Icons.content_cut, onTap: () => _editingClipId != null ? _splitClipAtPlayhead(_editingClipId!) : null),
+      _ClipEditTool(id: 'volume', name: 'Volume', icon: Icons.volume_up, onTap: _applyClipVolume),
+      _ClipEditTool(id: 'animations', name: 'Animations', icon: Icons.auto_awesome, onTap: _showAnimationsBottomSheet),
+      _ClipEditTool(id: 'effects', name: 'Effects', icon: Icons.star_outline, onTap: () { setState(() { _selectedTool = 'effects'; _isEditToolbarMode = false; }); }),
+      _ClipEditTool(id: 'delete', name: 'Delete', icon: Icons.delete_outline, onTap: () { if (_editingClipId != null) _deleteVideoClip(_editingClipId!); setState(() => _isEditToolbarMode = false); }, isDestructive: true),
+      _ClipEditTool(id: 'speed', name: 'Speed', icon: Icons.speed, onTap: _applyClipSpeed),
+      _ClipEditTool(id: 'beats', name: 'Beats', icon: Icons.waves, onTap: _showBeatsBottomSheet),
+      _ClipEditTool(id: 'crop', name: 'Crop', icon: Icons.crop, onTap: _showCropBottomSheet),
+      _ClipEditTool(id: 'duplicate', name: 'Duplicate', icon: Icons.copy, onTap: () { if (_editingClipId != null) { _duplicateClipInline(_editingClipId!); } }),
+      _ClipEditTool(id: 'replace', name: 'Replace', icon: Icons.swap_horiz, onTap: () { setState(() => _isEditToolbarMode = false); _pickAndLoadVideo(); }),
+      _ClipEditTool(id: 'overlay', name: 'Overlay', icon: Icons.layers_outlined, onTap: () { setState(() { _selectedTool = 'overlay'; _isEditToolbarMode = false; }); }),
+      _ClipEditTool(id: 'adjust', name: 'Adjust', icon: Icons.tune, onTap: () { setState(() { _selectedTool = 'adjust'; _isEditToolbarMode = false; }); }),
+      _ClipEditTool(id: 'filter', name: 'Filter', icon: Icons.auto_fix_high, onTap: () { setState(() { _selectedTool = 'filters'; _isEditToolbarMode = false; }); }),
+    ];
+    
+    return SingleChildScrollView(
+      key: const ValueKey('edit_toolbar'),
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      child: Row(
+        children: [
+          // Back button
+          GestureDetector(
+            onTap: () => setState(() => _isEditToolbarMode = false),
+            child: Container(
+              width: 56,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              margin: const EdgeInsets.only(right: 4),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.arrow_back,
+                    size: 24,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Back',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Edit tools
+          ...editTools.map((tool) {
+            return GestureDetector(
+              onTap: tool.onTap,
               child: Container(
-                width: 64,
+                width: 56,
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       tool.icon,
-                      size: 24,
-                      color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
+                      size: 20,
+                      color: tool.isDestructive ? Colors.red : Colors.white.withOpacity(0.8),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       tool.name,
                       style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-                        color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
+                        fontSize: 10,
+                        color: tool.isDestructive ? Colors.red : Colors.white.withOpacity(0.7),
                       ),
                     ),
                   ],
                 ),
               ),
             );
-          }).toList(),
-        ),
+          }),
+        ],
       ),
     );
+  }
+  
+  /// Duplicate clip inline (without bottom sheet)
+  void _duplicateClipInline(String clipId) {
+    _saveStateToHistory();
+    final clip = _videoClips.firstWhere((c) => c.id == clipId, orElse: () => _videoClips.first);
+    
+    final duplicatedClip = VideoClip(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      url: clip.url,
+      duration: clip.duration,
+      inPoint: clip.inPoint,
+      outPoint: clip.outPoint,
+    );
+    
+    setState(() {
+      final index = _videoClips.indexWhere((c) => c.id == clipId);
+      if (index != -1) {
+        _videoClips.insert(index + 1, duplicatedClip);
+        _recalculateClipStartTimes();
+      }
+    });
+    
+    _showSnackBar('Clip duplicated');
   }
 
   /// Build effects track in timeline (Amber/Gold themed)
