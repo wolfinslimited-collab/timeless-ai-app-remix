@@ -48,7 +48,12 @@ import {
   SplitSquareHorizontal,
   Smile,
   RectangleHorizontal,
-  Paintbrush
+  Paintbrush,
+  Pencil,
+  Captions,
+  FileText,
+  AudioLines,
+  Music2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -236,6 +241,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [backgroundColor, setBackgroundColor] = useState('#000000');
   const [backgroundBlur, setBackgroundBlur] = useState(0);
   const [showStickersPanel, setShowStickersPanel] = useState(false);
+  
+  // Text menu mode state - activated by clicking "+ Add text" row
+  const [isTextMenuMode, setIsTextMenuMode] = useState(false);
+  const [textMenuTab, setTextMenuTab] = useState<'add-text' | 'auto-captions' | 'stickers' | 'draw'>('add-text');
   
   // Sticker presets
   const stickerCategories = [
@@ -3141,7 +3150,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 );
                               })}
                             </div>
-                        )}
+                          )}
+                        </div>
                         
                         {/* Add video button - pinned directly to the right of video clips */}
                         <button 
@@ -3295,7 +3305,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       <div 
                         className="relative h-10 cursor-pointer group"
                         style={{ width: trackWidth }}
-                        onClick={addTextOverlay}
+                        onClick={() => {
+                          setIsTextMenuMode(true);
+                          setTextMenuTab('add-text');
+                        }}
                       >
                         <div className="h-[34px] mt-[3px] rounded-lg bg-primary/15 border border-primary/30 hover:bg-primary/25 transition-all flex items-center gap-2 px-4">
                           <div className="flex items-center gap-2">
@@ -3750,80 +3763,215 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 </div>
               );
             })()}
+            </div>
           </div>
-        </div>
 
-            {/* Bottom Toolbar - Switches between main and edit mode */}
-            <div className="shrink-0 bg-background border-t border-border/10 pb-safe">
-              {isEditToolbarMode ? (
-                /* Edit toolbar with fixed back button */
-                <div className="flex items-center py-3 animate-fade-in">
-                  {/* Fixed Back Icon Button */}
+          {/* Bottom Toolbar - Switches between main, edit, and text menu mode */}
+          <div className="shrink-0 bg-background border-t border-border/10 pb-safe">
+            {isTextMenuMode ? (
+              /* Text Menu - appears when clicking "+ Add text" on timeline */
+              <div className="animate-fade-in">
+                {/* Tab Navigation */}
+                <div className="flex items-center border-b border-border/20">
+                  {/* Back button */}
                   <button
-                    onClick={exitEditToolbarMode}
-                    className="shrink-0 flex items-center justify-center w-11 h-11 ml-2 mr-1 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                    onClick={() => setIsTextMenuMode(false)}
+                    className="shrink-0 flex items-center justify-center w-11 h-11 ml-2 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
                   >
                     <ArrowLeft className="w-5 h-5 text-primary" />
                   </button>
                   
-                  {/* Scrollable Edit Tools */}
-                  <div className="flex-1 overflow-x-auto">
-                    <div className="flex px-1 min-w-max">
-                      {clipEditTools.map((tool) => {
-                        const Icon = tool.icon;
-                        return (
-                          <button
-                            key={tool.id}
-                            onClick={() => handleEditToolClick(tool.id)}
-                            className={cn(
-                              "flex flex-col items-center justify-center w-14 py-1",
-                              tool.id === 'delete' && "text-destructive"
-                            )}
-                          >
-                            <Icon
-                              className={cn(
-                                "w-5 h-5 mb-1",
-                                tool.id === 'delete' ? "text-destructive" : "text-foreground/80"
-                              )}
-                            />
-                            <span
-                              className={cn(
-                                "text-[10px]",
-                                tool.id === 'delete' ? "text-destructive font-medium" : "text-foreground/70"
-                              )}
-                            >
-                              {tool.name}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                  {/* Tab Buttons */}
+                  <div className="flex-1 flex px-2">
+                    {[
+                      { id: 'add-text', label: 'Add text', icon: Type },
+                      { id: 'auto-captions', label: 'Auto captions', icon: Subtitles },
+                      { id: 'stickers', label: 'Stickers', icon: Smile },
+                      { id: 'draw', label: 'Draw', icon: Pencil },
+                    ].map((tab) => {
+                      const TabIcon = tab.icon;
+                      const isActive = textMenuTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setTextMenuTab(tab.id as typeof textMenuTab)}
+                          className={cn(
+                            "flex-1 flex flex-col items-center justify-center py-2.5 relative transition-colors",
+                            isActive ? "text-primary" : "text-foreground/60"
+                          )}
+                        >
+                          <TabIcon className="w-4 h-4 mb-1" />
+                          <span className="text-[10px] font-medium">{tab.label}</span>
+                          {isActive && (
+                            <div className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full" />
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-              ) : (
-                /* Main toolbar */
-                <div className="overflow-x-auto">
-                  <div className="flex px-2 py-3 min-w-max">
-                    {EDITOR_TOOLS.map((tool) => {
+                
+                {/* Tab Content */}
+                <div className="py-3 px-4">
+                  {textMenuTab === 'add-text' && (
+                    <div className="flex items-center gap-3">
+                      {/* Vertical separator line */}
+                      <div className="w-px h-12 bg-border/40" />
+                      
+                      {/* Text options */}
+                      <div className="flex-1 flex gap-2">
+                        <button
+                          onClick={() => {
+                            addTextOverlay();
+                            setIsTextMenuMode(false);
+                          }}
+                          className="flex-1 flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
+                        >
+                          <FileText className="w-5 h-5 text-foreground/70" />
+                          <span className="text-[11px] text-foreground/80 font-medium">Text template</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            toast({ title: "Text to audio coming soon" });
+                          }}
+                          className="flex-1 flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
+                        >
+                          <AudioLines className="w-5 h-5 text-foreground/70" />
+                          <span className="text-[11px] text-foreground/80 font-medium">Text to audio</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            toast({ title: "Auto lyrics coming soon" });
+                          }}
+                          className="flex-1 flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
+                        >
+                          <Music2 className="w-5 h-5 text-foreground/70" />
+                          <span className="text-[11px] text-foreground/80 font-medium">Auto lyrics</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {textMenuTab === 'auto-captions' && (
+                    <div className="flex flex-col items-center gap-3 py-4">
+                      <Subtitles className="w-8 h-8 text-foreground/50" />
+                      <p className="text-sm text-foreground/60 text-center">
+                        Auto-generate captions from audio
+                      </p>
+                      <button
+                        onClick={() => {
+                          generateAutoCaptions();
+                          setIsTextMenuMode(false);
+                        }}
+                        className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm"
+                      >
+                        Generate Captions
+                      </button>
+                    </div>
+                  )}
+                  
+                  {textMenuTab === 'stickers' && (
+                    <div className="space-y-3">
+                      {/* Category tabs */}
+                      <div className="flex gap-2">
+                        {stickerCategories.map((cat) => (
+                          <button
+                            key={cat.id}
+                            onClick={() => setSelectedStickerCategory(cat.id)}
+                            className={cn(
+                              "px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+                              selectedStickerCategory === cat.id
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted text-foreground/70"
+                            )}
+                          >
+                            {cat.name}
+                          </button>
+                        ))}
+                      </div>
+                      
+                      {/* Sticker grid */}
+                      <div className="grid grid-cols-6 gap-2">
+                        {stickerCategories
+                          .find((c) => c.id === selectedStickerCategory)
+                          ?.stickers.map((sticker, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => {
+                                addTextOverlay();
+                                setTextOverlays((prev) => {
+                                  const lastOverlay = prev[prev.length - 1];
+                                  if (lastOverlay) {
+                                    return prev.map((t) =>
+                                      t.id === lastOverlay.id ? { ...t, text: sticker, fontSize: 48 } : t
+                                    );
+                                  }
+                                  return prev;
+                                });
+                                setIsTextMenuMode(false);
+                              }}
+                              className="w-10 h-10 flex items-center justify-center text-2xl hover:bg-muted rounded-lg transition-colors"
+                            >
+                              {sticker}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {textMenuTab === 'draw' && (
+                    <div className="flex flex-col items-center gap-3 py-4">
+                      <Pencil className="w-8 h-8 text-foreground/50" />
+                      <p className="text-sm text-foreground/60 text-center">
+                        Draw on your video
+                      </p>
+                      <button
+                        onClick={() => toast({ title: "Drawing tools coming soon" })}
+                        className="px-6 py-2 bg-muted text-foreground/80 rounded-lg font-medium text-sm"
+                      >
+                        Coming Soon
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : isEditToolbarMode ? (
+              /* Edit toolbar with fixed back button */
+              <div className="flex items-center py-3 animate-fade-in">
+                {/* Fixed Back Icon Button */}
+                <button
+                  onClick={exitEditToolbarMode}
+                  className="shrink-0 flex items-center justify-center w-11 h-11 ml-2 mr-1 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                >
+                  <ArrowLeft className="w-5 h-5 text-primary" />
+                </button>
+                
+                {/* Scrollable Edit Tools */}
+                <div className="flex-1 overflow-x-auto">
+                  <div className="flex px-1 min-w-max">
+                    {clipEditTools.map((tool) => {
                       const Icon = tool.icon;
-                      const isSelected = selectedTool === tool.id;
-
                       return (
                         <button
                           key={tool.id}
-                          onClick={() => handleToolClick(tool)}
-                          className="flex flex-col items-center justify-center w-16 py-1"
+                          onClick={() => handleEditToolClick(tool.id)}
+                          className={cn(
+                            "flex flex-col items-center justify-center w-14 py-1",
+                            tool.id === 'delete' && "text-destructive"
+                          )}
                         >
                           <Icon
                             className={cn(
-                              "w-6 h-6 mb-1",
-                              isSelected ? "text-foreground" : "text-foreground/60"
+                              "w-5 h-5 mb-1",
+                              tool.id === 'delete' ? "text-destructive" : "text-foreground/80"
                             )}
                           />
                           <span
                             className={cn(
-                              "text-[11px]",
-                              isSelected ? "text-foreground font-medium" : "text-foreground/60"
+                              "text-[10px]",
+                              tool.id === 'delete' ? "text-destructive font-medium" : "text-foreground/70"
                             )}
                           >
                             {tool.name}
@@ -3833,7 +3981,41 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     })}
                   </div>
                 </div>
-              )}
+              </div>
+            ) : (
+              /* Main toolbar */
+              <div className="overflow-x-auto">
+                <div className="flex px-2 py-3 min-w-max">
+                  {EDITOR_TOOLS.map((tool) => {
+                    const Icon = tool.icon;
+                    const isSelected = selectedTool === tool.id;
+
+                    return (
+                      <button
+                        key={tool.id}
+                        onClick={() => handleToolClick(tool)}
+                        className="flex flex-col items-center justify-center w-16 py-1"
+                      >
+                        <Icon
+                          className={cn(
+                            "w-6 h-6 mb-1",
+                            isSelected ? "text-foreground" : "text-foreground/60"
+                          )}
+                        />
+                        <span
+                          className={cn(
+                            "text-[11px]",
+                            isSelected ? "text-foreground font-medium" : "text-foreground/60"
+                          )}
+                        >
+                          {tool.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             </div>
           </>
         )
