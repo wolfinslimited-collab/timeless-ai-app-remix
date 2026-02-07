@@ -1290,6 +1290,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   };
 
   const handleToolClick = (tool: EditorTool) => {
+    // Show "coming soon" for audio, text, effects, and captions
+    if (['audio', 'text', 'effects', 'captions'].includes(tool.id)) {
+      toast({
+        title: tool.name,
+        description: "Coming soon!",
+      });
+      return;
+    }
+    
     setSelectedTool(tool.id);
     
     // Edit tool switches to edit toolbar mode
@@ -1309,15 +1318,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       return;
     }
     
-    // Text tool opens the text menu (same as "+ Add text" row)
-    if (tool.id === 'text') {
-      setIsTextMenuMode(true);
-      setTextMenuTab('add-text');
-      return;
-    }
-    
     // Handle other tools that have implementations
-    if (!['adjust', 'audio', 'captions', 'effects', 'filters', 'overlay', 'stickers', 'aspect', 'background'].includes(tool.id)) {
+    if (!['adjust', 'filters', 'overlay', 'stickers', 'aspect', 'background'].includes(tool.id)) {
       toast({
         title: tool.name,
         description: "Coming soon!",
