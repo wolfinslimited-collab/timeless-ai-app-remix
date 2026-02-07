@@ -1750,8 +1750,62 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         >
                           <Type className="w-4 h-4 text-white" />
                         </button>
-                        {/* Resize handle */}
-                        <div className="absolute -bottom-3 -right-3 w-5 h-5 rounded-full bg-white border-2 border-primary flex items-center justify-center cursor-se-resize">
+                        {/* Resize handle - interactive scaling */}
+                        <div 
+                          className="absolute -bottom-3 -right-3 w-5 h-5 rounded-full bg-white border-2 border-primary flex items-center justify-center cursor-se-resize"
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const startFontSize = overlay.fontSize;
+                            
+                            const handleMouseMove = (moveE: MouseEvent) => {
+                              const deltaX = moveE.clientX - startX;
+                              const deltaY = moveE.clientY - startY;
+                              const scaleDelta = (deltaX + deltaY) * 0.3;
+                              const newSize = Math.max(12, Math.min(96, startFontSize + scaleDelta));
+                              
+                              setTextOverlays(prev => prev.map(t => 
+                                t.id === overlay.id ? { ...t, fontSize: Math.round(newSize) } : t
+                              ));
+                            };
+                            
+                            const handleMouseUp = () => {
+                              document.removeEventListener('mousemove', handleMouseMove);
+                              document.removeEventListener('mouseup', handleMouseUp);
+                            };
+                            
+                            document.addEventListener('mousemove', handleMouseMove);
+                            document.addEventListener('mouseup', handleMouseUp);
+                          }}
+                          onTouchStart={(e) => {
+                            e.stopPropagation();
+                            const touch = e.touches[0];
+                            const startX = touch.clientX;
+                            const startY = touch.clientY;
+                            const startFontSize = overlay.fontSize;
+                            
+                            const handleTouchMove = (moveE: TouchEvent) => {
+                              const currentTouch = moveE.touches[0];
+                              const deltaX = currentTouch.clientX - startX;
+                              const deltaY = currentTouch.clientY - startY;
+                              const scaleDelta = (deltaX + deltaY) * 0.3;
+                              const newSize = Math.max(12, Math.min(96, startFontSize + scaleDelta));
+                              
+                              setTextOverlays(prev => prev.map(t => 
+                                t.id === overlay.id ? { ...t, fontSize: Math.round(newSize) } : t
+                              ));
+                            };
+                            
+                            const handleTouchEnd = () => {
+                              document.removeEventListener('touchmove', handleTouchMove);
+                              document.removeEventListener('touchend', handleTouchEnd);
+                            };
+                            
+                            document.addEventListener('touchmove', handleTouchMove);
+                            document.addEventListener('touchend', handleTouchEnd);
+                          }}
+                        >
                           <svg className="w-2.5 h-2.5 text-primary" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M22 22H20V20H22V22ZM22 18H20V16H22V18ZM18 22H16V20H18V22ZM22 14H20V12H22V14ZM18 18H16V16H18V18ZM14 22H12V20H14V22Z"/>
                           </svg>
@@ -2025,15 +2079,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         placeholder="Enter your text..."
                         autoFocus={isEditingTextInline}
                       />
-                      {selectedTextId && (
-                        <button
-                          onClick={() => deleteTextOverlay(selectedTextId)}
-                          className="w-full py-2.5 bg-destructive/20 text-destructive rounded-lg font-semibold flex items-center justify-center gap-2"
-                        >
-                          <X className="w-4 h-4" />
-                          Delete Text
-                        </button>
-                      )}
                     </div>
                   ) : textTab === 'font' ? (
                     <div className="flex gap-3 overflow-x-auto pb-2">
