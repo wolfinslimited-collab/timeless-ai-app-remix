@@ -1759,34 +1759,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         ) : (
           // Normal: Timeline + Toolbar
           <>
-            {/* Timeline Section - Multi-Track with Sync Engine */}
+            {/* Timeline Section - Multi-Track with Sync Engine (Mobile Optimized) */}
             <div className="h-[200px] shrink-0 bg-[#0D0D0D] overflow-hidden relative">
-              {/* Fixed Mute/Cover buttons at very beginning (outside scroll) */}
-              <div className="absolute left-0 top-8 z-30 flex flex-col gap-1 bg-[#0D0D0D] pr-1">
-                {/* Mute button */}
-                <button 
-                  onClick={() => setIsMuted(!isMuted)}
-                  className={cn(
-                    "w-11 h-[24px] rounded-md flex items-center justify-center gap-1 border transition-colors",
-                    isMuted 
-                      ? "bg-primary/15 border-primary/40" 
-                      : "bg-white/5 border-white/10"
-                  )}
-                >
-                  <VolumeX className={cn("w-3 h-3", isMuted ? "text-primary" : "text-white/70")} />
-                  <span className={cn("text-[7px]", isMuted ? "text-primary" : "text-white/50")}>Mute</span>
-                </button>
-                
-                {/* Cover button */}
-                <button 
-                  onClick={() => toast({ title: "Cover", description: "Coming soon!" })}
-                  className="w-11 h-[24px] bg-white/5 rounded-md flex items-center justify-center gap-1 border border-white/10"
-                >
-                  <Image className="w-3 h-3 text-white/60" />
-                  <span className="text-[7px] text-white/50">Cover</span>
-                </button>
-              </div>
-
               {/* Fixed Centered Playhead (Top Layer) */}
               <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white z-20 -translate-x-1/2 shadow-[0_0_12px_rgba(255,255,255,0.5)]">
                 <div className="absolute -top-0 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.4)]" />
