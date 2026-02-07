@@ -1214,8 +1214,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       return;
     }
     
+    // Text tool opens the text menu (same as "+ Add text" row)
+    if (tool.id === 'text') {
+      setIsTextMenuMode(true);
+      setTextMenuTab('add-text');
+      return;
+    }
+    
     // Handle other tools that have implementations
-    if (!['adjust', 'text', 'audio', 'captions', 'effects', 'filters', 'overlay'].includes(tool.id)) {
+    if (!['adjust', 'audio', 'captions', 'effects', 'filters', 'overlay', 'stickers', 'aspect', 'background'].includes(tool.id)) {
       toast({
         title: tool.name,
         description: "Coming soon!",
