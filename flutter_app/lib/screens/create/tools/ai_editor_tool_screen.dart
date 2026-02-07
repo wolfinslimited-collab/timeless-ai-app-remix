@@ -5148,11 +5148,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       key: const ValueKey('text_menu'),
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Tab Navigation
-        Container(
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
-          ),
+        // Header with back button
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
               // Back button - Sleek rectangular chevron
@@ -5161,7 +5159,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 child: Container(
                   width: 32,
                   height: 36,
-                  margin: const EdgeInsets.only(left: 8),
                   decoration: BoxDecoration(
                     color: AppTheme.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -5173,16 +5170,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   child: Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
                 ),
               ),
-              
-              // Tab Buttons
-              Expanded(
-                child: Row(
-                  children: [
-                    _buildTextMenuTab('add-text', 'Add text', Icons.text_fields),
-                    _buildTextMenuTab('auto-captions', 'Auto captions', Icons.subtitles_outlined),
-                    _buildTextMenuTab('stickers', 'Stickers', Icons.emoji_emotions_outlined),
-                    _buildTextMenuTab('draw', 'Draw', Icons.edit_outlined),
-                  ],
+              const SizedBox(width: 12),
+              Text(
+                'Text & Stickers',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -5195,220 +5189,197 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           color: Colors.white.withOpacity(0.1),
         ),
         
-        // Tab Content
+        // Single Horizontal Scrollable Row with all options
         Padding(
           padding: const EdgeInsets.all(12),
-          child: _buildTextMenuContent(),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                // Add text
+                _buildTextMenuButton('Add text', Icons.text_fields, () {
+                  _addTextOverlay();
+                  setState(() => _isTextMenuMode = false);
+                }),
+                const SizedBox(width: 8),
+                
+                // Auto captions
+                _buildTextMenuButton('Auto captions', Icons.subtitles_outlined, () {
+                  _generateCaptions();
+                  setState(() => _isTextMenuMode = false);
+                }),
+                const SizedBox(width: 8),
+                
+                // Stickers
+                _buildTextMenuButton('Stickers', Icons.emoji_emotions_outlined, () {
+                  setState(() => _textMenuTab = 'stickers');
+                }),
+                const SizedBox(width: 8),
+                
+                // Draw
+                _buildTextMenuButton('Draw', Icons.edit_outlined, () {
+                  setState(() => _textMenuTab = 'draw');
+                }),
+                const SizedBox(width: 8),
+                
+                // Text template
+                _buildTextMenuButton('Text template', Icons.description_outlined, () {
+                  _addTextOverlay();
+                  setState(() => _isTextMenuMode = false);
+                }),
+                const SizedBox(width: 8),
+                
+                // Text to audio
+                _buildTextMenuButton('Text to audio', Icons.audiotrack_outlined, () {
+                  _showSnackBar('Text to audio coming soon');
+                }),
+                const SizedBox(width: 8),
+                
+                // Auto lyrics
+                _buildTextMenuButton('Auto lyrics', Icons.music_note_outlined, () {
+                  _showSnackBar('Auto lyrics coming soon');
+                }),
+              ],
+            ),
+          ),
         ),
+        
+        // Show stickers content if stickers tab is selected
+        if (_textMenuTab == 'stickers') ...[
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(horizontal: 12),
+            color: Colors.white.withOpacity(0.1),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Category tabs
+                Row(
+                  children: _stickerCategories.map((cat) {
+                    final isActive = _selectedStickerCategory == cat['id'];
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedStickerCategory = cat['id']),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isActive ? AppTheme.primary : Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          cat['name'],
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: isActive ? Colors.white : Colors.white.withOpacity(0.7),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+                
+                // Sticker grid
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: (_stickerCategories.firstWhere((c) => c['id'] == _selectedStickerCategory)['stickers'] as List<String>).map((sticker) {
+                    return GestureDetector(
+                      onTap: () {
+                        _addTextOverlay();
+                        if (_textOverlays.isNotEmpty) {
+                          final lastOverlay = _textOverlays.last;
+                          lastOverlay.text = sticker;
+                          lastOverlay.fontSize = 48;
+                        }
+                        setState(() => _isTextMenuMode = false);
+                      },
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(sticker, style: const TextStyle(fontSize: 24)),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        ],
+        
+        // Show draw content if draw tab is selected
+        if (_textMenuTab == 'draw') ...[
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(horizontal: 12),
+            color: Colors.white.withOpacity(0.1),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(Icons.edit_outlined, size: 32, color: Colors.white.withOpacity(0.5)),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Draw on your video',
+                    style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.6)),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Coming Soon',
+                      style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
   
-  Widget _buildTextMenuTab(String id, String label, IconData icon) {
-    final isActive = _textMenuTab == id;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _textMenuTab = id),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: isActive ? AppTheme.primary : Colors.transparent,
-                width: 2,
-              ),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: isActive ? AppTheme.primary : Colors.white.withOpacity(0.6)),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w500,
-                  color: isActive ? AppTheme.primary : Colors.white.withOpacity(0.6),
-                ),
-              ),
-            ],
-          ),
+  Widget _buildTextMenuButton(String label, IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        constraints: const BoxConstraints(minWidth: 72),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
         ),
-      ),
-    );
-  }
-  
-  Widget _buildTextMenuContent() {
-    switch (_textMenuTab) {
-      case 'add-text':
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _buildTextMenuOption('Text template', Icons.description_outlined, () {
-                _addTextOverlay();
-                setState(() => _isTextMenuMode = false);
-              }),
-              const SizedBox(width: 8),
-              _buildTextMenuOption('Text to audio', Icons.audiotrack_outlined, () {
-                _showSnackBar('Text to audio coming soon');
-              }),
-              const SizedBox(width: 8),
-              _buildTextMenuOption('Auto lyrics', Icons.music_note_outlined, () {
-                _showSnackBar('Auto lyrics coming soon');
-              }),
-            ],
-          ),
-        );
-        
-      case 'auto-captions':
-        return Center(
-          child: Column(
-            children: [
-              Icon(Icons.subtitles_outlined, size: 32, color: Colors.white.withOpacity(0.5)),
-              const SizedBox(height: 8),
-              Text(
-                'Auto-generate captions from audio',
-                style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.6)),
-              ),
-              const SizedBox(height: 12),
-              GestureDetector(
-                onTap: () {
-                  _generateCaptions();
-                  setState(() => _isTextMenuMode = false);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'Generate Captions',
-                    style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-        
-      case 'stickers':
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Category tabs
-            Row(
-              children: _stickerCategories.map((cat) {
-                final isActive = _selectedStickerCategory == cat['id'];
-                return GestureDetector(
-                  onTap: () => setState(() => _selectedStickerCategory = cat['id']),
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isActive ? AppTheme.primary : Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      cat['name'],
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: isActive ? Colors.white : Colors.white.withOpacity(0.7),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 12),
-            
-            // Sticker grid
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: (_stickerCategories.firstWhere((c) => c['id'] == _selectedStickerCategory)['stickers'] as List<String>).map((sticker) {
-                return GestureDetector(
-                  onTap: () {
-                    _addTextOverlay();
-                    // Update the last text overlay to use the sticker
-                    if (_textOverlays.isNotEmpty) {
-                      final lastOverlay = _textOverlays.last;
-                      lastOverlay.text = sticker;
-                      lastOverlay.fontSize = 48;
-                    }
-                    setState(() => _isTextMenuMode = false);
-                  },
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(sticker, style: const TextStyle(fontSize: 24)),
-                  ),
-                );
-              }).toList(),
+            Icon(icon, size: 20, color: Colors.white.withOpacity(0.7)),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.white.withOpacity(0.8),
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
             ),
           ],
-        );
-        
-      case 'draw':
-        return Center(
-          child: Column(
-            children: [
-              Icon(Icons.edit_outlined, size: 32, color: Colors.white.withOpacity(0.5)),
-              const SizedBox(height: 8),
-              Text(
-                'Draw on your video',
-                style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.6)),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Coming Soon',
-                  style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-        );
-        
-      default:
-        return const SizedBox.shrink();
-    }
-  }
-  
-  Widget _buildTextMenuOption(String label, IconData icon, VoidCallback onTap) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, size: 20, color: Colors.white.withOpacity(0.7)),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w500),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
         ),
       ),
     );
