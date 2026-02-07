@@ -3176,10 +3176,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         style={{ width: trackWidth }}
                         onClick={() => audioInputRef.current?.click()}
                       >
-                        <div className="h-[34px] mt-[3px] rounded bg-[#2A2A2A] border border-emerald-500/40 hover:border-emerald-500/60 transition-all flex items-center gap-2 px-4">
+                        <div className="h-[34px] mt-[3px] rounded bg-[#2A2A2A] border border-border/30 hover:border-border/50 transition-all flex items-center gap-2 px-4">
                           <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 rounded bg-emerald-500/30 flex items-center justify-center">
-                              <Plus className="w-2.5 h-2.5 text-emerald-400" />
+                            <div className="w-4 h-4 rounded bg-[#3A3A3A] flex items-center justify-center">
+                              <Plus className="w-2.5 h-2.5 text-foreground" />
                             </div>
                             <span className="text-[11px] text-foreground font-semibold">Add audio</span>
                           </div>
@@ -3317,10 +3317,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           setTextMenuTab('add-text');
                         }}
                       >
-                        <div className="h-[34px] mt-[3px] rounded bg-[#2A2A2A] border border-primary/40 hover:border-primary/60 transition-all flex items-center gap-2 px-4">
+                        <div className="h-[34px] mt-[3px] rounded bg-[#2A2A2A] border border-border/30 hover:border-border/50 transition-all flex items-center gap-2 px-4">
                           <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 rounded bg-primary/30 flex items-center justify-center">
-                              <Plus className="w-2.5 h-2.5 text-primary" />
+                            <div className="w-4 h-4 rounded bg-[#3A3A3A] flex items-center justify-center">
+                              <Plus className="w-2.5 h-2.5 text-foreground" />
                             </div>
                             <span className="text-[11px] text-foreground font-semibold">Add text</span>
                           </div>
