@@ -97,7 +97,7 @@ const EDITOR_TOOLS: EditorTool[] = [
 
 // Timeline Sync Engine - Global Constants
 const PIXELS_PER_SECOND = 80.0; // Master time-to-pixel ratio
-const THUMBNAIL_HEIGHT = 48;
+const THUMBNAIL_HEIGHT = 80; // Increased for better quality
 
 // Video clip model for multi-clip timeline with trim support
 interface VideoClip {
@@ -1198,7 +1198,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             });
             
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            thumbnails.push(canvas.toDataURL('image/jpeg', 0.6));
+            thumbnails.push(canvas.toDataURL('image/jpeg', 0.85)); // Higher quality
           } catch (e) {
             console.warn('Failed to extract thumbnail at', time);
           }
@@ -2556,8 +2556,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                   isSelected && "ring-2 ring-white shadow-lg"
                                 )}
                                 style={{ 
-                                  borderColor: isSelected ? '#ffffff' : '#AA2222', 
-                                  borderWidth: isSelected ? 2.5 : 2,
+                                  borderColor: isSelected ? '#ffffff' : 'transparent', 
+                                  borderWidth: isSelected ? 2.5 : 0,
                                   borderStyle: 'solid',
                                   width: clipWidth,
                                   borderRadius: `${isFirst ? 8 : 0}px ${isLast ? 8 : 0}px ${isLast ? 8 : 0}px ${isFirst ? 8 : 0}px`,
