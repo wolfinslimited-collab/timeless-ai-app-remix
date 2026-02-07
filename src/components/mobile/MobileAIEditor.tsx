@@ -1144,8 +1144,21 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   const handleToolClick = (tool: EditorTool) => {
     setSelectedTool(tool.id);
-    // Handle tools that have implementations
-    if (!['adjust', 'text', 'audio', 'captions'].includes(tool.id)) {
+    
+    // Edit tool opens the clip editing panel
+    if (tool.id === 'edit') {
+      // Open clip edit panel for the selected clip, or first clip if none selected
+      const clipToEdit = selectedClipId || (videoClips.length > 0 ? videoClips[0].id : null);
+      if (clipToEdit) {
+        openClipEditPanel(clipToEdit);
+      } else {
+        toast({ title: "No clip selected", description: "Add a video clip first" });
+      }
+      return;
+    }
+    
+    // Handle other tools that have implementations
+    if (!['adjust', 'text', 'audio', 'captions', 'effects', 'filters', 'overlay'].includes(tool.id)) {
       toast({
         title: tool.name,
         description: "Coming soon!",

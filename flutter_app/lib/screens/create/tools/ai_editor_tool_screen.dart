@@ -4823,8 +4823,20 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             return GestureDetector(
               onTap: () {
                 setState(() => _selectedTool = tool.id);
+                
+                // Edit tool opens the clip editing panel
+                if (tool.id == 'edit') {
+                  final clipToEdit = _selectedClipId ?? (_videoClips.isNotEmpty ? _videoClips.first.id : null);
+                  if (clipToEdit != null) {
+                    _openClipEditPanel(clipToEdit);
+                  } else {
+                    _showSnackBar('Add a video clip first');
+                  }
+                  return;
+                }
+                
                 // Only show coming soon for non-functional tools
-                if (tool.id != 'adjust' && tool.id != 'text' && tool.id != 'audio' && tool.id != 'captions' && tool.id != 'effects') {
+                if (tool.id != 'adjust' && tool.id != 'text' && tool.id != 'audio' && tool.id != 'captions' && tool.id != 'effects' && tool.id != 'filters' && tool.id != 'overlay') {
                   _showSnackBar('${tool.name} coming soon');
                 }
               },
