@@ -574,6 +574,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   bool _isTextMenuMode = false;
   String _textMenuTab = 'add-text'; // 'add-text', 'auto-captions', 'stickers', 'draw'
   
+  // Audio menu mode state - activated by clicking "Audio" tool
+  bool _isAudioMenuMode = false;
+  
   // Background color presets
   final List<Color> _backgroundColorPresets = [
     const Color(0xFF000000), const Color(0xFFFFFFFF), const Color(0xFF1A1A1A), const Color(0xFF2D2D2D),
@@ -5101,9 +5104,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         duration: const Duration(milliseconds: 200),
         child: _isTextMenuMode 
             ? _buildTextMenu()
-            : (_isEditToolbarMode 
-                ? _buildEditToolbar()
-                : _buildMainToolbar()),
+            : (_isAudioMenuMode 
+                ? _buildAudioMenu()
+                : (_isEditToolbarMode 
+                    ? _buildEditToolbar()
+                    : _buildMainToolbar())),
       ),
     );
   }
@@ -5365,6 +5370,123 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
+  /// Build the audio menu - horizontal scrollable menu with audio tools
+  Widget _buildAudioMenu() {
+    final audioTools = [
+      {'id': 'extract', 'name': 'Extract', 'icon': Icons.waves_outlined},
+      {'id': 'sounds', 'name': 'Sounds', 'icon': Icons.music_note},
+      {'id': 'sound-fx', 'name': 'Sound FX', 'icon': Icons.auto_awesome},
+      {'id': 'record', 'name': 'Record', 'icon': Icons.circle_outlined},
+      {'id': 'text-to-audio', 'name': 'Text to audio', 'icon': Icons.record_voice_over_outlined},
+    ];
+    
+    return Column(
+      key: const ValueKey('audio_menu'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Header with back button and title
+        Container(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+            ),
+          ),
+          child: Row(
+            children: [
+              // Back button
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _isAudioMenuMode = false),
+                  child: Container(
+                    width: 32,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.primary.withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.chevron_left,
+                      size: 22,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                ),
+              ),
+              // Title
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'Audio',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 40), // Balance for the back button
+            ],
+          ),
+        ),
+        
+        // Horizontal Scrollable Audio Tools
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          child: Row(
+            children: audioTools.map((tool) {
+              return GestureDetector(
+                onTap: () => _showSnackBar('${tool['name']} coming soon'),
+                child: Container(
+                  width: 64,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          tool['icon'] as IconData,
+                          size: 20,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        tool['name'] as String,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withOpacity(0.6),
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+  
   /// Build the main editor toolbar
   Widget _buildMainToolbar() {
     return SingleChildScrollView(
@@ -5376,8 +5498,17 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           final isSelected = _selectedTool == tool.id;
           return GestureDetector(
             onTap: () {
+              // Audio tool opens the audio menu
+              if (tool.id == 'audio') {
+                setState(() {
+                  _isAudioMenuMode = true;
+                  _selectedTool = 'audio';
+                });
+                return;
+              }
+              
               // Coming soon tools - show snackbar and don't change selection
-              if (tool.id == 'audio' || tool.id == 'text' || tool.id == 'effects' || tool.id == 'captions') {
+              if (tool.id == 'text' || tool.id == 'effects' || tool.id == 'captions') {
                 _showSnackBar('${tool.name} coming soon');
                 return;
               }
