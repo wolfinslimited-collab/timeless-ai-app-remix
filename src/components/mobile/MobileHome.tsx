@@ -213,9 +213,6 @@ export function MobileHome({ onNavigate, credits, onRefreshCredits }: MobileHome
           </div>
         </div>
 
-        {/* Subtitle - matching Flutter */}
-        <p className="text-muted-foreground text-sm mb-6">Create anything with AI</p>
-
         {/* Quick Actions - matching Flutter 4 column grid exactly */}
         <div className="mb-6">
           <h2 className="text-foreground text-base font-semibold mb-3">Quick Actions</h2>
