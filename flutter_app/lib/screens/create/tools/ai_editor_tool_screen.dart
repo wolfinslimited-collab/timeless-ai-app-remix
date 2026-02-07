@@ -137,8 +137,46 @@ class VideoClip {
   });
 }
 
+/// Effect layer data model
+class EffectLayer {
+  String id;
+  String effectId;
+  String name;
+  String category;
+  String icon;
+  double intensity;
+  double startTime;
+  double endTime;
+  
+  EffectLayer({
+    required this.id,
+    required this.effectId,
+    required this.name,
+    this.category = 'Basic',
+    this.icon = '✨',
+    this.intensity = 0.7,
+    this.startTime = 0,
+    this.endTime = 3,
+  });
+}
+
+/// Effect preset definition
+class EffectPreset {
+  final String id;
+  final String name;
+  final String category;
+  final String icon;
+  
+  const EffectPreset({
+    required this.id,
+    required this.name,
+    required this.category,
+    required this.icon,
+  });
+}
+
 /// Layer type enum for track management
-enum LayerType { text, audio, sticker, caption }
+enum LayerType { text, audio, sticker, caption, effect }
 
 class AIEditorToolScreen extends StatefulWidget {
   const AIEditorToolScreen({super.key});
@@ -199,6 +237,26 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   List<CaptionLayer> _captionLayers = [];
   String? _selectedCaptionId;
   bool _isGeneratingCaptions = false;
+  
+  // Effect layer state
+  List<EffectLayer> _effectLayers = [];
+  String? _selectedEffectId;
+  
+  // Available effect presets
+  final List<EffectPreset> _effectPresets = const [
+    EffectPreset(id: 'blur', name: 'Blur', category: 'Basic', icon: '🌫️'),
+    EffectPreset(id: 'glow', name: 'Glow', category: 'Basic', icon: '✨'),
+    EffectPreset(id: 'vignette', name: 'Vignette', category: 'Basic', icon: '🔲'),
+    EffectPreset(id: 'shake', name: 'Shake', category: 'Motion', icon: '📳'),
+    EffectPreset(id: 'zoom-pulse', name: 'Zoom Pulse', category: 'Motion', icon: '🔍'),
+    EffectPreset(id: 'film-grain', name: 'Film Grain', category: 'Cinematic', icon: '🎞️'),
+    EffectPreset(id: 'vhs', name: 'VHS', category: 'Retro', icon: '📼'),
+    EffectPreset(id: 'glitch', name: 'Glitch', category: 'Retro', icon: '⚡'),
+    EffectPreset(id: 'chromatic', name: 'Chromatic', category: 'Retro', icon: '🌈'),
+    EffectPreset(id: 'letterbox', name: 'Letterbox', category: 'Cinematic', icon: '🎬'),
+    EffectPreset(id: 'light-leak', name: 'Light Leak', category: 'Cinematic', icon: '☀️'),
+    EffectPreset(id: 'flash', name: 'Flash', category: 'Motion', icon: '💥'),
+  ];
   
   // Multi-clip video support
   List<VideoClip> _videoClips = [];
@@ -1780,6 +1838,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     _buildCaptionTrack(halfScreenPadding, trackWidth, duration),
                     const SizedBox(height: 6),
                     
+                    // Effects Track (Amber/Gold layers)
+                    _buildEffectsTrack(halfScreenPadding, trackWidth, duration),
+                    const SizedBox(height: 6),
+                    
                     // Add layer buttons row
                     _buildAddLayerRow(halfScreenPadding),
                   ],
@@ -2476,15 +2538,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           
           const SizedBox(width: 10),
           
-          // Add sticker button
+          // Add effect button
           GestureDetector(
-            onTap: () => _showSnackBar('Add sticker coming soon'),
+            onTap: () => setState(() => _selectedTool = 'effects'),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFF2A2A2A),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFEC4899).withOpacity(0.4)),
+                border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -2493,16 +2555,16 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     width: 16,
                     height: 16,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEC4899).withOpacity(0.3),
+                      color: const Color(0xFFF59E0B).withOpacity(0.3),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Icon(Icons.add, size: 12, color: Color(0xFFEC4899)),
+                    child: const Icon(Icons.add, size: 12, color: Color(0xFFF59E0B)),
                   ),
                   const SizedBox(width: 6),
                   const Text(
-                    'Add sticker',
+                    'Add effect',
                     style: TextStyle(
-                      color: Color(0xFFEC4899),
+                      color: Color(0xFFF59E0B),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -2881,7 +2943,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Dynamic bottom area that switches between timeline and settings panel
   Widget _buildDynamicBottomArea() {
     // Check if a settings panel should be shown (overlays timeline)
-    final bool showSettingsPanel = _selectedTool == 'text' || _selectedTool == 'adjust' || _selectedTool == 'audio' || _selectedTool == 'captions';
+    final bool showSettingsPanel = _selectedTool == 'text' || _selectedTool == 'adjust' || _selectedTool == 'audio' || _selectedTool == 'captions' || _selectedTool == 'effects';
     
     if (showSettingsPanel) {
       return _buildContextualSettingsPanel();
@@ -2908,6 +2970,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       panelTitle = 'Audio';
     } else if (_selectedTool == 'captions') {
       panelTitle = 'Captions';
+    } else if (_selectedTool == 'effects') {
+      panelTitle = 'Effects';
     }
     
     return Container(
@@ -2973,7 +3037,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           else if (_selectedTool == 'audio')
             _buildAudioSettingsContent()
           else if (_selectedTool == 'captions')
-            _buildCaptionsSettingsContent(),
+            _buildCaptionsSettingsContent()
+          else if (_selectedTool == 'effects')
+            _buildEffectsSettingsContent(),
         ],
       ),
     );
@@ -2985,6 +3051,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       _selectedTextId = null;
       _selectedAudioId = null;
       _selectedCaptionId = null;
+      _selectedEffectId = null;
     });
   }
 
@@ -3510,6 +3577,377 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         ),
       ),
     );
+  }
+
+  /// Build effects track in timeline (Amber/Gold themed)
+  Widget _buildEffectsTrack(double startPadding, double trackWidth, double duration) {
+    if (_effectLayers.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 40,
+      child: Row(
+        children: [
+          SizedBox(width: startPadding),
+          SizedBox(
+            width: trackWidth,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: _effectLayers.map((effect) {
+                final leftOffset = effect.startTime * _pixelsPerSecond;
+                final itemWidth = ((effect.endTime - effect.startTime) * _pixelsPerSecond).clamp(50.0, trackWidth);
+                final isSelected = effect.id == _selectedEffectId;
+                final isDragging = effect.id == _draggingLayerId;
+                
+                return Positioned(
+                  left: leftOffset,
+                  child: GestureDetector(
+                    onTap: () => _selectEffectLayer(effect.id),
+                    onHorizontalDragUpdate: (details) {
+                      final delta = details.primaryDelta ?? 0;
+                      final timeDelta = delta / _pixelsPerSecond;
+                      final itemDuration = effect.endTime - effect.startTime;
+                      
+                      setState(() {
+                        var newStart = (effect.startTime + timeDelta).clamp(0.0, duration - itemDuration);
+                        
+                        // Snapping logic
+                        final playheadTime = _videoController?.value.position.inSeconds.toDouble() ?? 0;
+                        final snapTimeThreshold = _snapThreshold / _pixelsPerSecond;
+                        
+                        if ((newStart - playheadTime).abs() < snapTimeThreshold) {
+                          newStart = playheadTime;
+                        } else if ((newStart + itemDuration - playheadTime).abs() < snapTimeThreshold) {
+                          newStart = playheadTime - itemDuration;
+                        }
+                        
+                        effect.startTime = newStart;
+                        effect.endTime = newStart + itemDuration;
+                      });
+                    },
+                    child: Transform.translate(
+                      offset: isDragging ? Offset(0, _dragOffsetY) : Offset.zero,
+                      child: Container(
+                        width: itemWidth,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: isSelected 
+                                ? [const Color(0xFFF59E0B), const Color(0xFFF97316)]
+                                : [const Color(0xFFD97706), const Color(0xFFEA580C)],
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                          border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFF59E0B).withOpacity(isDragging ? 0.6 : 0.3),
+                              blurRadius: isDragging ? 16 : 8,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            // Left trim handle
+                            GestureDetector(
+                              onHorizontalDragUpdate: (details) {
+                                final delta = details.primaryDelta ?? 0;
+                                final timeDelta = delta / _pixelsPerSecond;
+                                setState(() {
+                                  effect.startTime = (effect.startTime + timeDelta).clamp(0.0, effect.endTime - 0.5);
+                                });
+                              },
+                              child: Container(
+                                width: 10,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(isSelected ? 0.5 : 0.3),
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(6),
+                                    bottomLeft: Radius.circular(6),
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Container(
+                                    width: 3,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.8),
+                                      borderRadius: BorderRadius.circular(1.5),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            
+                            // Content
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(effect.icon, style: const TextStyle(fontSize: 12)),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        effect.name,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            
+                            // Right trim handle
+                            GestureDetector(
+                              onHorizontalDragUpdate: (details) {
+                                final delta = details.primaryDelta ?? 0;
+                                final timeDelta = delta / _pixelsPerSecond;
+                                setState(() {
+                                  effect.endTime = (effect.endTime + timeDelta).clamp(effect.startTime + 0.5, duration);
+                                });
+                              },
+                              child: Container(
+                                width: 10,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(isSelected ? 0.5 : 0.3),
+                                  borderRadius: const BorderRadius.only(
+                                    topRight: Radius.circular(6),
+                                    bottomRight: Radius.circular(6),
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Container(
+                                    width: 3,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.8),
+                                      borderRadius: BorderRadius.circular(1.5),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          SizedBox(width: startPadding),
+        ],
+      ),
+    );
+  }
+
+  /// Effects settings content panel
+  Widget _buildEffectsSettingsContent() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Effects grid
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select an effect to add',
+                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 90,
+                child: GridView.builder(
+                  scrollDirection: Axis.horizontal,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 1,
+                    mainAxisSpacing: 8,
+                    childAspectRatio: 1.0,
+                  ),
+                  itemCount: _effectPresets.length,
+                  itemBuilder: (context, index) {
+                    final preset = _effectPresets[index];
+                    return GestureDetector(
+                      onTap: () => _addEffectLayer(preset),
+                      child: Container(
+                        width: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(preset.icon, style: const TextStyle(fontSize: 24)),
+                            const SizedBox(height: 4),
+                            Text(
+                              preset.name,
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.8),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Applied effects list
+        if (_effectLayers.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Applied Effects',
+                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 100,
+                  child: ListView.builder(
+                    scrollDirection: Axis.vertical,
+                    itemCount: _effectLayers.length,
+                    itemBuilder: (context, index) {
+                      final effect = _effectLayers[index];
+                      final isSelected = effect.id == _selectedEffectId;
+                      return GestureDetector(
+                        onTap: () => _selectEffectLayer(effect.id),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isSelected 
+                                ? const Color(0xFFF59E0B).withOpacity(0.2) 
+                                : Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(12),
+                            border: isSelected 
+                                ? Border.all(color: const Color(0xFFF59E0B), width: 2) 
+                                : Border.all(color: Colors.white.withOpacity(0.1)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF59E0B).withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Center(child: Text(effect.icon, style: const TextStyle(fontSize: 18))),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      effect.name,
+                                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                                    ),
+                                    if (isSelected)
+                                      Slider(
+                                        value: effect.intensity,
+                                        onChanged: (value) => setState(() => effect.intensity = value),
+                                        activeColor: const Color(0xFFF59E0B),
+                                        inactiveColor: Colors.white.withOpacity(0.2),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => _deleteEffectLayer(effect.id),
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.delete_outline, color: Colors.red, size: 16),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.star_border, size: 40, color: Colors.white.withOpacity(0.3)),
+                const SizedBox(height: 8),
+                Text('No effects applied', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14)),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Add a new effect layer
+  void _addEffectLayer(EffectPreset preset) {
+    final currentPos = _videoController?.value.position.inSeconds.toDouble() ?? 0;
+    final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10;
+    
+    final newEffect = EffectLayer(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      effectId: preset.id,
+      name: preset.name,
+      category: preset.category,
+      icon: preset.icon,
+      startTime: currentPos,
+      endTime: (currentPos + 3).clamp(0, duration),
+    );
+    
+    setState(() {
+      _effectLayers.add(newEffect);
+      _selectedEffectId = newEffect.id;
+    });
+    
+    _showSnackBar('Effect added: ${preset.name}');
+  }
+
+  /// Select an effect layer
+  void _selectEffectLayer(String id) {
+    setState(() {
+      _selectedEffectId = id;
+      _selectedTool = 'effects';
+    });
+  }
+
+  /// Delete an effect layer
+  void _deleteEffectLayer(String id) {
+    setState(() {
+      _effectLayers.removeWhere((e) => e.id == id);
+      if (_selectedEffectId == id) {
+        _selectedEffectId = null;
+      }
+    });
+    _showSnackBar('Effect removed');
   }
 
   Widget _buildTextPanel() {
