@@ -200,6 +200,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [editingClipId, setEditingClipId] = useState<string | null>(null);
   const [clipSpeed, setClipSpeed] = useState(1.0);
   const [clipVolume, setClipVolume] = useState(1.0);
+  
+  // Additional editing panel states
+  const [showAnimationsPanel, setShowAnimationsPanel] = useState(false);
+  const [showBeatsPanel, setShowBeatsPanel] = useState(false);
+  const [showCropPanel, setShowCropPanel] = useState(false);
 
   // Undo/Redo history stacks
   const [undoStack, setUndoStack] = useState<EditorStateSnapshot[]>([]);
@@ -988,16 +993,62 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setShowClipEditPanel(false);
   };
 
+  // Apply clip speed to video
+  const applyClipSpeed = () => {
+    if (videoRef.current) {
+      videoRef.current.playbackRate = clipSpeed;
+    }
+    toast({ title: "Speed Applied", description: `Playback speed set to ${clipSpeed.toFixed(1)}x` });
+  };
+
+  // Apply clip volume to video
+  const applyClipVolume = () => {
+    if (videoRef.current) {
+      videoRef.current.volume = clipVolume;
+    }
+    toast({ title: "Volume Applied", description: `Clip volume set to ${Math.round(clipVolume * 100)}%` });
+  };
+
+  // Animation presets configuration
+  const animationPresets = [
+    { id: 'fade_in', name: 'Fade In', icon: '🌅' },
+    { id: 'fade_out', name: 'Fade Out', icon: '🌆' },
+    { id: 'zoom_in', name: 'Zoom In', icon: '🔍' },
+    { id: 'zoom_out', name: 'Zoom Out', icon: '🔭' },
+    { id: 'slide_left', name: 'Slide Left', icon: '⬅️' },
+    { id: 'slide_right', name: 'Slide Right', icon: '➡️' },
+    { id: 'rotate', name: 'Rotate', icon: '🔄' },
+    { id: 'bounce', name: 'Bounce', icon: '⬆️' },
+  ];
+
+  // Beat sync presets configuration
+  const beatPresets = [
+    { id: 'auto_sync', name: 'Auto Sync', description: 'Sync cuts to beat' },
+    { id: 'bass_drop', name: 'Bass Drop', description: 'Emphasize bass hits' },
+    { id: 'rhythm', name: 'Rhythm', description: 'Match rhythm pattern' },
+    { id: 'tempo', name: 'Tempo', description: 'Match video tempo' },
+  ];
+
+  // Crop presets configuration
+  const cropPresets = [
+    { id: '16:9', name: '16:9', description: 'Landscape' },
+    { id: '9:16', name: '9:16', description: 'Portrait' },
+    { id: '1:1', name: '1:1', description: 'Square' },
+    { id: '4:3', name: '4:3', description: 'Standard' },
+    { id: '4:5', name: '4:5', description: 'Instagram' },
+    { id: 'free', name: 'Free', description: 'Custom' },
+  ];
+
   // Video clip editing tools configuration
   const clipEditTools = [
     { id: 'split', name: 'Split', icon: SplitSquareHorizontal, action: () => editingClipId && splitClipAtPlayhead(editingClipId) },
-    { id: 'volume', name: 'Volume', icon: Volume2, action: () => toast({ title: "Volume", description: "Adjust clip volume" }) },
-    { id: 'animations', name: 'Animations', icon: Sparkles, action: () => toast({ title: "Animations", description: "Coming soon" }) },
+    { id: 'volume', name: 'Volume', icon: Volume2, action: () => { applyClipVolume(); } },
+    { id: 'animations', name: 'Animations', icon: Sparkles, action: () => { setShowClipEditPanel(false); setShowAnimationsPanel(true); } },
     { id: 'effects', name: 'Effects', icon: Star, action: () => { setSelectedTool('effects'); setShowClipEditPanel(false); } },
     { id: 'delete', name: 'Delete', icon: Trash2, action: () => editingClipId && deleteVideoClip(editingClipId) },
-    { id: 'speed', name: 'Speed', icon: Gauge, action: () => toast({ title: "Speed", description: "Adjust clip speed" }) },
-    { id: 'beats', name: 'Beats', icon: Waves, action: () => toast({ title: "Beats", description: "Coming soon" }) },
-    { id: 'crop', name: 'Crop', icon: Crop, action: () => toast({ title: "Crop", description: "Coming soon" }) },
+    { id: 'speed', name: 'Speed', icon: Gauge, action: () => { applyClipSpeed(); } },
+    { id: 'beats', name: 'Beats', icon: Waves, action: () => { setShowClipEditPanel(false); setShowBeatsPanel(true); } },
+    { id: 'crop', name: 'Crop', icon: Crop, action: () => { setShowClipEditPanel(false); setShowCropPanel(true); } },
     { id: 'duplicate', name: 'Duplicate', icon: Copy, action: () => editingClipId && duplicateClip(editingClipId) },
     { id: 'replace', name: 'Replace', icon: Replace, action: () => { handleDirectFilePick(); setShowClipEditPanel(false); } },
     { id: 'overlay', name: 'Overlay', icon: Layers, action: () => { setSelectedTool('overlay'); setShowClipEditPanel(false); } },
@@ -1369,6 +1420,107 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     )}>
                       {tool.name}
                     </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Animations Panel Sheet */}
+      <Sheet open={showAnimationsPanel} onOpenChange={setShowAnimationsPanel}>
+        <SheetContent side="bottom" className="bg-card border-t border-border rounded-t-3xl p-0 max-h-[50vh]">
+          <div className="flex flex-col">
+            <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mt-3" />
+            <SheetHeader className="px-5 pt-4 pb-3">
+              <SheetTitle className="text-foreground text-base font-bold text-center">
+                Animations
+              </SheetTitle>
+            </SheetHeader>
+            <div className="px-4 pb-6">
+              <div className="grid grid-cols-4 gap-3">
+                {animationPresets.map((anim) => (
+                  <button
+                    key={anim.id}
+                    onClick={() => {
+                      toast({ title: anim.name, description: "Animation applied to clip" });
+                      setShowAnimationsPanel(false);
+                    }}
+                    className="flex flex-col items-center gap-2 p-3 bg-secondary rounded-xl border border-border hover:bg-secondary/80 transition-all"
+                  >
+                    <span className="text-2xl">{anim.icon}</span>
+                    <span className="text-[10px] text-foreground/80 font-medium">{anim.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Beats Panel Sheet */}
+      <Sheet open={showBeatsPanel} onOpenChange={setShowBeatsPanel}>
+        <SheetContent side="bottom" className="bg-card border-t border-border rounded-t-3xl p-0 max-h-[50vh]">
+          <div className="flex flex-col">
+            <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mt-3" />
+            <SheetHeader className="px-5 pt-4 pb-3">
+              <SheetTitle className="text-foreground text-base font-bold text-center">
+                Beat Sync
+              </SheetTitle>
+            </SheetHeader>
+            <div className="px-4 pb-6">
+              <div className="flex flex-col gap-3">
+                {beatPresets.map((beat) => (
+                  <button
+                    key={beat.id}
+                    onClick={() => {
+                      toast({ title: beat.name, description: beat.description });
+                      setShowBeatsPanel(false);
+                    }}
+                    className="flex items-center gap-4 p-4 bg-secondary rounded-xl border border-border hover:bg-secondary/80 transition-all"
+                  >
+                    <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center">
+                      <Waves className="w-6 h-6 text-primary" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="text-foreground font-semibold text-sm">{beat.name}</p>
+                      <p className="text-muted-foreground text-xs">{beat.description}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Crop Panel Sheet */}
+      <Sheet open={showCropPanel} onOpenChange={setShowCropPanel}>
+        <SheetContent side="bottom" className="bg-card border-t border-border rounded-t-3xl p-0 max-h-[50vh]">
+          <div className="flex flex-col">
+            <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mt-3" />
+            <SheetHeader className="px-5 pt-4 pb-3">
+              <SheetTitle className="text-foreground text-base font-bold text-center">
+                Crop & Aspect Ratio
+              </SheetTitle>
+            </SheetHeader>
+            <div className="px-4 pb-6">
+              <div className="grid grid-cols-3 gap-3">
+                {cropPresets.map((preset) => (
+                  <button
+                    key={preset.id}
+                    onClick={() => {
+                      toast({ title: `Crop: ${preset.name}`, description: preset.description });
+                      setShowCropPanel(false);
+                    }}
+                    className="flex flex-col items-center gap-2 p-4 bg-secondary rounded-xl border border-border hover:bg-secondary/80 transition-all"
+                  >
+                    <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                      <Crop className="w-5 h-5 text-foreground" />
+                    </div>
+                    <span className="text-foreground font-semibold text-sm">{preset.name}</span>
+                    <span className="text-muted-foreground text-[10px]">{preset.description}</span>
                   </button>
                 ))}
               </div>

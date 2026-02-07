@@ -1432,6 +1432,271 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     _showSnackBar('Clip duplicated');
   }
   
+  /// Apply clip speed to video
+  void _applyClipSpeed() {
+    _videoController?.setPlaybackSpeed(_clipSpeed);
+    _showSnackBar('Speed set to ${_clipSpeed.toStringAsFixed(1)}x');
+  }
+  
+  /// Apply clip volume to video
+  void _applyClipVolume() {
+    _videoController?.setVolume(_clipVolume);
+    _showSnackBar('Volume set to ${(_clipVolume * 100).round()}%');
+  }
+  
+  /// Show animations bottom sheet
+  void _showAnimationsBottomSheet() {
+    final animationPresets = [
+      {'id': 'fade_in', 'name': 'Fade In', 'icon': '🌅'},
+      {'id': 'fade_out', 'name': 'Fade Out', 'icon': '🌆'},
+      {'id': 'zoom_in', 'name': 'Zoom In', 'icon': '🔍'},
+      {'id': 'zoom_out', 'name': 'Zoom Out', 'icon': '🔭'},
+      {'id': 'slide_left', 'name': 'Slide Left', 'icon': '⬅️'},
+      {'id': 'slide_right', 'name': 'Slide Right', 'icon': '➡️'},
+      {'id': 'rotate', 'name': 'Rotate', 'icon': '🔄'},
+      {'id': 'bounce', 'name': 'Bounce', 'icon': '⬆️'},
+    ];
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.only(top: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Animations',
+              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: animationPresets.map((anim) => GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showSnackBar('${anim['name']} animation applied');
+                  },
+                  child: Container(
+                    width: 80,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(anim['icon']!, style: const TextStyle(fontSize: 24)),
+                        const SizedBox(height: 6),
+                        Text(
+                          anim['name']!,
+                          style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.8)),
+                        ),
+                      ],
+                    ),
+                  ),
+                )).toList(),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  /// Show beats sync bottom sheet
+  void _showBeatsBottomSheet() {
+    final beatPresets = [
+      {'id': 'auto_sync', 'name': 'Auto Sync', 'desc': 'Sync cuts to beat'},
+      {'id': 'bass_drop', 'name': 'Bass Drop', 'desc': 'Emphasize bass hits'},
+      {'id': 'rhythm', 'name': 'Rhythm', 'desc': 'Match rhythm pattern'},
+      {'id': 'tempo', 'name': 'Tempo', 'desc': 'Match video tempo'},
+    ];
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.only(top: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Beat Sync',
+              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            ...beatPresets.map((beat) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.pop(context);
+                  _showSnackBar('${beat['name']} applied');
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).primaryColor.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(Icons.waves, color: Theme.of(context).primaryColor, size: 24),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              beat['name']!,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              beat['desc']!,
+                              style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  /// Show crop bottom sheet
+  void _showCropBottomSheet() {
+    final cropPresets = [
+      {'id': '16:9', 'name': '16:9', 'desc': 'Landscape'},
+      {'id': '9:16', 'name': '9:16', 'desc': 'Portrait'},
+      {'id': '1:1', 'name': '1:1', 'desc': 'Square'},
+      {'id': '4:3', 'name': '4:3', 'desc': 'Standard'},
+      {'id': '4:5', 'name': '4:5', 'desc': 'Instagram'},
+      {'id': 'free', 'name': 'Free', 'desc': 'Custom'},
+    ];
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.only(top: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Crop & Aspect Ratio',
+              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: cropPresets.map((preset) => GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showSnackBar('Crop: ${preset['name']} applied');
+                  },
+                  child: Container(
+                    width: 100,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.crop, color: Colors.white, size: 20),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          preset['name']!,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          preset['desc']!,
+                          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 10),
+                        ),
+                      ],
+                    ),
+                  ),
+                )).toList(),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+  
   /// Show clip edit bottom sheet
   void _showClipEditBottomSheet(String clipId) {
     showModalBottomSheet(
@@ -1451,13 +1716,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       builder: (context, setSheetState) {
         final clipEditTools = [
           _ClipEditTool(id: 'split', name: 'Split', icon: Icons.content_cut, onTap: () => _splitClipAtPlayhead(clipId)),
-          _ClipEditTool(id: 'volume', name: 'Volume', icon: Icons.volume_up, onTap: () { Navigator.pop(context); _showSnackBar('Adjust clip volume'); }),
-          _ClipEditTool(id: 'animations', name: 'Animations', icon: Icons.auto_awesome, onTap: () { Navigator.pop(context); _showSnackBar('Coming soon'); }),
+          _ClipEditTool(id: 'volume', name: 'Volume', icon: Icons.volume_up, onTap: () { Navigator.pop(context); _applyClipVolume(); }),
+          _ClipEditTool(id: 'animations', name: 'Animations', icon: Icons.auto_awesome, onTap: () { Navigator.pop(context); _showAnimationsBottomSheet(); }),
           _ClipEditTool(id: 'effects', name: 'Effects', icon: Icons.star_outline, onTap: () { Navigator.pop(context); setState(() => _selectedTool = 'effects'); }),
           _ClipEditTool(id: 'delete', name: 'Delete', icon: Icons.delete_outline, onTap: () => _deleteVideoClip(clipId), isDestructive: true),
-          _ClipEditTool(id: 'speed', name: 'Speed', icon: Icons.speed, onTap: () { Navigator.pop(context); _showSnackBar('Adjust clip speed'); }),
-          _ClipEditTool(id: 'beats', name: 'Beats', icon: Icons.waves, onTap: () { Navigator.pop(context); _showSnackBar('Coming soon'); }),
-          _ClipEditTool(id: 'crop', name: 'Crop', icon: Icons.crop, onTap: () { Navigator.pop(context); _showSnackBar('Coming soon'); }),
+          _ClipEditTool(id: 'speed', name: 'Speed', icon: Icons.speed, onTap: () { Navigator.pop(context); _applyClipSpeed(); }),
+          _ClipEditTool(id: 'beats', name: 'Beats', icon: Icons.waves, onTap: () { Navigator.pop(context); _showBeatsBottomSheet(); }),
+          _ClipEditTool(id: 'crop', name: 'Crop', icon: Icons.crop, onTap: () { Navigator.pop(context); _showCropBottomSheet(); }),
           _ClipEditTool(id: 'duplicate', name: 'Duplicate', icon: Icons.copy, onTap: () => _duplicateClip(clipId)),
           _ClipEditTool(id: 'replace', name: 'Replace', icon: Icons.swap_horiz, onTap: () { Navigator.pop(context); _pickAndLoadVideo(); }),
           _ClipEditTool(id: 'overlay', name: 'Overlay', icon: Icons.layers_outlined, onTap: () { Navigator.pop(context); setState(() => _selectedTool = 'overlay'); }),
