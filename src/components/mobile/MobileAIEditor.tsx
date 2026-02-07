@@ -35,7 +35,17 @@ import {
   Subtitles,
   Loader2,
   MessageSquare,
-  Video
+  Video,
+  Gauge,
+  Copy,
+  Replace,
+  Layers,
+  Sparkles,
+  Crop,
+  Wand2,
+  Waves,
+  Image,
+  SplitSquareHorizontal
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -184,6 +194,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [trimmingClipId, setTrimmingClipId] = useState<string | null>(null);
   const [isTrimmingClipStart, setIsTrimmingClipStart] = useState(false);
   const [isTrimmingClipEnd, setIsTrimmingClipEnd] = useState(false);
+  
+  // Video clip editing panel state
+  const [showClipEditPanel, setShowClipEditPanel] = useState(false);
+  const [editingClipId, setEditingClipId] = useState<string | null>(null);
+  const [clipSpeed, setClipSpeed] = useState(1.0);
+  const [clipVolume, setClipVolume] = useState(1.0);
 
   // Undo/Redo history stacks
   const [undoStack, setUndoStack] = useState<EditorStateSnapshot[]>([]);
@@ -885,8 +901,109 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       return recalculateClipStartTimes(newClips);
     });
     if (selectedClipId === clipId) setSelectedClipId(null);
+    if (editingClipId === clipId) {
+      setEditingClipId(null);
+      setShowClipEditPanel(false);
+    }
     toast({ title: "Clip deleted" });
   };
+
+  // Open clip editing panel
+  const openClipEditPanel = (clipId: string) => {
+    setEditingClipId(clipId);
+    setSelectedClipId(clipId);
+    setShowClipEditPanel(true);
+    // Initialize clip settings
+    const clip = videoClips.find(c => c.id === clipId);
+    if (clip) {
+      setClipSpeed(1.0);
+      setClipVolume(1.0);
+    }
+  };
+
+  // Split video clip at playhead position
+  const splitClipAtPlayhead = (clipId: string) => {
+    const clip = videoClips.find(c => c.id === clipId);
+    if (!clip) return;
+    
+    // Calculate local time within the clip
+    const localTime = currentTime - clip.startTime;
+    if (localTime <= 0.5 || localTime >= getClipTrimmedDuration(clip) - 0.5) {
+      toast({ variant: "destructive", title: "Cannot split here", description: "Move playhead to middle of clip" });
+      return;
+    }
+    
+    saveStateToHistory();
+    
+    // Create two clips from the split
+    const splitPoint = clip.inPoint + localTime;
+    const firstClip: VideoClip = {
+      ...clip,
+      id: clip.id,
+      outPoint: splitPoint,
+    };
+    const secondClip: VideoClip = {
+      id: `${Date.now()}`,
+      url: clip.url,
+      duration: clip.duration,
+      startTime: 0, // Will be recalculated
+      inPoint: splitPoint,
+      outPoint: clip.outPoint,
+    };
+    
+    setVideoClips(prev => {
+      const index = prev.findIndex(c => c.id === clipId);
+      if (index === -1) return prev;
+      const newClips = [...prev];
+      newClips.splice(index, 1, firstClip, secondClip);
+      return recalculateClipStartTimes(newClips);
+    });
+    
+    toast({ title: "Clip split" });
+    setShowClipEditPanel(false);
+  };
+
+  // Duplicate video clip
+  const duplicateClip = (clipId: string) => {
+    const clip = videoClips.find(c => c.id === clipId);
+    if (!clip) return;
+    
+    saveStateToHistory();
+    
+    const duplicatedClip: VideoClip = {
+      ...clip,
+      id: `${Date.now()}`,
+      startTime: 0, // Will be recalculated
+    };
+    
+    setVideoClips(prev => {
+      const index = prev.findIndex(c => c.id === clipId);
+      if (index === -1) return [...prev, duplicatedClip];
+      const newClips = [...prev];
+      newClips.splice(index + 1, 0, duplicatedClip);
+      return recalculateClipStartTimes(newClips);
+    });
+    
+    toast({ title: "Clip duplicated" });
+    setShowClipEditPanel(false);
+  };
+
+  // Video clip editing tools configuration
+  const clipEditTools = [
+    { id: 'split', name: 'Split', icon: SplitSquareHorizontal, action: () => editingClipId && splitClipAtPlayhead(editingClipId) },
+    { id: 'volume', name: 'Volume', icon: Volume2, action: () => toast({ title: "Volume", description: "Adjust clip volume" }) },
+    { id: 'animations', name: 'Animations', icon: Sparkles, action: () => toast({ title: "Animations", description: "Coming soon" }) },
+    { id: 'effects', name: 'Effects', icon: Star, action: () => { setSelectedTool('effects'); setShowClipEditPanel(false); } },
+    { id: 'delete', name: 'Delete', icon: Trash2, action: () => editingClipId && deleteVideoClip(editingClipId) },
+    { id: 'speed', name: 'Speed', icon: Gauge, action: () => toast({ title: "Speed", description: "Adjust clip speed" }) },
+    { id: 'beats', name: 'Beats', icon: Waves, action: () => toast({ title: "Beats", description: "Coming soon" }) },
+    { id: 'crop', name: 'Crop', icon: Crop, action: () => toast({ title: "Crop", description: "Coming soon" }) },
+    { id: 'duplicate', name: 'Duplicate', icon: Copy, action: () => editingClipId && duplicateClip(editingClipId) },
+    { id: 'replace', name: 'Replace', icon: Replace, action: () => { handleDirectFilePick(); setShowClipEditPanel(false); } },
+    { id: 'overlay', name: 'Overlay', icon: Layers, action: () => { setSelectedTool('overlay'); setShowClipEditPanel(false); } },
+    { id: 'adjust', name: 'Adjust', icon: SlidersHorizontal, action: () => { setSelectedTool('adjust'); setShowClipEditPanel(false); } },
+    { id: 'filter', name: 'Filter', icon: Wand2, action: () => { setSelectedTool('filters'); setShowClipEditPanel(false); } },
+  ];
 
   // Delete text overlay from timeline
   const deleteTextFromTimeline = (id: string) => {
@@ -1166,6 +1283,95 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   </span>
                 </button>
               ))}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Video Clip Edit Panel Sheet */}
+      <Sheet open={showClipEditPanel} onOpenChange={setShowClipEditPanel}>
+        <SheetContent side="bottom" className="bg-[#1a1a1a] border-t border-white/10 rounded-t-3xl p-0 max-h-[60vh]">
+          <div className="flex flex-col">
+            <div className="w-10 h-1 bg-white/30 rounded-full mx-auto mt-3" />
+            
+            <SheetHeader className="px-5 pt-4 pb-3">
+              <SheetTitle className="text-white text-base font-bold text-center">
+                Edit Clip
+              </SheetTitle>
+            </SheetHeader>
+
+            {/* Speed Control (when editing) */}
+            <div className="px-5 pb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-white/70 text-xs">Speed</span>
+                <span className="text-white text-xs font-semibold">{clipSpeed.toFixed(1)}x</span>
+              </div>
+              <input
+                type="range"
+                min="25"
+                max="200"
+                value={clipSpeed * 100}
+                onChange={(e) => setClipSpeed(Number(e.target.value) / 100)}
+                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+              />
+              <div className="flex justify-between text-[10px] text-white/40 mt-1">
+                <span>0.25x</span>
+                <span>1x</span>
+                <span>2x</span>
+              </div>
+            </div>
+
+            {/* Volume Control */}
+            <div className="px-5 pb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Volume2 className="w-4 h-4 text-white/70" />
+                  <span className="text-white/70 text-xs">Clip Volume</span>
+                </div>
+                <span className="text-white text-xs font-semibold">{Math.round(clipVolume * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={clipVolume * 100}
+                onChange={(e) => setClipVolume(Number(e.target.value) / 100)}
+                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+              />
+            </div>
+
+            {/* Scrollable Tools Grid */}
+            <div className="px-4 pb-6 overflow-x-auto scrollbar-hide">
+              <div className="flex gap-3 pb-2">
+                {clipEditTools.map((tool) => (
+                  <button
+                    key={tool.id}
+                    onClick={tool.action}
+                    className={cn(
+                      "flex flex-col items-center gap-1.5 p-3 rounded-xl min-w-[70px] transition-all",
+                      tool.id === 'delete' 
+                        ? "bg-destructive/15 border border-destructive/30 hover:bg-destructive/25" 
+                        : "bg-white/5 border border-white/10 hover:bg-white/10"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center",
+                      tool.id === 'delete' ? "bg-destructive/20" : "bg-white/10"
+                    )}>
+                      <tool.icon className={cn(
+                        "w-5 h-5",
+                        tool.id === 'delete' ? "text-destructive" : "text-white"
+                      )} />
+                    </div>
+                    <span className={cn(
+                      "text-[10px] font-medium",
+                      tool.id === 'delete' ? "text-destructive" : "text-white/80"
+                    )}>
+                      {tool.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </SheetContent>
@@ -2314,6 +2520,19 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                         <Video className="w-2.5 h-2.5" />
                                         {getClipTrimmedDuration(clip).toFixed(1)}s
                                       </div>
+                                    )}
+                                    
+                                    {/* Edit button when selected */}
+                                    {isSelected && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openClipEditPanel(clip.id);
+                                        }}
+                                        className="absolute right-7 top-0.5 w-5 h-5 bg-primary/90 hover:bg-primary rounded-full flex items-center justify-center"
+                                      >
+                                        <Scissors className="w-3 h-3 text-white" />
+                                      </button>
                                     )}
                                     
                                     {/* Delete button when selected */}
