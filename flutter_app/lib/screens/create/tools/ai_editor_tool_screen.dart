@@ -186,6 +186,236 @@ class EffectPreset {
 /// Layer type enum for track management
 enum LayerType { text, audio, sticker, caption, effect }
 
+/// Timeline state snapshot for undo/redo functionality
+class EditorStateSnapshot {
+  final List<VideoClipSnapshot> videoClips;
+  final List<TextOverlaySnapshot> textOverlays;
+  final List<AudioLayerSnapshot> audioLayers;
+  final List<CaptionLayerSnapshot> captionLayers;
+  final List<EffectLayerSnapshot> effectLayers;
+  final DateTime timestamp;
+  
+  EditorStateSnapshot({
+    required this.videoClips,
+    required this.textOverlays,
+    required this.audioLayers,
+    required this.captionLayers,
+    required this.effectLayers,
+    DateTime? timestamp,
+  }) : timestamp = timestamp ?? DateTime.now();
+}
+
+/// Immutable snapshot of VideoClip for history
+class VideoClipSnapshot {
+  final String id;
+  final String url;
+  final double duration;
+  final double startTime;
+  final double inPoint;
+  final double outPoint;
+  
+  VideoClipSnapshot({
+    required this.id,
+    required this.url,
+    required this.duration,
+    required this.startTime,
+    required this.inPoint,
+    required this.outPoint,
+  });
+  
+  factory VideoClipSnapshot.from(VideoClip clip) => VideoClipSnapshot(
+    id: clip.id,
+    url: clip.url,
+    duration: clip.duration,
+    startTime: clip.startTime,
+    inPoint: clip.inPoint,
+    outPoint: clip.outPoint,
+  );
+  
+  VideoClip toClip() => VideoClip(
+    id: id,
+    url: url,
+    duration: duration,
+    startTime: startTime,
+    inPoint: inPoint,
+    outPoint: outPoint,
+  );
+}
+
+/// Immutable snapshot of TextOverlay for history
+class TextOverlaySnapshot {
+  final String id;
+  final String text;
+  final Offset position;
+  final double fontSize;
+  final Color textColor;
+  final String fontFamily;
+  final TextAlign alignment;
+  final bool hasBackground;
+  final Color backgroundColor;
+  final double backgroundOpacity;
+  final double startTime;
+  final double endTime;
+  final double scale;
+  final int trackIndex;
+  
+  TextOverlaySnapshot({
+    required this.id,
+    required this.text,
+    required this.position,
+    required this.fontSize,
+    required this.textColor,
+    required this.fontFamily,
+    required this.alignment,
+    required this.hasBackground,
+    required this.backgroundColor,
+    required this.backgroundOpacity,
+    required this.startTime,
+    required this.endTime,
+    required this.scale,
+    required this.trackIndex,
+  });
+  
+  factory TextOverlaySnapshot.from(TextOverlay overlay) => TextOverlaySnapshot(
+    id: overlay.id,
+    text: overlay.text,
+    position: overlay.position,
+    fontSize: overlay.fontSize,
+    textColor: overlay.textColor,
+    fontFamily: overlay.fontFamily,
+    alignment: overlay.alignment,
+    hasBackground: overlay.hasBackground,
+    backgroundColor: overlay.backgroundColor,
+    backgroundOpacity: overlay.backgroundOpacity,
+    startTime: overlay.startTime,
+    endTime: overlay.endTime,
+    scale: overlay.scale,
+    trackIndex: overlay.trackIndex,
+  );
+  
+  TextOverlay toOverlay() => TextOverlay(
+    id: id,
+    text: text,
+    position: position,
+    fontSize: fontSize,
+    textColor: textColor,
+    fontFamily: fontFamily,
+    alignment: alignment,
+    hasBackground: hasBackground,
+    backgroundColor: backgroundColor,
+    backgroundOpacity: backgroundOpacity,
+    startTime: startTime,
+    endTime: endTime,
+    scale: scale,
+    trackIndex: trackIndex,
+  );
+}
+
+/// Immutable snapshot of AudioLayer for history (without AudioPlayer reference)
+class AudioLayerSnapshot {
+  final String id;
+  final String name;
+  final String filePath;
+  final double startTime;
+  final double endTime;
+  final double volume;
+  final int trackIndex;
+  
+  AudioLayerSnapshot({
+    required this.id,
+    required this.name,
+    required this.filePath,
+    required this.startTime,
+    required this.endTime,
+    required this.volume,
+    required this.trackIndex,
+  });
+  
+  factory AudioLayerSnapshot.from(AudioLayer layer) => AudioLayerSnapshot(
+    id: layer.id,
+    name: layer.name,
+    filePath: layer.filePath,
+    startTime: layer.startTime,
+    endTime: layer.endTime,
+    volume: layer.volume,
+    trackIndex: layer.trackIndex,
+  );
+}
+
+/// Immutable snapshot of CaptionLayer for history
+class CaptionLayerSnapshot {
+  final String id;
+  final String text;
+  final double startTime;
+  final double endTime;
+  
+  CaptionLayerSnapshot({
+    required this.id,
+    required this.text,
+    required this.startTime,
+    required this.endTime,
+  });
+  
+  factory CaptionLayerSnapshot.from(CaptionLayer layer) => CaptionLayerSnapshot(
+    id: layer.id,
+    text: layer.text,
+    startTime: layer.startTime,
+    endTime: layer.endTime,
+  );
+  
+  CaptionLayer toLayer() => CaptionLayer(
+    id: id,
+    text: text,
+    startTime: startTime,
+    endTime: endTime,
+  );
+}
+
+/// Immutable snapshot of EffectLayer for history
+class EffectLayerSnapshot {
+  final String id;
+  final String effectId;
+  final String name;
+  final String category;
+  final String icon;
+  final double intensity;
+  final double startTime;
+  final double endTime;
+  
+  EffectLayerSnapshot({
+    required this.id,
+    required this.effectId,
+    required this.name,
+    required this.category,
+    required this.icon,
+    required this.intensity,
+    required this.startTime,
+    required this.endTime,
+  });
+  
+  factory EffectLayerSnapshot.from(EffectLayer layer) => EffectLayerSnapshot(
+    id: layer.id,
+    effectId: layer.effectId,
+    name: layer.name,
+    category: layer.category,
+    icon: layer.icon,
+    intensity: layer.intensity,
+    startTime: layer.startTime,
+    endTime: layer.endTime,
+  );
+  
+  EffectLayer toLayer() => EffectLayer(
+    id: id,
+    effectId: effectId,
+    name: name,
+    category: category,
+    icon: icon,
+    intensity: intensity,
+    startTime: startTime,
+    endTime: endTime,
+  );
+}
+
 class AIEditorToolScreen extends StatefulWidget {
   const AIEditorToolScreen({super.key});
 
@@ -291,6 +521,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Settings panel state - for dynamic UI overlap
   bool _isTextEditorInline = false; // For inline keyboard editing
   
+  // Undo/Redo history stacks
+  static const int _maxHistoryLength = 50;
+  final List<EditorStateSnapshot> _undoStack = [];
+  final List<EditorStateSnapshot> _redoStack = [];
+  bool _isRestoringState = false; // Prevent recursive history pushes during restore
+  
   // Calculate total timeline duration from all clips (using trimmed durations)
   double get _totalTimelineDuration {
     if (_videoClips.isNotEmpty) {
@@ -387,6 +623,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
 
   void _resetAllAdjustments() {
+    _saveStateToHistory(); // Save before resetting
     setState(() {
       _brightness = 0.0;
       _contrast = 0.0;
@@ -399,6 +636,133 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       _hue = 0.0;
     });
     _showSnackBar('All adjustments reset');
+  }
+  
+  // ============================================
+  // UNDO/REDO HISTORY MANAGEMENT
+  // ============================================
+  
+  /// Create a snapshot of current editor state
+  EditorStateSnapshot _createStateSnapshot() {
+    return EditorStateSnapshot(
+      videoClips: _videoClips.map((c) => VideoClipSnapshot.from(c)).toList(),
+      textOverlays: _textOverlays.map((t) => TextOverlaySnapshot.from(t)).toList(),
+      audioLayers: _audioLayers.map((a) => AudioLayerSnapshot.from(a)).toList(),
+      captionLayers: _captionLayers.map((c) => CaptionLayerSnapshot.from(c)).toList(),
+      effectLayers: _effectLayers.map((e) => EffectLayerSnapshot.from(e)).toList(),
+    );
+  }
+  
+  /// Save current state to undo history (call BEFORE making changes)
+  void _saveStateToHistory() {
+    if (_isRestoringState) return; // Don't save during restore operations
+    
+    final snapshot = _createStateSnapshot();
+    _undoStack.add(snapshot);
+    
+    // Limit stack size
+    if (_undoStack.length > _maxHistoryLength) {
+      _undoStack.removeAt(0);
+    }
+    
+    // Clear redo stack when new action is performed
+    _redoStack.clear();
+  }
+  
+  /// Check if undo is available
+  bool get _canUndo => _undoStack.isNotEmpty;
+  
+  /// Check if redo is available
+  bool get _canRedo => _redoStack.isNotEmpty;
+  
+  /// Undo last action
+  void _undo() {
+    if (!_canUndo) {
+      _showSnackBar('Nothing to undo');
+      return;
+    }
+    
+    // Save current state to redo stack before restoring
+    _redoStack.add(_createStateSnapshot());
+    
+    // Pop and restore previous state
+    final previousState = _undoStack.removeLast();
+    _restoreState(previousState);
+    
+    _showSnackBar('Undo');
+  }
+  
+  /// Redo last undone action
+  void _redo() {
+    if (!_canRedo) {
+      _showSnackBar('Nothing to redo');
+      return;
+    }
+    
+    // Save current state to undo stack before restoring
+    _undoStack.add(_createStateSnapshot());
+    
+    // Pop and restore redo state
+    final redoState = _redoStack.removeLast();
+    _restoreState(redoState);
+    
+    _showSnackBar('Redo');
+  }
+  
+  /// Restore editor state from a snapshot
+  void _restoreState(EditorStateSnapshot snapshot) {
+    _isRestoringState = true;
+    
+    setState(() {
+      // Restore video clips
+      _videoClips = snapshot.videoClips.map((s) => s.toClip()).toList();
+      _recalculateClipStartTimes();
+      
+      // Restore text overlays
+      _textOverlays = snapshot.textOverlays.map((s) => s.toOverlay()).toList();
+      
+      // Restore audio layers (without disposing existing players - just update data)
+      // Note: We preserve existing AudioPlayer references for layers that still exist
+      final existingAudioMap = Map.fromEntries(
+        _audioLayers.map((a) => MapEntry(a.id, a.player))
+      );
+      
+      _audioLayers = snapshot.audioLayers.map((s) {
+        final layer = AudioLayer(
+          id: s.id,
+          name: s.name,
+          filePath: s.filePath,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          volume: s.volume,
+          trackIndex: s.trackIndex,
+          player: existingAudioMap[s.id], // Preserve existing player if any
+        );
+        return layer;
+      }).toList();
+      
+      // Dispose players for removed audio layers
+      for (final id in existingAudioMap.keys) {
+        if (!_audioLayers.any((a) => a.id == id)) {
+          existingAudioMap[id]?.dispose();
+        }
+      }
+      
+      // Restore caption layers
+      _captionLayers = snapshot.captionLayers.map((s) => s.toLayer()).toList();
+      
+      // Restore effect layers
+      _effectLayers = snapshot.effectLayers.map((s) => s.toLayer()).toList();
+      
+      // Clear selections
+      _selectedClipId = null;
+      _selectedTextId = null;
+      _selectedAudioId = null;
+      _selectedCaptionId = null;
+      _selectedEffectId = null;
+    });
+    
+    _isRestoringState = false;
   }
 
   // Build color matrix for video filtering
@@ -533,6 +897,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       );
       
       if (result != null && result.files.isNotEmpty) {
+        _saveStateToHistory(); // Save state before adding audio
         final file = result.files.first;
         final filePath = file.path;
         
@@ -610,6 +975,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   
   /// Delete audio layer
   void _deleteAudioLayer(String id) {
+    _saveStateToHistory();
     setState(() {
       final index = _audioLayers.indexWhere((a) => a.id == id);
       if (index != -1) {
@@ -651,6 +1017,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   // Text overlay functions
   void _addTextOverlay() {
+    _saveStateToHistory();
     final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
     final newText = TextOverlay(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -676,6 +1043,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
 
   void _deleteTextOverlay(String id) {
+    _saveStateToHistory();
     setState(() {
       _textOverlays.removeWhere((t) => t.id == id);
       if (_selectedTextId == id) {
@@ -709,6 +1077,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   
   /// Add a new caption layer at current playhead position
   void _addCaptionLayer() {
+    _saveStateToHistory();
     final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
     final currentTime = _videoController?.value.position.inMilliseconds.toDouble() ?? 0;
     final startTime = currentTime / 1000.0;
@@ -734,6 +1103,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       return;
     }
     
+    _saveStateToHistory();
     setState(() => _isGeneratingCaptions = true);
     _showSnackBar('Generating captions...');
     
@@ -770,6 +1140,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   
   /// Delete a caption layer
   void _deleteCaptionLayer(String id) {
+    _saveStateToHistory();
     setState(() {
       _captionLayers.removeWhere((c) => c.id == id);
       if (_selectedCaptionId == id) {
@@ -1599,15 +1970,27 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             children: [
               // Undo
               IconButton(
-                onPressed: () => _showSnackBar('Undo'),
-                icon: Icon(Icons.undo, color: Colors.white.withOpacity(0.7), size: 20),
+                onPressed: _canUndo ? _undo : null,
+                icon: Icon(
+                  Icons.undo, 
+                  color: _canUndo 
+                      ? Colors.white.withOpacity(0.9) 
+                      : Colors.white.withOpacity(0.3), 
+                  size: 20,
+                ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               ),
               // Redo
               IconButton(
-                onPressed: () => _showSnackBar('Redo'),
-                icon: Icon(Icons.redo, color: Colors.white.withOpacity(0.7), size: 20),
+                onPressed: _canRedo ? _redo : null,
+                icon: Icon(
+                  Icons.redo, 
+                  color: _canRedo 
+                      ? Colors.white.withOpacity(0.9) 
+                      : Colors.white.withOpacity(0.3), 
+                  size: 20,
+                ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               ),
@@ -2038,6 +2421,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               // Left trim handle
               GestureDetector(
                 onHorizontalDragStart: (_) {
+                  _saveStateToHistory(); // Save state before trimming
                   setState(() {
                     _trimmingClipId = clip.id;
                     _isTrimmingClipStart = true;
@@ -2179,6 +2563,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               // Right trim handle
               GestureDetector(
                 onHorizontalDragStart: (_) {
+                  _saveStateToHistory(); // Save state before trimming
                   setState(() {
                     _trimmingClipId = clip.id;
                     _isTrimmingClipEnd = true;
@@ -2476,6 +2861,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           // Left trim handle - uses pixelsPerSecond
           GestureDetector(
             onHorizontalDragStart: (_) {
+              _saveStateToHistory(); // Save state before trimming
               setState(() {
                 _trimmingLayerId = overlay.id;
                 _isTrimmingStart = true;
@@ -2545,6 +2931,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           // Right trim handle - uses pixelsPerSecond
           GestureDetector(
             onHorizontalDragStart: (_) {
+              _saveStateToHistory(); // Save state before trimming
               setState(() {
                 _trimmingLayerId = overlay.id;
                 _isTrimmingEnd = true;
@@ -2878,6 +3265,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           // Left trim handle
           GestureDetector(
             onHorizontalDragStart: (_) {
+              _saveStateToHistory(); // Save state before trimming
               setState(() {
                 _trimmingLayerId = audio.id;
                 _isTrimmingStart = true;
@@ -2982,6 +3370,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           // Right trim handle
           GestureDetector(
             onHorizontalDragStart: (_) {
+              _saveStateToHistory(); // Save state before trimming
               setState(() {
                 _trimmingLayerId = audio.id;
                 _isTrimmingEnd = true;
@@ -4155,6 +4544,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   /// Add a new effect layer
   void _addEffectLayer(EffectPreset preset) {
+    _saveStateToHistory();
     final currentPos = _videoController?.value.position.inSeconds.toDouble() ?? 0;
     final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10;
     
@@ -4186,6 +4576,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   /// Delete an effect layer
   void _deleteEffectLayer(String id) {
+    _saveStateToHistory();
     setState(() {
       _effectLayers.removeWhere((e) => e.id == id);
       if (_selectedEffectId == id) {
