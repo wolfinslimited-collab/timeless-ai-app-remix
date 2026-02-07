@@ -1718,211 +1718,126 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     // Half-screen padding for perfect playhead alignment at scroll limits
     final double halfScreenPadding = screenWidth / 2;
     
-    // Fixed controls width (Mute/Cover buttons)
-    const double fixedControlsWidth = 56.0;
-    
     // Total scrollable width: halfScreen + track + halfScreen
     final totalScrollWidth = halfScreenPadding + trackWidth + halfScreenPadding;
     
     // Calculate height based on tracks
     const baseHeight = 200.0;
     
-    // Playhead positioned at center (half screen width minus fixed controls)
-    final double playheadOffset = halfScreenPadding;
+    // Playhead positioned at center of screen
+    final double playheadOffset = screenWidth / 2;
     
     return Container(
       height: baseHeight,
       color: const Color(0xFF0D0D0D),
-      child: Row(
+      child: Stack(
         children: [
-          // Fixed Mute/Cover buttons at very beginning (outside scroll area)
-          Container(
-            width: fixedControlsWidth,
-            padding: const EdgeInsets.only(left: 4, right: 2),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Mute button
-                GestureDetector(
-                  onTap: _toggleMute,
-                  child: Container(
-                    width: 48,
-                    height: 28,
-                    margin: const EdgeInsets.only(bottom: 4),
-                    decoration: BoxDecoration(
-                      color: _isMuted 
-                          ? AppTheme.primary.withOpacity(0.15)
-                          : Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: _isMuted 
-                            ? AppTheme.primary.withOpacity(0.4)
-                            : Colors.white.withOpacity(0.1),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _isMuted ? Icons.volume_off : Icons.volume_up,
-                          size: 12,
-                          color: _isMuted ? AppTheme.primary : Colors.white.withOpacity(0.7),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          'Mute',
-                          style: TextStyle(
-                            color: _isMuted ? AppTheme.primary : Colors.white.withOpacity(0.5),
-                            fontSize: 8,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+          // Scrollable timeline content (full width, no fixed controls)
+          NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification is ScrollStartNotification) {
+                setState(() => _isUserScrolling = true);
+                // Pause video when user starts scrolling
+                if (_videoController?.value.isPlaying ?? false) {
+                  _videoController!.pause();
+                }
+              } else if (notification is ScrollUpdateNotification) {
+                // Continuous seeking while scrolling
+                _onTimelineScroll();
+              } else if (notification is ScrollEndNotification) {
+                setState(() => _isUserScrolling = false);
+                // Final sync when scrolling stops
+                _onScrollEnd();
+              }
+              return false;
+            },
+            child: SingleChildScrollView(
+              controller: _timelineScrollController,
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: SizedBox(
+                width: totalScrollWidth,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Time Ruler
+                    _buildTimeRuler(halfScreenPadding),
+                    const SizedBox(height: 4),
+                    
+                    // Video Track (filmstrip only) - supports multi-clip
+                    _buildVideoTrackFilmstripOnly(halfScreenPadding, trackWidth),
+                    const SizedBox(height: 6),
+                    
+                    // Audio Track (Green waveform layers)
+                    _buildAudioTrack(halfScreenPadding, trackWidth, duration),
+                    const SizedBox(height: 6),
+                    
+                    // Text Track (Purple/Yellow layers)
+                    _buildTextTrack(halfScreenPadding, trackWidth, duration),
+                    const SizedBox(height: 6),
+                    
+                    // Caption/Subtitle Track (Cyan layers)
+                    _buildCaptionTrack(halfScreenPadding, trackWidth, duration),
+                    const SizedBox(height: 6),
+                    
+                    // Add layer buttons row
+                    _buildAddLayerRow(halfScreenPadding),
+                  ],
                 ),
-                
-                // Cover button
-                GestureDetector(
-                  onTap: () => _showSnackBar('Set cover image'),
-                  child: Container(
-                    width: 48,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.image_outlined, size: 12, color: Colors.white.withOpacity(0.6)),
-                        const SizedBox(width: 3),
-                        Text(
-                          'Cover',
-                          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 8),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
           
-          // Scrollable timeline content
-          Expanded(
-            child: Stack(
-              children: [
-                // Scrollable timeline content with manual scroll detection
-                NotificationListener<ScrollNotification>(
-                  onNotification: (notification) {
-                    if (notification is ScrollStartNotification) {
-                      setState(() => _isUserScrolling = true);
-                      // Pause video when user starts scrolling
-                      if (_videoController?.value.isPlaying ?? false) {
-                        _videoController!.pause();
-                      }
-                    } else if (notification is ScrollUpdateNotification) {
-                      // Continuous seeking while scrolling
-                      _onTimelineScroll();
-                    } else if (notification is ScrollEndNotification) {
-                      setState(() => _isUserScrolling = false);
-                      // Final sync when scrolling stops
-                      _onScrollEnd();
-                    }
-                    return false;
-                  },
-                  child: SingleChildScrollView(
-                    controller: _timelineScrollController,
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    child: SizedBox(
-                      width: totalScrollWidth,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Time Ruler
-                          _buildTimeRuler(halfScreenPadding),
-                          const SizedBox(height: 4),
-                          
-                          // Video Track (filmstrip only - controls are fixed) - supports multi-clip
-                          _buildVideoTrackFilmstripOnly(halfScreenPadding, trackWidth),
-                          const SizedBox(height: 6),
-                          
-                          // Audio Track (Green waveform layers)
-                          _buildAudioTrack(halfScreenPadding, trackWidth, duration),
-                          const SizedBox(height: 6),
-                          
-                          // Text Track (Purple/Yellow layers)
-                          _buildTextTrack(halfScreenPadding, trackWidth, duration),
-                          const SizedBox(height: 6),
-                          
-                          // Caption/Subtitle Track (Cyan layers)
-                          _buildCaptionTrack(halfScreenPadding, trackWidth, duration),
-                          const SizedBox(height: 6),
-                          
-                          // Add layer buttons row
-                          _buildAddLayerRow(halfScreenPadding),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                
-                // Fixed Playhead at left edge (with small offset for visibility)
-                Positioned(
-                  left: playheadOffset,
-                  top: 0,
-                  bottom: 0,
-                  child: IgnorePointer(
-                    child: Stack(
-                      children: [
-                        // Main playhead line
-                        Container(
-                          width: 2,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.white.withOpacity(0.5),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Playhead top indicator
-                        Positioned(
-                          top: 0,
-                          left: -5,
-                          child: Container(
-                            width: 12,
-                            height: 12,
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
+          // Fixed Playhead at center of screen
+          Positioned(
+            left: playheadOffset,
+            top: 0,
+            bottom: 0,
+            child: IgnorePointer(
+              child: Stack(
+                children: [
+                  // Main playhead line
+                  Container(
+                    width: 2,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.white.withOpacity(0.5),
+                          blurRadius: 4,
                         ),
                       ],
                     ),
                   ),
-                ),
-                
-                // Snap indicator (green line when snapping)
-                if (_snapLinePosition != null)
+                  // Playhead top indicator
                   Positioned(
-                    left: _snapLinePosition!,
                     top: 0,
-                    bottom: 0,
+                    left: -5,
                     child: Container(
-                      width: 2,
-                      color: const Color(0xFF00FF00).withOpacity(0.8),
+                      width: 12,
+                      height: 12,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
           ),
+          
+          // Snap indicator (green line when snapping)
+          if (_snapLinePosition != null)
+            Positioned(
+              left: _snapLinePosition!,
+              top: 0,
+              bottom: 0,
+              child: Container(
+                width: 2,
+                color: const Color(0xFF00FF00).withOpacity(0.8),
+              ),
+            ),
         ],
       ),
     );
