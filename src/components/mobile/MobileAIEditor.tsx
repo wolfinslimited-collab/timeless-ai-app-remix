@@ -45,7 +45,10 @@ import {
   Wand2,
   Waves,
   Image,
-  SplitSquareHorizontal
+  SplitSquareHorizontal,
+  Smile,
+  RectangleHorizontal,
+  Paintbrush
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -79,6 +82,9 @@ const EDITOR_TOOLS: EditorTool[] = [
   { id: "captions", name: "Captions", icon: MessageSquareText },
   { id: "filters", name: "Filters", icon: Circle },
   { id: "adjust", name: "Adjust", icon: SlidersHorizontal },
+  { id: "stickers", name: "Stickers", icon: Smile },
+  { id: "aspect", name: "Aspect", icon: RectangleHorizontal },
+  { id: "background", name: "Background", icon: Paintbrush },
 ];
 
 const QUALITY_OPTIONS = ["720p", "1080p", "2K", "4K"];
@@ -224,6 +230,36 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [adjustPanelTab, setAdjustPanelTab] = useState<'filters' | 'adjust'>('adjust');
   const [adjustSubTab, setAdjustSubTab] = useState<'smart' | 'customize'>('customize');
   const [selectedAdjustmentId, setSelectedAdjustmentId] = useState<keyof typeof adjustments>('brightness');
+  
+  // Stickers, Aspect Ratio, Background state
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState<'9:16' | '1:1' | '16:9' | '4:5' | '21:9'>('16:9');
+  const [backgroundColor, setBackgroundColor] = useState('#000000');
+  const [backgroundBlur, setBackgroundBlur] = useState(0);
+  const [showStickersPanel, setShowStickersPanel] = useState(false);
+  
+  // Sticker presets
+  const stickerCategories = [
+    { id: 'emoji', name: 'Emoji', stickers: ['😀', '😂', '🥰', '😎', '🔥', '💯', '⭐', '❤️', '👍', '🎉', '✨', '🚀'] },
+    { id: 'shapes', name: 'Shapes', stickers: ['⬤', '◆', '★', '▲', '◯', '□', '♦', '♠', '♥', '♣', '●', '■'] },
+    { id: 'arrows', name: 'Arrows', stickers: ['→', '←', '↑', '↓', '↗', '↘', '↙', '↖', '⇒', '⇐', '⇑', '⇓'] },
+  ];
+  const [selectedStickerCategory, setSelectedStickerCategory] = useState('emoji');
+  
+  // Aspect ratio presets
+  const aspectRatioPresets = [
+    { id: '9:16', label: '9:16', width: 9, height: 16, description: 'Vertical' },
+    { id: '1:1', label: '1:1', width: 1, height: 1, description: 'Square' },
+    { id: '16:9', label: '16:9', width: 16, height: 9, description: 'Landscape' },
+    { id: '4:5', label: '4:5', width: 4, height: 5, description: 'Portrait' },
+    { id: '21:9', label: '21:9', width: 21, height: 9, description: 'Cinematic' },
+  ] as const;
+  
+  // Background color presets
+  const backgroundColorPresets = [
+    '#000000', '#FFFFFF', '#1A1A1A', '#2D2D2D', 
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
+    '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'
+  ];
 
   // Caption/Subtitle layer state (using top-level interface)
   const [captionLayers, setCaptionLayers] = useState<CaptionLayerData[]>([]);
@@ -1947,7 +1983,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
       {/* Dynamic Bottom Area - Timeline OR Settings Panel */}
       {videoUrl && duration > 0 && (
-        (selectedTool === 'text' || selectedTool === 'adjust' || selectedTool === 'audio') ? (
+        (selectedTool === 'text' || selectedTool === 'adjust' || selectedTool === 'audio' || selectedTool === 'captions' || selectedTool === 'effects' || selectedTool === 'stickers' || selectedTool === 'aspect' || selectedTool === 'background') ? (
           // Contextual Settings Panel - OVERLAYS the timeline area
           <div className="shrink-0 bg-background border-t border-border/10 pb-safe">
             {/* Header with Cancel (X) and Done (checkmark) buttons */}
@@ -1966,8 +2002,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               </button>
               
               {/* Title */}
-              <span className="text-white font-bold text-base">
-                {selectedTool === 'text' ? 'Text Editor' : selectedTool === 'audio' ? 'Audio' : 'Adjust'}
+              <span className="text-foreground font-bold text-base">
+                {selectedTool === 'text' ? 'Text Editor' : 
+                 selectedTool === 'audio' ? 'Audio' : 
+                 selectedTool === 'stickers' ? 'Stickers' :
+                 selectedTool === 'aspect' ? 'Aspect Ratio' :
+                 selectedTool === 'background' ? 'Background' : 'Adjust'}
               </span>
               
               {/* Done button (checkmark) */}
@@ -2649,6 +2689,147 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   </div>
                 )}
               </>
+            ) : selectedTool === 'stickers' ? (
+              // Stickers Panel
+              <div className="flex flex-col">
+                {/* Category tabs */}
+                <div className="flex gap-2 px-4 py-3 overflow-x-auto">
+                  {stickerCategories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedStickerCategory(cat.id)}
+                      className={cn(
+                        "px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all",
+                        selectedStickerCategory === cat.id 
+                          ? "bg-primary/20 text-primary border border-primary/40" 
+                          : "bg-white/5 text-foreground/60 border border-transparent"
+                      )}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Stickers grid */}
+                <div className="px-4 pb-4">
+                  <div className="grid grid-cols-6 gap-2">
+                    {stickerCategories.find(c => c.id === selectedStickerCategory)?.stickers.map((sticker, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          // Add sticker as text overlay
+                          const newSticker: TextOverlayData = {
+                            id: Date.now().toString(),
+                            text: sticker,
+                            position: { x: 50, y: 50 },
+                            fontSize: 48,
+                            textColor: '#FFFFFF',
+                            fontFamily: 'Arial',
+                            alignment: 'center',
+                            hasBackground: false,
+                            backgroundColor: '#000000',
+                            backgroundOpacity: 0.5,
+                            startTime: currentTime,
+                            endTime: Math.min(currentTime + 3, duration),
+                          };
+                          setTextOverlays(prev => [...prev, newSticker]);
+                          toast({ title: "Sticker added!" });
+                        }}
+                        className="w-12 h-12 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary/40 transition-all text-2xl"
+                      >
+                        {sticker}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : selectedTool === 'aspect' ? (
+              // Aspect Ratio Panel
+              <div className="flex flex-col px-4 py-4">
+                <p className="text-foreground/70 text-xs mb-3">Select aspect ratio</p>
+                <div className="flex gap-3 justify-center flex-wrap">
+                  {aspectRatioPresets.map((preset) => {
+                    const isSelected = selectedAspectRatio === preset.id;
+                    // Calculate preview box dimensions
+                    const maxSize = 56;
+                    const scale = Math.min(maxSize / preset.width, maxSize / preset.height);
+                    const previewWidth = preset.width * scale;
+                    const previewHeight = preset.height * scale;
+                    
+                    return (
+                      <button
+                        key={preset.id}
+                        onClick={() => setSelectedAspectRatio(preset.id as any)}
+                        className={cn(
+                          "flex flex-col items-center gap-2 p-3 rounded-xl transition-all",
+                          isSelected 
+                            ? "bg-primary/15 ring-2 ring-primary" 
+                            : "bg-white/5 hover:bg-white/10"
+                        )}
+                      >
+                        <div 
+                          className={cn(
+                            "border-2 rounded-sm flex items-center justify-center",
+                            isSelected ? "border-primary bg-primary/20" : "border-foreground/30 bg-white/5"
+                          )}
+                          style={{ width: previewWidth, height: previewHeight }}
+                        >
+                          <span className="text-[9px] font-semibold text-foreground/70">{preset.label}</span>
+                        </div>
+                        <span className={cn(
+                          "text-[10px] font-medium",
+                          isSelected ? "text-primary" : "text-foreground/60"
+                        )}>
+                          {preset.description}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : selectedTool === 'background' ? (
+              // Background Panel
+              <div className="flex flex-col px-4 py-4">
+                {/* Color Presets */}
+                <div className="mb-4">
+                  <p className="text-foreground/70 text-xs mb-3">Background Color</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {backgroundColorPresets.map((color) => {
+                      const isSelected = backgroundColor === color;
+                      return (
+                        <button
+                          key={color}
+                          onClick={() => setBackgroundColor(color)}
+                          className={cn(
+                            "w-9 h-9 rounded-full transition-all",
+                            isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                          )}
+                          style={{ backgroundColor: color }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                {/* Blur Slider */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-foreground/70 text-xs">Background Blur</p>
+                    <span className="text-foreground text-xs font-mono">{backgroundBlur}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="50"
+                    value={backgroundBlur}
+                    onChange={(e) => setBackgroundBlur(Number(e.target.value))}
+                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                    style={{
+                      background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${(backgroundBlur / 50) * 100}%, rgba(255,255,255,0.1) ${(backgroundBlur / 50) * 100}%, rgba(255,255,255,0.1) 100%)`
+                    }}
+                  />
+                </div>
+              </div>
             ) : null}
           </div>
         ) : (
