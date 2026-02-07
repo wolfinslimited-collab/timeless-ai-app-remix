@@ -5150,13 +5150,31 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       key: const ValueKey('text_menu'),
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Top Tabs: Text / Stickers - matching Adjust style
+        // Top Tabs: Back + Text / Stickers - matching Adjust style
         Container(
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
           ),
           child: Row(
             children: [
+              // Back button
+              GestureDetector(
+                onTap: () => setState(() => _isTextMenuMode = false),
+                child: Container(
+                  width: 32,
+                  height: 36,
+                  margin: const EdgeInsets.only(left: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppTheme.primary.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
+                ),
+              ),
               Expanded(
                 child: GestureDetector(
                   onTap: () => setState(() => _textMenuTab = 'add-text'),
