@@ -441,7 +441,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   // Timeline Sync Engine - Global Constants
   static const double _pixelsPerSecond = 80.0; // Master time-to-pixel ratio
-  static const double _thumbnailHeight = 48.0;
+  static const double _thumbnailHeight = 80.0; // Increased for better quality
   
   // Timeline state
   final ScrollController _timelineScrollController = ScrollController();
@@ -2987,10 +2987,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             left: isFirst ? const Radius.circular(8) : Radius.zero,
             right: isLast ? const Radius.circular(8) : Radius.zero,
           ),
-          border: Border.all(
-            color: isSelected ? Colors.white : videoColor, 
-            width: isSelected ? 2.5 : 2,
-          ),
+          // Only show border when selected
+          border: isSelected 
+              ? Border.all(color: Colors.white, width: 2.5)
+              : null,
           boxShadow: isSelected ? [
             BoxShadow(
               color: videoColor.withOpacity(0.5),
