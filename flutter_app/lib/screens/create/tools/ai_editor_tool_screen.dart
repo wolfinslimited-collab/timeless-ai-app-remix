@@ -521,6 +521,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Settings panel state - for dynamic UI overlap
   bool _isTextEditorInline = false; // For inline keyboard editing
   
+  // Video clip editing panel state
+  String? _editingClipId;
+  double _clipSpeed = 1.0;
+  double _clipVolume = 1.0;
+  
   // Undo/Redo history stacks
   static const int _maxHistoryLength = 50;
   final List<EditorStateSnapshot> _undoStack = [];
@@ -1332,8 +1337,327 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       if (_selectedClipId == clipId) {
         _selectedClipId = null;
       }
+      if (_editingClipId == clipId) {
+        _editingClipId = null;
+      }
     });
+    Navigator.of(context).pop(); // Close bottom sheet if open
     _showSnackBar('Clip deleted');
+  }
+  
+  /// Open clip editing panel
+  void _openClipEditPanel(String clipId) {
+    setState(() {
+      _editingClipId = clipId;
+      _selectedClipId = clipId;
+      _clipSpeed = 1.0;
+      _clipVolume = 1.0;
+    });
+    _showClipEditBottomSheet(clipId);
+  }
+  
+  /// Split video clip at playhead position
+  void _splitClipAtPlayhead(String clipId) {
+    final clip = _videoClips.firstWhere((c) => c.id == clipId, orElse: () => _videoClips.first);
+    final currentPos = _videoController?.value.position.inMilliseconds.toDouble() ?? 0;
+    final currentTime = currentPos / 1000.0;
+    
+    // Calculate local time within the clip
+    final localTime = currentTime - clip.startTime;
+    if (localTime <= 0.5 || localTime >= clip.trimmedDuration - 0.5) {
+      Navigator.of(context).pop();
+      _showSnackBar('Move playhead to middle of clip');
+      return;
+    }
+    
+    _saveStateToHistory();
+    
+    // Create two clips from the split
+    final splitPoint = clip.inPoint + localTime;
+    final firstClip = VideoClip(
+      id: clip.id,
+      url: clip.url,
+      duration: clip.duration,
+      startTime: clip.startTime,
+      inPoint: clip.inPoint,
+      outPoint: splitPoint,
+    );
+    final secondClip = VideoClip(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      url: clip.url,
+      duration: clip.duration,
+      startTime: 0, // Will be recalculated
+      inPoint: splitPoint,
+      outPoint: clip.outPoint,
+    );
+    
+    setState(() {
+      final index = _videoClips.indexWhere((c) => c.id == clipId);
+      if (index != -1) {
+        _videoClips.removeAt(index);
+        _videoClips.insert(index, firstClip);
+        _videoClips.insert(index + 1, secondClip);
+        _recalculateClipStartTimes();
+      }
+    });
+    
+    Navigator.of(context).pop();
+    _showSnackBar('Clip split');
+  }
+  
+  /// Duplicate video clip
+  void _duplicateClip(String clipId) {
+    final clip = _videoClips.firstWhere((c) => c.id == clipId, orElse: () => _videoClips.first);
+    
+    _saveStateToHistory();
+    
+    final duplicatedClip = VideoClip(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      url: clip.url,
+      duration: clip.duration,
+      startTime: 0, // Will be recalculated
+      inPoint: clip.inPoint,
+      outPoint: clip.outPoint,
+    );
+    
+    setState(() {
+      final index = _videoClips.indexWhere((c) => c.id == clipId);
+      if (index != -1) {
+        _videoClips.insert(index + 1, duplicatedClip);
+        _recalculateClipStartTimes();
+      }
+    });
+    
+    Navigator.of(context).pop();
+    _showSnackBar('Clip duplicated');
+  }
+  
+  /// Show clip edit bottom sheet
+  void _showClipEditBottomSheet(String clipId) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      isScrollControlled: true,
+      builder: (context) => _buildClipEditSheet(clipId),
+    );
+  }
+  
+  /// Build clip edit sheet content
+  Widget _buildClipEditSheet(String clipId) {
+    return StatefulBuilder(
+      builder: (context, setSheetState) {
+        final clipEditTools = [
+          _ClipEditTool(id: 'split', name: 'Split', icon: Icons.content_cut, onTap: () => _splitClipAtPlayhead(clipId)),
+          _ClipEditTool(id: 'volume', name: 'Volume', icon: Icons.volume_up, onTap: () { Navigator.pop(context); _showSnackBar('Adjust clip volume'); }),
+          _ClipEditTool(id: 'animations', name: 'Animations', icon: Icons.auto_awesome, onTap: () { Navigator.pop(context); _showSnackBar('Coming soon'); }),
+          _ClipEditTool(id: 'effects', name: 'Effects', icon: Icons.star_outline, onTap: () { Navigator.pop(context); setState(() => _selectedTool = 'effects'); }),
+          _ClipEditTool(id: 'delete', name: 'Delete', icon: Icons.delete_outline, onTap: () => _deleteVideoClip(clipId), isDestructive: true),
+          _ClipEditTool(id: 'speed', name: 'Speed', icon: Icons.speed, onTap: () { Navigator.pop(context); _showSnackBar('Adjust clip speed'); }),
+          _ClipEditTool(id: 'beats', name: 'Beats', icon: Icons.waves, onTap: () { Navigator.pop(context); _showSnackBar('Coming soon'); }),
+          _ClipEditTool(id: 'crop', name: 'Crop', icon: Icons.crop, onTap: () { Navigator.pop(context); _showSnackBar('Coming soon'); }),
+          _ClipEditTool(id: 'duplicate', name: 'Duplicate', icon: Icons.copy, onTap: () => _duplicateClip(clipId)),
+          _ClipEditTool(id: 'replace', name: 'Replace', icon: Icons.swap_horiz, onTap: () { Navigator.pop(context); _pickAndLoadVideo(); }),
+          _ClipEditTool(id: 'overlay', name: 'Overlay', icon: Icons.layers_outlined, onTap: () { Navigator.pop(context); setState(() => _selectedTool = 'overlay'); }),
+          _ClipEditTool(id: 'adjust', name: 'Adjust', icon: Icons.tune, onTap: () { Navigator.pop(context); setState(() => _selectedTool = 'adjust'); }),
+          _ClipEditTool(id: 'filter', name: 'Filter', icon: Icons.auto_fix_high, onTap: () { Navigator.pop(context); setState(() => _selectedTool = 'filters'); }),
+        ];
+        
+        return Container(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Title
+              const Text(
+                'Edit Clip',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              // Speed slider
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Speed',
+                          style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+                        ),
+                        Text(
+                          '${_clipSpeed.toStringAsFixed(1)}x',
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: Theme.of(context).primaryColor,
+                        inactiveTrackColor: Colors.white.withOpacity(0.1),
+                        thumbColor: Theme.of(context).primaryColor,
+                        trackHeight: 4,
+                      ),
+                      child: Slider(
+                        value: _clipSpeed,
+                        min: 0.25,
+                        max: 2.0,
+                        onChanged: (value) {
+                          setSheetState(() => _clipSpeed = value);
+                          setState(() => _clipSpeed = value);
+                        },
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('0.25x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
+                        Text('1x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
+                        Text('2x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Volume slider
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.volume_up, size: 16, color: Colors.white.withOpacity(0.7)),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Clip Volume',
+                              style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          '${(_clipVolume * 100).round()}%',
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: Theme.of(context).primaryColor,
+                        inactiveTrackColor: Colors.white.withOpacity(0.1),
+                        thumbColor: Theme.of(context).primaryColor,
+                        trackHeight: 4,
+                      ),
+                      child: Slider(
+                        value: _clipVolume,
+                        min: 0.0,
+                        max: 1.0,
+                        onChanged: (value) {
+                          setSheetState(() => _clipVolume = value);
+                          setState(() => _clipVolume = value);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Tools grid (scrollable horizontally)
+              SizedBox(
+                height: 90,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: clipEditTools.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final tool = clipEditTools[index];
+                    return GestureDetector(
+                      onTap: tool.onTap,
+                      child: Container(
+                        width: 70,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: tool.isDestructive
+                              ? Colors.red.withOpacity(0.15)
+                              : Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: tool.isDestructive
+                                ? Colors.red.withOpacity(0.3)
+                                : Colors.white.withOpacity(0.1),
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: tool.isDestructive
+                                    ? Colors.red.withOpacity(0.2)
+                                    : Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                tool.icon,
+                                size: 20,
+                                color: tool.isDestructive ? Colors.red : Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              tool.name,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                color: tool.isDestructive
+                                    ? Colors.red
+                                    : Colors.white.withOpacity(0.8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      },
+    );
   }
   
   /// Delete a text overlay from the timeline
@@ -2543,6 +2867,25 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                                 ),
                               ),
                             ],
+                          ),
+                        ),
+                      ),
+                    
+                    // Edit button when selected
+                    if (isSelected)
+                      Positioned(
+                        right: _videoClips.length > 1 ? 28 : 4,
+                        top: 2,
+                        child: GestureDetector(
+                          onTap: () => _openClipEditPanel(clip.id),
+                          child: Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).primaryColor.withOpacity(0.9),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.content_cut, size: 10, color: Colors.white),
                           ),
                         ),
                       ),
@@ -5769,5 +6112,22 @@ class AdjustmentTool {
     required this.icon,
     required this.value,
     required this.onChanged,
+  });
+}
+
+/// Clip edit tool model for the editing bottom sheet
+class _ClipEditTool {
+  final String id;
+  final String name;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  const _ClipEditTool({
+    required this.id,
+    required this.name,
+    required this.icon,
+    required this.onTap,
+    this.isDestructive = false,
   });
 }
