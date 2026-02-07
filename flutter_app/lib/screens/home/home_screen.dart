@@ -85,16 +85,6 @@ class _HomeScreenState extends State<HomeScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header with subtitle
-                  const Text(
-                    'Create anything with AI',
-                    style: TextStyle(
-                      color: AppTheme.muted,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
                   // Quick Actions - 4 column grid
                   const Text(
                     'Quick Actions',
