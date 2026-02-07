@@ -5193,6 +5193,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           ),
         ),
         
+        // Horizontal divider
+        Container(
+          height: 1,
+          color: Colors.white.withOpacity(0.1),
+        ),
+        
         // Tab Content
         Padding(
           padding: const EdgeInsets.all(12),
@@ -5240,36 +5246,24 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   Widget _buildTextMenuContent() {
     switch (_textMenuTab) {
       case 'add-text':
-        return Row(
-          children: [
-            // Vertical separator
-            Container(
-              width: 1,
-              height: 48,
-              color: Colors.white.withOpacity(0.2),
-            ),
-            const SizedBox(width: 12),
-            
-            // Text options
-            Expanded(
-              child: Row(
-                children: [
-                  _buildTextMenuOption('Text template', Icons.description_outlined, () {
-                    _addTextOverlay();
-                    setState(() => _isTextMenuMode = false);
-                  }),
-                  const SizedBox(width: 8),
-                  _buildTextMenuOption('Text to audio', Icons.audiotrack_outlined, () {
-                    _showSnackBar('Text to audio coming soon');
-                  }),
-                  const SizedBox(width: 8),
-                  _buildTextMenuOption('Auto lyrics', Icons.music_note_outlined, () {
-                    _showSnackBar('Auto lyrics coming soon');
-                  }),
-                ],
-              ),
-            ),
-          ],
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildTextMenuOption('Text template', Icons.description_outlined, () {
+                _addTextOverlay();
+                setState(() => _isTextMenuMode = false);
+              }),
+              const SizedBox(width: 8),
+              _buildTextMenuOption('Text to audio', Icons.audiotrack_outlined, () {
+                _showSnackBar('Text to audio coming soon');
+              }),
+              const SizedBox(width: 8),
+              _buildTextMenuOption('Auto lyrics', Icons.music_note_outlined, () {
+                _showSnackBar('Auto lyrics coming soon');
+              }),
+            ],
+          ),
         );
         
       case 'auto-captions':
