@@ -2699,9 +2699,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           double videoWidth = availableWidth;
           double videoHeight = videoWidth / videoAspectRatio;
           
-          // Fill up to 98% of available height for maximum video size
-          if (videoHeight > availableHeight * 0.98) {
-            videoHeight = availableHeight * 0.98;
+          // Fill up to full available height for maximum video size (+20px increase)
+          if (videoHeight > availableHeight) {
+            videoHeight = availableHeight;
             videoWidth = videoHeight * videoAspectRatio;
           }
           
