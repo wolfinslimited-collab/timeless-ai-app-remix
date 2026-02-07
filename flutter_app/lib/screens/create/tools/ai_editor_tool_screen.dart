@@ -1100,13 +1100,19 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     _syncAudioLayersToTime(videoPosition);
   }
   
-  /// Unified play function - starts all active layers
+  /// Unified play function - starts all active layers from current playhead position
   void _unifiedPlay() {
     if (_videoController == null || !_isVideoInitialized) return;
     
-    // Sync all layers to current position first
-    final currentPos = _videoController!.value.position.inMilliseconds / 1000.0;
-    _syncAllLayersToTime(currentPos);
+    // Sync all layers to current timeline position (playhead)
+    _syncAllLayersToTime(_currentTimelinePosition);
+    
+    // Seek video to current playhead position before playing
+    final activeResult = _getActiveClipAtTime(_currentTimelinePosition);
+    if (activeResult != null) {
+      final newPosition = Duration(milliseconds: (activeResult.localTime * 1000).toInt());
+      _videoController!.seekTo(newPosition);
+    }
     
     // Start video playback
     _videoController!.play();
@@ -2105,6 +2111,16 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     // Update current timeline position
     _currentTimelinePosition = positionSeconds;
     
+    // Check if video reached the end - stop playback (no loop)
+    if (positionSeconds >= _totalTimelineDuration - 0.1 && _videoController!.value.isPlaying) {
+      _unifiedPause();
+      _currentTimelinePosition = _totalTimelineDuration;
+      if (mounted) {
+        setState(() {});
+      }
+      return;
+    }
+    
     // Sync all layers (audio, text visibility, etc.) to current time
     _syncAudioLayersToTime(positionSeconds);
     
@@ -2215,7 +2231,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       _videoController = VideoPlayerController.file(File(filePath));
       
       await _videoController!.initialize();
-      _videoController!.setLooping(true);
+      _videoController!.setLooping(false); // Play once, no loop
       _videoController!.addListener(_onVideoPositionChanged);
       
       setState(() {

@@ -642,9 +642,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       // Update current time based on real elapsed time
       setCurrentTime(prev => {
         const newTime = prev + (deltaMs / 1000);
-        // Loop back to start if past end
+        // Stop at end (no looping)
         if (newTime >= totalTimelineDuration) {
-          return 0;
+          setIsPlaying(false);
+          return totalTimelineDuration;
         }
         return newTime;
       });
