@@ -2177,7 +2177,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </div>
                     
                     {/* Reset Button - Bottom Left */}
-                    <div className="flex justify-start px-4 pb-4">
+                    <div className="flex justify-start px-4 pb-8">
                       <button
                         onClick={resetAdjustments}
                         className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
