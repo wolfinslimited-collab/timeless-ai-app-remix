@@ -3520,7 +3520,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 </div>
                 
                 {/* Horizontal Scrollable Edit Tools */}
-                <div className="flex-1 flex items-center overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch', minHeight: '120px' }}>
+                <div className="flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
                   <div className="flex gap-2 min-w-max">
                     {clipEditTools.map((tool) => {
                       const IconComponent = tool.icon;
