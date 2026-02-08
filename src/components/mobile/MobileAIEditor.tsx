@@ -2645,72 +2645,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           {/* Timeline Section - Multi-Track with Sync Engine (Mobile Optimized) */}
             {/* Timeline Section - Multi-Track with Sync Engine (Mobile Optimized) */}
             <div className="h-[200px] shrink-0 bg-[#0D0D0D] overflow-hidden relative">
-              {/* Edit Menu Overlay - slides up from bottom, covers timeline */}
-              {isEditMenuMode && (
-                <div 
-                  className="absolute inset-0 z-40 flex flex-col justify-end animate-in slide-in-from-bottom duration-200"
-                  style={{ backgroundColor: 'rgba(0, 0, 0, 0.85)' }}
-                >
-                  {/* Semi-transparent top tap area to close */}
-                  <div 
-                    className="flex-1" 
-                    onClick={() => setIsEditMenuMode(false)}
-                  />
-                  {/* Edit panel content */}
-                  <div className="bg-background/95 backdrop-blur-md border-t border-border/20 rounded-t-2xl">
-                    {/* Header with back button and title */}
-                    <div className="flex items-center px-4 py-3 border-b border-border/20">
-                      <button
-                        onClick={() => setIsEditMenuMode(false)}
-                        className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
-                      >
-                        <ChevronDown className="w-5 h-5 text-primary" />
-                      </button>
-                      <span className="flex-1 text-sm font-medium text-foreground text-center pr-8">
-                        Edit
-                      </span>
-                    </div>
-                    
-                    {/* Horizontal Scrollable Edit Tools */}
-                    <div className="overflow-x-auto px-2 py-2 pb-3" style={{ WebkitOverflowScrolling: 'touch' }}>
-                      <div className="flex gap-1 min-w-max">
-                        {clipEditTools.map((tool) => {
-                          const IconComponent = tool.icon;
-                          const isDelete = tool.id === 'delete';
-                          return (
-                            <button
-                              key={tool.id}
-                              onClick={() => {
-                                tool.action();
-                                if (!['volume', 'speed', 'animations', 'beats', 'crop'].includes(tool.id)) {
-                                  setIsEditMenuMode(false);
-                                }
-                              }}
-                              className="flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all hover:bg-white/5"
-                            >
-                              <div className={cn(
-                                "w-11 h-11 rounded-full flex items-center justify-center mb-1",
-                                isDelete ? "bg-destructive/20" : "bg-white/10"
-                              )}>
-                                <IconComponent className={cn(
-                                  "w-5 h-5",
-                                  isDelete ? "text-destructive" : "text-white"
-                                )} />
-                              </div>
-                              <span className={cn(
-                                "text-[10px] font-medium",
-                                isDelete ? "text-destructive" : "text-foreground/60"
-                              )}>
-                                {tool.name}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
               {/* Fixed Centered Playhead (Top Layer) */}
               <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white z-20 -translate-x-1/2 shadow-[0_0_12px_rgba(255,255,255,0.5)]">
                 <div className="absolute -top-0 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.4)]" />
@@ -3566,6 +3500,62 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   bubbleStyle={selectedTextOverlay.bubbleStyle}
                   onBubbleStyleChange={(bubbleStyle) => updateSelectedText({ bubbleStyle })}
                 />
+              </div>
+            )}
+            
+            {/* Edit Menu Overlay */}
+            {isEditMenuMode && (
+              <div className="absolute inset-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-10 flex flex-col">
+                {/* Header with back button and title */}
+                <div className="flex items-center px-4 py-2 border-b border-border/20">
+                  <button
+                    onClick={() => setIsEditMenuMode(false)}
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                  >
+                    <ChevronDown className="w-5 h-5 text-primary" />
+                  </button>
+                  <span className="flex-1 text-sm font-medium text-foreground text-center pr-8">
+                    Edit
+                  </span>
+                </div>
+                
+                {/* Horizontal Scrollable Edit Tools */}
+                <div className="overflow-x-auto px-2 py-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  <div className="flex gap-1 min-w-max">
+                    {clipEditTools.map((tool) => {
+                      const IconComponent = tool.icon;
+                      const isDelete = tool.id === 'delete';
+                      return (
+                        <button
+                          key={tool.id}
+                          onClick={() => {
+                            tool.action();
+                            if (!['volume', 'speed', 'animations', 'beats', 'crop'].includes(tool.id)) {
+                              setIsEditMenuMode(false);
+                            }
+                          }}
+                          className="flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all hover:bg-muted/50"
+                        >
+                          <div className={cn(
+                            "w-11 h-11 rounded-full flex items-center justify-center mb-1",
+                            isDelete ? "bg-destructive/20" : "bg-muted/30"
+                          )}>
+                            <IconComponent className={cn(
+                              "w-5 h-5",
+                              isDelete ? "text-destructive" : "text-foreground"
+                            )} />
+                          </div>
+                          <span className={cn(
+                            "text-[10px] font-medium",
+                            isDelete ? "text-destructive" : "text-foreground/60"
+                          )}>
+                            {tool.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
             
