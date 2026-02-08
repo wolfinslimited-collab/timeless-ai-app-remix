@@ -1481,13 +1481,17 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   /// Add a new video clip to the end of the timeline
   void _addVideoClip(String url, double clipDuration) {
     final lastClip = _videoClips.isNotEmpty ? _videoClips.last : null;
-    final startTime = lastClip != null ? lastClip.startTime + lastClip.duration : 0.0;
+    final startTime = lastClip != null ? lastClip.startTime + lastClip.trimmedDuration : 0.0;
+    
+    debugPrint('AI Editor: Adding clip with duration: $clipDuration seconds');
     
     final newClip = VideoClip(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       url: url,
       duration: clipDuration,
       startTime: startTime,
+      inPoint: 0,
+      outPoint: clipDuration, // Explicitly set outPoint to full duration
       thumbnails: [],
       volume: 1.0,
       speed: 1.0,
@@ -1506,13 +1510,18 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   /// Initialize first clip when primary video is loaded
   void _initializeFirstClip() {
     if (_videoUrl != null && _videoController != null && _isVideoInitialized && _videoClips.isEmpty) {
-      final duration = _videoController!.value.duration.inSeconds.toDouble();
+      // Use milliseconds for precise duration (inSeconds.toDouble() truncates!)
+      final durationMs = _videoController!.value.duration.inMilliseconds;
+      final duration = durationMs / 1000.0;
+      debugPrint('AI Editor: Initializing clip with duration: $duration seconds (${durationMs}ms)');
       setState(() {
         _videoClips.add(VideoClip(
           id: 'primary',
           url: _videoUrl!,
           duration: duration,
           startTime: 0,
+          inPoint: 0,
+          outPoint: duration, // Explicitly set outPoint to full duration
           thumbnails: [],
           volume: 1.0,
           speed: 1.0,

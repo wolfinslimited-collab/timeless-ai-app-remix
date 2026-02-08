@@ -1712,20 +1712,38 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       };
 
       // Set video to starting position (respect inPoint)
-      exportVideo.currentTime = activeClip?.inPoint || 0;
-      await new Promise(resolve => setTimeout(resolve, 100));
+      const inPoint = activeClip?.inPoint || 0;
+      const outPoint = activeClip?.outPoint || exportVideo.duration;
+      exportVideo.currentTime = inPoint;
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Start recording
-      mediaRecorder.start();
+      mediaRecorder.start(100); // Request data every 100ms for more reliable capture
+
+      // Listen for video end to ensure we don't miss frames
+      let videoEnded = false;
+      exportVideo.onended = () => {
+        videoEnded = true;
+      };
+
       await exportVideo.play();
 
-      // Render frames
+      // Render frames using a time-based approach
       let frameCount = 0;
-      const renderFrame = () => {
-        if (frameCount >= totalFrames || exportVideo.currentTime >= (activeClip?.outPoint || duration)) {
+      const frameDuration = 1 / outputFrameRate;
+      const startTime = Date.now();
+      
+      const renderFrame = async () => {
+        // Check if we've reached the end based on current position
+        const currentPos = exportVideo.currentTime;
+        const hasReachedEnd = currentPos >= outPoint - 0.05 || videoEnded || frameCount >= totalFrames;
+        
+        if (hasReachedEnd) {
           // Stop recording
           exportVideo.pause();
-          mediaRecorder.stop();
+          if (mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+          }
           return;
         }
 
@@ -1835,7 +1853,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         });
 
         frameCount++;
-        setExportProgress(Math.round((frameCount / totalFrames) * 100));
+        const progress = Math.min(99, Math.round((currentPos - inPoint) / (outPoint - inPoint) * 100));
+        setExportProgress(progress);
 
         requestAnimationFrame(renderFrame);
       };
