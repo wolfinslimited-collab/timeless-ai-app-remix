@@ -1448,6 +1448,30 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       // Extract thumbnails for the primary clip
       extractThumbnails(videoUrl, duration, clipId, 15);
     }
+  }, [videoUrl, duration, videoClips.length]);
+
+  // Keep primary clip duration in sync.
+  // On some browsers, loadedmetadata can initially report ~5s before the full duration is known.
+  // If the clip hasn't been trimmed yet (inPoint=0 and outPoint===old duration), update it.
+  useEffect(() => {
+    if (!videoUrl || duration <= 0) return;
+
+    setVideoClips(prev => {
+      if (prev.length !== 1) return prev;
+      const clip = prev[0];
+      if (clip.id !== 'primary') return prev;
+      if (clip.url !== videoUrl) return prev;
+
+      const hasBeenTrimmed = clip.inPoint !== 0 || clip.outPoint !== clip.duration;
+      if (hasBeenTrimmed) return prev;
+
+      // Only update if we learned a longer duration
+      if (duration > clip.duration + 0.01) {
+        return [{ ...clip, duration, outPoint: duration }];
+      }
+
+      return prev;
+    });
   }, [videoUrl, duration]);
 
   const formatTime = (seconds: number) => {
@@ -1778,7 +1802,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
       // Set video to starting position (respect inPoint)
       const inPoint = activeClip?.inPoint || 0;
-      const outPoint = activeClip?.outPoint || exportVideo.duration;
+      const outPoint = Math.min(activeClip?.outPoint ?? exportVideo.duration, exportVideo.duration);
       exportVideo.currentTime = inPoint;
       await new Promise(resolve => setTimeout(resolve, 200));
 
