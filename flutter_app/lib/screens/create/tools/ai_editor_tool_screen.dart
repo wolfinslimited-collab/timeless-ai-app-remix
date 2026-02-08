@@ -1152,6 +1152,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     // 1. Sync video - seek to correct position within active clip
     final activeResult = _getActiveClipAtTime(timelineTime);
     if (activeResult != null && _videoController != null && _isVideoInitialized) {
+      final clip = activeResult.clip;
       final localTime = activeResult.localTime;
       final newPosition = Duration(milliseconds: (localTime * 1000).toInt());
       
@@ -1160,6 +1161,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       if ((currentPos - localTime).abs() > 0.1) {
         _videoController!.seekTo(newPosition);
       }
+      
+      // Apply per-clip speed and volume
+      _videoController!.setPlaybackSpeed(clip.speed);
+      _videoController!.setVolume(_isMuted ? 0.0 : clip.volume.clamp(0.0, 1.0));
     }
     
     // 2. Sync audio layers
@@ -1533,11 +1538,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   
   /// Open clip editing panel
   void _openClipEditPanel(String clipId) {
+    // Load the clip's existing volume and speed values
+    final clip = _videoClips.firstWhere((c) => c.id == clipId, orElse: () => _videoClips.first);
     setState(() {
       _editingClipId = clipId;
       _selectedClipId = clipId;
-      _clipSpeed = 1.0;
-      _clipVolume = 1.0;
+      _clipSpeed = clip.speed;
+      _clipVolume = clip.volume;
     });
     _showClipEditBottomSheet(clipId);
   }
@@ -6675,11 +6682,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   Widget _buildEditMenuOverlay() {
     final editTools = [
       {'id': 'split', 'name': 'Split', 'icon': Icons.content_cut, 'action': () => _editingClipId != null ? _splitClipAtPlayhead(_editingClipId!) : null},
-      {'id': 'volume', 'name': 'Volume', 'icon': Icons.volume_up, 'action': _applyClipVolume},
+      {'id': 'volume', 'name': 'Volume', 'icon': Icons.volume_up, 'action': () => setState(() => _editSubPanel = 'volume')},
       {'id': 'animations', 'name': 'Animations', 'icon': Icons.auto_awesome, 'action': _showAnimationsBottomSheet},
       {'id': 'effects', 'name': 'Effects', 'icon': Icons.star_outline, 'action': () { setState(() { _selectedTool = 'effects'; _isEditMenuMode = false; }); }},
       {'id': 'delete', 'name': 'Delete', 'icon': Icons.delete_outline, 'action': () { if (_editingClipId != null) _deleteVideoClip(_editingClipId!); setState(() => _isEditMenuMode = false); }},
-      {'id': 'speed', 'name': 'Speed', 'icon': Icons.speed, 'action': _applyClipSpeed},
+      {'id': 'speed', 'name': 'Speed', 'icon': Icons.speed, 'action': () => setState(() => _editSubPanel = 'speed')},
       {'id': 'beats', 'name': 'Beats', 'icon': Icons.waves, 'action': _showBeatsBottomSheet},
       {'id': 'crop', 'name': 'Crop', 'icon': Icons.crop, 'action': _showCropBottomSheet},
       {'id': 'duplicate', 'name': 'Duplicate', 'icon': Icons.copy, 'action': () { if (_editingClipId != null) { _duplicateClipInline(_editingClipId!); } }},
