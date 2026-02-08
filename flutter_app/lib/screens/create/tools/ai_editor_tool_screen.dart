@@ -3048,12 +3048,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 color: const Color(0xFF00FF00).withOpacity(0.8),
               ),
             ),
-          
-          // Edit Menu Overlay - slides up from bottom, covers timeline
-          if (_isEditMenuMode)
-            Positioned.fill(
-              child: _buildEditMenuOverlay(),
-            ),
         ],
       ),
     );
@@ -5245,6 +5239,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               child: Container(
                 color: const Color(0xFF0A0A0A),
                 child: _buildCaptionsMenu(),
+              ),
+            ),
+          
+          // Edit Menu Overlay
+          if (_isEditMenuMode)
+            Positioned.fill(
+              child: Container(
+                color: const Color(0xFF0A0A0A),
+                child: _buildEditMenu(),
               ),
             ),
         ],
