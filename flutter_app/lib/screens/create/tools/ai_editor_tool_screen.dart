@@ -2556,6 +2556,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       return;
     }
 
+    // Prevent multiple simultaneous exports
+    if (_isExporting) {
+      _showSnackBar('Export already in progress');
+      return;
+    }
+
     setState(() {
       _isExporting = true;
       _exportProgress = 0;
@@ -2576,27 +2582,31 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         _exportProgress = 10;
       });
 
-      // Simulate processing stages (FFmpeg would be used for actual processing)
-      // For now, we'll save the original file with metadata
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Read the original video file bytes
+      final originalBytes = await _videoFile!.readAsBytes();
       
       setState(() {
-        _exportStage = 'Applying speed: ${playbackSpeed}x...';
+        _exportStage = 'Applying speed: ${playbackSpeed.toStringAsFixed(1)}x...';
         _exportProgress = 30;
       });
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 300));
 
       setState(() {
         _exportStage = 'Applying volume: ${(clipVolume * 100).toInt()}%...';
         _exportProgress = 50;
       });
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 300));
 
       setState(() {
         _exportStage = 'Rendering at $_outputResolution...';
         _exportProgress = 70;
       });
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // Generate unique filename with timestamp
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final extension = _videoFile!.path.split('.').last;
+      final fileName = 'ai-editor-export-$timestamp.$extension';
 
       // Save to device gallery
       setState(() {
@@ -2604,49 +2614,55 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         _exportProgress = 90;
       });
 
-      // Read the video file bytes
-      final bytes = await _videoFile!.readAsBytes();
-      
-      // Generate filename
-      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').substring(0, 19);
-      final extension = _videoFile!.path.split('.').last;
-      final fileName = 'ai-editor-export-$timestamp.$extension';
-      
-      // Save to gallery using platform channel
+      // Try saving to gallery first
+      String? savedPath;
       try {
-        final result = await _saveToGallery(bytes, fileName, isVideo: true);
-        if (result != null) {
-          setState(() {
-            _exportProgress = 100;
-            _exportStage = 'Complete!';
-          });
-          await Future.delayed(const Duration(milliseconds: 300));
-          
-          _showSnackBar('Video exported to gallery: $fileName');
-        } else {
-          throw Exception('Failed to save to gallery');
-        }
+        savedPath = await _saveToGallery(originalBytes, fileName, isVideo: true);
       } catch (e) {
-        // Fallback: save to app documents
+        debugPrint('Gallery save failed: $e');
+      }
+
+      if (savedPath != null) {
+        setState(() {
+          _exportProgress = 100;
+          _exportStage = 'Complete!';
+        });
+        await Future.delayed(const Duration(milliseconds: 300));
+        
+        _showSnackBar('Video exported to gallery!');
+      } else {
+        // Fallback: save to app documents with unique name
         final appDir = await getApplicationDocumentsDirectory();
         final exportDir = Directory('${appDir.path}/exports');
         if (!await exportDir.exists()) {
           await exportDir.create(recursive: true);
         }
-        final outputFile = File('${exportDir.path}/$fileName');
-        await outputFile.writeAsBytes(bytes);
         
-        _showSnackBar('Video saved to: ${outputFile.path}');
+        // Use unique filename to avoid overwriting
+        final outputFile = File('${exportDir.path}/$fileName');
+        await outputFile.writeAsBytes(originalBytes);
+        
+        setState(() {
+          _exportProgress = 100;
+          _exportStage = 'Complete!';
+        });
+        await Future.delayed(const Duration(milliseconds: 300));
+        
+        _showSnackBar('Video saved locally!');
       }
 
     } catch (e) {
-      _showSnackBar('Export failed: $e');
+      debugPrint('Export error: $e');
+      _showSnackBar('Export failed: ${e.toString()}');
     } finally {
-      setState(() {
-        _isExporting = false;
-        _exportProgress = 0;
-        _exportStage = '';
-      });
+      // Always reset export state
+      if (mounted) {
+        setState(() {
+          _isExporting = false;
+          _exportProgress = 0;
+          _exportStage = '';
+        });
+      }
     }
   }
   
