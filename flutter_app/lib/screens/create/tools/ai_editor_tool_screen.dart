@@ -5208,6 +5208,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     return Column(
       key: const ValueKey('text_menu'),
       mainAxisSize: MainAxisSize.min,
+      clipBehavior: Clip.none,
       children: [
         // Header with back button and title
         Container(
@@ -5453,6 +5454,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     return Column(
       key: const ValueKey('audio_menu'),
       mainAxisSize: MainAxisSize.min,
+      clipBehavior: Clip.none,
       children: [
         // Header with back button and title
         Container(
@@ -5704,6 +5706,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     return Column(
       key: const ValueKey('effects_menu'),
       mainAxisSize: MainAxisSize.min,
+      clipBehavior: Clip.none,
       children: [
         // Header with back button and title
         Container(
@@ -5799,6 +5802,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     return Column(
       key: const ValueKey('overlay_menu'),
       mainAxisSize: MainAxisSize.min,
+      clipBehavior: Clip.none,
       children: [
         // Header with back button and title
         Container(
@@ -5893,6 +5897,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     return Column(
       key: const ValueKey('captions_menu'),
       mainAxisSize: MainAxisSize.min,
+      clipBehavior: Clip.none,
       children: [
         // Header with back button and title
         Container(
