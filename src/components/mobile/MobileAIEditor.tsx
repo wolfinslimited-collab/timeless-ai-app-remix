@@ -1206,8 +1206,23 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   // Edit menu sub-panel state
   const [editSubPanel, setEditSubPanel] = useState<'none' | 'volume' | 'speed'>('none');
+  
+  // Speed mode: 'normal' for linear slider, 'curve' for presets
+  const [speedMode, setSpeedMode] = useState<'normal' | 'curve'>('normal');
+  
+  // Speed curve presets
+  const speedCurvePresets = [
+    { id: 'montage', name: 'Montage', description: 'Quick cuts with varying speed' },
+    { id: 'hero', name: 'Hero', description: 'Slow-mo emphasis on action' },
+    { id: 'bullet', name: 'Bullet', description: 'Extreme slow-motion effect' },
+    { id: 'jump_cut', name: 'Jump Cut', description: 'Sudden speed changes' },
+    { id: 'ramp_up', name: 'Ramp Up', description: 'Gradually accelerate' },
+    { id: 'ramp_down', name: 'Ramp Down', description: 'Gradually decelerate' },
+  ];
+  
+  const [selectedSpeedCurve, setSelectedSpeedCurve] = useState<string | null>(null);
 
-  // Speed presets for video playback
+  // Speed presets for quick selection (legacy, used in curve mode graph)
   const speedPresets = [
     { value: 0.25, label: '0.25x' },
     { value: 0.5, label: '0.5x' },
@@ -3663,27 +3678,147 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </div>
                   </div>
                 ) : editSubPanel === 'speed' ? (
-                  /* Speed Presets Sub-panel */
-                  <div className="flex-1 flex flex-col px-4 py-4">
-                    <div className="grid grid-cols-4 gap-2">
-                      {speedPresets.map((preset) => (
-                        <button
-                          key={preset.value}
-                          onClick={() => setClipSpeed(preset.value)}
-                          className={cn(
-                            "py-2.5 rounded-xl text-sm font-medium transition-all border",
-                            clipSpeed === preset.value
-                              ? "bg-primary text-primary-foreground border-primary"
-                              : "bg-muted/20 text-foreground/70 border-border/30 hover:bg-muted/40"
-                          )}
-                        >
-                          {preset.label}
-                        </button>
-                      ))}
+                  /* Speed Sub-panel with Normal/Curve modes */
+                  <div className="flex-1 flex flex-col px-4 py-3 overflow-hidden">
+                    {/* Mode Toggle Buttons */}
+                    <div className="flex gap-2 mb-3">
+                      <button
+                        onClick={() => setSpeedMode('normal')}
+                        className={cn(
+                          "flex-1 py-2 rounded-xl text-sm font-medium transition-all border",
+                          speedMode === 'normal'
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted/20 text-foreground/70 border-border/30 hover:bg-muted/40"
+                        )}
+                      >
+                        Normal
+                      </button>
+                      <button
+                        onClick={() => setSpeedMode('curve')}
+                        className={cn(
+                          "flex-1 py-2 rounded-xl text-sm font-medium transition-all border",
+                          speedMode === 'curve'
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted/20 text-foreground/70 border-border/30 hover:bg-muted/40"
+                        )}
+                      >
+                        Curve
+                      </button>
                     </div>
-                    <div className="flex items-center justify-center mt-3 gap-2">
-                      <Gauge className="w-4 h-4 text-primary" />
-                      <span className="text-sm font-semibold text-primary">{clipSpeed.toFixed(2)}x</span>
+                    
+                    {/* Content with fade transition */}
+                    <div className="flex-1 relative overflow-hidden">
+                      {/* Normal Mode - Linear Speed Slider */}
+                      <div 
+                        className={cn(
+                          "absolute inset-0 transition-opacity duration-200",
+                          speedMode === 'normal' ? "opacity-100" : "opacity-0 pointer-events-none"
+                        )}
+                      >
+                        {/* Speed info header */}
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-lg font-bold text-primary">{clipSpeed.toFixed(1)}x</span>
+                          <span className="text-xs text-muted-foreground">
+                            Duration: {(() => {
+                              const clip = videoClips.find(c => c.id === editingClipId);
+                              if (!clip) return '--';
+                              const originalDuration = getClipTrimmedDuration(clip);
+                              const newDuration = originalDuration / clipSpeed;
+                              return `${originalDuration.toFixed(1)}s → ${newDuration.toFixed(1)}s`;
+                            })()}
+                          </span>
+                        </div>
+                        
+                        {/* Slider */}
+                        <div className="relative h-2 mb-2">
+                          <div className="absolute inset-0 h-full bg-muted/30 rounded-full" />
+                          <div 
+                            className="absolute left-0 top-0 h-full rounded-full bg-primary transition-all"
+                            style={{ width: `${((Math.log10(clipSpeed) + 1) / (Math.log10(100) + 1)) * 100}%` }}
+                          />
+                          <div 
+                            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-md border border-primary"
+                            style={{ left: `calc(${((Math.log10(clipSpeed) + 1) / (Math.log10(100) + 1)) * 100}% - 8px)` }}
+                          />
+                          <input
+                            type="range"
+                            min="-1"
+                            max={Math.log10(100)}
+                            step="0.01"
+                            value={Math.log10(clipSpeed)}
+                            onChange={(e) => {
+                              const logValue = parseFloat(e.target.value);
+                              const newSpeed = Math.pow(10, logValue);
+                              setClipSpeed(Math.max(0.1, Math.min(100, newSpeed)));
+                            }}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                        </div>
+                        
+                        {/* Markers */}
+                        <div className="flex justify-between text-[10px] text-muted-foreground">
+                          <span>0.1x</span>
+                          <span>1x</span>
+                          <span>2x</span>
+                          <span>5x</span>
+                          <span>10x</span>
+                          <span>100x</span>
+                        </div>
+                      </div>
+                      
+                      {/* Curve Mode - Preset Cards */}
+                      <div 
+                        className={cn(
+                          "absolute inset-0 transition-opacity duration-200 overflow-x-auto",
+                          speedMode === 'curve' ? "opacity-100" : "opacity-0 pointer-events-none"
+                        )}
+                        style={{ WebkitOverflowScrolling: 'touch' }}
+                      >
+                        <div className="flex gap-2 min-w-max pb-2">
+                          {speedCurvePresets.map((preset) => (
+                            <button
+                              key={preset.id}
+                              onClick={() => setSelectedSpeedCurve(preset.id)}
+                              className={cn(
+                                "flex flex-col items-center p-2 rounded-xl border transition-all w-20",
+                                selectedSpeedCurve === preset.id
+                                  ? "bg-primary/20 border-primary"
+                                  : "bg-muted/20 border-border/30 hover:bg-muted/40"
+                              )}
+                            >
+                              {/* Mini graph thumbnail */}
+                              <div className="w-14 h-10 mb-1 rounded-lg bg-muted/30 flex items-end justify-center overflow-hidden">
+                                <svg viewBox="0 0 56 32" className="w-full h-full">
+                                  {preset.id === 'montage' && (
+                                    <path d="M4 28 L14 8 L24 20 L34 4 L44 16 L52 8" stroke="hsl(var(--primary))" strokeWidth="2" fill="none" />
+                                  )}
+                                  {preset.id === 'hero' && (
+                                    <path d="M4 8 Q20 8 28 24 Q36 8 52 8" stroke="hsl(var(--primary))" strokeWidth="2" fill="none" />
+                                  )}
+                                  {preset.id === 'bullet' && (
+                                    <path d="M4 4 L20 4 L24 28 L32 28 L36 4 L52 4" stroke="hsl(var(--primary))" strokeWidth="2" fill="none" />
+                                  )}
+                                  {preset.id === 'jump_cut' && (
+                                    <path d="M4 20 L16 20 L16 8 L28 8 L28 24 L40 24 L40 12 L52 12" stroke="hsl(var(--primary))" strokeWidth="2" fill="none" />
+                                  )}
+                                  {preset.id === 'ramp_up' && (
+                                    <path d="M4 28 Q28 28 52 4" stroke="hsl(var(--primary))" strokeWidth="2" fill="none" />
+                                  )}
+                                  {preset.id === 'ramp_down' && (
+                                    <path d="M4 4 Q28 4 52 28" stroke="hsl(var(--primary))" strokeWidth="2" fill="none" />
+                                  )}
+                                </svg>
+                              </div>
+                              <span className={cn(
+                                "text-[10px] font-medium text-center leading-tight",
+                                selectedSpeedCurve === preset.id ? "text-primary" : "text-foreground/70"
+                              )}>
+                                {preset.name}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ) : (
