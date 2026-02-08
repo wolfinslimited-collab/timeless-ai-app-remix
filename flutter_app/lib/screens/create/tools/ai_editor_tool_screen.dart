@@ -627,6 +627,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Captions menu mode state - activated by clicking "Captions" tool
   bool _isCaptionsMenuMode = false;
   
+  // Computed: check if any overlay menu is currently open (to hide main toolbar)
+  bool get _isAnyOverlayOpen => 
+      _isEditMenuMode || _isAudioMenuMode || _isTextMenuMode || 
+      _isEffectsMenuMode || _isOverlayMenuMode || _isCaptionsMenuMode || 
+      _showTextEditPanel;
+  
   // Background color presets
   final List<Color> _backgroundColorPresets = [
     const Color(0xFF000000), const Color(0xFFFFFFFF), const Color(0xFF1A1A1A), const Color(0xFF2D2D2D),
@@ -5174,21 +5180,74 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         color: const Color(0xFF0A0A0A),
         border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
       ),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        child: _showTextEditPanel && _selectedTextOverlay != null
-            ? _buildTextEditPanel()
-            : (_isTextMenuMode 
-                ? _buildTextMenu()
-                : (_isAudioMenuMode 
-                    ? _buildAudioMenu()
-                    : (_isEffectsMenuMode 
-                        ? _buildEffectsMenu()
-                        : (_isOverlayMenuMode 
-                            ? _buildOverlayMenu()
-                            : (_isCaptionsMenuMode 
-                                ? _buildCaptionsMenu()
-                                : _buildMainToolbar()))))),
+      child: Stack(
+        children: [
+          // Main toolbar - always rendered, fades out when overlay is open
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 200),
+            opacity: _isAnyOverlayOpen ? 0.0 : 1.0,
+            child: IgnorePointer(
+              ignoring: _isAnyOverlayOpen,
+              child: _buildMainToolbar(),
+            ),
+          ),
+          
+          // Overlay menus - slide up with fade
+          if (_showTextEditPanel && _selectedTextOverlay != null)
+            Positioned.fill(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: 1.0,
+                child: _buildTextEditPanel(),
+              ),
+            ),
+          
+          if (_isTextMenuMode)
+            Positioned.fill(
+              child: SlideTransition(
+                position: AlwaysStoppedAnimation(Offset.zero),
+                child: FadeTransition(
+                  opacity: const AlwaysStoppedAnimation(1.0),
+                  child: Container(
+                    color: const Color(0xFF0A0A0A),
+                    child: _buildTextMenu(),
+                  ),
+                ),
+              ),
+            ),
+          
+          if (_isAudioMenuMode)
+            Positioned.fill(
+              child: Container(
+                color: const Color(0xFF0A0A0A),
+                child: _buildAudioMenu(),
+              ),
+            ),
+          
+          if (_isEffectsMenuMode)
+            Positioned.fill(
+              child: Container(
+                color: const Color(0xFF0A0A0A),
+                child: _buildEffectsMenu(),
+              ),
+            ),
+          
+          if (_isOverlayMenuMode)
+            Positioned.fill(
+              child: Container(
+                color: const Color(0xFF0A0A0A),
+                child: _buildOverlayMenu(),
+              ),
+            ),
+          
+          if (_isCaptionsMenuMode)
+            Positioned.fill(
+              child: Container(
+                color: const Color(0xFF0A0A0A),
+                child: _buildCaptionsMenu(),
+              ),
+            ),
+        ],
       ),
     );
   }
