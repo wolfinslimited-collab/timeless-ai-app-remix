@@ -7783,8 +7783,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
-                _buildMenuToolButton('Add overlay', Icons.add, () async {
-                  await _addVideoOverlay();
+                _buildMenuToolButton('Add overlay', Icons.add, () {
+                  _addVideoOverlay();
                 }),
                 const SizedBox(width: 8),
                 // Show existing overlays for selection
