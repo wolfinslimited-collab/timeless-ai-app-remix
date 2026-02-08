@@ -580,6 +580,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Edit menu mode state - activated by clicking "Edit" tool
   bool _isEditMenuMode = false;
   
+  // Effects menu mode state - activated by clicking "Effects" tool
+  bool _isEffectsMenuMode = false;
+  
   // Background color presets
   final List<Color> _backgroundColorPresets = [
     const Color(0xFF000000), const Color(0xFFFFFFFF), const Color(0xFF1A1A1A), const Color(0xFF2D2D2D),
@@ -5109,9 +5112,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             ? _buildTextMenu()
             : (_isAudioMenuMode 
                 ? _buildAudioMenu()
-                : (_isEditMenuMode 
-                    ? _buildEditMenu()
-                    : _buildMainToolbar())),
+                : (_isEffectsMenuMode 
+                    ? _buildEffectsMenu()
+                    : (_isEditMenuMode 
+                        ? _buildEditMenu()
+                        : _buildMainToolbar()))),
       ),
     );
   }
@@ -5608,6 +5613,107 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
+  /// Build the effects menu - horizontal scrollable menu with effects tools
+  Widget _buildEffectsMenu() {
+    final effectsTools = [
+      {'id': 'video-effects', 'name': 'Video effects', 'icon': Icons.videocam_outlined},
+      {'id': 'body-effects', 'name': 'Body effects', 'icon': Icons.star_outline},
+      {'id': 'photo-effects', 'name': 'Photo effects', 'icon': Icons.image_outlined},
+    ];
+    
+    return Column(
+      key: const ValueKey('effects_menu'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Header with back button and title
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+          ),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => setState(() => _isEffectsMenuMode = false),
+                child: Container(
+                  width: 32,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppTheme.primary.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Effects',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Horizontal Scrollable Effects Tools
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: effectsTools.map((tool) {
+                return GestureDetector(
+                  onTap: () => _showSnackBar('${tool['name']} coming soon'),
+                  child: Container(
+                    width: 80,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            tool['icon'] as IconData,
+                            size: 20,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          tool['name'] as String,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withOpacity(0.7),
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
   /// Build the main editor toolbar
   Widget _buildMainToolbar() {
     return SingleChildScrollView(
@@ -5638,8 +5744,17 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 return;
               }
               
+              // Effects tool opens the effects menu
+              if (tool.id == 'effects') {
+                setState(() {
+                  _isEffectsMenuMode = true;
+                  _selectedTool = 'effects';
+                });
+                return;
+              }
+              
               // Coming soon tools - show snackbar and don't change selection
-              if (tool.id == 'effects' || tool.id == 'captions') {
+              if (tool.id == 'captions') {
                 _showSnackBar('${tool.name} coming soon');
                 return;
               }
