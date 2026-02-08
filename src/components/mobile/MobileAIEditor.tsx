@@ -3413,7 +3413,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       {/* Video Track Row - multi-clip filmstrip with trim handles */}
                       <div className="flex items-center gap-0">
                         {/* Render all video clips snapped together */}
-                        <div className="flex h-[48px]">
+                        <div className="flex h-[32px]">
                           {videoClips.map((clip, clipIndex) => {
                             const clipWidth = getClipTrimmedDuration(clip) * PIXELS_PER_SECOND;
                             const thumbCount = Math.max(1, Math.ceil(clipWidth / 60));
@@ -3424,7 +3424,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             return (
                               <div 
                                 key={clip.id}
-                                className="relative h-[48px] overflow-hidden cursor-pointer transition-all"
+                                className="relative h-[32px] overflow-hidden cursor-pointer transition-all"
                                 style={{ 
                                   width: clipWidth,
                                   backgroundColor: '#1a1a1a',
@@ -3572,7 +3572,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           {/* Fallback for single video without clips array */}
                           {videoClips.length === 0 && videoUrl && (
                             <div 
-                              className="relative h-[48px] rounded-lg overflow-hidden border-2 flex"
+                              className="relative h-[32px] rounded-lg overflow-hidden border-2 flex"
                               style={{ borderColor: 'transparent', width: duration * PIXELS_PER_SECOND }}
                             >
                               {Array.from({ length: Math.ceil((duration * PIXELS_PER_SECOND) / 60) }).map((_, i) => {
@@ -3608,7 +3608,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         {/* Add video button - pinned directly to the right of video clips */}
                         <button 
                           onClick={handleDirectFilePick}
-                          className="w-11 h-[48px] bg-white rounded-xl flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(255,255,255,0.25)] ml-2"
+                          className="w-11 h-[32px] bg-white rounded-xl flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(255,255,255,0.25)] ml-2"
                         >
                           <Plus className="w-6 h-6 text-black" />
                         </button>
