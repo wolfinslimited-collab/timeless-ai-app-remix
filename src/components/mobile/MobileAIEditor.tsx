@@ -57,7 +57,9 @@ import {
   Music2,
   HelpCircle,
   Check,
-  Eraser
+  Eraser,
+  RotateCw,
+  FlipHorizontal
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -286,6 +288,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [showAnimationsPanel, setShowAnimationsPanel] = useState(false);
   const [showBeatsPanel, setShowBeatsPanel] = useState(false);
   const [showCropPanel, setShowCropPanel] = useState(false);
+  const [isCropMode, setIsCropMode] = useState(false);
+  const [cropAspectRatio, setCropAspectRatio] = useState<string>('free');
+  const [cropRotation, setCropRotation] = useState(0); // 0, 90, 180, 270
+  const [cropMirror, setCropMirror] = useState(false);
+  const [cropBox, setCropBox] = useState({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 }); // Normalized 0-1
+  const [cropDragHandle, setCropDragHandle] = useState<string | null>(null);
+  const [cropDragStart, setCropDragStart] = useState({ x: 0, y: 0, box: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 } });
   const [isEditToolbarMode, setIsEditToolbarMode] = useState(false); // Edit toolbar replaces main toolbar
 
   // Undo/Redo history stacks
@@ -364,8 +373,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [settingsPanelType, setSettingsPanelType] = useState<'adjust' | 'stickers' | null>(null);
   
-  // Base overlay check - isAudioEditMode and isDrawMode are added later
-  const isAnyOverlayOpenBase = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isSettingsPanelOpen;
+  // Base overlay check - isAudioEditMode, isDrawMode, isCropMode are added later
+  const isAnyOverlayOpenBase = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isSettingsPanelOpen || isCropMode;
   
   // Sticker presets
   const stickerCategories = [
@@ -1775,7 +1784,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     { id: 'volume', name: 'Volume', icon: Volume2, action: () => setEditSubPanel('volume') },
     { id: 'speed', name: 'Speed', icon: Gauge, action: () => setEditSubPanel('speed') },
     { id: 'animations', name: 'Animations', icon: Sparkles, action: () => { setShowClipEditPanel(false); setShowAnimationsPanel(true); } },
-    { id: 'crop', name: 'Crop', icon: Crop, action: () => { setShowClipEditPanel(false); setShowCropPanel(true); } },
+    { id: 'crop', name: 'Crop', icon: Crop, action: () => { setIsEditMenuMode(false); setIsCropMode(true); setCropBox({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 }); } },
     { id: 'replace', name: 'Replace', icon: Replace, action: () => { handleDirectFilePick(); } },
     { id: 'delete', name: 'Delete', icon: Trash2, action: handleDeleteClip, isDestructive: true },
   ];
@@ -3629,6 +3638,264 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   onTouchMove={draw}
                   onTouchEnd={endDrawing}
                 />
+              )}
+              
+              {/* Crop Overlay - Active when in crop mode */}
+              {isCropMode && (
+                <>
+                  {/* Dim overlay outside crop box */}
+                  <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 110 }}>
+                    {/* Top dim */}
+                    <div 
+                      className="absolute left-0 right-0 top-0 bg-black/60"
+                      style={{ height: `${cropBox.y * 100}%` }}
+                    />
+                    {/* Bottom dim */}
+                    <div 
+                      className="absolute left-0 right-0 bottom-0 bg-black/60"
+                      style={{ height: `${(1 - cropBox.y - cropBox.height) * 100}%` }}
+                    />
+                    {/* Left dim */}
+                    <div 
+                      className="absolute left-0 bg-black/60"
+                      style={{ 
+                        top: `${cropBox.y * 100}%`, 
+                        width: `${cropBox.x * 100}%`,
+                        height: `${cropBox.height * 100}%`
+                      }}
+                    />
+                    {/* Right dim */}
+                    <div 
+                      className="absolute right-0 bg-black/60"
+                      style={{ 
+                        top: `${cropBox.y * 100}%`, 
+                        width: `${(1 - cropBox.x - cropBox.width) * 100}%`,
+                        height: `${cropBox.height * 100}%`
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Crop box with handles */}
+                  <div 
+                    className="absolute border-2 border-white"
+                    style={{ 
+                      zIndex: 120,
+                      left: `${cropBox.x * 100}%`,
+                      top: `${cropBox.y * 100}%`,
+                      width: `${cropBox.width * 100}%`,
+                      height: `${cropBox.height * 100}%`,
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      setCropDragHandle('move');
+                      const rect = e.currentTarget.parentElement?.getBoundingClientRect();
+                      if (rect) {
+                        setCropDragStart({ 
+                          x: e.clientX, 
+                          y: e.clientY, 
+                          box: { ...cropBox } 
+                        });
+                      }
+                    }}
+                    onMouseMove={(e) => {
+                      if (!cropDragHandle || cropDragHandle === 'move') return;
+                    }}
+                  >
+                    {/* Grid lines (rule of thirds) */}
+                    <div className="absolute inset-0 pointer-events-none">
+                      <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white/30" />
+                      <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/30" />
+                      <div className="absolute top-1/3 left-0 right-0 h-px bg-white/30" />
+                      <div className="absolute top-2/3 left-0 right-0 h-px bg-white/30" />
+                    </div>
+                    
+                    {/* Corner handles */}
+                    {['top-left', 'top-right', 'bottom-left', 'bottom-right'].map((corner) => {
+                      const isTop = corner.includes('top');
+                      const isLeft = corner.includes('left');
+                      return (
+                        <div
+                          key={corner}
+                          className="absolute w-5 h-5 bg-white rounded-sm cursor-nwse-resize"
+                          style={{
+                            [isTop ? 'top' : 'bottom']: -10,
+                            [isLeft ? 'left' : 'right']: -10,
+                            cursor: corner === 'top-left' || corner === 'bottom-right' ? 'nwse-resize' : 'nesw-resize',
+                          }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            setCropDragHandle(corner);
+                            const rect = e.currentTarget.parentElement?.parentElement?.getBoundingClientRect();
+                            if (rect) {
+                              setCropDragStart({ 
+                                x: e.clientX, 
+                                y: e.clientY, 
+                                box: { ...cropBox } 
+                              });
+                            }
+                          }}
+                          onTouchStart={(e) => {
+                            e.stopPropagation();
+                            const touch = e.touches[0];
+                            setCropDragHandle(corner);
+                            setCropDragStart({ 
+                              x: touch.clientX, 
+                              y: touch.clientY, 
+                              box: { ...cropBox } 
+                            });
+                          }}
+                        />
+                      );
+                    })}
+                    
+                    {/* Edge handles (mid-edge) */}
+                    {['top', 'bottom', 'left', 'right'].map((edge) => {
+                      const isHorizontal = edge === 'top' || edge === 'bottom';
+                      return (
+                        <div
+                          key={edge}
+                          className="absolute bg-white rounded-sm"
+                          style={{
+                            ...(isHorizontal 
+                              ? { left: '50%', transform: 'translateX(-50%)', width: 24, height: 5 }
+                              : { top: '50%', transform: 'translateY(-50%)', width: 5, height: 24 }),
+                            [edge]: -3,
+                            cursor: isHorizontal ? 'ns-resize' : 'ew-resize',
+                          }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            setCropDragHandle(edge);
+                            setCropDragStart({ 
+                              x: e.clientX, 
+                              y: e.clientY, 
+                              box: { ...cropBox } 
+                            });
+                          }}
+                          onTouchStart={(e) => {
+                            e.stopPropagation();
+                            const touch = e.touches[0];
+                            setCropDragHandle(edge);
+                            setCropDragStart({ 
+                              x: touch.clientX, 
+                              y: touch.clientY, 
+                              box: { ...cropBox } 
+                            });
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Global mouse/touch handlers for crop dragging */}
+                  {cropDragHandle && (
+                    <div 
+                      className="fixed inset-0"
+                      style={{ zIndex: 999 }}
+                      onMouseMove={(e) => {
+                        if (!cropDragHandle) return;
+                        const containerRect = e.currentTarget.previousElementSibling?.previousElementSibling?.parentElement?.getBoundingClientRect();
+                        if (!containerRect) return;
+                        
+                        const deltaX = (e.clientX - cropDragStart.x) / containerRect.width;
+                        const deltaY = (e.clientY - cropDragStart.y) / containerRect.height;
+                        const aspectRatioMap: Record<string, number | null> = {
+                          'free': null,
+                          '1:1': 1,
+                          '4:5': 4/5,
+                          '16:9': 16/9,
+                          '9:16': 9/16,
+                          '3:4': 3/4,
+                        };
+                        const lockedRatio = aspectRatioMap[cropAspectRatio];
+                        
+                        let newBox = { ...cropDragStart.box };
+                        
+                        if (cropDragHandle === 'move') {
+                          newBox.x = Math.max(0, Math.min(1 - newBox.width, cropDragStart.box.x + deltaX));
+                          newBox.y = Math.max(0, Math.min(1 - newBox.height, cropDragStart.box.y + deltaY));
+                        } else if (cropDragHandle === 'top-left') {
+                          const newX = Math.max(0, cropDragStart.box.x + deltaX);
+                          const newY = Math.max(0, cropDragStart.box.y + deltaY);
+                          newBox.width = cropDragStart.box.x + cropDragStart.box.width - newX;
+                          newBox.height = cropDragStart.box.y + cropDragStart.box.height - newY;
+                          newBox.x = newX;
+                          newBox.y = newY;
+                          if (lockedRatio) newBox.height = newBox.width / lockedRatio;
+                        } else if (cropDragHandle === 'top-right') {
+                          const newY = Math.max(0, cropDragStart.box.y + deltaY);
+                          newBox.width = Math.min(1 - newBox.x, cropDragStart.box.width + deltaX);
+                          newBox.height = cropDragStart.box.y + cropDragStart.box.height - newY;
+                          newBox.y = newY;
+                          if (lockedRatio) newBox.height = newBox.width / lockedRatio;
+                        } else if (cropDragHandle === 'bottom-left') {
+                          const newX = Math.max(0, cropDragStart.box.x + deltaX);
+                          newBox.width = cropDragStart.box.x + cropDragStart.box.width - newX;
+                          newBox.height = Math.min(1 - newBox.y, cropDragStart.box.height + deltaY);
+                          newBox.x = newX;
+                          if (lockedRatio) newBox.height = newBox.width / lockedRatio;
+                        } else if (cropDragHandle === 'bottom-right') {
+                          newBox.width = Math.min(1 - newBox.x, cropDragStart.box.width + deltaX);
+                          newBox.height = Math.min(1 - newBox.y, cropDragStart.box.height + deltaY);
+                          if (lockedRatio) newBox.height = newBox.width / lockedRatio;
+                        } else if (cropDragHandle === 'top') {
+                          const newY = Math.max(0, cropDragStart.box.y + deltaY);
+                          newBox.height = cropDragStart.box.y + cropDragStart.box.height - newY;
+                          newBox.y = newY;
+                        } else if (cropDragHandle === 'bottom') {
+                          newBox.height = Math.min(1 - newBox.y, cropDragStart.box.height + deltaY);
+                        } else if (cropDragHandle === 'left') {
+                          const newX = Math.max(0, cropDragStart.box.x + deltaX);
+                          newBox.width = cropDragStart.box.x + cropDragStart.box.width - newX;
+                          newBox.x = newX;
+                        } else if (cropDragHandle === 'right') {
+                          newBox.width = Math.min(1 - newBox.x, cropDragStart.box.width + deltaX);
+                        }
+                        
+                        // Minimum size constraints
+                        newBox.width = Math.max(0.1, newBox.width);
+                        newBox.height = Math.max(0.1, newBox.height);
+                        
+                        setCropBox(newBox);
+                      }}
+                      onMouseUp={() => setCropDragHandle(null)}
+                      onTouchMove={(e) => {
+                        if (!cropDragHandle) return;
+                        const touch = e.touches[0];
+                        // Similar logic as mouse
+                        const deltaX = (touch.clientX - cropDragStart.x) / 350; // Approximate
+                        const deltaY = (touch.clientY - cropDragStart.y) / 250;
+                        
+                        let newBox = { ...cropDragStart.box };
+                        
+                        if (cropDragHandle === 'move') {
+                          newBox.x = Math.max(0, Math.min(1 - newBox.width, cropDragStart.box.x + deltaX));
+                          newBox.y = Math.max(0, Math.min(1 - newBox.height, cropDragStart.box.y + deltaY));
+                        } else {
+                          // Simplified corner/edge handling for touch
+                          if (cropDragHandle.includes('right')) {
+                            newBox.width = Math.max(0.1, Math.min(1 - newBox.x, cropDragStart.box.width + deltaX));
+                          }
+                          if (cropDragHandle.includes('left')) {
+                            const newX = Math.max(0, cropDragStart.box.x + deltaX);
+                            newBox.width = cropDragStart.box.x + cropDragStart.box.width - newX;
+                            newBox.x = newX;
+                          }
+                          if (cropDragHandle.includes('bottom')) {
+                            newBox.height = Math.max(0.1, Math.min(1 - newBox.y, cropDragStart.box.height + deltaY));
+                          }
+                          if (cropDragHandle.includes('top')) {
+                            const newY = Math.max(0, cropDragStart.box.y + deltaY);
+                            newBox.height = cropDragStart.box.y + cropDragStart.box.height - newY;
+                            newBox.y = newY;
+                          }
+                        }
+                        
+                        setCropBox(newBox);
+                      }}
+                      onTouchEnd={() => setCropDragHandle(null)}
+                    />
+                  )}
+                </>
               )}
                   </div>
                 );
@@ -6419,6 +6686,116 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </div>
                     <span className="text-xs text-foreground font-medium w-6">{drawSize}px</span>
                   </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Crop Mode Menu Overlay */}
+            {isCropMode && (
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '180px' }}>
+                {/* Header with back and save buttons */}
+                <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
+                  <button
+                    onClick={() => {
+                      setIsCropMode(false);
+                      setCropRotation(0);
+                      setCropMirror(false);
+                    }}
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-muted/20 hover:bg-muted/40 transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-foreground" />
+                  </button>
+                  <span className="flex-1 text-sm font-medium text-foreground text-center">
+                    Crop
+                  </span>
+                  <button
+                    onClick={() => {
+                      saveStateToHistory();
+                      toast({ 
+                        title: "Crop applied", 
+                        description: `${cropAspectRatio === 'free' ? 'Free' : cropAspectRatio} crop, ${cropRotation}° rotation${cropMirror ? ', mirrored' : ''}` 
+                      });
+                      setIsCropMode(false);
+                    }}
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary hover:bg-primary/90 transition-colors"
+                  >
+                    <Check className="w-5 h-5 text-primary-foreground" />
+                  </button>
+                </div>
+                
+                {/* Aspect Ratio Presets Row */}
+                <div className="px-4 py-3 border-b border-border/10">
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+                    {[
+                      { id: 'free', label: 'Free' },
+                      { id: '1:1', label: '1:1' },
+                      { id: '4:5', label: '4:5' },
+                      { id: '16:9', label: '16:9' },
+                      { id: '9:16', label: '9:16' },
+                      { id: '3:4', label: '3:4' },
+                    ].map((preset) => (
+                      <button
+                        key={preset.id}
+                        onClick={() => {
+                          setCropAspectRatio(preset.id);
+                          // Reset crop box to match aspect ratio
+                          if (preset.id !== 'free') {
+                            const [w, h] = preset.id.split(':').map(Number);
+                            const ratio = w / h;
+                            const newWidth = Math.min(0.8, 0.8);
+                            const newHeight = newWidth / ratio;
+                            setCropBox({
+                              x: (1 - newWidth) / 2,
+                              y: (1 - Math.min(0.8, newHeight)) / 2,
+                              width: newWidth,
+                              height: Math.min(0.8, newHeight),
+                            });
+                          }
+                        }}
+                        className={cn(
+                          "px-4 py-2 rounded-lg shrink-0 border transition-all",
+                          cropAspectRatio === preset.id 
+                            ? "bg-primary/20 border-primary text-primary" 
+                            : "bg-muted/20 border-transparent text-foreground/70 hover:bg-muted/40"
+                        )}
+                      >
+                        <span className="text-xs font-semibold">{preset.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Rotate and Mirror Row */}
+                <div className="flex items-center justify-center gap-6 px-4 py-4">
+                  <button
+                    onClick={() => setCropRotation((prev) => (prev + 90) % 360)}
+                    className="flex flex-col items-center justify-center gap-1.5"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-muted/30 flex items-center justify-center hover:bg-muted/50 transition-colors">
+                      <RotateCw className="w-5 h-5 text-foreground" />
+                    </div>
+                    <span className="text-[10px] font-medium text-foreground/60">
+                      Rotate {cropRotation > 0 ? `(${cropRotation}°)` : ''}
+                    </span>
+                  </button>
+                  
+                  <button
+                    onClick={() => setCropMirror((prev) => !prev)}
+                    className="flex flex-col items-center justify-center gap-1.5"
+                  >
+                    <div className={cn(
+                      "w-12 h-12 rounded-full flex items-center justify-center transition-colors",
+                      cropMirror ? "bg-primary/30" : "bg-muted/30 hover:bg-muted/50"
+                    )}>
+                      <FlipHorizontal className={cn("w-5 h-5", cropMirror ? "text-primary" : "text-foreground")} />
+                    </div>
+                    <span className={cn(
+                      "text-[10px] font-medium",
+                      cropMirror ? "text-primary" : "text-foreground/60"
+                    )}>
+                      Mirror
+                    </span>
+                  </button>
                 </div>
               </div>
             )}

@@ -795,11 +795,31 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     {'value': 3.0, 'label': '3x'},
   ];
   
+  // Crop mode state - activated by clicking "Crop" in Edit menu
+  bool _isCropMode = false;
+  String _cropAspectRatio = 'free';
+  int _cropRotation = 0; // 0, 90, 180, 270
+  bool _cropMirror = false;
+  Rect _cropBox = const Rect.fromLTWH(0.1, 0.1, 0.8, 0.8); // Normalized 0-1
+  String? _cropDragHandle;
+  Offset _cropDragStart = Offset.zero;
+  Rect _cropDragStartBox = const Rect.fromLTWH(0.1, 0.1, 0.8, 0.8);
+  
+  // Crop aspect ratio presets
+  final List<Map<String, dynamic>> _cropPresets = [
+    {'id': 'free', 'label': 'Free'},
+    {'id': '1:1', 'label': '1:1'},
+    {'id': '4:5', 'label': '4:5'},
+    {'id': '16:9', 'label': '16:9'},
+    {'id': '9:16', 'label': '9:16'},
+    {'id': '3:4', 'label': '3:4'},
+  ];
+  
   // Computed: check if any overlay menu is currently open (to hide main toolbar)
   bool get _isAnyOverlayOpen => 
       _isEditMenuMode || _isAudioMenuMode || _isTextMenuMode || 
       _isEffectsMenuMode || _isOverlayMenuMode || _isCaptionsMenuMode || 
-      _isAspectMenuMode || _isBackgroundMenuMode || _showTextEditPanel || _isDrawMode;
+      _isAspectMenuMode || _isBackgroundMenuMode || _showTextEditPanel || _isDrawMode || _isCropMode;
   
   // Background color presets
   final List<Color> _backgroundColorPresets = [
@@ -3928,6 +3948,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                           ..._buildTextOverlays(constraints),
                           // Caption overlays at bottom of video
                           ..._buildCaptionOverlays(constraints),
+                          // Crop overlay when in crop mode
+                          if (_isCropMode) _buildCropOverlay(containerWidth, containerHeight),
                         ],
                       ),
                     ),
@@ -6576,6 +6598,20 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               ),
             ),
           
+          // Crop Mode Menu Overlay
+          if (_isCropMode)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 180,
+              child: Material(
+                color: const Color(0xFF0A0A0A),
+                elevation: 8,
+                child: _buildCropMenu(),
+              ),
+            ),
+          
           // Edit Menu Overlay - MOVED to _buildDynamicBottomArea Stack for proper z-ordering
         ],
       ),
@@ -7111,7 +7147,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       {'id': 'volume', 'name': 'Volume', 'icon': Icons.volume_up, 'action': () => setState(() => _editSubPanel = 'volume')},
       {'id': 'speed', 'name': 'Speed', 'icon': Icons.speed, 'action': () => setState(() => _editSubPanel = 'speed')},
       {'id': 'animations', 'name': 'Animations', 'icon': Icons.auto_awesome, 'action': _showAnimationsBottomSheet},
-      {'id': 'crop', 'name': 'Crop', 'icon': Icons.crop, 'action': _showCropBottomSheet},
+      {'id': 'crop', 'name': 'Crop', 'icon': Icons.crop, 'action': () => setState(() { _isEditMenuMode = false; _isCropMode = true; _cropBox = const Rect.fromLTWH(0.1, 0.1, 0.8, 0.8); })},
       {'id': 'replace', 'name': 'Replace', 'icon': Icons.swap_horiz, 'action': () { _pickAndLoadVideo(); }},
       {'id': 'delete', 'name': 'Delete', 'icon': Icons.delete_outline, 'action': handleDeleteClip, 'isDestructive': true},
     ];
@@ -8194,6 +8230,427 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 );
               }).toList(),
             ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  /// Build crop overlay on video with resizable handles
+  Widget _buildCropOverlay(double containerWidth, double containerHeight) {
+    return Positioned.fill(
+      child: Stack(
+        children: [
+          // Dim overlay - top
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: containerHeight * _cropBox.top,
+            child: Container(color: Colors.black.withOpacity(0.6)),
+          ),
+          // Dim overlay - bottom
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: containerHeight * (1 - _cropBox.top - _cropBox.height),
+            child: Container(color: Colors.black.withOpacity(0.6)),
+          ),
+          // Dim overlay - left
+          Positioned(
+            top: containerHeight * _cropBox.top,
+            left: 0,
+            width: containerWidth * _cropBox.left,
+            height: containerHeight * _cropBox.height,
+            child: Container(color: Colors.black.withOpacity(0.6)),
+          ),
+          // Dim overlay - right
+          Positioned(
+            top: containerHeight * _cropBox.top,
+            right: 0,
+            width: containerWidth * (1 - _cropBox.left - _cropBox.width),
+            height: containerHeight * _cropBox.height,
+            child: Container(color: Colors.black.withOpacity(0.6)),
+          ),
+          // Crop box with border
+          Positioned(
+            left: containerWidth * _cropBox.left,
+            top: containerHeight * _cropBox.top,
+            width: containerWidth * _cropBox.width,
+            height: containerHeight * _cropBox.height,
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: Stack(
+                children: [
+                  // Grid lines (rule of thirds)
+                  Positioned(
+                    left: containerWidth * _cropBox.width / 3 - 0.5,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(width: 1, color: Colors.white.withOpacity(0.3)),
+                  ),
+                  Positioned(
+                    left: containerWidth * _cropBox.width * 2 / 3 - 0.5,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(width: 1, color: Colors.white.withOpacity(0.3)),
+                  ),
+                  Positioned(
+                    top: containerHeight * _cropBox.height / 3 - 0.5,
+                    left: 0,
+                    right: 0,
+                    child: Container(height: 1, color: Colors.white.withOpacity(0.3)),
+                  ),
+                  Positioned(
+                    top: containerHeight * _cropBox.height * 2 / 3 - 0.5,
+                    left: 0,
+                    right: 0,
+                    child: Container(height: 1, color: Colors.white.withOpacity(0.3)),
+                  ),
+                  // Corner handles
+                  _buildCropHandle('top-left', -10, -10, null, null),
+                  _buildCropHandle('top-right', null, -10, -10, null),
+                  _buildCropHandle('bottom-left', -10, null, null, -10),
+                  _buildCropHandle('bottom-right', null, null, -10, -10),
+                  // Edge handles
+                  _buildEdgeHandle('top'),
+                  _buildEdgeHandle('bottom'),
+                  _buildEdgeHandle('left'),
+                  _buildEdgeHandle('right'),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildCropHandle(String handle, double? left, double? top, double? right, double? bottom) {
+    return Positioned(
+      left: left,
+      top: top,
+      right: right,
+      bottom: bottom,
+      child: GestureDetector(
+        onPanStart: (details) {
+          _cropDragHandle = handle;
+          _cropDragStart = details.globalPosition;
+          _cropDragStartBox = _cropBox;
+        },
+        onPanUpdate: (details) {
+          if (_cropDragHandle == null) return;
+          final delta = details.globalPosition - _cropDragStart;
+          final deltaX = delta.dx / 350; // Approximate container width
+          final deltaY = delta.dy / 250; // Approximate container height
+          
+          setState(() {
+            var newBox = _cropDragStartBox;
+            
+            if (handle.contains('left')) {
+              final newLeft = (newBox.left + deltaX).clamp(0.0, newBox.right - 0.1);
+              newBox = Rect.fromLTRB(newLeft, newBox.top, newBox.right, newBox.bottom);
+            }
+            if (handle.contains('right')) {
+              final newRight = (newBox.right + deltaX).clamp(newBox.left + 0.1, 1.0);
+              newBox = Rect.fromLTRB(newBox.left, newBox.top, newRight, newBox.bottom);
+            }
+            if (handle.contains('top')) {
+              final newTop = (newBox.top + deltaY).clamp(0.0, newBox.bottom - 0.1);
+              newBox = Rect.fromLTRB(newBox.left, newTop, newBox.right, newBox.bottom);
+            }
+            if (handle.contains('bottom')) {
+              final newBottom = (newBox.bottom + deltaY).clamp(newBox.top + 0.1, 1.0);
+              newBox = Rect.fromLTRB(newBox.left, newBox.top, newBox.right, newBottom);
+            }
+            
+            _cropBox = newBox;
+          });
+        },
+        onPanEnd: (_) => _cropDragHandle = null,
+        child: Container(
+          width: 20,
+          height: 20,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildEdgeHandle(String edge) {
+    final isHorizontal = edge == 'top' || edge == 'bottom';
+    
+    return Positioned(
+      left: edge == 'left' ? -3 : (edge == 'right' ? null : 0),
+      right: edge == 'right' ? -3 : (edge == 'left' ? null : 0),
+      top: edge == 'top' ? -3 : (edge == 'bottom' ? null : 0),
+      bottom: edge == 'bottom' ? -3 : (edge == 'top' ? null : 0),
+      child: Center(
+        child: GestureDetector(
+          onPanStart: (details) {
+            _cropDragHandle = edge;
+            _cropDragStart = details.globalPosition;
+            _cropDragStartBox = _cropBox;
+          },
+          onPanUpdate: (details) {
+            if (_cropDragHandle == null) return;
+            final delta = details.globalPosition - _cropDragStart;
+            final deltaX = delta.dx / 350;
+            final deltaY = delta.dy / 250;
+            
+            setState(() {
+              var newBox = _cropDragStartBox;
+              
+              if (edge == 'top') {
+                final newTop = (newBox.top + deltaY).clamp(0.0, newBox.bottom - 0.1);
+                newBox = Rect.fromLTRB(newBox.left, newTop, newBox.right, newBox.bottom);
+              } else if (edge == 'bottom') {
+                final newBottom = (newBox.bottom + deltaY).clamp(newBox.top + 0.1, 1.0);
+                newBox = Rect.fromLTRB(newBox.left, newBox.top, newBox.right, newBottom);
+              } else if (edge == 'left') {
+                final newLeft = (newBox.left + deltaX).clamp(0.0, newBox.right - 0.1);
+                newBox = Rect.fromLTRB(newLeft, newBox.top, newBox.right, newBox.bottom);
+              } else if (edge == 'right') {
+                final newRight = (newBox.right + deltaX).clamp(newBox.left + 0.1, 1.0);
+                newBox = Rect.fromLTRB(newBox.left, newBox.top, newRight, newBox.bottom);
+              }
+              
+              _cropBox = newBox;
+            });
+          },
+          onPanEnd: (_) => _cropDragHandle = null,
+          child: Container(
+            width: isHorizontal ? 24 : 5,
+            height: isHorizontal ? 5 : 24,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  /// Build the crop menu - aspect ratio presets, rotate, mirror controls
+  Widget _buildCropMenu() {
+    return Column(
+      key: const ValueKey('crop_menu'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Header with back and confirm buttons
+        Container(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+          ),
+          child: Row(
+            children: [
+              // Back button
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _isCropMode = false;
+                      _cropRotation = 0;
+                      _cropMirror = false;
+                    });
+                  },
+                  child: Container(
+                    width: 32,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.primary.withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.chevron_left,
+                      size: 22,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                ),
+              ),
+              // Title
+              const Expanded(
+                child: Center(
+                  child: Text(
+                    'Crop',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              // Confirm button
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () {
+                    _showSnackBar('Crop applied: $_cropAspectRatio${_cropRotation > 0 ? ", ${_cropRotation}°" : ""}${_cropMirror ? ", mirrored" : ""}');
+                    setState(() => _isCropMode = false);
+                  },
+                  child: Container(
+                    width: 32,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      size: 20,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Aspect Ratio Presets Row
+        Container(
+          height: 56,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
+          ),
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _cropPresets.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final preset = _cropPresets[index];
+              final isSelected = _cropAspectRatio == preset['id'];
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _cropAspectRatio = preset['id'];
+                    // Reset crop box for aspect ratio
+                    if (preset['id'] != 'free') {
+                      final parts = preset['id'].toString().split(':');
+                      final w = double.parse(parts[0]);
+                      final h = double.parse(parts[1]);
+                      final ratio = w / h;
+                      final newWidth = 0.8;
+                      final newHeight = (newWidth / ratio).clamp(0.1, 0.8);
+                      _cropBox = Rect.fromLTWH(
+                        (1 - newWidth) / 2,
+                        (1 - newHeight) / 2,
+                        newWidth,
+                        newHeight,
+                      );
+                    }
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppTheme.primary.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected ? AppTheme.primary : Colors.transparent,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      preset['label'],
+                      style: TextStyle(
+                        color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.7),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        
+        // Rotate and Mirror Row
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Rotate button
+              GestureDetector(
+                onTap: () => setState(() => _cropRotation = (_cropRotation + 90) % 360),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.rotate_right,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _cropRotation > 0 ? 'Rotate (${_cropRotation}°)' : 'Rotate',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.6),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 40),
+              // Mirror button
+              GestureDetector(
+                onTap: () => setState(() => _cropMirror = !_cropMirror),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: _cropMirror ? AppTheme.primary.withOpacity(0.3) : Colors.white.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.flip,
+                        color: _cropMirror ? AppTheme.primary : Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Mirror',
+                      style: TextStyle(
+                        color: _cropMirror ? AppTheme.primary : Colors.white.withOpacity(0.6),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ],
