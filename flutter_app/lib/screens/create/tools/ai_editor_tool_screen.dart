@@ -5628,8 +5628,18 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 return;
               }
               
+              // Text tool opens the text menu
+              if (tool.id == 'text') {
+                setState(() {
+                  _isTextMenuMode = true;
+                  _textMenuTab = 'add-text';
+                  _selectedTool = 'text';
+                });
+                return;
+              }
+              
               // Coming soon tools - show snackbar and don't change selection
-              if (tool.id == 'text' || tool.id == 'effects' || tool.id == 'captions') {
+              if (tool.id == 'effects' || tool.id == 'captions') {
                 _showSnackBar('${tool.name} coming soon');
                 return;
               }

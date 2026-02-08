@@ -1292,8 +1292,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       return;
     }
     
+    // Text tool opens the text menu
+    if (tool.id === 'text') {
+      setIsTextMenuMode(true);
+      setTextMenuTab('add-text');
+      setSelectedTool('text');
+      return;
+    }
+    
     // Coming soon tools - show toast and don't change selection
-    if (['text', 'effects', 'captions'].includes(tool.id)) {
+    if (['effects', 'captions'].includes(tool.id)) {
       toast({
         title: tool.name,
         description: "Coming soon!",
