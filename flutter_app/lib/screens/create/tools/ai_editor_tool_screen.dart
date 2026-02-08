@@ -9,6 +9,7 @@ import 'package:video_player/video_player.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../../core/theme.dart';
+import 'widgets/text_edit_panel.dart';
 
 class RecentVideo {
   final String url;
@@ -38,6 +39,20 @@ class TextOverlay {
   double endTime; // in seconds
   double scale;
   int trackIndex; // Z-index/track order for layer stacking
+  // Extended text styling properties
+  double opacity;
+  bool strokeEnabled;
+  Color strokeColor;
+  double strokeWidth;
+  bool glowEnabled;
+  Color glowColor;
+  double glowIntensity;
+  bool shadowEnabled;
+  Color shadowColor;
+  double letterSpacing;
+  double curveAmount;
+  String animation;
+  String bubbleStyle;
 
   TextOverlay({
     required this.id,
@@ -54,6 +69,20 @@ class TextOverlay {
     this.endTime = 5,
     this.scale = 1.0,
     this.trackIndex = 0,
+    // Extended defaults
+    this.opacity = 1.0,
+    this.strokeEnabled = false,
+    this.strokeColor = Colors.black,
+    this.strokeWidth = 2.0,
+    this.glowEnabled = false,
+    this.glowColor = Colors.white,
+    this.glowIntensity = 10.0,
+    this.shadowEnabled = false,
+    this.shadowColor = Colors.black,
+    this.letterSpacing = 0.0,
+    this.curveAmount = 0.0,
+    this.animation = 'none',
+    this.bubbleStyle = 'none',
   });
 }
 
@@ -573,6 +602,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Text menu mode state - activated by clicking "+ Add text" row
   bool _isTextMenuMode = false;
   String _textMenuTab = 'add-text'; // 'add-text', 'auto-captions', 'stickers', 'draw'
+  bool _showTextEditPanel = false; // Comprehensive text edit panel
   
   // Audio menu mode state - activated by clicking "Audio" tool
   bool _isAudioMenuMode = false;
@@ -1230,6 +1260,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       _textOverlays.add(newText);
       _selectedTextId = newText.id;
       _textInputController.text = newText.text;
+      _showTextEditPanel = true; // Open text edit panel
     });
   }
 
@@ -5177,26 +5208,28 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   Widget _buildBottomToolbar() {
     return Container(
-      constraints: const BoxConstraints(maxHeight: 160),
+      constraints: BoxConstraints(maxHeight: _showTextEditPanel ? 450 : 160),
       decoration: BoxDecoration(
         color: const Color(0xFF0A0A0A),
         border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
       ),
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 200),
-        child: _isTextMenuMode 
-            ? _buildTextMenu()
-            : (_isAudioMenuMode 
-                ? _buildAudioMenu()
-                : (_isEffectsMenuMode 
-                    ? _buildEffectsMenu()
-                    : (_isOverlayMenuMode 
-                        ? _buildOverlayMenu()
-                        : (_isCaptionsMenuMode 
-                            ? _buildCaptionsMenu()
-                            : (_isEditMenuMode 
-                                ? _buildEditMenu()
-                                : _buildMainToolbar()))))),
+        child: _showTextEditPanel && _selectedTextOverlay != null
+            ? _buildTextEditPanel()
+            : (_isTextMenuMode 
+                ? _buildTextMenu()
+                : (_isAudioMenuMode 
+                    ? _buildAudioMenu()
+                    : (_isEffectsMenuMode 
+                        ? _buildEffectsMenu()
+                        : (_isOverlayMenuMode 
+                            ? _buildOverlayMenu()
+                            : (_isCaptionsMenuMode 
+                                ? _buildCaptionsMenu()
+                                : (_isEditMenuMode 
+                                    ? _buildEditMenu()
+                                    : _buildMainToolbar())))))),
       ),
     );
   }
@@ -5401,7 +5434,50 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
-  Widget _buildStickerCategoryIcon(String label, String emoji, bool isSelected, VoidCallback onTap) {
+  /// Build the comprehensive text edit panel using TextEditPanel widget
+  Widget _buildTextEditPanel() {
+    final overlay = _selectedTextOverlay;
+    if (overlay == null) return const SizedBox.shrink();
+    
+    return TextEditPanel(
+      onBack: () => setState(() => _showTextEditPanel = false),
+      text: overlay.text,
+      onTextChange: (text) => _updateSelectedText((t) => t.text = text),
+      fontSize: overlay.fontSize,
+      onFontSizeChange: (size) => _updateSelectedText((t) => t.fontSize = size),
+      textColor: overlay.textColor,
+      onTextColorChange: (color) => _updateSelectedText((t) => t.textColor = color),
+      fontFamily: overlay.fontFamily,
+      onFontFamilyChange: (font) => _updateSelectedText((t) => t.fontFamily = font),
+      opacity: overlay.opacity,
+      onOpacityChange: (opacity) => _updateSelectedText((t) => t.opacity = opacity),
+      strokeEnabled: overlay.strokeEnabled,
+      onStrokeEnabledChange: (enabled) => _updateSelectedText((t) => t.strokeEnabled = enabled),
+      strokeColor: overlay.strokeColor,
+      onStrokeColorChange: (color) => _updateSelectedText((t) => t.strokeColor = color),
+      strokeWidth: overlay.strokeWidth,
+      onStrokeWidthChange: (width) => _updateSelectedText((t) => t.strokeWidth = width),
+      glowEnabled: overlay.glowEnabled,
+      onGlowEnabledChange: (enabled) => _updateSelectedText((t) => t.glowEnabled = enabled),
+      glowColor: overlay.glowColor,
+      onGlowColorChange: (color) => _updateSelectedText((t) => t.glowColor = color),
+      glowIntensity: overlay.glowIntensity,
+      onGlowIntensityChange: (intensity) => _updateSelectedText((t) => t.glowIntensity = intensity),
+      shadowEnabled: overlay.shadowEnabled,
+      onShadowEnabledChange: (enabled) => _updateSelectedText((t) => t.shadowEnabled = enabled),
+      shadowColor: overlay.shadowColor,
+      onShadowColorChange: (color) => _updateSelectedText((t) => t.shadowColor = color),
+      letterSpacing: overlay.letterSpacing,
+      onLetterSpacingChange: (spacing) => _updateSelectedText((t) => t.letterSpacing = spacing),
+      curveAmount: overlay.curveAmount,
+      onCurveAmountChange: (curve) => _updateSelectedText((t) => t.curveAmount = curve),
+      animation: overlay.animation,
+      onAnimationChange: (anim) => _updateSelectedText((t) => t.animation = anim),
+      bubbleStyle: overlay.bubbleStyle,
+      onBubbleStyleChange: (style) => _updateSelectedText((t) => t.bubbleStyle = style),
+    );
+  }
+  
     return GestureDetector(
       onTap: onTap,
       child: Container(
