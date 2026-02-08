@@ -2551,7 +2551,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
 
   Future<void> _handleExport() async {
-    if (_videoFile == null || _videoClips.isEmpty) {
+    if (_videoClips.isEmpty) {
       _showSnackBar('No video to export');
       return;
     }
@@ -2582,8 +2582,25 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         _exportProgress = 10;
       });
 
+      // Get video file from clip URL or fall back to _videoFile
+      File? sourceFile;
+      if (activeClip != null && activeClip.url.isNotEmpty) {
+        // Check if the clip URL is a local file path
+        if (activeClip.url.startsWith('/') || activeClip.url.startsWith('file://')) {
+          final path = activeClip.url.replaceFirst('file://', '');
+          sourceFile = File(path);
+        }
+      }
+      
+      // Fall back to _videoFile if clip source not available
+      sourceFile ??= _videoFile;
+      
+      if (sourceFile == null || !await sourceFile.exists()) {
+        throw Exception('Video file not found');
+      }
+
       // Read the original video file bytes
-      final originalBytes = await _videoFile!.readAsBytes();
+      final originalBytes = await sourceFile.readAsBytes();
       
       setState(() {
         _exportStage = 'Applying speed: ${playbackSpeed.toStringAsFixed(1)}x...';

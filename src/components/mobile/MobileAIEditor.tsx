@@ -1585,27 +1585,43 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       const ctx = canvas.getContext('2d')!;
       exportCanvasRef.current = canvas;
 
-      // Create a temporary video element for export - use unique source to avoid caching issues
+      // Create a temporary video element for export
       exportVideo = document.createElement('video');
-      // Add cache-busting query parameter for fresh load on each export
-      const exportUrl = videoUrl.includes('?') 
-        ? `${videoUrl}&_export=${Date.now()}` 
-        : `${videoUrl}?_export=${Date.now()}`;
+      
+      // For blob URLs, we can't add query params - use the URL directly
+      // For network URLs, we can add cache-busting
+      const isBlobUrl = videoUrl.startsWith('blob:');
+      const exportUrl = isBlobUrl 
+        ? videoUrl 
+        : (videoUrl.includes('?') 
+            ? `${videoUrl}&_export=${Date.now()}` 
+            : `${videoUrl}?_export=${Date.now()}`);
+      
       exportVideo.src = exportUrl;
       exportVideo.muted = true; // Start muted, we'll handle audio separately
       exportVideo.playsInline = true;
-      exportVideo.crossOrigin = 'anonymous';
+      exportVideo.crossOrigin = isBlobUrl ? undefined : 'anonymous';
+      exportVideo.preload = 'auto';
       
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => reject(new Error('Video load timeout')), 30000);
-        exportVideo!.onloadedmetadata = () => {
+        
+        const handleLoaded = () => {
           clearTimeout(timeout);
+          exportVideo!.removeEventListener('loadeddata', handleLoaded);
+          exportVideo!.removeEventListener('error', handleError);
           resolve();
         };
-        exportVideo!.onerror = () => {
+        
+        const handleError = () => {
           clearTimeout(timeout);
+          exportVideo!.removeEventListener('loadeddata', handleLoaded);
+          exportVideo!.removeEventListener('error', handleError);
           reject(new Error('Failed to load video for export'));
         };
+        
+        exportVideo!.addEventListener('loadeddata', handleLoaded);
+        exportVideo!.addEventListener('error', handleError);
         exportVideo!.load();
       });
 
@@ -1630,14 +1646,28 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         try {
           // Create a separate audio element for audio capture to avoid reuse issues
           const audioElement = document.createElement('video');
-          const audioUrl = videoUrl.includes('?') 
-            ? `${videoUrl}&_audio=${Date.now()}` 
-            : `${videoUrl}?_audio=${Date.now()}`;
-          audioElement.src = audioUrl;
-          audioElement.crossOrigin = 'anonymous';
           
-          await new Promise<void>((resolve) => {
-            audioElement.onloadedmetadata = () => resolve();
+          // For blob URLs, we can't add query params
+          const isBlobUrlAudio = videoUrl.startsWith('blob:');
+          const audioUrl = isBlobUrlAudio 
+            ? videoUrl 
+            : (videoUrl.includes('?') 
+                ? `${videoUrl}&_audio=${Date.now()}` 
+                : `${videoUrl}?_audio=${Date.now()}`);
+          
+          audioElement.src = audioUrl;
+          audioElement.crossOrigin = isBlobUrlAudio ? undefined : 'anonymous';
+          
+          await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => resolve(), 5000); // Don't fail export if audio fails
+            audioElement.onloadedmetadata = () => {
+              clearTimeout(timeout);
+              resolve();
+            };
+            audioElement.onerror = () => {
+              clearTimeout(timeout);
+              resolve(); // Continue without audio
+            };
             audioElement.load();
           });
 
