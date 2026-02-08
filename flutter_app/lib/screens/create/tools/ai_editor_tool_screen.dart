@@ -212,6 +212,45 @@ class EffectLayer {
   });
 }
 
+/// Video overlay data model for picture-in-picture
+class VideoOverlay {
+  String id;
+  String url;
+  double duration;
+  double startTime;
+  double endTime;
+  Offset position; // Normalized 0-1 position on canvas
+  double width; // Normalized width (0-1)
+  double height; // Normalized height (0-1)
+  double scaleX;
+  double scaleY;
+  double volume;
+  double opacity;
+  VideoPlayerController? controller;
+  bool isInitialized;
+  
+  VideoOverlay({
+    required this.id,
+    required this.url,
+    required this.duration,
+    this.startTime = 0,
+    double? endTime,
+    this.position = const Offset(0.6, 0.3),
+    this.width = 0.35,
+    this.height = 0.35,
+    this.scaleX = 1.0,
+    this.scaleY = 1.0,
+    this.volume = 1.0,
+    this.opacity = 1.0,
+    this.controller,
+    this.isInitialized = false,
+  }) : endTime = endTime ?? duration;
+  
+  void dispose() {
+    controller?.dispose();
+  }
+}
+
 /// Effect preset definition
 class EffectPreset {
   final String id;
@@ -228,7 +267,7 @@ class EffectPreset {
 }
 
 /// Layer type enum for track management
-enum LayerType { text, audio, sticker, caption, effect }
+enum LayerType { text, audio, sticker, caption, effect, videoOverlay }
 
 /// Timeline state snapshot for undo/redo functionality
 class EditorStateSnapshot {
@@ -665,6 +704,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Overlay menu mode state - activated by clicking "Overlay" tool
   bool _isOverlayMenuMode = false;
   
+  // Video overlay layers
+  List<VideoOverlay> _videoOverlays = [];
+  String? _selectedOverlayId;
+  String? _draggingOverlayId;
+  
   // Captions menu mode state - activated by clicking "Captions" tool
   bool _isCaptionsMenuMode = false;
   
@@ -1057,6 +1101,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     // Dispose all audio players
     for (final audio in _audioLayers) {
       audio.dispose();
+    }
+    // Dispose all video overlay controllers
+    for (final overlay in _videoOverlays) {
+      overlay.dispose();
     }
     super.dispose();
   }
@@ -1478,6 +1526,147 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         _captionLayers[index].text = newText;
       }
     });
+  }
+
+  // ============================================
+  // VIDEO OVERLAY FUNCTIONS
+  // ============================================
+  
+  /// Pick and add a video overlay
+  Future<void> _addVideoOverlay() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+        allowMultiple: false,
+      );
+      
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        final filePath = file.path;
+        
+        if (filePath != null) {
+          final videoFile = File(filePath);
+          final fileUrl = videoFile.uri.toString();
+          
+          // Create a temporary controller to get duration
+          final tempController = VideoPlayerController.file(videoFile);
+          await tempController.initialize();
+          final overlayDuration = tempController.value.duration.inMilliseconds / 1000.0;
+          await tempController.dispose();
+          
+          // Get the main video duration for default end time
+          final mainDuration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+          
+          final newOverlay = VideoOverlay(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            url: fileUrl,
+            duration: overlayDuration,
+            startTime: 0,
+            endTime: math.min(overlayDuration, mainDuration),
+            position: const Offset(0.65, 0.25),
+            width: 0.35,
+            height: 0.35,
+          );
+          
+          // Initialize the overlay's video controller
+          newOverlay.controller = VideoPlayerController.file(videoFile);
+          await newOverlay.controller!.initialize();
+          newOverlay.controller!.setVolume(newOverlay.volume);
+          newOverlay.controller!.setLooping(false);
+          newOverlay.isInitialized = true;
+          
+          setState(() {
+            _videoOverlays.add(newOverlay);
+            _selectedOverlayId = newOverlay.id;
+            _isOverlayMenuMode = false;
+          });
+          
+          _showSnackBar('Video overlay added');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error adding video overlay: $e');
+      _showSnackBar('Failed to add overlay');
+    }
+  }
+  
+  /// Remove a video overlay
+  void _removeVideoOverlay(String id) {
+    final overlay = _videoOverlays.firstWhere((o) => o.id == id, orElse: () => VideoOverlay(id: '', url: '', duration: 0));
+    overlay.dispose();
+    
+    setState(() {
+      _videoOverlays.removeWhere((o) => o.id == id);
+      if (_selectedOverlayId == id) {
+        _selectedOverlayId = null;
+      }
+    });
+    _showSnackBar('Overlay removed');
+  }
+  
+  /// Update a video overlay's properties
+  void _updateVideoOverlay(String id, {
+    Offset? position,
+    double? width,
+    double? height,
+    double? scaleX,
+    double? scaleY,
+    double? volume,
+    double? opacity,
+    double? startTime,
+    double? endTime,
+  }) {
+    setState(() {
+      final index = _videoOverlays.indexWhere((o) => o.id == id);
+      if (index != -1) {
+        final overlay = _videoOverlays[index];
+        if (position != null) overlay.position = position;
+        if (width != null) overlay.width = width;
+        if (height != null) overlay.height = height;
+        if (scaleX != null) overlay.scaleX = scaleX;
+        if (scaleY != null) overlay.scaleY = scaleY;
+        if (volume != null) {
+          overlay.volume = volume;
+          overlay.controller?.setVolume(volume);
+        }
+        if (opacity != null) overlay.opacity = opacity;
+        if (startTime != null) overlay.startTime = startTime;
+        if (endTime != null) overlay.endTime = endTime;
+      }
+    });
+  }
+  
+  /// Sync video overlays to the current timeline position
+  void _syncVideoOverlaysToTime(double timelineTime) {
+    for (final overlay in _videoOverlays) {
+      if (overlay.controller == null || !overlay.isInitialized) continue;
+      
+      // Check if current time is within overlay's time range
+      if (timelineTime >= overlay.startTime && timelineTime <= overlay.endTime) {
+        final overlayLocalTime = timelineTime - overlay.startTime;
+        
+        // Clamp to overlay's actual duration
+        final clampedTime = overlayLocalTime.clamp(0.0, overlay.duration);
+        
+        // Seek if drifted more than 0.2 seconds
+        final currentPos = overlay.controller!.value.position.inMilliseconds / 1000.0;
+        if ((currentPos - clampedTime).abs() > 0.2) {
+          overlay.controller!.seekTo(Duration(milliseconds: (clampedTime * 1000).round()));
+        }
+        
+        // Play if main video is playing
+        if (_isPlaying && !overlay.controller!.value.isPlaying) {
+          overlay.controller!.play();
+        } else if (!_isPlaying && overlay.controller!.value.isPlaying) {
+          overlay.controller!.pause();
+        }
+      } else {
+        // Pause and hide if outside time range
+        if (overlay.controller!.value.isPlaying) {
+          overlay.controller!.pause();
+        }
+      }
+    }
   }
 
   // ============================================
@@ -3653,6 +3842,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                               ),
                             ),
                           ),
+                          // Video overlays (picture-in-picture)
+                          ..._buildVideoOverlays(constraints),
                           // Text overlays for editing
                           ..._buildTextOverlays(constraints),
                           // Caption overlays at bottom of video
@@ -3806,6 +3997,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       
                       // Video Track (filmstrip only) - supports multi-clip
                       _buildVideoTrackFilmstripOnly(halfScreenPadding, trackWidth),
+                      const SizedBox(height: 6),
+                      
+                      // Video Overlay Track (Purple layers) - between main video and audio
+                      _buildVideoOverlayTrack(halfScreenPadding, trackWidth, duration),
                       const SizedBox(height: 6),
                       
                       // Audio Track (Green waveform layers)
@@ -4282,6 +4477,187 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
 
   // Audio track removed - space dedicated to text/other layers only
+
+  /// Build video overlay track (purple themed) - for picture-in-picture layers
+  Widget _buildVideoOverlayTrack(double startPadding, double trackWidth, double duration) {
+    if (_videoOverlays.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    return SizedBox(
+      height: 40,
+      child: Row(
+        children: [
+          SizedBox(width: startPadding),
+          
+          SizedBox(
+            width: trackWidth,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: _videoOverlays.map((overlay) {
+                final leftOffset = overlay.startTime * _pixelsPerSecond;
+                final itemWidth = ((overlay.endTime - overlay.startTime) * _pixelsPerSecond).clamp(60.0, trackWidth);
+                final isSelected = overlay.id == _selectedOverlayId;
+                final isDragging = overlay.id == _draggingOverlayId;
+                
+                return Positioned(
+                  left: leftOffset,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _selectedOverlayId = overlay.id),
+                    onHorizontalDragUpdate: (details) {
+                      final delta = details.primaryDelta ?? 0;
+                      final timeDelta = delta / _pixelsPerSecond;
+                      final itemDuration = overlay.endTime - overlay.startTime;
+                      
+                      setState(() {
+                        var newStart = (overlay.startTime + timeDelta).clamp(0.0, duration - itemDuration);
+                        overlay.startTime = newStart;
+                        overlay.endTime = newStart + itemDuration;
+                      });
+                    },
+                    child: Container(
+                      width: itemWidth,
+                      height: 34,
+                      margin: const EdgeInsets.only(top: 3),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isSelected 
+                              ? [const Color(0xFF8B5CF6), const Color(0xFFA78BFA)]
+                              : [const Color(0xFF6D28D9), const Color(0xFF7C3AED)],
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                        border: isSelected 
+                            ? Border.all(color: Colors.white, width: 2)
+                            : null,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF8B5CF6).withOpacity(0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          // Left trim handle
+                          GestureDetector(
+                            onHorizontalDragUpdate: (details) {
+                              final delta = details.primaryDelta ?? 0;
+                              final timeDelta = delta / _pixelsPerSecond;
+                              setState(() {
+                                final newStart = (overlay.startTime + timeDelta).clamp(0.0, overlay.endTime - 0.5);
+                                overlay.startTime = newStart;
+                              });
+                            },
+                            child: Container(
+                              width: 10,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(isSelected ? 0.5 : 0.3),
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(6),
+                                  bottomLeft: Radius.circular(6),
+                                ),
+                              ),
+                              child: Center(
+                                child: Container(
+                                  width: 2,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.8),
+                                    borderRadius: BorderRadius.circular(1),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Content
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.videocam,
+                                    size: 14,
+                                    color: Colors.white.withOpacity(0.9),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      'Overlay ${_videoOverlays.indexOf(overlay) + 1}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  // Delete button when selected
+                                  if (isSelected)
+                                    GestureDetector(
+                                      onTap: () => _removeVideoOverlay(overlay.id),
+                                      child: Container(
+                                        width: 16,
+                                        height: 16,
+                                        decoration: BoxDecoration(
+                                          color: Colors.red.withOpacity(0.9),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.close, color: Colors.white, size: 10),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // Right trim handle
+                          GestureDetector(
+                            onHorizontalDragUpdate: (details) {
+                              final delta = details.primaryDelta ?? 0;
+                              final timeDelta = delta / _pixelsPerSecond;
+                              setState(() {
+                                final newEnd = (overlay.endTime + timeDelta).clamp(overlay.startTime + 0.5, duration);
+                                overlay.endTime = newEnd;
+                              });
+                            },
+                            child: Container(
+                              width: 10,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(isSelected ? 0.5 : 0.3),
+                                borderRadius: const BorderRadius.only(
+                                  topRight: Radius.circular(6),
+                                  bottomRight: Radius.circular(6),
+                                ),
+                              ),
+                              child: Center(
+                                child: Container(
+                                  width: 2,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.8),
+                                    borderRadius: BorderRadius.circular(1),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          
+          SizedBox(width: startPadding),
+        ],
+      ),
+    );
+  }
 
   Widget _buildTextTrack(double startPadding, double trackWidth, double duration) {
     if (_textOverlays.isEmpty) {
@@ -7339,9 +7715,55 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
-                _buildMenuToolButton('Add overlay', Icons.add, () {
-                  _showSnackBar('Add overlay coming soon');
+                _buildMenuToolButton('Add overlay', Icons.add, () async {
+                  await _addVideoOverlay();
                 }),
+                const SizedBox(width: 8),
+                // Show existing overlays for selection
+                ..._videoOverlays.map((overlay) {
+                  final isSelected = overlay.id == _selectedOverlayId;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedOverlayId = overlay.id),
+                      child: Container(
+                        width: 64,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFF8B5CF6).withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFF8B5CF6).withOpacity(0.5) : Colors.transparent,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF8B5CF6).withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.videocam, size: 18, color: Color(0xFF8B5CF6)),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Overlay ${_videoOverlays.indexOf(overlay) + 1}',
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
               ],
             ),
           ),
@@ -9229,6 +9651,124 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         ),
       ),
     );
+  }
+
+  /// Build video overlays (picture-in-picture) in the preview area
+  List<Widget> _buildVideoOverlays(BoxConstraints constraints) {
+    final currentTime = _currentTimelinePosition;
+    
+    return _videoOverlays.where((overlay) {
+      // Only show overlay if current time is within its time range
+      return currentTime >= overlay.startTime && currentTime <= overlay.endTime;
+    }).map((overlay) {
+      if (overlay.controller == null || !overlay.isInitialized) {
+        return const SizedBox.shrink();
+      }
+      
+      final isSelected = overlay.id == _selectedOverlayId;
+      
+      // Calculate position and size
+      final overlayWidth = constraints.maxWidth * overlay.width * overlay.scaleX;
+      final overlayHeight = constraints.maxHeight * overlay.height * overlay.scaleY;
+      final left = (constraints.maxWidth * overlay.position.dx - overlayWidth / 2).clamp(0.0, constraints.maxWidth - overlayWidth);
+      final top = (constraints.maxHeight * overlay.position.dy - overlayHeight / 2).clamp(0.0, constraints.maxHeight - overlayHeight);
+      
+      // Sync overlay playback
+      _syncVideoOverlaysToTime(currentTime);
+      
+      return Positioned(
+        left: left,
+        top: top,
+        width: overlayWidth,
+        height: overlayHeight,
+        child: GestureDetector(
+          onTap: () => setState(() => _selectedOverlayId = overlay.id),
+          onPanUpdate: (details) {
+            // Drag to reposition with boundary constraints
+            setState(() {
+              final newX = (overlay.position.dx + details.delta.dx / constraints.maxWidth).clamp(0.05, 0.95);
+              final newY = (overlay.position.dy + details.delta.dy / constraints.maxHeight).clamp(0.05, 0.95);
+              overlay.position = Offset(newX, newY);
+            });
+          },
+          child: Opacity(
+            opacity: overlay.opacity,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Video container with border when selected
+                Container(
+                  decoration: BoxDecoration(
+                    border: isSelected 
+                        ? Border.all(color: Colors.white, width: 2)
+                        : null,
+                    borderRadius: BorderRadius.circular(4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.5),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(isSelected ? 2 : 4),
+                    child: AspectRatio(
+                      aspectRatio: overlay.controller!.value.aspectRatio,
+                      child: VideoPlayer(overlay.controller!),
+                    ),
+                  ),
+                ),
+                // Control handles when selected
+                if (isSelected) ...[
+                  // Delete button - top left
+                  Positioned(
+                    top: -12,
+                    left: -12,
+                    child: GestureDetector(
+                      onTap: () => _removeVideoOverlay(overlay.id),
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close, color: Colors.white, size: 14),
+                      ),
+                    ),
+                  ),
+                  // Resize handle - bottom right
+                  Positioned(
+                    bottom: -12,
+                    right: -12,
+                    child: GestureDetector(
+                      onPanUpdate: (details) {
+                        setState(() {
+                          final deltaX = details.delta.dx * 0.003;
+                          final deltaY = details.delta.dy * 0.003;
+                          overlay.scaleX = (overlay.scaleX + deltaX).clamp(0.3, 2.0);
+                          overlay.scaleY = (overlay.scaleY + deltaY).clamp(0.3, 2.0);
+                        });
+                      },
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.open_in_full, color: Colors.black, size: 14),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    }).toList();
   }
 
   List<Widget> _buildTextOverlays(BoxConstraints constraints) {
