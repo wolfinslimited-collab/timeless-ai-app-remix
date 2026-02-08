@@ -3716,7 +3716,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               });
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              constraints: const BoxConstraints(maxWidth: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFF2A2A2A),
                 borderRadius: BorderRadius.circular(4),
