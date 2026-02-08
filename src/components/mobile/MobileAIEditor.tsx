@@ -3158,7 +3158,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         })}
                       </div>
                       
-                      {/* + Add text row - sleek semi-transparent track */}
+                      {/* + Add text row - only show placeholder when no text overlays */}
                       <div 
                         className="relative h-10 cursor-pointer group"
                         style={{ width: trackWidth }}
@@ -3167,14 +3167,17 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           setTextMenuTab('add-text');
                         }}
                       >
-                        <div className="h-[34px] mt-[3px] rounded bg-[#2A2A2A] border border-border/30 hover:border-border/50 transition-all flex items-center gap-2 px-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 rounded bg-[#3A3A3A] flex items-center justify-center">
-                              <Plus className="w-2.5 h-2.5 text-foreground" />
+                        {/* Only show "Add text" placeholder when there are no text overlays */}
+                        {textOverlays.length === 0 && (
+                          <div className="h-[34px] mt-[3px] rounded bg-[#2A2A2A] border border-border/30 hover:border-border/50 transition-all flex items-center gap-2 px-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded bg-[#3A3A3A] flex items-center justify-center">
+                                <Plus className="w-2.5 h-2.5 text-foreground" />
+                              </div>
+                              <span className="text-[11px] text-foreground font-semibold">Add text</span>
                             </div>
-                            <span className="text-[11px] text-foreground font-semibold">Add text</span>
                           </div>
-                        </div>
+                        )}
                         {/* Render actual text layers on top */}
                         {textOverlays.map(overlay => {
                           const isSelected = overlay.id === selectedTextId;
@@ -3185,10 +3188,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             <div
                               key={overlay.id}
                               className={cn(
-                                "absolute h-[34px] rounded-md flex items-center cursor-grab transition-all active:cursor-grabbing group",
+                                "absolute h-[34px] rounded flex items-center cursor-grab transition-all active:cursor-grabbing group",
                                 isSelected 
-                                  ? "bg-gradient-to-r from-amber-500 to-amber-600 ring-2 ring-white shadow-lg shadow-amber-500/30"
-                                  : "bg-gradient-to-r from-primary to-primary/80 shadow-md shadow-primary/30",
+                                  ? "border border-white/90"
+                                  : "",
                                 draggingLayerId === overlay.id && "opacity-90 scale-[1.02] z-10"
                               )}
                               style={{ left: leftOffset, width: itemWidth, top: 3 }}
@@ -3199,11 +3202,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 setSelectedTool('text');
                               }}
                             >
+                              {/* Left trim handle - minimal styling */}
                               <div 
-                                className={cn(
-                                  "w-2.5 h-full rounded-l-md flex items-center justify-center cursor-ew-resize",
-                                  isSelected ? "bg-white/50" : "bg-white/30"
-                                )}
+                                className="w-2 h-full flex items-center justify-center cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity"
                                 onMouseDown={(e) => {
                                   e.stopPropagation();
                                   setTrimmingLayerId(overlay.id);
@@ -3232,11 +3233,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                   document.addEventListener('mouseup', handleUp);
                                 }}
                               >
-                                <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                                <div className="w-0.5 h-3 bg-white/60 rounded-full" />
                               </div>
                               
+                              {/* Content - just text label */}
                               <div 
-                                className="flex-1 flex items-center gap-1.5 px-1.5 overflow-hidden cursor-grab"
+                                className="flex-1 flex items-center gap-1.5 px-1 overflow-hidden cursor-grab"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setSelectedTextId(overlay.id);
@@ -3244,28 +3246,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                   setSelectedTool('text');
                                 }}
                               >
-                                <Type className="w-3 h-3 text-white/90 shrink-0" />
-                                <span className="text-[10px] text-white font-semibold truncate flex-1">
+                                <Type className="w-3 h-3 text-white/70 shrink-0" />
+                                <span className="text-[10px] text-white/90 font-medium truncate flex-1">
                                   {overlay.text}
                                 </span>
-                                {isSelected && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      deleteTextFromTimeline(overlay.id);
-                                    }}
-                                    className="w-4 h-4 bg-destructive/90 hover:bg-destructive rounded-full flex items-center justify-center shrink-0"
-                                  >
-                                    <X className="w-2.5 h-2.5 text-white" />
-                                  </button>
-                                )}
                               </div>
                               
+                              {/* Right trim handle - minimal styling */}
                               <div 
-                                className={cn(
-                                  "w-2.5 h-full rounded-r-md flex items-center justify-center cursor-ew-resize",
-                                  isSelected ? "bg-white/50" : "bg-white/30"
-                                )}
+                                className="w-2 h-full flex items-center justify-center cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity"
                                 onMouseDown={(e) => {
                                   e.stopPropagation();
                                   setTrimmingLayerId(overlay.id);
@@ -3292,7 +3281,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                   document.addEventListener('mouseup', handleUp);
                                 }}
                               >
-                                <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                                <div className="w-0.5 h-3 bg-white/60 rounded-full" />
                               </div>
                             </div>
                           );
