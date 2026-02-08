@@ -161,6 +161,9 @@ interface TextOverlayData {
   curveAmount: number;
   animation: string;
   bubbleStyle: string;
+  // Transform properties
+  rotation: number;
+  scale: number;
 }
 
 interface CaptionLayerData {
@@ -763,6 +766,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       curveAmount: 0,
       animation: 'none',
       bubbleStyle: 'none',
+      // Transform properties
+      rotation: 0,
+      scale: 1,
     };
     setTextOverlays(prev => [...prev, newText]);
     setSelectedTextId(newText.id);
@@ -1944,29 +1950,32 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     style={{
                       left: `${overlay.position.x * 100}%`,
                       top: `${overlay.position.y * 100}%`,
-                      transform: 'translate(-50%, -50%)',
+                      transform: `translate(-50%, -50%) rotate(${overlay.rotation || 0}deg) scale(${overlay.scale || 1})`,
                       backgroundColor: overlay.hasBackground 
                         ? `${overlay.backgroundColor}${Math.round(overlay.backgroundOpacity * 255).toString(16).padStart(2, '0')}`
                         : 'transparent',
                       cursor: draggingTextId === overlay.id ? 'grabbing' : 'grab',
+                      opacity: overlay.opacity,
                     }}
-                    // Click to select, double-click to edit inline
+                    // Click to select - automatically show text edit panel
                     onClick={(e) => {
                       e.stopPropagation();
                       if (isSelected) {
-                        // Already selected - open inline editor
-                        setIsEditingTextInline(true);
+                        // Already selected - ensure edit panel is open
+                        setShowTextEditPanel(true);
                         setSelectedTool('text');
                       } else {
+                        // Select and show edit panel
                         setSelectedTextId(overlay.id);
                         setTextInput(overlay.text);
+                        setShowTextEditPanel(true);
                       }
                     }}
                     onDoubleClick={(e) => {
                       e.stopPropagation();
                       setSelectedTextId(overlay.id);
                       setTextInput(overlay.text);
-                      setIsEditingTextInline(true);
+                      setShowTextEditPanel(true);
                       setSelectedTool('text');
                     }}
                     // Drag support with mouse
@@ -2015,10 +2024,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       {overlay.text}
                     </span>
                     
-                    {/* Selection handles - only when selected and not dragging */}
+                    {/* Transform gesture overlay - corner handles and rotation anchor */}
                     {isSelected && !draggingTextId && (
                       <>
-                        {/* Delete button */}
+                        {/* Delete button - top right */}
                         <div
                           onMouseDown={(e) => e.stopPropagation()}
                           onTouchStart={(e) => e.stopPropagation()}
@@ -2032,14 +2041,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         >
                           <X className="w-4 h-4 text-destructive-foreground" />
                         </div>
-                        {/* Edit button */}
+                        
+                        {/* Edit button - top left */}
                         <div
                           onMouseDown={(e) => e.stopPropagation()}
                           onTouchStart={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
-                            setIsEditingTextInline(true);
+                            setShowTextEditPanel(true);
                             setSelectedTool('text');
                           }}
                           className="absolute -top-5 -left-5 w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg cursor-pointer z-50 touch-manipulation"
@@ -2047,25 +2057,194 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         >
                           <Type className="w-4 h-4 text-primary-foreground" />
                         </div>
-                        {/* Resize handle - interactive scaling */}
+                        
+                        {/* Rotation anchor - top center, above the text */}
+                        <div
+                          className="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col items-center z-50"
+                          style={{ pointerEvents: 'auto' }}
+                        >
+                          {/* Connector line */}
+                          <div className="w-0.5 h-4 bg-primary/50" />
+                          {/* Rotation handle */}
+                          <div 
+                            className="w-7 h-7 rounded-full bg-background border-2 border-primary flex items-center justify-center cursor-grab active:cursor-grabbing shadow-lg touch-manipulation"
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              const rect = e.currentTarget.parentElement?.parentElement?.getBoundingClientRect();
+                              if (!rect) return;
+                              const centerX = rect.left + rect.width / 2;
+                              const centerY = rect.top + rect.height / 2;
+                              const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+                              const startRotation = overlay.rotation || 0;
+                              
+                              const handleMouseMove = (moveE: MouseEvent) => {
+                                const currentAngle = Math.atan2(moveE.clientY - centerY, moveE.clientX - centerX);
+                                const angleDelta = (currentAngle - startAngle) * (180 / Math.PI);
+                                const newRotation = startRotation + angleDelta;
+                                setTextOverlays(prev => prev.map(t => 
+                                  t.id === overlay.id ? { ...t, rotation: Math.round(newRotation) } : t
+                                ));
+                              };
+                              
+                              const handleMouseUp = () => {
+                                document.removeEventListener('mousemove', handleMouseMove);
+                                document.removeEventListener('mouseup', handleMouseUp);
+                              };
+                              
+                              document.addEventListener('mousemove', handleMouseMove);
+                              document.addEventListener('mouseup', handleMouseUp);
+                            }}
+                            onTouchStart={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              const rect = e.currentTarget.parentElement?.parentElement?.getBoundingClientRect();
+                              if (!rect) return;
+                              const touch = e.touches[0];
+                              const centerX = rect.left + rect.width / 2;
+                              const centerY = rect.top + rect.height / 2;
+                              const startAngle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX);
+                              const startRotation = overlay.rotation || 0;
+                              
+                              const handleTouchMove = (moveE: TouchEvent) => {
+                                moveE.preventDefault();
+                                const currentTouch = moveE.touches[0];
+                                const currentAngle = Math.atan2(currentTouch.clientY - centerY, currentTouch.clientX - centerX);
+                                const angleDelta = (currentAngle - startAngle) * (180 / Math.PI);
+                                const newRotation = startRotation + angleDelta;
+                                setTextOverlays(prev => prev.map(t => 
+                                  t.id === overlay.id ? { ...t, rotation: Math.round(newRotation) } : t
+                                ));
+                              };
+                              
+                              const handleTouchEnd = () => {
+                                document.removeEventListener('touchmove', handleTouchMove);
+                                document.removeEventListener('touchend', handleTouchEnd);
+                              };
+                              
+                              document.addEventListener('touchmove', handleTouchMove, { passive: false });
+                              document.addEventListener('touchend', handleTouchEnd);
+                            }}
+                          >
+                            <svg className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 12a9 9 0 11-6.219-8.56" />
+                              <polyline points="21 3 21 9 15 9" />
+                            </svg>
+                          </div>
+                        </div>
+                        
+                        {/* Corner resize handles */}
+                        {/* Top-left corner */}
                         <div 
-                          className="absolute -bottom-4 -right-4 w-7 h-7 rounded-full bg-background border-2 border-primary flex items-center justify-center cursor-se-resize z-50 touch-manipulation"
+                          className="absolute -top-2 -left-2 w-5 h-5 rounded-sm bg-background border-2 border-primary cursor-nw-resize z-50 touch-manipulation"
                           style={{ pointerEvents: 'auto' }}
                           onMouseDown={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
                             const startX = e.clientX;
                             const startY = e.clientY;
-                            const startFontSize = overlay.fontSize;
+                            const startScale = overlay.scale || 1;
+                            
+                            const handleMouseMove = (moveE: MouseEvent) => {
+                              const deltaX = startX - moveE.clientX;
+                              const deltaY = startY - moveE.clientY;
+                              const scaleDelta = (deltaX + deltaY) * 0.005;
+                              const newScale = Math.max(0.3, Math.min(3, startScale + scaleDelta));
+                              setTextOverlays(prev => prev.map(t => 
+                                t.id === overlay.id ? { ...t, scale: newScale } : t
+                              ));
+                            };
+                            
+                            const handleMouseUp = () => {
+                              document.removeEventListener('mousemove', handleMouseMove);
+                              document.removeEventListener('mouseup', handleMouseUp);
+                            };
+                            
+                            document.addEventListener('mousemove', handleMouseMove);
+                            document.addEventListener('mouseup', handleMouseUp);
+                          }}
+                        />
+                        
+                        {/* Top-right corner */}
+                        <div 
+                          className="absolute -top-2 -right-2 w-5 h-5 rounded-sm bg-background border-2 border-primary cursor-ne-resize z-50 touch-manipulation"
+                          style={{ pointerEvents: 'auto' }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const startScale = overlay.scale || 1;
+                            
+                            const handleMouseMove = (moveE: MouseEvent) => {
+                              const deltaX = moveE.clientX - startX;
+                              const deltaY = startY - moveE.clientY;
+                              const scaleDelta = (deltaX + deltaY) * 0.005;
+                              const newScale = Math.max(0.3, Math.min(3, startScale + scaleDelta));
+                              setTextOverlays(prev => prev.map(t => 
+                                t.id === overlay.id ? { ...t, scale: newScale } : t
+                              ));
+                            };
+                            
+                            const handleMouseUp = () => {
+                              document.removeEventListener('mousemove', handleMouseMove);
+                              document.removeEventListener('mouseup', handleMouseUp);
+                            };
+                            
+                            document.addEventListener('mousemove', handleMouseMove);
+                            document.addEventListener('mouseup', handleMouseUp);
+                          }}
+                        />
+                        
+                        {/* Bottom-left corner */}
+                        <div 
+                          className="absolute -bottom-2 -left-2 w-5 h-5 rounded-sm bg-background border-2 border-primary cursor-sw-resize z-50 touch-manipulation"
+                          style={{ pointerEvents: 'auto' }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const startScale = overlay.scale || 1;
+                            
+                            const handleMouseMove = (moveE: MouseEvent) => {
+                              const deltaX = startX - moveE.clientX;
+                              const deltaY = moveE.clientY - startY;
+                              const scaleDelta = (deltaX + deltaY) * 0.005;
+                              const newScale = Math.max(0.3, Math.min(3, startScale + scaleDelta));
+                              setTextOverlays(prev => prev.map(t => 
+                                t.id === overlay.id ? { ...t, scale: newScale } : t
+                              ));
+                            };
+                            
+                            const handleMouseUp = () => {
+                              document.removeEventListener('mousemove', handleMouseMove);
+                              document.removeEventListener('mouseup', handleMouseUp);
+                            };
+                            
+                            document.addEventListener('mousemove', handleMouseMove);
+                            document.addEventListener('mouseup', handleMouseUp);
+                          }}
+                        />
+                        
+                        {/* Bottom-right corner - main resize handle */}
+                        <div 
+                          className="absolute -bottom-2 -right-2 w-6 h-6 rounded-sm bg-primary flex items-center justify-center cursor-se-resize z-50 touch-manipulation shadow-lg"
+                          style={{ pointerEvents: 'auto' }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const startScale = overlay.scale || 1;
                             
                             const handleMouseMove = (moveE: MouseEvent) => {
                               const deltaX = moveE.clientX - startX;
                               const deltaY = moveE.clientY - startY;
-                              const scaleDelta = (deltaX + deltaY) * 0.3;
-                              const newSize = Math.max(12, Math.min(96, startFontSize + scaleDelta));
-                              
+                              const scaleDelta = (deltaX + deltaY) * 0.005;
+                              const newScale = Math.max(0.3, Math.min(3, startScale + scaleDelta));
                               setTextOverlays(prev => prev.map(t => 
-                                t.id === overlay.id ? { ...t, fontSize: Math.round(newSize) } : t
+                                t.id === overlay.id ? { ...t, scale: newScale } : t
                               ));
                             };
                             
@@ -2083,18 +2262,17 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             const touch = e.touches[0];
                             const startX = touch.clientX;
                             const startY = touch.clientY;
-                            const startFontSize = overlay.fontSize;
+                            const startScale = overlay.scale || 1;
                             
                             const handleTouchMove = (moveE: TouchEvent) => {
                               moveE.preventDefault();
                               const currentTouch = moveE.touches[0];
                               const deltaX = currentTouch.clientX - startX;
                               const deltaY = currentTouch.clientY - startY;
-                              const scaleDelta = (deltaX + deltaY) * 0.3;
-                              const newSize = Math.max(12, Math.min(96, startFontSize + scaleDelta));
-                              
+                              const scaleDelta = (deltaX + deltaY) * 0.005;
+                              const newScale = Math.max(0.3, Math.min(3, startScale + scaleDelta));
                               setTextOverlays(prev => prev.map(t => 
-                                t.id === overlay.id ? { ...t, fontSize: Math.round(newSize) } : t
+                                t.id === overlay.id ? { ...t, scale: newScale } : t
                               ));
                             };
                             
@@ -2107,7 +2285,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             document.addEventListener('touchend', handleTouchEnd);
                           }}
                         >
-                          <svg className="w-3 h-3 text-primary" viewBox="0 0 24 24" fill="currentColor">
+                          <svg className="w-3 h-3 text-primary-foreground" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M22 22H20V20H22V22ZM22 18H20V16H22V18ZM18 22H16V20H18V22ZM22 14H20V12H22V14ZM18 18H16V16H18V18ZM14 22H12V20H14V22Z"/>
                           </svg>
                         </div>
@@ -2466,6 +2644,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             curveAmount: 0,
                             animation: 'none',
                             bubbleStyle: 'none',
+                            // Transform properties
+                            rotation: 0,
+                            scale: 1,
                           };
                           setTextOverlays(prev => [...prev, newSticker]);
                           toast({ title: "Sticker added!" });
