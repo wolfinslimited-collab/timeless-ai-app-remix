@@ -45,7 +45,7 @@ import {
   Crop,
   Wand2,
   Waves,
-  Image,
+  Image as ImageIcon,
   SplitSquareHorizontal,
   Smile,
   RectangleHorizontal,
@@ -1397,8 +1397,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       return;
     }
     
+    // Settings panel tools - open as overlay
+    if (['adjust', 'stickers', 'aspect', 'background'].includes(tool.id)) {
+      setSettingsPanelType(tool.id as 'adjust' | 'stickers' | 'aspect' | 'background');
+      setIsSettingsPanelOpen(true);
+      return;
+    }
+    
     // Handle other tools that have implementations
-    if (!['adjust', 'filters', 'stickers', 'aspect', 'background'].includes(tool.id)) {
+    if (!['filters'].includes(tool.id)) {
       toast({
         title: tool.name,
         description: "Coming soon!",
@@ -2282,460 +2289,357 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       {/* Timeline + Toolbar Section (always rendered when video loaded) */}
       {videoUrl && duration > 0 && (
         <>
-          {/* Timeline Section - Multi-Track with Sync Engine (Mobile Optimized) */}
-          <div className="h-[200px] shrink-0 bg-[#0D0D0D] overflow-hidden relative">
-            {/* Header with Cancel (X) and Done (checkmark) buttons */}
-            <div className="flex items-center justify-between px-4 py-3">
-              {/* Cancel button (X) */}
-              <button
-                onClick={() => {
-                  setSelectedTool('edit');
-                  setSelectedTextId(null);
-                  setSelectedAudioId(null);
-                  setIsEditingTextInline(false);
-                }}
-                className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center"
-              >
-                <X className="w-5 h-5 text-white/80" />
-              </button>
+          {/* Settings Panel Overlay - covers timeline when active */}
+          {isSettingsPanelOpen && (
+            <div 
+              className="fixed inset-0 z-50 flex flex-col justify-end animate-in slide-in-from-bottom duration-300"
+              style={{ backgroundColor: 'rgba(0, 0, 0, 0.9)' }}
+            >
+              {/* Tap to close area */}
+              <div className="flex-1" onClick={() => setIsSettingsPanelOpen(false)} />
               
-              {/* Title */}
-              <span className="text-foreground font-bold text-base">
-{selectedTool === 'stickers' ? 'Stickers' :
-                 selectedTool === 'aspect' ? 'Aspect Ratio' :
-                 selectedTool === 'background' ? 'Background' : 'Adjust'}
-              </span>
-              
-              {/* Done button (checkmark) */}
-              <button
-                onClick={() => {
-                  setSelectedTool('edit');
-                  setIsEditingTextInline(false);
-                  toast({ title: "Done", description: "Changes applied" });
-                }}
-                className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/40"
-              >
-                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                  <path d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-            </div>
-            
-            {/* Settings Content */}
-            {selectedTool === 'adjust' ? (
-              <div className="flex flex-col">
-                {/* Top Tabs: Filters / Adjust */}
-                <div className="flex border-b border-border/20">
-                  {(['filters', 'adjust'] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setAdjustPanelTab(tab)}
-                      className={cn(
-                        "flex-1 py-3 text-sm font-medium capitalize relative transition-colors",
-                        adjustPanelTab === tab ? "text-foreground" : "text-foreground/50"
-                      )}
-                    >
-                      {tab}
-                      {adjustPanelTab === tab && (
-                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-primary rounded-full" />
-                      )}
-                    </button>
-                  ))}
+              {/* Settings Panel Content */}
+              <div className="bg-background border-t border-border/20 rounded-t-2xl max-h-[70vh] overflow-hidden">
+                {/* Header with Cancel (X) and Done (checkmark) buttons */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border/20">
+                  {/* Cancel button (X) */}
+                  <button
+                    onClick={() => setIsSettingsPanelOpen(false)}
+                    className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center"
+                  >
+                    <X className="w-5 h-5 text-white/80" />
+                  </button>
+                  
+                  {/* Title */}
+                  <span className="text-foreground font-bold text-base">
+                    {settingsPanelType === 'stickers' ? 'Stickers' :
+                     settingsPanelType === 'aspect' ? 'Aspect Ratio' :
+                     settingsPanelType === 'background' ? 'Background' : 'Adjust'}
+                  </span>
+                  
+                  {/* Done button (checkmark) */}
+                  <button
+                    onClick={() => {
+                      setIsSettingsPanelOpen(false);
+                      toast({ title: "Done", description: "Changes applied" });
+                    }}
+                    className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/40"
+                  >
+                    <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <path d="M5 13l4 4L19 7" />
+                    </svg>
+                  </button>
                 </div>
                 
-                {adjustPanelTab === 'adjust' && (
-                  <>
-                    {/* Sub-menu: Smart / Customize */}
-                    <div className="flex gap-3 px-4 py-3">
-                      {(['smart', 'customize'] as const).map((subTab) => (
-                        <button
-                          key={subTab}
-                          onClick={() => setAdjustSubTab(subTab)}
-                          className={cn(
-                            "px-4 py-1.5 rounded-full text-xs font-medium capitalize transition-all",
-                            adjustSubTab === subTab 
-                              ? "bg-primary/20 text-primary border border-primary/40" 
-                              : "bg-white/5 text-foreground/60 border border-transparent"
-                          )}
-                        >
-                          {subTab}
-                        </button>
-                      ))}
-                    </div>
-                    
-                    {/* Horizontal Scrollable Adjustment Icons */}
-                    <div className="overflow-x-auto px-2 pb-3">
-                      <div className="flex gap-1 min-w-max">
-                        {adjustmentTools.map((tool) => {
-                          const isSelected = selectedAdjustmentId === tool.id;
-                          const value = adjustments[tool.id];
-                          const IconComponent = tool.icon;
-                          return (
-                            <button
-                              key={tool.id}
-                              onClick={() => setSelectedAdjustmentId(tool.id)}
-                              className={cn(
-                                "flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all",
-                                isSelected ? "bg-primary/15" : "bg-transparent"
-                              )}
-                            >
-                              <div className={cn(
-                                "w-11 h-11 rounded-full flex items-center justify-center mb-1 transition-all",
-                                isSelected 
-                                  ? "bg-primary text-primary-foreground" 
-                                  : value !== 0 
-                                    ? "bg-white/15 text-primary" 
-                                    : "bg-white/10 text-foreground/70"
-                              )}>
-                                <IconComponent className="w-5 h-5" />
-                              </div>
-                              <span className={cn(
-                                "text-[10px] font-medium",
-                                isSelected ? "text-primary" : value !== 0 ? "text-foreground" : "text-foreground/60"
-                              )}>
-                                {tool.name}
-                              </span>
-                              {value !== 0 && (
-                                <span className="text-[9px] text-primary font-semibold">
-                                  {value >= 0 ? '+' : ''}{Math.round(value * 100)}
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    
-                    {/* Single Slider for Selected Adjustment */}
-                    <div className="px-4 pb-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm font-medium text-foreground">
-                          {adjustmentTools.find(t => t.id === selectedAdjustmentId)?.name}
-                        </span>
-                        <span className={cn(
-                          "text-sm font-mono px-2 py-0.5 rounded",
-                          adjustments[selectedAdjustmentId] !== 0 
-                            ? "bg-primary/15 text-primary" 
-                            : "bg-white/10 text-foreground/60"
-                        )}>
-                          {adjustments[selectedAdjustmentId] >= 0 ? '+' : ''}
-                          {Math.round(adjustments[selectedAdjustmentId] * 100)}
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="-100"
-                        max="100"
-                        value={adjustments[selectedAdjustmentId] * 100}
-                        onChange={(e) => setAdjustments(prev => ({
-                          ...prev,
-                          [selectedAdjustmentId]: Number(e.target.value) / 100
-                        }))}
-                        className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
-                        style={{
-                          background: `linear-gradient(to right, 
-                            hsl(var(--primary)) 0%, 
-                            hsl(var(--primary)) ${((adjustments[selectedAdjustmentId] + 1) / 2) * 100}%, 
-                            rgba(255,255,255,0.1) ${((adjustments[selectedAdjustmentId] + 1) / 2) * 100}%, 
-                            rgba(255,255,255,0.1) 100%)`
-                        }}
-                      />
-                    </div>
-                    
-                    {/* Reset Button - Bottom Left */}
-                    <div className="flex justify-start px-4 pb-8">
-                      <button
-                        onClick={resetAdjustments}
-                        className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
-                      >
-                        <svg className="w-5 h-5 text-foreground/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
-                        </svg>
-                      </button>
-                    </div>
-                  </>
-                )}
-                
-                {adjustPanelTab === 'filters' && (
-                  <div className="px-4 py-6 flex flex-col items-center justify-center">
-                    <Circle className="w-10 h-10 text-foreground/30 mb-2" />
-                    <p className="text-foreground/50 text-sm">Filter presets coming soon</p>
-                  </div>
-                )}
-              </div>
-            ) : selectedTool === 'stickers' ? (
-              // Stickers Panel
-              <div className="flex flex-col">
-                {/* Category tabs */}
-                <div className="flex gap-2 px-4 py-3 overflow-x-auto">
-                  {stickerCategories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      onClick={() => setSelectedStickerCategory(cat.id)}
-                      className={cn(
-                        "px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all",
-                        selectedStickerCategory === cat.id 
-                          ? "bg-primary/20 text-primary border border-primary/40" 
-                          : "bg-white/5 text-foreground/60 border border-transparent"
-                      )}
-                    >
-                      {cat.name}
-                    </button>
-                  ))}
-                </div>
-                
-                {/* Stickers grid */}
-                <div className="px-4 pb-4">
-                  <div className="grid grid-cols-6 gap-2">
-                    {stickerCategories.find(c => c.id === selectedStickerCategory)?.stickers.map((sticker, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => {
-                          // Add sticker as text overlay
-                          const newSticker: TextOverlayData = {
-                            id: Date.now().toString(),
-                            text: sticker,
-                            position: { x: 50, y: 50 },
-                            fontSize: 48,
-                            textColor: '#FFFFFF',
-                            fontFamily: 'Arial',
-                            alignment: 'center',
-                            hasBackground: false,
-                            backgroundColor: '#000000',
-                            backgroundOpacity: 0.5,
-                            startTime: currentTime,
-                            endTime: Math.min(currentTime + 3, duration),
-                            // Extended defaults
-                            opacity: 1,
-                            strokeEnabled: false,
-                            strokeColor: '#000000',
-                            strokeWidth: 2,
-                            glowEnabled: false,
-                            glowColor: '#ffffff',
-                            glowIntensity: 10,
-                            shadowEnabled: false,
-                            shadowColor: '#000000',
-                            letterSpacing: 0,
-                            curveAmount: 0,
-                            animation: 'none',
-                            bubbleStyle: 'none',
-                            // Transform properties
-                            rotation: 0,
-                            scale: 1,
-                            scaleX: 1,
-                            scaleY: 1,
-                          };
-                          setTextOverlays(prev => [...prev, newSticker]);
-                          toast({ title: "Sticker added!" });
-                        }}
-                        className="w-12 h-12 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary/40 transition-all text-2xl"
-                      >
-                        {sticker}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : selectedTool === 'aspect' ? (
-              // Aspect Ratio Panel - Horizontal Scrollable
-              <div className="flex flex-col py-3">
-                <div className="overflow-x-auto">
-                  <div className="flex gap-2 px-4 min-w-max">
-                    {aspectRatioPresets.map((preset) => {
-                      const isSelected = selectedAspectRatio === preset.id;
-                      return (
-                        <button
-                          key={preset.id}
-                          onClick={() => {
-                            setSelectedAspectRatio(preset.id);
-                            setVideoPosition({ x: 0, y: 0 }); // Reset position on ratio change
-                          }}
-                          className={cn(
-                            "flex items-center justify-center px-4 py-2.5 rounded-lg transition-all whitespace-nowrap",
-                            isSelected 
-                              ? "bg-primary text-primary-foreground" 
-                              : "bg-muted/50 text-foreground/70 hover:bg-muted"
-                          )}
-                        >
-                          <span className="text-sm font-medium">{preset.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                
-                {/* Instruction */}
-                <p className="text-foreground/50 text-[10px] text-center mt-3 px-4">
-                  Drag the video to reposition within the frame
-                </p>
-              </div>
-            ) : selectedTool === 'background' ? (
-              // Background Panel with Main Menu and Sub-menus
-              <div className="flex flex-col">
-                {backgroundTab === 'main' ? (
-                  // Main Menu - Horizontal scrollable style like Edit/Audio
-                  <div className="overflow-x-auto px-2 py-3">
-                    <div className="flex gap-1 min-w-max">
-                      {[
-                        { id: 'color', label: 'Color', icon: Palette },
-                        { id: 'image', label: 'Image', icon: Image },
-                        { id: 'blur', label: 'Blur', icon: Focus },
-                      ].map((option) => {
-                        const OptionIcon = option.icon;
-                        return (
+                {/* Settings Content - scrollable */}
+                <div className="overflow-y-auto max-h-[calc(70vh-60px)]">
+                  {settingsPanelType === 'adjust' && (
+                    <div className="flex flex-col">
+                      {/* Top Tabs: Filters / Adjust */}
+                      <div className="flex border-b border-border/20">
+                        {(['filters', 'adjust'] as const).map((tab) => (
                           <button
-                            key={option.id}
-                            onClick={() => setBackgroundTab(option.id as typeof backgroundTab)}
-                            className="flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all hover:bg-white/5"
+                            key={tab}
+                            onClick={() => setAdjustPanelTab(tab)}
+                            className={cn(
+                              "flex-1 py-3 text-sm font-medium capitalize relative transition-colors",
+                              adjustPanelTab === tab ? "text-foreground" : "text-foreground/50"
+                            )}
                           >
-                            <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
-                              <OptionIcon className="w-5 h-5 text-white" />
-                            </div>
-                            <span className="text-[10px] font-medium text-foreground/60">
-                              {option.label}
-                            </span>
+                            {tab}
+                            {adjustPanelTab === tab && (
+                              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-primary rounded-full" />
+                            )}
                           </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : (
-                  // Sub-menu with Back Arrow
-                  <>
-                    {/* Header with Back Arrow */}
-                    <div className="flex items-center gap-3 px-4 pt-3 pb-2">
-                      <button
-                        onClick={() => setBackgroundTab('main')}
-                        className="w-7 h-7 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors"
-                      >
-                        <ArrowLeft className="w-4 h-4 text-foreground" />
-                      </button>
-                      <span className="text-foreground text-sm font-semibold capitalize">{backgroundTab}</span>
-                    </div>
-                    
-                    {/* Horizontal Divider */}
-                    <div className="h-px bg-border/30 mx-4" />
-                    
-                    {/* Sub-menu Content */}
-                    <div className="px-4 py-4">
-                      {backgroundTab === 'color' && (
-                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                          {backgroundColorPresets.map((color) => {
-                            const isSelected = backgroundColor === color;
-                            return (
-                              <button
-                                key={color}
-                                onClick={() => setBackgroundColor(color)}
-                                className={cn(
-                                  "w-10 h-10 rounded-lg transition-all flex-shrink-0",
-                                  isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
-                                )}
-                                style={{ backgroundColor: color }}
-                              />
-                            );
-                          })}
-                        </div>
-                      )}
+                        ))}
+                      </div>
                       
-                      {backgroundTab === 'image' && (
-                        <div className="flex flex-col gap-3">
-                          {/* Gallery Grid */}
-                          <div className="grid grid-cols-4 gap-2">
-                            {['gradient-sunset', 'gradient-ocean', 'gradient-forest', 'gradient-night', 'pattern-dots', 'pattern-lines', 'abstract-1', 'abstract-2'].map((preset) => (
+                      {adjustPanelTab === 'adjust' && (
+                        <>
+                          {/* Sub-menu: Smart / Customize */}
+                          <div className="flex gap-3 px-4 py-3">
+                            {(['smart', 'customize'] as const).map((subTab) => (
                               <button
-                                key={preset}
-                                onClick={() => setBackgroundImage(preset)}
+                                key={subTab}
+                                onClick={() => setAdjustSubTab(subTab)}
                                 className={cn(
-                                  "aspect-square rounded-lg overflow-hidden transition-all",
-                                  backgroundImage === preset && "ring-2 ring-primary"
+                                  "px-4 py-1.5 rounded-full text-xs font-medium capitalize transition-all",
+                                  adjustSubTab === subTab 
+                                    ? "bg-primary/20 text-primary border border-primary/40" 
+                                    : "bg-white/5 text-foreground/60 border border-transparent"
                                 )}
                               >
-                                <div 
-                                  className="w-full h-full"
-                                  style={{
-                                    background: preset.includes('sunset') ? 'linear-gradient(135deg, #FF6B6B, #FFA07A)' :
-                                               preset.includes('ocean') ? 'linear-gradient(135deg, #4ECDC4, #45B7D1)' :
-                                               preset.includes('forest') ? 'linear-gradient(135deg, #96CEB4, #2E8B57)' :
-                                               preset.includes('night') ? 'linear-gradient(135deg, #1A1A2E, #16213E)' :
-                                               preset.includes('dots') ? 'radial-gradient(circle, #444 1px, transparent 1px)' :
-                                               preset.includes('lines') ? 'repeating-linear-gradient(45deg, #333, #333 2px, transparent 2px, transparent 8px)' :
-                                               preset.includes('abstract-1') ? 'linear-gradient(45deg, #667eea, #764ba2)' :
-                                               'linear-gradient(135deg, #f093fb, #f5576c)',
-                                    backgroundSize: preset.includes('dots') ? '8px 8px' : preset.includes('lines') ? '10px 10px' : 'cover'
-                                  }}
-                                />
+                                {subTab}
                               </button>
                             ))}
                           </div>
                           
-                          {/* Upload Icon Button */}
-                          <button
-                            onClick={() => toast({ title: "Upload background coming soon" })}
-                            className="flex items-center justify-center gap-2 py-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                          >
-                            <Upload className="w-4 h-4 text-foreground/70" />
-                            <span className="text-sm text-foreground/70">Upload Custom Image</span>
-                          </button>
-                        </div>
-                      )}
-                      
-                      {backgroundTab === 'blur' && (
-                        <div className="flex flex-col gap-4">
-                          {/* Blur Slider */}
-                          <div>
+                          {/* Horizontal Scrollable Adjustment Icons */}
+                          <div className="overflow-x-auto px-2 pb-3">
+                            <div className="flex gap-1 min-w-max">
+                              {adjustmentTools.map((tool) => {
+                                const isSelected = selectedAdjustmentId === tool.id;
+                                const value = adjustments[tool.id];
+                                const IconComponent = tool.icon;
+                                return (
+                                  <button
+                                    key={tool.id}
+                                    onClick={() => setSelectedAdjustmentId(tool.id)}
+                                    className={cn(
+                                      "flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all",
+                                      isSelected ? "bg-primary/15" : "bg-transparent"
+                                    )}
+                                  >
+                                    <div className={cn(
+                                      "w-11 h-11 rounded-full flex items-center justify-center mb-1 transition-all",
+                                      isSelected 
+                                        ? "bg-primary text-primary-foreground" 
+                                        : value !== 0 
+                                          ? "bg-white/15 text-primary" 
+                                          : "bg-white/10 text-foreground/70"
+                                    )}>
+                                      <IconComponent className="w-5 h-5" />
+                                    </div>
+                                    <span className={cn(
+                                      "text-[10px] font-medium",
+                                      isSelected ? "text-primary" : value !== 0 ? "text-foreground" : "text-foreground/60"
+                                    )}>
+                                      {tool.name}
+                                    </span>
+                                    {value !== 0 && (
+                                      <span className="text-[9px] text-primary font-semibold">
+                                        {value >= 0 ? '+' : ''}{Math.round(value * 100)}
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          
+                          {/* Single Slider for Selected Adjustment */}
+                          <div className="px-4 pb-4">
                             <div className="flex items-center justify-between mb-3">
-                              <p className="text-foreground/70 text-xs">Blur Intensity</p>
-                              <span className="text-foreground text-xs font-mono bg-muted/50 px-2 py-0.5 rounded">{backgroundBlur}px</span>
+                              <span className="text-sm font-medium text-foreground">
+                                {adjustmentTools.find(t => t.id === selectedAdjustmentId)?.name}
+                              </span>
+                              <span className={cn(
+                                "text-sm font-mono px-2 py-0.5 rounded",
+                                adjustments[selectedAdjustmentId] !== 0 
+                                  ? "bg-primary/15 text-primary" 
+                                  : "bg-white/10 text-foreground/60"
+                              )}>
+                                {adjustments[selectedAdjustmentId] >= 0 ? '+' : ''}
+                                {Math.round(adjustments[selectedAdjustmentId] * 100)}
+                              </span>
                             </div>
                             <input
                               type="range"
-                              min="0"
-                              max="50"
-                              value={backgroundBlur}
-                              onChange={(e) => setBackgroundBlur(Number(e.target.value))}
-                              className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+                              min="-100"
+                              max="100"
+                              value={adjustments[selectedAdjustmentId] * 100}
+                              onChange={(e) => setAdjustments(prev => ({
+                                ...prev,
+                                [selectedAdjustmentId]: Number(e.target.value) / 100
+                              }))}
+                              className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
                               style={{
-                                background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${(backgroundBlur / 50) * 100}%, hsl(var(--muted)) ${(backgroundBlur / 50) * 100}%, hsl(var(--muted)) 100%)`
+                                background: `linear-gradient(to right, 
+                                  hsl(var(--primary)) 0%, 
+                                  hsl(var(--primary)) ${((adjustments[selectedAdjustmentId] + 1) / 2) * 100}%, 
+                                  rgba(255,255,255,0.1) ${((adjustments[selectedAdjustmentId] + 1) / 2) * 100}%, 
+                                  rgba(255,255,255,0.1) 100%)`
                               }}
                             />
                           </div>
                           
-                          {/* Quick Presets */}
-                          <div className="flex gap-2">
-                            {[
-                              { label: 'None', value: 0 },
-                              { label: 'Light', value: 10 },
-                              { label: 'Medium', value: 25 },
-                              { label: 'Heavy', value: 50 },
-                            ].map((preset) => {
-                              const isSelected = backgroundBlur === preset.value;
-                              return (
-                                <button
-                                  key={preset.value}
-                                  onClick={() => setBackgroundBlur(preset.value)}
-                                  className={cn(
-                                    "flex-1 py-2 rounded-lg transition-all text-xs font-medium",
-                                    isSelected 
-                                      ? "bg-primary text-primary-foreground" 
-                                      : "bg-muted/50 text-foreground/70 hover:bg-muted"
-                                  )}
-                                >
-                                  {preset.label}
-                                </button>
-                              );
-                            })}
+                          {/* Reset Button - Bottom Left */}
+                          <div className="flex justify-start px-4 pb-6">
+                            <button
+                              onClick={resetAdjustments}
+                              className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
+                            >
+                              <svg className="w-5 h-5 text-foreground/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
+                              </svg>
+                            </button>
                           </div>
+                        </>
+                      )}
+                      
+                      {adjustPanelTab === 'filters' && (
+                        <div className="px-4 py-6 flex flex-col items-center justify-center">
+                          <Circle className="w-10 h-10 text-foreground/30 mb-2" />
+                          <p className="text-foreground/50 text-sm">Filter presets coming soon</p>
                         </div>
                       )}
                     </div>
-                  </>
-                )}
+                  )}
+                  
+                  {settingsPanelType === 'stickers' && (
+                    <div className="flex flex-col">
+                      {/* Category tabs */}
+                      <div className="flex gap-2 px-4 py-3 overflow-x-auto">
+                        {stickerCategories.map((cat) => (
+                          <button
+                            key={cat.id}
+                            onClick={() => setSelectedStickerCategory(cat.id)}
+                            className={cn(
+                              "px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all",
+                              selectedStickerCategory === cat.id 
+                                ? "bg-primary/20 text-primary border border-primary/40" 
+                                : "bg-white/5 text-foreground/60 border border-transparent"
+                            )}
+                          >
+                            {cat.name}
+                          </button>
+                        ))}
+                      </div>
+                      
+                      {/* Stickers grid */}
+                      <div className="px-4 pb-6">
+                        <div className="grid grid-cols-6 gap-2">
+                          {stickerCategories.find(c => c.id === selectedStickerCategory)?.stickers.map((sticker, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => {
+                                const newSticker: TextOverlayData = {
+                                  id: Date.now().toString(),
+                                  text: sticker,
+                                  position: { x: 50, y: 50 },
+                                  fontSize: 48,
+                                  textColor: '#FFFFFF',
+                                  fontFamily: 'Inter',
+                                  alignment: 'center',
+                                  hasBackground: false,
+                                  backgroundColor: '#000000',
+                                  backgroundOpacity: 0.5,
+                                  opacity: 1,
+                                  rotation: 0,
+                                  scale: 1,
+                                  scaleX: 1,
+                                  scaleY: 1,
+                                  strokeEnabled: false,
+                                  strokeColor: '#000000',
+                                  strokeWidth: 2,
+                                  glowEnabled: false,
+                                  glowColor: '#FFFFFF',
+                                  glowIntensity: 10,
+                                  shadowEnabled: false,
+                                  shadowColor: '#000000',
+                                  letterSpacing: 0,
+                                  curveAmount: 0,
+                                  animation: 'none',
+                                  bubbleStyle: 'none',
+                                  startTime: currentTime,
+                                  endTime: Math.min(currentTime + 3, duration),
+                                };
+                                setTextOverlays(prev => [...prev, newSticker]);
+                                setSelectedTextId(newSticker.id);
+                                setIsSettingsPanelOpen(false);
+                                toast({ title: "Sticker added" });
+                              }}
+                              className="w-11 h-11 flex items-center justify-center text-2xl hover:bg-white/10 rounded-lg transition-colors"
+                            >
+                              {sticker}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {settingsPanelType === 'aspect' && (
+                    <div className="px-4 py-4">
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          { id: '9:16', label: '9:16', desc: 'Portrait' },
+                          { id: '16:9', label: '16:9', desc: 'Landscape' },
+                          { id: '1:1', label: '1:1', desc: 'Square' },
+                          { id: '4:5', label: '4:5', desc: 'Instagram' },
+                          { id: '4:3', label: '4:3', desc: 'Standard' },
+                          { id: '21:9', label: '21:9', desc: 'Cinematic' },
+                        ].map((ratio) => (
+                          <button
+                            key={ratio.id}
+                            onClick={() => {
+                              setSelectedAspectRatio(ratio.id);
+                              toast({ title: `Aspect ratio set to ${ratio.label}` });
+                            }}
+                            className={cn(
+                              "flex flex-col items-center justify-center py-4 rounded-xl transition-all border",
+                              selectedAspectRatio === ratio.id 
+                                ? "bg-primary/20 border-primary/40 text-primary" 
+                                : "bg-white/5 border-transparent text-foreground/70 hover:bg-white/10"
+                            )}
+                          >
+                            <span className="text-lg font-bold">{ratio.label}</span>
+                            <span className="text-[10px] mt-1 opacity-70">{ratio.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {settingsPanelType === 'background' && (
+                    <div className="flex flex-col">
+                      {/* Main background options */}
+                      <div className="overflow-x-auto px-2 py-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+                        <div className="flex gap-2 min-w-max">
+                          {[
+                            { id: 'color', name: 'Color', icon: Palette },
+                            { id: 'image', name: 'Image', icon: ImageIcon },
+                            { id: 'blur', name: 'Blur', icon: Focus },
+                          ].map((tool) => {
+                            const IconComponent = tool.icon;
+                            return (
+                              <button
+                                key={tool.id}
+                                onClick={() => {
+                                  if (tool.id === 'color') {
+                                    setBackgroundColor('#1A1A2E');
+                                  } else if (tool.id === 'blur') {
+                                    setBackgroundBlur(prev => prev === 0 ? 20 : 0);
+                                  }
+                                  toast({ title: `${tool.name} applied` });
+                                }}
+                                className="flex flex-col items-center justify-center shrink-0 w-20 py-2 rounded-xl transition-all hover:bg-white/5"
+                              >
+                                <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
+                                  <IconComponent className="w-5 h-5 text-foreground" />
+                                </div>
+                                <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight">
+                                  {tool.name}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      
+                      {/* Blur slider */}
+                      <div className="px-4 pb-6">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-foreground/70">Blur Amount</span>
+                          <span className="text-sm font-mono text-foreground/50">{backgroundBlur}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="50"
+                          value={backgroundBlur}
+                          onChange={(e) => setBackgroundBlur(Number(e.target.value))}
+                          className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            ) : null}
-          </div>
-        ) : (
-          // Normal: Timeline + Toolbar
-          <>
+            </div>
+          )}
+          
+          {/* Timeline Section - Multi-Track with Sync Engine (Mobile Optimized) */}
             {/* Timeline Section - Multi-Track with Sync Engine (Mobile Optimized) */}
             <div className="h-[200px] shrink-0 bg-[#0D0D0D] overflow-hidden relative">
               {/* Edit Menu Overlay - slides up from bottom, covers timeline */}
@@ -3869,7 +3773,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     {[
                       { id: 'video-effects', name: 'Video effects', icon: Video, action: () => toast({ title: "Video effects coming soon" }) },
                       { id: 'body-effects', name: 'Body effects', icon: Star, action: () => toast({ title: "Body effects coming soon" }) },
-                      { id: 'photo-effects', name: 'Photo effects', icon: Image, action: () => toast({ title: "Photo effects coming soon" }) },
+                      { id: 'photo-effects', name: 'Photo effects', icon: ImageIcon, action: () => toast({ title: "Photo effects coming soon" }) },
                     ].map((tool) => {
                       const IconComponent = tool.icon;
                       return (
@@ -4044,7 +3948,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             </div>
           </>
         )
-      )}
+      }
     </div>
   );
 }
