@@ -1177,21 +1177,70 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     { id: 'free', name: 'Free', description: 'Custom' },
   ];
 
-  // Video clip editing tools configuration
+  // Edit menu sub-panel state
+  const [editSubPanel, setEditSubPanel] = useState<'none' | 'volume' | 'speed'>('none');
+
+  // Speed presets for video playback
+  const speedPresets = [
+    { value: 0.25, label: '0.25x' },
+    { value: 0.5, label: '0.5x' },
+    { value: 0.75, label: '0.75x' },
+    { value: 1.0, label: '1x' },
+    { value: 1.25, label: '1.25x' },
+    { value: 1.5, label: '1.5x' },
+    { value: 2.0, label: '2x' },
+    { value: 3.0, label: '3x' },
+  ];
+
+  // Split clip at current playhead position (uses selectedClipId or finds clip under playhead)
+  const handleSplitAtPlayhead = () => {
+    // Find which clip the playhead is currently over
+    let targetClipId = selectedClipId;
+    
+    if (!targetClipId) {
+      // Find clip at current playhead position
+      const clipAtPlayhead = videoClips.find(clip => {
+        const clipEnd = clip.startTime + getClipTrimmedDuration(clip);
+        return currentTime >= clip.startTime && currentTime < clipEnd;
+      });
+      targetClipId = clipAtPlayhead?.id || null;
+    }
+    
+    if (targetClipId) {
+      splitClipAtPlayhead(targetClipId);
+    } else {
+      toast({ variant: "destructive", title: "No clip to split", description: "Move playhead over a video clip" });
+    }
+  };
+
+  // Delete current clip (uses selectedClipId or finds clip under playhead)
+  const handleDeleteClip = () => {
+    let targetClipId = selectedClipId;
+    
+    if (!targetClipId) {
+      const clipAtPlayhead = videoClips.find(clip => {
+        const clipEnd = clip.startTime + getClipTrimmedDuration(clip);
+        return currentTime >= clip.startTime && currentTime < clipEnd;
+      });
+      targetClipId = clipAtPlayhead?.id || null;
+    }
+    
+    if (targetClipId) {
+      deleteVideoClip(targetClipId);
+    } else {
+      toast({ variant: "destructive", title: "No clip to delete" });
+    }
+  };
+
+  // Video clip editing tools configuration - core tools for Edit menu
   const clipEditTools = [
-    { id: 'split', name: 'Split', icon: SplitSquareHorizontal, action: () => editingClipId && splitClipAtPlayhead(editingClipId) },
-    { id: 'volume', name: 'Volume', icon: Volume2, action: () => { applyClipVolume(); } },
+    { id: 'split', name: 'Split', icon: SplitSquareHorizontal, action: handleSplitAtPlayhead },
+    { id: 'volume', name: 'Volume', icon: Volume2, action: () => setEditSubPanel('volume') },
+    { id: 'speed', name: 'Speed', icon: Gauge, action: () => setEditSubPanel('speed') },
     { id: 'animations', name: 'Animations', icon: Sparkles, action: () => { setShowClipEditPanel(false); setShowAnimationsPanel(true); } },
-    { id: 'effects', name: 'Effects', icon: Star, action: () => { setSelectedTool('effects'); setShowClipEditPanel(false); } },
-    { id: 'delete', name: 'Delete', icon: Trash2, action: () => editingClipId && deleteVideoClip(editingClipId) },
-    { id: 'speed', name: 'Speed', icon: Gauge, action: () => { applyClipSpeed(); } },
-    { id: 'beats', name: 'Beats', icon: Waves, action: () => { setShowClipEditPanel(false); setShowBeatsPanel(true); } },
     { id: 'crop', name: 'Crop', icon: Crop, action: () => { setShowClipEditPanel(false); setShowCropPanel(true); } },
-    { id: 'duplicate', name: 'Duplicate', icon: Copy, action: () => editingClipId && duplicateClip(editingClipId) },
-    { id: 'replace', name: 'Replace', icon: Replace, action: () => { handleDirectFilePick(); setShowClipEditPanel(false); } },
-    { id: 'overlay', name: 'Overlay', icon: Layers, action: () => { setSelectedTool('overlay'); setShowClipEditPanel(false); } },
-    { id: 'adjust', name: 'Adjust', icon: SlidersHorizontal, action: () => { setSelectedTool('adjust'); setShowClipEditPanel(false); } },
-    { id: 'filter', name: 'Filter', icon: Wand2, action: () => { setSelectedTool('filters'); setShowClipEditPanel(false); } },
+    { id: 'replace', name: 'Replace', icon: Replace, action: () => { handleDirectFilePick(); } },
+    { id: 'delete', name: 'Delete', icon: Trash2, action: handleDeleteClip, isDestructive: true },
   ];
 
   // Delete text overlay from timeline
@@ -3486,57 +3535,144 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Edit Menu Overlay */}
             {isEditMenuMode && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: editSubPanel !== 'none' ? '200px' : '160px' }}>
                 {/* Header with back button and title */}
-                <div className="flex items-center px-4 py-2 border-b border-border/20">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
                   <button
-                    onClick={() => setIsEditMenuMode(false)}
+                    onClick={() => {
+                      if (editSubPanel !== 'none') {
+                        setEditSubPanel('none');
+                      } else {
+                        setIsEditMenuMode(false);
+                        setEditSubPanel('none');
+                      }
+                    }}
                     className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
                   >
-                    <ChevronDown className="w-5 h-5 text-primary" />
+                    {editSubPanel !== 'none' ? (
+                      <ChevronLeft className="w-5 h-5 text-primary" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-primary" />
+                    )}
                   </button>
-                  <span className="flex-1 text-sm font-medium text-foreground text-center pr-8">
-                    Edit
+                  <span className="flex-1 text-sm font-medium text-foreground text-center">
+                    {editSubPanel === 'volume' ? 'Volume' : editSubPanel === 'speed' ? 'Speed' : 'Edit'}
                   </span>
+                  {editSubPanel !== 'none' && (
+                    <button
+                      onClick={() => {
+                        if (editSubPanel === 'volume') {
+                          applyClipVolume();
+                        } else if (editSubPanel === 'speed') {
+                          applyClipSpeed();
+                        }
+                        setEditSubPanel('none');
+                      }}
+                      className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary hover:bg-primary/90 transition-colors"
+                    >
+                      <span className="text-primary-foreground text-xs font-medium">✓</span>
+                    </button>
+                  )}
+                  {editSubPanel === 'none' && <div className="w-8" />}
                 </div>
                 
-                {/* Horizontal Scrollable Edit Tools */}
-                <div className="flex-1 flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
-                  <div className="flex gap-2 min-w-max">
-                    {clipEditTools.map((tool) => {
-                      const IconComponent = tool.icon;
-                      const isDelete = tool.id === 'delete';
-                      return (
-                        <button
-                          key={tool.id}
-                          onClick={() => {
-                            tool.action();
-                            if (!['volume', 'speed', 'animations', 'beats', 'crop'].includes(tool.id)) {
-                              setIsEditMenuMode(false);
-                            }
-                          }}
-                          className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
-                        >
-                          <div className={cn(
-                            "w-10 h-10 rounded-full flex items-center justify-center mb-1.5",
-                            isDelete ? "bg-destructive/20" : "bg-muted/30"
-                          )}>
-                            <IconComponent className={cn(
-                              "w-5 h-5",
-                              isDelete ? "text-destructive" : "text-foreground"
-                            )} />
-                          </div>
-                          <span className={cn(
-                            "text-[10px] font-medium",
-                            isDelete ? "text-destructive" : "text-foreground/60"
-                          )}>
-                            {tool.name}
-                          </span>
-                        </button>
-                      );
-                    })}
+                {/* Sub-panel content or main tools */}
+                {editSubPanel === 'volume' ? (
+                  /* Volume Slider Sub-panel */
+                  <div className="flex-1 flex flex-col justify-center px-6 py-4">
+                    <div className="flex items-center gap-4">
+                      <VolumeX className="w-5 h-5 text-muted-foreground shrink-0" />
+                      <div className="flex-1 relative">
+                        <div className="h-2 bg-muted/30 rounded-full">
+                          <div 
+                            className="h-full bg-primary rounded-full transition-all"
+                            style={{ width: `${clipVolume * 100}%` }}
+                          />
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={clipVolume}
+                          onChange={(e) => setClipVolume(parseFloat(e.target.value))}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                      </div>
+                      <Volume2 className="w-5 h-5 text-foreground shrink-0" />
+                    </div>
+                    <div className="flex justify-between mt-3">
+                      <span className="text-xs text-muted-foreground">0%</span>
+                      <span className="text-sm font-semibold text-primary">{Math.round(clipVolume * 100)}%</span>
+                      <span className="text-xs text-muted-foreground">100%</span>
+                    </div>
                   </div>
-                </div>
+                ) : editSubPanel === 'speed' ? (
+                  /* Speed Presets Sub-panel */
+                  <div className="flex-1 flex flex-col px-4 py-4">
+                    <div className="grid grid-cols-4 gap-2">
+                      {speedPresets.map((preset) => (
+                        <button
+                          key={preset.value}
+                          onClick={() => setClipSpeed(preset.value)}
+                          className={cn(
+                            "py-2.5 rounded-xl text-sm font-medium transition-all border",
+                            clipSpeed === preset.value
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-muted/20 text-foreground/70 border-border/30 hover:bg-muted/40"
+                          )}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-center mt-3 gap-2">
+                      <Gauge className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-semibold text-primary">{clipSpeed.toFixed(2)}x</span>
+                    </div>
+                  </div>
+                ) : (
+                  /* Main Edit Tools - Horizontal Scroll */
+                  <div className="flex-1 flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
+                    <div className="flex gap-2 min-w-max">
+                      {clipEditTools.map((tool) => {
+                        const IconComponent = tool.icon;
+                        const isDelete = tool.id === 'delete';
+                        return (
+                          <button
+                            key={tool.id}
+                            onClick={() => {
+                              tool.action();
+                              // Only close for actions that don't open sub-panels
+                              if (!['volume', 'speed', 'animations', 'crop'].includes(tool.id)) {
+                                if (tool.id !== 'replace') {
+                                  // Keep menu open for replace (file picker)
+                                }
+                              }
+                            }}
+                            className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
+                          >
+                            <div className={cn(
+                              "w-10 h-10 rounded-full flex items-center justify-center mb-1.5",
+                              isDelete ? "bg-destructive/20" : "bg-muted/30"
+                            )}>
+                              <IconComponent className={cn(
+                                "w-5 h-5",
+                                isDelete ? "text-destructive" : "text-foreground"
+                              )} />
+                            </div>
+                            <span className={cn(
+                              "text-[10px] font-medium",
+                              isDelete ? "text-destructive" : "text-foreground/60"
+                            )}>
+                              {tool.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             

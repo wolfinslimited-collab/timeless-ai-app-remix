@@ -623,6 +623,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Edit menu mode state - activated by clicking "Edit" tool
   bool _isEditMenuMode = false;
   
+  // Edit sub-panel state for volume/speed controls
+  String _editSubPanel = 'none'; // 'none', 'volume', 'speed'
+  
   // Effects menu mode state - activated by clicking "Effects" tool
   bool _isEffectsMenuMode = false;
   
@@ -631,6 +634,18 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   
   // Captions menu mode state - activated by clicking "Captions" tool
   bool _isCaptionsMenuMode = false;
+  
+  // Speed presets
+  final List<Map<String, dynamic>> _speedPresets = [
+    {'value': 0.25, 'label': '0.25x'},
+    {'value': 0.5, 'label': '0.5x'},
+    {'value': 0.75, 'label': '0.75x'},
+    {'value': 1.0, 'label': '1x'},
+    {'value': 1.25, 'label': '1.25x'},
+    {'value': 1.5, 'label': '1.5x'},
+    {'value': 2.0, 'label': '2x'},
+    {'value': 3.0, 'label': '3x'},
+  ];
   
   // Computed: check if any overlay menu is currently open (to hide main toolbar)
   bool get _isAnyOverlayOpen => 
@@ -4612,7 +4627,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               left: 0,
               right: 0,
               bottom: 0,
-              height: 160,
+              height: _editSubPanel != 'none' ? 200 : 160,
               child: Material(
                 color: const Color(0xFF0A0A0A),
                 elevation: 8,
@@ -6074,143 +6089,343 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
-  /// Build the edit menu - horizontal scrollable menu with edit tools (same style as audio)
+  /// Build the edit menu - horizontal scrollable menu with edit tools (with sub-panels)
   Widget _buildEditMenu() {
+    // Split at playhead - finds clip under playhead if none selected
+    void handleSplitAtPlayhead() {
+      String? targetClipId = _selectedClipId;
+      
+      if (targetClipId == null && _videoClips.isNotEmpty) {
+        // Find clip at current playhead position
+        for (final clip in _videoClips) {
+          final clipEnd = clip.startTime + _getClipTrimmedDuration(clip);
+          if (_currentPosition >= clip.startTime && _currentPosition < clipEnd) {
+            targetClipId = clip.id;
+            break;
+          }
+        }
+      }
+      
+      if (targetClipId != null) {
+        _splitClipAtPlayhead(targetClipId);
+      } else {
+        _showSnackBar('No clip to split - move playhead over a video clip');
+      }
+    }
+    
+    // Delete current clip
+    void handleDeleteClip() {
+      String? targetClipId = _selectedClipId;
+      
+      if (targetClipId == null && _videoClips.isNotEmpty) {
+        for (final clip in _videoClips) {
+          final clipEnd = clip.startTime + _getClipTrimmedDuration(clip);
+          if (_currentPosition >= clip.startTime && _currentPosition < clipEnd) {
+            targetClipId = clip.id;
+            break;
+          }
+        }
+      }
+      
+      if (targetClipId != null) {
+        _deleteVideoClip(targetClipId);
+      } else {
+        _showSnackBar('No clip to delete');
+      }
+    }
+    
     final editTools = [
-      {'id': 'split', 'name': 'Split', 'icon': Icons.content_cut, 'action': () => _editingClipId != null ? _splitClipAtPlayhead(_editingClipId!) : null},
-      {'id': 'volume', 'name': 'Volume', 'icon': Icons.volume_up, 'action': _applyClipVolume},
+      {'id': 'split', 'name': 'Split', 'icon': Icons.content_cut, 'action': handleSplitAtPlayhead},
+      {'id': 'volume', 'name': 'Volume', 'icon': Icons.volume_up, 'action': () => setState(() => _editSubPanel = 'volume')},
+      {'id': 'speed', 'name': 'Speed', 'icon': Icons.speed, 'action': () => setState(() => _editSubPanel = 'speed')},
       {'id': 'animations', 'name': 'Animations', 'icon': Icons.auto_awesome, 'action': _showAnimationsBottomSheet},
-      {'id': 'effects', 'name': 'Effects', 'icon': Icons.star_outline, 'action': () { setState(() { _selectedTool = 'effects'; _isEditMenuMode = false; }); }},
-      {'id': 'delete', 'name': 'Delete', 'icon': Icons.delete_outline, 'action': () { if (_editingClipId != null) _deleteVideoClip(_editingClipId!); setState(() => _isEditMenuMode = false); }},
-      {'id': 'speed', 'name': 'Speed', 'icon': Icons.speed, 'action': _applyClipSpeed},
-      {'id': 'beats', 'name': 'Beats', 'icon': Icons.waves, 'action': _showBeatsBottomSheet},
       {'id': 'crop', 'name': 'Crop', 'icon': Icons.crop, 'action': _showCropBottomSheet},
-      {'id': 'duplicate', 'name': 'Duplicate', 'icon': Icons.copy, 'action': () { if (_editingClipId != null) { _duplicateClipInline(_editingClipId!); } }},
-      {'id': 'replace', 'name': 'Replace', 'icon': Icons.swap_horiz, 'action': () { setState(() => _isEditMenuMode = false); _pickAndLoadVideo(); }},
-      {'id': 'overlay', 'name': 'Overlay', 'icon': Icons.layers_outlined, 'action': () { setState(() { _selectedTool = 'overlay'; _isEditMenuMode = false; }); }},
-      {'id': 'adjust', 'name': 'Adjust', 'icon': Icons.tune, 'action': () { setState(() { _selectedTool = 'adjust'; _isEditMenuMode = false; }); }},
-      {'id': 'filter', 'name': 'Filter', 'icon': Icons.auto_fix_high, 'action': () { setState(() { _selectedTool = 'filters'; _isEditMenuMode = false; }); }},
+      {'id': 'replace', 'name': 'Replace', 'icon': Icons.swap_horiz, 'action': () { _pickAndLoadVideo(); }},
+      {'id': 'delete', 'name': 'Delete', 'icon': Icons.delete_outline, 'action': handleDeleteClip, 'isDestructive': true},
     ];
     
-    return Column(
-      key: const ValueKey('edit_menu'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Header with back button and title
-        Container(
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+    final panelHeight = _editSubPanel != 'none' ? 200.0 : 160.0;
+    
+    return SizedBox(
+      height: panelHeight,
+      child: Column(
+        key: const ValueKey('edit_menu'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header with back button, title, and checkmark (for sub-panels)
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+              ),
             ),
-          ),
-          child: Row(
-            children: [
-              // Back button
-              Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: GestureDetector(
-                  onTap: () => setState(() => _isEditMenuMode = false),
-                  child: Container(
-                    width: 32,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: AppTheme.primary.withOpacity(0.2),
-                        width: 1,
+            child: Row(
+              children: [
+                // Back/Close button
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: GestureDetector(
+                    onTap: () {
+                      if (_editSubPanel != 'none') {
+                        setState(() => _editSubPanel = 'none');
+                      } else {
+                        setState(() {
+                          _isEditMenuMode = false;
+                          _editSubPanel = 'none';
+                        });
+                      }
+                    },
+                    child: Container(
+                      width: 32,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppTheme.primary.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Icon(
+                        _editSubPanel != 'none' ? Icons.chevron_left : Icons.keyboard_arrow_down,
+                        size: 22,
+                        color: AppTheme.primary,
                       ),
                     ),
-                    child: const Icon(
-                      Icons.chevron_left,
-                      size: 22,
-                      color: AppTheme.primary,
+                  ),
+                ),
+                // Title
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      _editSubPanel == 'volume' 
+                          ? 'Volume' 
+                          : _editSubPanel == 'speed' 
+                              ? 'Speed' 
+                              : 'Edit',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
                 ),
-              ),
-              // Title
+                // Checkmark button (only for sub-panels)
+                if (_editSubPanel != 'none')
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () {
+                        if (_editSubPanel == 'volume') {
+                          _applyClipVolume();
+                        } else if (_editSubPanel == 'speed') {
+                          _applyClipSpeed();
+                        }
+                        setState(() => _editSubPanel = 'none');
+                      },
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: const BoxDecoration(
+                          color: AppTheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.check,
+                          size: 18,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  const SizedBox(width: 40), // Balance for the back button
+              ],
+            ),
+          ),
+          
+          // Sub-panel content or main tools
+          Expanded(
+            child: _editSubPanel == 'volume'
+                ? _buildVolumeSubPanel()
+                : _editSubPanel == 'speed'
+                    ? _buildSpeedSubPanel()
+                    : _buildEditToolsRow(editTools),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// Volume slider sub-panel
+  Widget _buildVolumeSubPanel() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.volume_off, color: Colors.white.withOpacity(0.5), size: 20),
+              const SizedBox(width: 12),
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text(
-                    'Edit',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: AppTheme.primary,
+                    inactiveTrackColor: Colors.white.withOpacity(0.2),
+                    thumbColor: Colors.white,
+                    trackHeight: 4,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                  ),
+                  child: Slider(
+                    value: _clipVolume,
+                    min: 0.0,
+                    max: 1.0,
+                    onChanged: (value) => setState(() => _clipVolume = value),
                   ),
                 ),
               ),
-              const SizedBox(width: 40), // Balance for the back button
+              const SizedBox(width: 12),
+              const Icon(Icons.volume_up, color: Colors.white, size: 20),
             ],
           ),
-        ),
-        
-        // Horizontal Scrollable Edit Tools
-        Container(
-          height: 120,
-          alignment: Alignment.topCenter,
-          padding: const EdgeInsets.only(top: 16),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: editTools.map((tool) {
-                final isDelete = tool['id'] == 'delete';
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('0%', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+              Text(
+                '${(_clipVolume * 100).round()}%',
+                style: const TextStyle(color: AppTheme.primary, fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+              Text('100%', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// Speed presets sub-panel
+  Widget _buildSpeedSubPanel() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Expanded(
+            child: GridView.count(
+              crossAxisCount: 4,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              childAspectRatio: 1.8,
+              physics: const NeverScrollableScrollPhysics(),
+              children: _speedPresets.map((preset) {
+                final isSelected = _clipSpeed == preset['value'];
                 return GestureDetector(
-                  onTap: () {
-                    (tool['action'] as VoidCallback)();
-                    // Don't close for tools that need to stay open
-                    if (!['volume', 'speed', 'animations', 'beats', 'crop'].contains(tool['id'])) {
-                      setState(() => _isEditMenuMode = false);
-                    }
-                  },
+                  onTap: () => setState(() => _clipSpeed = preset['value']),
                   child: Container(
-                    width: 64,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: isDelete 
-                                ? Colors.red.withOpacity(0.2) 
-                                : Colors.white.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            tool['icon'] as IconData,
-                            size: 20,
-                            color: isDelete ? Colors.red : Colors.white,
-                          ),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.2),
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        preset['label'],
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          tool['name'] as String,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: isDelete 
-                                ? Colors.red 
-                                : Colors.white.withOpacity(0.6),
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 );
               }).toList(),
             ),
           ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.speed, color: AppTheme.primary, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                '${_clipSpeed.toStringAsFixed(2)}x',
+                style: const TextStyle(color: AppTheme.primary, fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// Build horizontal scrollable edit tools row
+  Widget _buildEditToolsRow(List<Map<String, dynamic>> editTools) {
+    return Container(
+      height: 120,
+      alignment: Alignment.topCenter,
+      padding: const EdgeInsets.only(top: 16),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: editTools.map((tool) {
+            final isDelete = tool['isDestructive'] == true;
+            return GestureDetector(
+              onTap: () {
+                (tool['action'] as VoidCallback)();
+                // Only close for actions that don't open sub-panels
+                if (!['volume', 'speed', 'animations', 'crop', 'replace'].contains(tool['id'])) {
+                  // Let the action decide whether to close
+                }
+              },
+              child: SizedBox(
+                width: 64,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: isDelete 
+                            ? Colors.red.withOpacity(0.2) 
+                            : Colors.white.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        tool['icon'] as IconData,
+                        size: 20,
+                        color: isDelete ? Colors.red : Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      tool['name'] as String,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: isDelete 
+                            ? Colors.red 
+                            : Colors.white.withOpacity(0.6),
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
         ),
-      ],
+      ),
     );
   }
   
