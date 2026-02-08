@@ -3429,7 +3429,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                   width: clipWidth,
                                   backgroundColor: '#1a1a1a',
                                 }}
-                                onClick={() => setSelectedClipId(clip.id)}
+                                onClick={() => {
+                                  setSelectedClipId(clip.id);
+                                  // Open edit menu when clicking on video clip
+                                  setIsEditMenuMode(true);
+                                  setEditSubPanel('none');
+                                }}
                               >
                                 <div className="flex h-full">
                                   {/* Left trim handle */}
