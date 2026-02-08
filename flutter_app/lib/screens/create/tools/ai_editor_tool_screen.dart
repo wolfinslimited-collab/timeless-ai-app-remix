@@ -2607,249 +2607,278 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
 
-  /// Show output settings bottom sheet
+  /// Show output settings dropdown from top
   void _showOutputSettingsSheet() {
-    showModalBottomSheet(
+    showGeneralDialog(
       context: context,
-      backgroundColor: const Color(0xFF0A0A0A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) => Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'video',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+      barrierDismissible: true,
+      barrierLabel: 'Output Settings',
+      barrierColor: Colors.black.withOpacity(0.5),
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Align(
+          alignment: Alignment.topCenter,
+          child: Material(
+            color: Colors.transparent,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, -1),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              )),
+              child: FadeTransition(
+                opacity: animation,
+                child: StatefulBuilder(
+                  builder: (context, setSheetState) => Container(
+                    width: double.infinity,
+                    margin: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+                    padding: const EdgeInsets.all(12),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF0A0A0A),
+                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 20,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
                     ),
-                  ),
-                  Container(
-                    width: 30,
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              
-              // Resolution
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Text('Resolution', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500)),
-                      const SizedBox(width: 6),
-                      Icon(Icons.help_outline, size: 16, color: Colors.white.withOpacity(0.5)),
-                    ],
-                  ),
-                  Text(
-                    _getResolutionDescription(_outputResolution),
-                    style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
-                    textAlign: TextAlign.right,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _buildResolutionSlider(setSheetState),
-              const SizedBox(height: 24),
-              
-              // Frame Rate
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Frame rate', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500)),
-                  Text('Smoother playback', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _buildFrameRateSlider(setSheetState),
-              const SizedBox(height: 24),
-              
-              // Optical Flow Toggle
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Optical flow', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 4),
+                        // Header
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Text(
+                                  'Output Settings',
+                                  style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  width: 16,
+                                  height: 2,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primary,
+                                    borderRadius: BorderRadius.circular(1),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            GestureDetector(
+                              onTap: () => Navigator.of(context).pop(),
+                              child: Container(
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close, size: 12, color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        
+                        // Compact 2x2 Grid
                         Row(
                           children: [
-                            Text('Make video playback smoother.', style: TextStyle(color: AppTheme.primary, fontSize: 12)),
+                            // Resolution
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Text('Resolution', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w500)),
+                                        const SizedBox(width: 3),
+                                        Icon(Icons.help_outline, size: 10, color: Colors.white.withOpacity(0.4)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    _buildCompactSlider(
+                                      setSheetState,
+                                      ['480p', '720p', '1080p', '2K/4K'].indexOf(_outputResolution).toDouble(),
+                                      0, 3, 3,
+                                      (v) => _outputResolution = ['480p', '720p', '1080p', '2K/4K'][v.round()],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: ['480p', '720p', '1080p', '4K'].map((r) => 
+                                        Text(r, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 7))
+                                      ).toList(),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                             const SizedBox(width: 8),
-                            Text('| ▶ Example', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+                            // Frame Rate
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text('Frame Rate', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w500)),
+                                        Text('${_outputFrameRate}fps', style: TextStyle(color: AppTheme.primary, fontSize: 7)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    _buildCompactSlider(
+                                      setSheetState,
+                                      [24, 25, 30, 50, 60].indexOf(_outputFrameRate).toDouble(),
+                                      0, 4, 4,
+                                      (v) => _outputFrameRate = [24, 25, 30, 50, 60][v.round()],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [24, 25, 30, 50, 60].map((r) => 
+                                        Text('$r', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 7))
+                                      ).toList(),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            // Bitrate
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text('Bitrate', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w500)),
+                                        Text('${_outputBitrate}Mbps', style: TextStyle(color: AppTheme.primary, fontSize: 7)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    _buildCompactSlider(
+                                      setSheetState,
+                                      [5, 10, 20, 50, 100].indexOf(_outputBitrate).toDouble(),
+                                      0, 4, 4,
+                                      (v) => _outputBitrate = [5, 10, 20, 50, 100][v.round()],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [5, 10, 20, 50, 100].map((r) => 
+                                        Text('$r', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 7))
+                                      ).toList(),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Optical Flow & File Size
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text('Optical Flow', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w500)),
+                                        Transform.scale(
+                                          scale: 0.6,
+                                          child: Switch(
+                                            value: _opticalFlowEnabled,
+                                            onChanged: (value) {
+                                              setSheetState(() => _opticalFlowEnabled = value);
+                                              setState(() {});
+                                            },
+                                            activeColor: AppTheme.primary,
+                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Center(
+                                      child: Text(
+                                        '~${_calculateEstimatedFileSize()} MB',
+                                        style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 8),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  Switch(
-                    value: _opticalFlowEnabled,
-                    onChanged: (value) {
-                      setSheetState(() => _opticalFlowEnabled = value);
-                      setState(() {});
-                    },
-                    activeColor: AppTheme.primary,
-                    inactiveThumbColor: Colors.white.withOpacity(0.3),
-                    inactiveTrackColor: Colors.white.withOpacity(0.1),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              
-              // Bitrate
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Bitrate (Mbps)', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500)),
-                  Text('Recommended for this video($_outputBitrate)', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _buildBitrateSlider(setSheetState),
-              const SizedBox(height: 24),
-              
-              // Estimated file size
-              Center(
-                child: Text(
-                  'Estimated file size: ${_calculateEstimatedFileSize()} MB',
-                  style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
                 ),
               ),
-              const SizedBox(height: 16),
-            ],
+            ),
           ),
-        ),
+        );
+      },
+    );
+  }
+  
+  Widget _buildCompactSlider(StateSetter setSheetState, double value, double min, double max, int divisions, Function(double) onChanged) {
+    return SliderTheme(
+      data: SliderTheme.of(context).copyWith(
+        activeTrackColor: AppTheme.primary,
+        inactiveTrackColor: Colors.white.withOpacity(0.2),
+        thumbColor: Colors.white,
+        overlayColor: AppTheme.primary.withOpacity(0.2),
+        trackHeight: 2,
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
       ),
-    );
-  }
-  
-  String _getResolutionDescription(String resolution) {
-    switch (resolution) {
-      case '480p': return 'Low quality - faster export';
-      case '720p': return 'Standard definition - the resolution used for most TikTok videos';
-      case '1080p': return 'Full HD - great for YouTube';
-      case '2K/4K': return 'Ultra HD - maximum quality';
-      default: return '';
-    }
-  }
-  
-  Widget _buildResolutionSlider(StateSetter setSheetState) {
-    final resolutions = ['480p', '720p', '1080p', '2K/4K'];
-    final currentIndex = resolutions.indexOf(_outputResolution);
-    
-    return Column(
-      children: [
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: AppTheme.primary,
-            inactiveTrackColor: Colors.white.withOpacity(0.2),
-            thumbColor: Colors.white,
-            overlayColor: AppTheme.primary.withOpacity(0.2),
-            trackHeight: 4,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-          ),
-          child: Slider(
-            value: currentIndex.toDouble(),
-            min: 0,
-            max: 3,
-            divisions: 3,
-            onChanged: (value) {
-              setSheetState(() => _outputResolution = resolutions[value.round()]);
-              setState(() {});
-            },
-          ),
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: resolutions.map((r) => Text(r, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11))).toList(),
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildFrameRateSlider(StateSetter setSheetState) {
-    final frameRates = [24, 25, 30, 50, 60];
-    final currentIndex = frameRates.indexOf(_outputFrameRate);
-    
-    return Column(
-      children: [
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: AppTheme.primary,
-            inactiveTrackColor: Colors.white.withOpacity(0.2),
-            thumbColor: Colors.white,
-            overlayColor: AppTheme.primary.withOpacity(0.2),
-            trackHeight: 4,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-          ),
-          child: Slider(
-            value: currentIndex.toDouble(),
-            min: 0,
-            max: 4,
-            divisions: 4,
-            onChanged: (value) {
-              setSheetState(() => _outputFrameRate = frameRates[value.round()]);
-              setState(() {});
-            },
-          ),
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: frameRates.map((r) => Text('$r', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11))).toList(),
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildBitrateSlider(StateSetter setSheetState) {
-    final bitrates = [5, 10, 20, 50, 100];
-    final currentIndex = bitrates.indexOf(_outputBitrate);
-    
-    return Column(
-      children: [
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: AppTheme.primary,
-            inactiveTrackColor: Colors.white.withOpacity(0.2),
-            thumbColor: Colors.white,
-            overlayColor: AppTheme.primary.withOpacity(0.2),
-            trackHeight: 4,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-          ),
-          child: Slider(
-            value: currentIndex.toDouble(),
-            min: 0,
-            max: 4,
-            divisions: 4,
-            onChanged: (value) {
-              setSheetState(() => _outputBitrate = bitrates[value.round()]);
-              setState(() {});
-            },
-          ),
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: bitrates.map((r) => Text('$r', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11))).toList(),
-        ),
-      ],
+      child: Slider(
+        value: value,
+        min: min,
+        max: max,
+        divisions: divisions,
+        onChanged: (v) {
+          setSheetState(() => onChanged(v));
+          setState(() {});
+        },
+      ),
     );
   }
   
