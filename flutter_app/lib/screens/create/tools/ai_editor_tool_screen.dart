@@ -665,7 +665,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     EditorTool(id: 'captions', name: 'Captions', icon: Icons.subtitles_outlined),
     EditorTool(id: 'filters', name: 'Filters', icon: Icons.blur_circular),
     EditorTool(id: 'adjust', name: 'Adjust', icon: Icons.tune),
-    EditorTool(id: 'stickers', name: 'Stickers', icon: Icons.emoji_emotions_outlined),
     EditorTool(id: 'aspect', name: 'Aspect', icon: Icons.aspect_ratio),
     EditorTool(id: 'background', name: 'Background', icon: Icons.format_paint_outlined),
   ];
