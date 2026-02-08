@@ -266,6 +266,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Overlay menu mode state - activated by clicking "Overlay" tool
   const [isOverlayMenuMode, setIsOverlayMenuMode] = useState(false);
   
+  // Captions menu mode state - activated by clicking "Captions" tool
+  const [isCaptionsMenuMode, setIsCaptionsMenuMode] = useState(false);
+  
   // Sticker presets
   const stickerCategories = [
     { id: 'emoji', name: 'Emoji', stickers: ['😀', '😂', '🥰', '😎', '🔥', '💯', '⭐', '❤️', '👍', '🎉', '✨', '🚀'] },
@@ -1313,12 +1316,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       return;
     }
     
-    // Coming soon tools - show toast and don't change selection
-    if (['captions'].includes(tool.id)) {
-      toast({
-        title: tool.name,
-        description: "Coming soon!",
-      });
+    // Captions tool opens the captions menu
+    if (tool.id === 'captions') {
+      setIsCaptionsMenuMode(true);
+      setSelectedTool('captions');
       return;
     }
     
@@ -3581,6 +3582,49 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       Add overlay
                     </span>
                   </button>
+                </div>
+              </div>
+            ) : isCaptionsMenuMode ? (
+              /* Captions Menu - horizontal scrollable menu */
+              <div className="animate-fade-in flex flex-col">
+                {/* Header with back button and title */}
+                <div className="flex items-center px-2 py-2 border-b border-border/20">
+                  <button
+                    onClick={() => setIsCaptionsMenuMode(false)}
+                    className="shrink-0 flex items-center justify-center w-8 h-9 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-primary" />
+                  </button>
+                  <span className="ml-3 text-sm font-medium text-foreground">Captions</span>
+                </div>
+                
+                {/* Horizontal Scrollable Caption Tools */}
+                <div className="overflow-x-auto px-2 py-3">
+                  <div className="flex gap-1 min-w-max">
+                    {[
+                      { id: 'enter-captions', name: 'Enter captions', icon: Type, action: () => toast({ title: "Enter captions coming soon" }) },
+                      { id: 'auto-captions', name: 'Auto captions', icon: Subtitles, action: () => { generateAutoCaptions(); setIsCaptionsMenuMode(false); } },
+                      { id: 'caption-templates', name: 'Caption templates', icon: FileText, action: () => toast({ title: "Caption templates coming soon" }) },
+                      { id: 'auto-lyrics', name: 'Auto lyrics', icon: Music2, action: () => toast({ title: "Auto lyrics coming soon" }) },
+                      { id: 'import-captions', name: 'Import captions', icon: Download, action: () => toast({ title: "Import captions coming soon" }) },
+                    ].map((tool) => {
+                      const IconComponent = tool.icon;
+                      return (
+                        <button
+                          key={tool.id}
+                          onClick={tool.action}
+                          className="flex flex-col items-center justify-center w-20 py-2 rounded-xl transition-all hover:bg-white/5"
+                        >
+                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
+                            <IconComponent className="w-5 h-5 text-foreground" />
+                          </div>
+                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight">
+                            {tool.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             ) : isEditMenuMode ? (
