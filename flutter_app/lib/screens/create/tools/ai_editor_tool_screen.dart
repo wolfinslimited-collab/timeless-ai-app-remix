@@ -2685,167 +2685,84 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
                         
-                        // Compact 2x2 Grid
-                        Row(
-                          children: [
-                            // Resolution
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.05),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Text('Resolution', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w500)),
-                                        const SizedBox(width: 3),
-                                        Icon(Icons.help_outline, size: 10, color: Colors.white.withOpacity(0.4)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    _buildCompactSlider(
-                                      setSheetState,
-                                      ['480p', '720p', '1080p', '2K/4K'].indexOf(_outputResolution).toDouble(),
-                                      0, 3, 3,
-                                      (v) => _outputResolution = ['480p', '720p', '1080p', '2K/4K'][v.round()],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: ['480p', '720p', '1080p', '4K'].map((r) => 
-                                        Text(r, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 7))
-                                      ).toList(),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Frame Rate
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.05),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        const Text('Frame Rate', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w500)),
-                                        Text('${_outputFrameRate}fps', style: TextStyle(color: AppTheme.primary, fontSize: 7)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    _buildCompactSlider(
-                                      setSheetState,
-                                      [24, 25, 30, 50, 60].indexOf(_outputFrameRate).toDouble(),
-                                      0, 4, 4,
-                                      (v) => _outputFrameRate = [24, 25, 30, 50, 60][v.round()],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [24, 25, 30, 50, 60].map((r) => 
-                                        Text('$r', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 7))
-                                      ).toList(),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                        // Vertical Stack Layout - One item per row
+                        // Resolution
+                        _buildSettingsRow(
+                          setSheetState,
+                          'Resolution',
+                          _outputResolution,
+                          ['480p', '720p', '1080p', '2K/4K'],
+                          ['480p', '720p', '1080p', '4K'],
+                          (v) => _outputResolution = v,
+                          showHelp: true,
                         ),
                         const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            // Bitrate
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.05),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        const Text('Bitrate', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w500)),
-                                        Text('${_outputBitrate}Mbps', style: TextStyle(color: AppTheme.primary, fontSize: 7)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    _buildCompactSlider(
-                                      setSheetState,
-                                      [5, 10, 20, 50, 100].indexOf(_outputBitrate).toDouble(),
-                                      0, 4, 4,
-                                      (v) => _outputBitrate = [5, 10, 20, 50, 100][v.round()],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [5, 10, 20, 50, 100].map((r) => 
-                                        Text('$r', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 7))
-                                      ).toList(),
-                                    ),
-                                  ],
+                        
+                        // Frame Rate
+                        _buildSettingsRowInt(
+                          setSheetState,
+                          'Frame Rate',
+                          _outputFrameRate,
+                          [24, 25, 30, 50, 60],
+                          (v) => _outputFrameRate = v,
+                          suffix: 'fps',
+                        ),
+                        const SizedBox(height: 8),
+                        
+                        // Bitrate
+                        _buildSettingsRowInt(
+                          setSheetState,
+                          'Bitrate (Mbps)',
+                          _outputBitrate,
+                          [5, 10, 20, 50, 100],
+                          (v) => _outputBitrate = v,
+                          suffix: ' Mbps',
+                        ),
+                        const SizedBox(height: 8),
+                        
+                        // Optical Flow
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Optical Flow', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500)),
+                                  const SizedBox(height: 2),
+                                  Text('Smoother playback', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 8)),
+                                ],
+                              ),
+                              Transform.scale(
+                                scale: 0.7,
+                                child: Switch(
+                                  value: _opticalFlowEnabled,
+                                  onChanged: (value) {
+                                    setSheetState(() => _opticalFlowEnabled = value);
+                                    setState(() {});
+                                  },
+                                  activeColor: AppTheme.primary,
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Optical Flow & File Size
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.05),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        const Text('Optical Flow', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w500)),
-                                        Transform.scale(
-                                          scale: 0.6,
-                                          child: Switch(
-                                            value: _opticalFlowEnabled,
-                                            onChanged: (value) {
-                                              setSheetState(() => _opticalFlowEnabled = value);
-                                              setState(() {});
-                                            },
-                                            activeColor: AppTheme.primary,
-                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Center(
-                                      child: Text(
-                                        '~${_calculateEstimatedFileSize()} MB',
-                                        style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 8),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        
+                        // Estimated File Size
+                        Center(
+                          child: Text(
+                            'Estimated file size: ~${_calculateEstimatedFileSize()} MB',
+                            style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9),
+                          ),
                         ),
                       ],
                     ),
@@ -2859,25 +2776,227 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
-  Widget _buildCompactSlider(StateSetter setSheetState, double value, double min, double max, int divisions, Function(double) onChanged) {
-    return SliderTheme(
-      data: SliderTheme.of(context).copyWith(
-        activeTrackColor: AppTheme.primary,
-        inactiveTrackColor: Colors.white.withOpacity(0.2),
-        thumbColor: Colors.white,
-        overlayColor: AppTheme.primary.withOpacity(0.2),
-        trackHeight: 2,
-        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+  Widget _buildSettingsRow(
+    StateSetter setSheetState,
+    String label,
+    String currentValue,
+    List<String> values,
+    List<String> displayLabels,
+    Function(String) onChanged, {
+    bool showHelp = false,
+  }) {
+    final currentIndex = values.indexOf(currentValue);
+    final progress = currentIndex / (values.length - 1);
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Slider(
-        value: value,
-        min: min,
-        max: max,
-        divisions: divisions,
-        onChanged: (v) {
-          setSheetState(() => onChanged(v));
-          setState(() {});
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500)),
+                  if (showHelp) ...[
+                    const SizedBox(width: 4),
+                    Icon(Icons.help_outline, size: 10, color: Colors.white.withOpacity(0.4)),
+                  ],
+                ],
+              ),
+              Text(currentValue, style: TextStyle(color: AppTheme.primary, fontSize: 9, fontWeight: FontWeight.w500)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Custom slider with purple fill from left
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final trackWidth = constraints.maxWidth;
+              return GestureDetector(
+                onHorizontalDragUpdate: (details) {
+                  final newProgress = (details.localPosition.dx / trackWidth).clamp(0.0, 1.0);
+                  final newIndex = (newProgress * (values.length - 1)).round();
+                  if (newIndex != currentIndex) {
+                    setSheetState(() => onChanged(values[newIndex]));
+                    setState(() {});
+                  }
+                },
+                onTapDown: (details) {
+                  final newProgress = (details.localPosition.dx / trackWidth).clamp(0.0, 1.0);
+                  final newIndex = (newProgress * (values.length - 1)).round();
+                  setSheetState(() => onChanged(values[newIndex]));
+                  setState(() {});
+                },
+                child: Container(
+                  height: 20,
+                  child: Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      // Background track
+                      Container(
+                        height: 3,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      // Active track (purple fill from left)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 100),
+                        height: 3,
+                        width: trackWidth * progress,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      // Thumb
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 100),
+                        left: (trackWidth * progress) - 6,
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: displayLabels.map((r) => 
+              Text(r, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 8))
+            ).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSettingsRowInt(
+    StateSetter setSheetState,
+    String label,
+    int currentValue,
+    List<int> values,
+    Function(int) onChanged, {
+    String suffix = '',
+  }) {
+    final currentIndex = values.indexOf(currentValue);
+    final progress = currentIndex / (values.length - 1);
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500)),
+              Text('$currentValue$suffix', style: TextStyle(color: AppTheme.primary, fontSize: 9, fontWeight: FontWeight.w500)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Custom slider with purple fill from left
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final trackWidth = constraints.maxWidth;
+              return GestureDetector(
+                onHorizontalDragUpdate: (details) {
+                  final newProgress = (details.localPosition.dx / trackWidth).clamp(0.0, 1.0);
+                  final newIndex = (newProgress * (values.length - 1)).round();
+                  if (newIndex != currentIndex) {
+                    setSheetState(() => onChanged(values[newIndex]));
+                    setState(() {});
+                  }
+                },
+                onTapDown: (details) {
+                  final newProgress = (details.localPosition.dx / trackWidth).clamp(0.0, 1.0);
+                  final newIndex = (newProgress * (values.length - 1)).round();
+                  setSheetState(() => onChanged(values[newIndex]));
+                  setState(() {});
+                },
+                child: Container(
+                  height: 20,
+                  child: Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      // Background track
+                      Container(
+                        height: 3,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      // Active track (purple fill from left)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 100),
+                        height: 3,
+                        width: trackWidth * progress,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      // Thumb
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 100),
+                        left: (trackWidth * progress) - 6,
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: values.map((r) => 
+              Text('$r', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 8))
+            ).toList(),
+          ),
+        ],
       ),
     );
   }

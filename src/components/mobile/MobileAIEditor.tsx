@@ -3838,23 +3838,36 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               </button>
             </div>
             
-            {/* Compact Grid Layout */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Vertical Stack Layout */}
+            <div className="space-y-2.5">
               {/* Resolution */}
-              <div className="bg-white/5 rounded-lg p-2">
-                <div className="flex items-center gap-1 mb-1.5">
-                  <span className="text-white text-[10px] font-medium">Resolution</span>
-                  <HelpCircle className="w-2.5 h-2.5 text-white/40" />
+              <div className="bg-white/5 rounded-lg p-2.5">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1">
+                    <span className="text-white text-[10px] font-medium">Resolution</span>
+                    <HelpCircle className="w-2.5 h-2.5 text-white/40" />
+                  </div>
+                  <span className="text-primary text-[9px] font-medium">{outputResolution}</span>
                 </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={3}
-                  value={['480p', '720p', '1080p', '2K/4K'].indexOf(outputResolution)}
-                  onChange={(e) => setOutputResolution(['480p', '720p', '1080p', '2K/4K'][parseInt(e.target.value)])}
-                  className="w-full h-0.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-primary"
-                />
-                <div className="flex justify-between mt-1">
+                <div className="relative h-1 bg-white/20 rounded-full">
+                  <div 
+                    className="absolute left-0 top-0 h-full bg-primary rounded-full transition-all"
+                    style={{ width: `${(['480p', '720p', '1080p', '2K/4K'].indexOf(outputResolution) / 3) * 100}%` }}
+                  />
+                  <input
+                    type="range"
+                    min={0}
+                    max={3}
+                    value={['480p', '720p', '1080p', '2K/4K'].indexOf(outputResolution)}
+                    onChange={(e) => setOutputResolution(['480p', '720p', '1080p', '2K/4K'][parseInt(e.target.value)])}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <div 
+                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md transition-all"
+                    style={{ left: `calc(${(['480p', '720p', '1080p', '2K/4K'].indexOf(outputResolution) / 3) * 100}% - 6px)` }}
+                  />
+                </div>
+                <div className="flex justify-between mt-1.5">
                   {['480p', '720p', '1080p', '4K'].map((r) => (
                     <span key={r} className="text-white/50 text-[8px]">{r}</span>
                   ))}
@@ -3862,20 +3875,30 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               </div>
               
               {/* Frame Rate */}
-              <div className="bg-white/5 rounded-lg p-2">
-                <div className="flex items-center justify-between mb-1.5">
+              <div className="bg-white/5 rounded-lg p-2.5">
+                <div className="flex items-center justify-between mb-2">
                   <span className="text-white text-[10px] font-medium">Frame Rate</span>
-                  <span className="text-primary text-[8px]">{outputFrameRate}fps</span>
+                  <span className="text-primary text-[9px] font-medium">{outputFrameRate}fps</span>
                 </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={4}
-                  value={[24, 25, 30, 50, 60].indexOf(outputFrameRate)}
-                  onChange={(e) => setOutputFrameRate([24, 25, 30, 50, 60][parseInt(e.target.value)])}
-                  className="w-full h-0.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-primary"
-                />
-                <div className="flex justify-between mt-1">
+                <div className="relative h-1 bg-white/20 rounded-full">
+                  <div 
+                    className="absolute left-0 top-0 h-full bg-primary rounded-full transition-all"
+                    style={{ width: `${([24, 25, 30, 50, 60].indexOf(outputFrameRate) / 4) * 100}%` }}
+                  />
+                  <input
+                    type="range"
+                    min={0}
+                    max={4}
+                    value={[24, 25, 30, 50, 60].indexOf(outputFrameRate)}
+                    onChange={(e) => setOutputFrameRate([24, 25, 30, 50, 60][parseInt(e.target.value)])}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <div 
+                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md transition-all"
+                    style={{ left: `calc(${([24, 25, 30, 50, 60].indexOf(outputFrameRate) / 4) * 100}% - 6px)` }}
+                  />
+                </div>
+                <div className="flex justify-between mt-1.5">
                   {[24, 25, 30, 50, 60].map((r) => (
                     <span key={r} className="text-white/50 text-[8px]">{r}</span>
                   ))}
@@ -3883,46 +3906,59 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               </div>
               
               {/* Bitrate */}
-              <div className="bg-white/5 rounded-lg p-2">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-white text-[10px] font-medium">Bitrate</span>
-                  <span className="text-primary text-[8px]">{outputBitrate}Mbps</span>
+              <div className="bg-white/5 rounded-lg p-2.5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-white text-[10px] font-medium">Bitrate (Mbps)</span>
+                  <span className="text-primary text-[9px] font-medium">{outputBitrate} Mbps</span>
                 </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={4}
-                  value={[5, 10, 20, 50, 100].indexOf(outputBitrate)}
-                  onChange={(e) => setOutputBitrate([5, 10, 20, 50, 100][parseInt(e.target.value)])}
-                  className="w-full h-0.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-primary"
-                />
-                <div className="flex justify-between mt-1">
+                <div className="relative h-1 bg-white/20 rounded-full">
+                  <div 
+                    className="absolute left-0 top-0 h-full bg-primary rounded-full transition-all"
+                    style={{ width: `${([5, 10, 20, 50, 100].indexOf(outputBitrate) / 4) * 100}%` }}
+                  />
+                  <input
+                    type="range"
+                    min={0}
+                    max={4}
+                    value={[5, 10, 20, 50, 100].indexOf(outputBitrate)}
+                    onChange={(e) => setOutputBitrate([5, 10, 20, 50, 100][parseInt(e.target.value)])}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <div 
+                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md transition-all"
+                    style={{ left: `calc(${([5, 10, 20, 50, 100].indexOf(outputBitrate) / 4) * 100}% - 6px)` }}
+                  />
+                </div>
+                <div className="flex justify-between mt-1.5">
                   {[5, 10, 20, 50, 100].map((r) => (
                     <span key={r} className="text-white/50 text-[8px]">{r}</span>
                   ))}
                 </div>
               </div>
               
-              {/* Optical Flow & File Size */}
-              <div className="bg-white/5 rounded-lg p-2 flex flex-col justify-between">
-                <div className="flex items-center justify-between">
+              {/* Optical Flow */}
+              <div className="bg-white/5 rounded-lg p-2.5 flex items-center justify-between">
+                <div className="flex-1">
                   <span className="text-white text-[10px] font-medium">Optical Flow</span>
-                  <button
-                    onClick={() => setOpticalFlowEnabled(!opticalFlowEnabled)}
-                    className={cn(
-                      "w-8 h-4 rounded-full transition-all duration-200 relative",
-                      opticalFlowEnabled ? "bg-primary" : "bg-white/20"
-                    )}
-                  >
-                    <div className={cn(
-                      "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform duration-200",
-                      opticalFlowEnabled ? "translate-x-4" : "translate-x-0.5"
-                    )} />
-                  </button>
+                  <p className="text-white/40 text-[8px] mt-0.5">Smoother playback</p>
                 </div>
-                <div className="text-center mt-2">
-                  <span className="text-white/40 text-[9px]">~{Math.round((outputBitrate * (duration || 10)) / 8)} MB</span>
-                </div>
+                <button
+                  onClick={() => setOpticalFlowEnabled(!opticalFlowEnabled)}
+                  className={cn(
+                    "w-8 h-4 rounded-full transition-all duration-200 relative",
+                    opticalFlowEnabled ? "bg-primary" : "bg-white/20"
+                  )}
+                >
+                  <div className={cn(
+                    "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform duration-200",
+                    opticalFlowEnabled ? "translate-x-4" : "translate-x-0.5"
+                  )} />
+                </button>
+              </div>
+              
+              {/* Estimated File Size */}
+              <div className="text-center py-1">
+                <span className="text-white/40 text-[9px]">Estimated file size: ~{Math.round((outputBitrate * (duration || 10)) / 8)} MB</span>
               </div>
             </div>
           </div>
