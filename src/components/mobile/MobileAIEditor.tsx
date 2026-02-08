@@ -2569,9 +2569,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               // Background Panel with Main Menu and Sub-menus
               <div className="flex flex-col">
                 {backgroundTab === 'main' ? (
-                  // Main Menu - Three Buttons
-                  <div className="px-4 py-4">
-                    <div className="grid grid-cols-3 gap-3">
+                  // Main Menu - Horizontal scrollable style like Edit/Audio
+                  <div className="overflow-x-auto px-2 py-3">
+                    <div className="flex gap-1 min-w-max">
                       {[
                         { id: 'color', label: 'Color', icon: Palette },
                         { id: 'image', label: 'Image', icon: Image },
@@ -2582,12 +2582,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           <button
                             key={option.id}
                             onClick={() => setBackgroundTab(option.id as typeof backgroundTab)}
-                            className="flex flex-col items-center justify-center gap-2 py-4 px-3 bg-secondary rounded-xl border border-border hover:bg-secondary/80 transition-all"
+                            className="flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all hover:bg-white/5"
                           >
-                            <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
-                              <OptionIcon className="w-5 h-5 text-primary" />
+                            <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
+                              <OptionIcon className="w-5 h-5 text-white" />
                             </div>
-                            <span className="text-foreground text-xs font-medium">{option.label}</span>
+                            <span className="text-[10px] font-medium text-foreground/60">
+                              {option.label}
+                            </span>
                           </button>
                         );
                       })}

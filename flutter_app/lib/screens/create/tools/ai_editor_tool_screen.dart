@@ -6779,15 +6779,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   /// Background settings content panel
   Widget _buildBackgroundSettingsContent() {
     if (_backgroundTab == 'main') {
-      // Main Menu - Three Buttons
-      return Padding(
-        padding: const EdgeInsets.all(16),
+      // Main Menu - Horizontal scrollable style like Edit/Audio
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         child: Row(
           children: [
             _buildBackgroundMainButton('color', 'Color', Icons.palette_outlined),
-            const SizedBox(width: 12),
             _buildBackgroundMainButton('image', 'Image', Icons.image_outlined),
-            const SizedBox(width: 12),
             _buildBackgroundMainButton('blur', 'Blur', Icons.blur_on),
           ],
         ),
@@ -6848,38 +6847,33 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
   
   Widget _buildBackgroundMainButton(String id, String label, IconData icon) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _backgroundTab = id),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, size: 20, color: AppTheme.primary),
+    return GestureDetector(
+      onTap: () => setState(() => _backgroundTab = id),
+      child: Container(
+        width: 64,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white.withOpacity(0.9),
-                ),
+              child: Icon(icon, size: 20, color: Colors.white),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withOpacity(0.6),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
