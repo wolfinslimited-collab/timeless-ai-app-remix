@@ -6261,25 +6261,25 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
-  /// Volume slider sub-panel - 0 to 200 range with cyan slider
+  /// Volume slider sub-panel - 0 to 200 range with purple slider
   Widget _buildVolumeSubPanel() {
     // Convert clipVolume (0-2) to display value (0-200)
     final displayValue = (_clipVolume * 100).round();
     
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Slider with custom cyan track
+          // Slider with custom purple track
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              activeTrackColor: const Color(0xFF00D4FF),
-              inactiveTrackColor: Colors.white.withOpacity(0.2),
+              activeTrackColor: AppTheme.primary,
+              inactiveTrackColor: Colors.white.withOpacity(0.15),
               thumbColor: Colors.white,
-              trackHeight: 6,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-              overlayColor: const Color(0xFF00D4FF).withOpacity(0.2),
+              trackHeight: 3,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+              overlayColor: AppTheme.primary.withOpacity(0.2),
             ),
             child: Slider(
               value: _clipVolume,
@@ -6292,7 +6292,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               },
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           // Labels row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -6301,15 +6301,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 '0',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.5),
-                  fontSize: 14,
+                  fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               Text(
                 '$displayValue',
-                style: const TextStyle(
-                  color: Color(0xFF00D4FF),
-                  fontSize: 20,
+                style: TextStyle(
+                  color: AppTheme.primary,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -6317,7 +6317,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 '200',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.5),
-                  fontSize: 14,
+                  fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
               ),
