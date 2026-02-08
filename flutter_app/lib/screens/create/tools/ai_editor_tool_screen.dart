@@ -2484,9 +2484,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               ),
               margin: const EdgeInsets.symmetric(horizontal: 8),
               clipBehavior: Clip.hardEdge,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: Colors.black,
-                borderRadius: BorderRadius.circular(12),
               ),
               child: _buildVideoPreviewArea(),
             ),
@@ -2795,15 +2794,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               onPanEnd: _selectedAspectRatio == 'original' ? null : (_) {
                 setState(() => _isDraggingVideo = false);
               },
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+              child: ClipRect(
                 clipBehavior: Clip.hardEdge,
                 child: Container(
                   width: containerWidth,
                   height: containerHeight,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: Colors.black,
-                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: ClipRect(
                     clipBehavior: Clip.hardEdge,
