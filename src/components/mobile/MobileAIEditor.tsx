@@ -209,6 +209,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [outputFrameRate, setOutputFrameRate] = useState<number>(30);
   const [outputBitrate, setOutputBitrate] = useState<number>(10);
   const [opticalFlowEnabled, setOpticalFlowEnabled] = useState(false);
+  // Export state
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportStage, setExportStage] = useState<string>('');
+  const exportCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -1545,11 +1550,268 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setEditingClipId(null);
   };
 
-  const handleExport = () => {
-    toast({
-      title: "Coming soon!",
-      description: "Export feature is coming soon.",
-    });
+  const handleExport = async () => {
+    if (!videoUrl || videoClips.length === 0) {
+      toast({ title: "No video to export" });
+      return;
+    }
+
+    setIsExporting(true);
+    setExportProgress(0);
+    setExportStage('Preparing export...');
+
+    try {
+      // Get resolution dimensions
+      const getResolutionDimensions = () => {
+        switch (outputResolution) {
+          case '480p': return { width: 854, height: 480 };
+          case '720p': return { width: 1280, height: 720 };
+          case '1080p': return { width: 1920, height: 1080 };
+          case '2K/4K': return { width: 3840, height: 2160 };
+          default: return { width: 1920, height: 1080 };
+        }
+      };
+      const { width, height } = getResolutionDimensions();
+
+      // Create canvas for rendering
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+      exportCanvasRef.current = canvas;
+
+      // Create a temporary video element for export
+      const exportVideo = document.createElement('video');
+      exportVideo.src = videoUrl;
+      exportVideo.muted = true;
+      exportVideo.playsInline = true;
+      await new Promise<void>((resolve) => {
+        exportVideo.onloadedmetadata = () => resolve();
+        exportVideo.load();
+      });
+
+      // Apply clip speed (use first clip for now)
+      const activeClip = videoClips[0];
+      const playbackSpeed = activeClip?.speed || 1.0;
+      const clipVolume = activeClip?.volume || 1.0;
+      exportVideo.playbackRate = playbackSpeed;
+
+      // Calculate total frames based on trimmed duration
+      const trimmedDuration = activeClip ? (activeClip.outPoint - activeClip.inPoint) : duration;
+      const actualDuration = trimmedDuration / playbackSpeed;
+      const totalFrames = Math.floor(actualDuration * outputFrameRate);
+      
+      setExportStage('Recording video...');
+
+      // Use MediaRecorder if available
+      const stream = canvas.captureStream(outputFrameRate);
+      
+      // Add audio track if not muted
+      if (!isMuted && clipVolume > 0) {
+        try {
+          const audioContext = new AudioContext();
+          const source = audioContext.createMediaElementSource(exportVideo);
+          const gainNode = audioContext.createGain();
+          gainNode.gain.value = Math.min(clipVolume, 1.0); // Clamp to 1.0 for actual audio
+          const destination = audioContext.createMediaStreamDestination();
+          source.connect(gainNode);
+          gainNode.connect(destination);
+          gainNode.connect(audioContext.destination);
+          destination.stream.getAudioTracks().forEach(track => {
+            stream.addTrack(track);
+          });
+        } catch (audioErr) {
+          console.warn('Could not add audio track:', audioErr);
+        }
+      }
+
+      // Determine bitrate in bits per second
+      const videoBitsPerSecond = outputBitrate * 1000000;
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp9',
+        videoBitsPerSecond,
+      });
+
+      const chunks: Blob[] = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunks.push(e.data);
+        }
+      };
+
+      // Set video to starting position (respect inPoint)
+      exportVideo.currentTime = activeClip?.inPoint || 0;
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Start recording
+      mediaRecorder.start();
+      await exportVideo.play();
+
+      // Render frames
+      let frameCount = 0;
+      const renderFrame = () => {
+        if (frameCount >= totalFrames || exportVideo.currentTime >= (activeClip?.outPoint || duration)) {
+          // Stop recording
+          exportVideo.pause();
+          mediaRecorder.stop();
+          return;
+        }
+
+        // Draw video frame to canvas
+        ctx.fillStyle = backgroundColor;
+        ctx.fillRect(0, 0, width, height);
+        
+        // Calculate video positioning (respect aspect ratio)
+        let videoWidth = width;
+        let videoHeight = height;
+        let videoX = 0;
+        let videoY = 0;
+
+        if (selectedAspectRatio !== 'original') {
+          const preset = aspectRatioPresets.find(p => p.id === selectedAspectRatio);
+          if (preset) {
+            const targetRatio = preset.width / preset.height;
+            const canvasRatio = width / height;
+            
+            if (targetRatio > canvasRatio) {
+              videoHeight = width / targetRatio;
+              videoY = (height - videoHeight) / 2;
+            } else {
+              videoWidth = height * targetRatio;
+              videoX = (width - videoWidth) / 2;
+            }
+          }
+        }
+
+        // Apply position offset
+        videoX += videoPosition.x * (width * 0.1);
+        videoY += videoPosition.y * (height * 0.1);
+
+        ctx.drawImage(exportVideo, videoX, videoY, videoWidth, videoHeight);
+
+        // Apply adjustments as filter
+        if (Object.values(adjustments).some(v => v !== 0)) {
+          const imageData = ctx.getImageData(0, 0, width, height);
+          const data = imageData.data;
+          
+          const brightness = 1 + adjustments.brightness / 100;
+          const contrast = 1 + adjustments.contrast / 100;
+          const saturation = 1 + adjustments.saturation / 100;
+          
+          for (let i = 0; i < data.length; i += 4) {
+            // Apply brightness
+            data[i] = Math.min(255, Math.max(0, data[i] * brightness));
+            data[i + 1] = Math.min(255, Math.max(0, data[i + 1] * brightness));
+            data[i + 2] = Math.min(255, Math.max(0, data[i + 2] * brightness));
+            
+            // Apply contrast
+            data[i] = Math.min(255, Math.max(0, (data[i] - 128) * contrast + 128));
+            data[i + 1] = Math.min(255, Math.max(0, (data[i + 1] - 128) * contrast + 128));
+            data[i + 2] = Math.min(255, Math.max(0, (data[i + 2] - 128) * contrast + 128));
+            
+            // Apply saturation
+            const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+            data[i] = Math.min(255, Math.max(0, gray + (data[i] - gray) * saturation));
+            data[i + 1] = Math.min(255, Math.max(0, gray + (data[i + 1] - gray) * saturation));
+            data[i + 2] = Math.min(255, Math.max(0, gray + (data[i + 2] - gray) * saturation));
+          }
+          
+          ctx.putImageData(imageData, 0, 0);
+        }
+
+        // Draw text overlays that are visible at current time
+        const exportCurrentTime = exportVideo.currentTime;
+        textOverlays.forEach(overlay => {
+          if (exportCurrentTime >= overlay.startTime && exportCurrentTime <= overlay.endTime) {
+            const x = overlay.position.x * width;
+            const y = overlay.position.y * height;
+            const scaledFontSize = overlay.fontSize * (width / 375); // Scale relative to mobile width
+            
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate((overlay.rotation || 0) * Math.PI / 180);
+            ctx.scale(overlay.scale || 1, overlay.scale || 1);
+            
+            ctx.font = `${scaledFontSize}px ${overlay.fontFamily}`;
+            ctx.textAlign = overlay.alignment;
+            ctx.globalAlpha = overlay.opacity;
+            
+            // Draw background if enabled
+            if (overlay.hasBackground) {
+              const metrics = ctx.measureText(overlay.text);
+              const textWidth = metrics.width;
+              const textHeight = scaledFontSize * 1.2;
+              ctx.fillStyle = overlay.backgroundColor;
+              ctx.globalAlpha = overlay.backgroundOpacity;
+              ctx.fillRect(-textWidth / 2 - 8, -textHeight / 2, textWidth + 16, textHeight);
+              ctx.globalAlpha = overlay.opacity;
+            }
+            
+            // Draw stroke if enabled
+            if (overlay.strokeEnabled) {
+              ctx.strokeStyle = overlay.strokeColor;
+              ctx.lineWidth = overlay.strokeWidth * (width / 375);
+              ctx.strokeText(overlay.text, 0, 0);
+            }
+            
+            // Draw text
+            ctx.fillStyle = overlay.textColor;
+            ctx.fillText(overlay.text, 0, 0);
+            
+            ctx.restore();
+          }
+        });
+
+        frameCount++;
+        setExportProgress(Math.round((frameCount / totalFrames) * 100));
+
+        requestAnimationFrame(renderFrame);
+      };
+
+      // Wait for recording to complete
+      await new Promise<void>((resolve) => {
+        mediaRecorder.onstop = () => resolve();
+        renderFrame();
+      });
+
+      setExportStage('Finalizing...');
+      
+      // Create blob and download
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      
+      // Generate filename
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = `ai-editor-export-${timestamp}.webm`;
+      
+      // Trigger download
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      // Cleanup
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      
+      toast({
+        title: "Export Complete!",
+        description: `Video saved as ${filename}`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        variant: "destructive",
+        title: "Export Failed",
+        description: error instanceof Error ? error.message : "An error occurred during export",
+      });
+    } finally {
+      setIsExporting(false);
+      setExportProgress(0);
+      setExportStage('');
+    }
   };
 
   const toggleFullScreen = () => {
@@ -1576,6 +1838,68 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         className="hidden"
         onChange={handleAudioImport}
       />
+
+      {/* Export Progress Overlay */}
+      {isExporting && (
+        <div className="absolute inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center">
+          <div className="flex flex-col items-center gap-6 p-8">
+            {/* Animated export icon */}
+            <div className="relative w-24 h-24">
+              <svg className="w-full h-full -rotate-90">
+                <circle
+                  cx="48"
+                  cy="48"
+                  r="44"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                  className="text-muted"
+                />
+                <circle
+                  cx="48"
+                  cy="48"
+                  r="44"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                  strokeDasharray={`${2 * Math.PI * 44}`}
+                  strokeDashoffset={`${2 * Math.PI * 44 * (1 - exportProgress / 100)}`}
+                  className="text-primary transition-all duration-300"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-foreground font-bold text-xl">{exportProgress}%</span>
+              </div>
+            </div>
+
+            {/* Stage text */}
+            <div className="text-center">
+              <p className="text-foreground font-semibold text-lg">Exporting Video</p>
+              <p className="text-muted-foreground text-sm mt-1">{exportStage}</p>
+            </div>
+
+            {/* Settings summary */}
+            <div className="flex items-center gap-3 px-4 py-2 bg-secondary/50 rounded-lg">
+              <span className="text-muted-foreground text-xs">{outputResolution}</span>
+              <span className="text-muted-foreground/50">•</span>
+              <span className="text-muted-foreground text-xs">{outputFrameRate}fps</span>
+              <span className="text-muted-foreground/50">•</span>
+              <span className="text-muted-foreground text-xs">{outputBitrate}Mbps</span>
+            </div>
+
+            {/* Cancel button */}
+            <button
+              onClick={() => {
+                setIsExporting(false);
+                toast({ title: "Export cancelled" });
+              }}
+              className="px-6 py-2 bg-destructive/20 text-destructive rounded-lg text-sm font-medium hover:bg-destructive/30 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Fullscreen Video Dialog */}
       <Dialog open={isFullScreen} onOpenChange={setIsFullScreen}>
