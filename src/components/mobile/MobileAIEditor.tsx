@@ -1763,32 +1763,36 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             <p className="mt-4 text-white/60 text-sm">Loading video...</p>
           </div>
         ) : videoUrl ? (
-          <div className="flex-1 flex items-center justify-center px-4">
-            {/* Container with selected aspect ratio - uses black background */}
-            {(() => {
-              // Calculate aspect ratio dimensions
-              const getAspectRatioStyle = () => {
-                if (selectedAspectRatio === 'original') {
-                  return { aspectRatio: '16/9', maxWidth: '100%', maxHeight: '100%' };
-                }
-                const preset = aspectRatioPresets.find(p => p.id === selectedAspectRatio);
-                if (preset) {
-                  const ratio = preset.width / preset.height;
-                  return { aspectRatio: `${preset.width}/${preset.height}`, maxWidth: ratio >= 1 ? '100%' : undefined, maxHeight: ratio < 1 ? '100%' : undefined };
-                }
-                return { aspectRatio: '16/9' };
-              };
-              const aspectStyle = getAspectRatioStyle();
-              
-              return (
-                <div 
-                  className="relative bg-black rounded-lg overflow-hidden flex items-center justify-center"
-                  style={{
-                    aspectRatio: aspectStyle.aspectRatio,
-                    maxWidth: aspectStyle.maxWidth || '28rem',
-                    maxHeight: aspectStyle.maxHeight || '70vh',
-                    width: '100%',
-                  }}
+          <div className="flex-1 flex items-center justify-center px-4 overflow-hidden">
+            {/* Fixed-size parent container with hard clipping */}
+            <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+              {/* Container with selected aspect ratio - uses black background */}
+              {(() => {
+                // Calculate aspect ratio dimensions
+                const getAspectRatioStyle = () => {
+                  if (selectedAspectRatio === 'original') {
+                    return { aspectRatio: '16/9', maxWidth: '100%', maxHeight: '100%' };
+                  }
+                  const preset = aspectRatioPresets.find(p => p.id === selectedAspectRatio);
+                  if (preset) {
+                    const ratio = preset.width / preset.height;
+                    return { aspectRatio: `${preset.width}/${preset.height}`, maxWidth: ratio >= 1 ? '100%' : undefined, maxHeight: ratio < 1 ? '100%' : undefined };
+                  }
+                  return { aspectRatio: '16/9' };
+                };
+                const aspectStyle = getAspectRatioStyle();
+                
+                return (
+                  <div 
+                    className="relative bg-black rounded-lg flex items-center justify-center"
+                    style={{
+                      aspectRatio: aspectStyle.aspectRatio,
+                      maxWidth: aspectStyle.maxWidth || '28rem',
+                      maxHeight: aspectStyle.maxHeight || '70vh',
+                      width: '100%',
+                      overflow: 'hidden',
+                      clipPath: 'inset(0 round 8px)',
+                    }}
                   // Handle video dragging on the container
                   onMouseDown={(e) => {
                     if (selectedAspectRatio === 'original') return;
@@ -2064,9 +2068,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 </div>
               ))}
               
-                </div>
-              );
-            })()}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center px-8 py-20">
