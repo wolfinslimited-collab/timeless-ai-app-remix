@@ -1764,15 +1764,92 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           </div>
         ) : videoUrl ? (
           <div className="flex-1 flex items-center justify-center px-4">
-            <div className="relative w-full max-w-md aspect-video bg-black rounded-lg overflow-hidden">
-              <video
-                ref={videoRef}
-                src={videoUrl}
-                className="w-full h-full object-contain"
-                style={{ filter: buildVideoFilter() }}
-                playsInline
-                muted={isMuted}
-              />
+            {/* Container with selected aspect ratio - uses black background */}
+            {(() => {
+              // Calculate aspect ratio dimensions
+              const getAspectRatioStyle = () => {
+                if (selectedAspectRatio === 'original') {
+                  return { aspectRatio: '16/9', maxWidth: '100%', maxHeight: '100%' };
+                }
+                const preset = aspectRatioPresets.find(p => p.id === selectedAspectRatio);
+                if (preset) {
+                  const ratio = preset.width / preset.height;
+                  return { aspectRatio: `${preset.width}/${preset.height}`, maxWidth: ratio >= 1 ? '100%' : undefined, maxHeight: ratio < 1 ? '100%' : undefined };
+                }
+                return { aspectRatio: '16/9' };
+              };
+              const aspectStyle = getAspectRatioStyle();
+              
+              return (
+                <div 
+                  className="relative bg-black rounded-lg overflow-hidden flex items-center justify-center"
+                  style={{
+                    aspectRatio: aspectStyle.aspectRatio,
+                    maxWidth: aspectStyle.maxWidth || '28rem',
+                    maxHeight: aspectStyle.maxHeight || '70vh',
+                    width: '100%',
+                  }}
+                  // Handle video dragging on the container
+                  onMouseDown={(e) => {
+                    if (selectedAspectRatio === 'original') return;
+                    e.preventDefault();
+                    setIsDraggingVideo(true);
+                    dragStartRef.current = {
+                      x: e.clientX,
+                      y: e.clientY,
+                      posX: videoPosition.x,
+                      posY: videoPosition.y,
+                    };
+                  }}
+                  onMouseMove={(e) => {
+                    if (!isDraggingVideo || selectedAspectRatio === 'original') return;
+                    const deltaX = e.clientX - dragStartRef.current.x;
+                    const deltaY = e.clientY - dragStartRef.current.y;
+                    // Limit movement to reasonable bounds
+                    const newX = Math.max(-100, Math.min(100, dragStartRef.current.posX + deltaX * 0.5));
+                    const newY = Math.max(-100, Math.min(100, dragStartRef.current.posY + deltaY * 0.5));
+                    setVideoPosition({ x: newX, y: newY });
+                  }}
+                  onMouseUp={() => setIsDraggingVideo(false)}
+                  onMouseLeave={() => setIsDraggingVideo(false)}
+                  onTouchStart={(e) => {
+                    if (selectedAspectRatio === 'original') return;
+                    const touch = e.touches[0];
+                    setIsDraggingVideo(true);
+                    dragStartRef.current = {
+                      x: touch.clientX,
+                      y: touch.clientY,
+                      posX: videoPosition.x,
+                      posY: videoPosition.y,
+                    };
+                  }}
+                  onTouchMove={(e) => {
+                    if (!isDraggingVideo || selectedAspectRatio === 'original') return;
+                    const touch = e.touches[0];
+                    const deltaX = touch.clientX - dragStartRef.current.x;
+                    const deltaY = touch.clientY - dragStartRef.current.y;
+                    const newX = Math.max(-100, Math.min(100, dragStartRef.current.posX + deltaX * 0.5));
+                    const newY = Math.max(-100, Math.min(100, dragStartRef.current.posY + deltaY * 0.5));
+                    setVideoPosition({ x: newX, y: newY });
+                  }}
+                  onTouchEnd={() => setIsDraggingVideo(false)}
+                >
+                  <video
+                    ref={videoRef}
+                    src={videoUrl}
+                    className="absolute object-cover"
+                    style={{ 
+                      filter: buildVideoFilter(),
+                      width: selectedAspectRatio === 'original' ? '100%' : '120%',
+                      height: selectedAspectRatio === 'original' ? '100%' : '120%',
+                      transform: selectedAspectRatio === 'original' 
+                        ? 'none' 
+                        : `translate(${videoPosition.x}px, ${videoPosition.y}px)`,
+                      cursor: selectedAspectRatio === 'original' ? 'default' : (isDraggingVideo ? 'grabbing' : 'grab'),
+                    }}
+                    playsInline
+                    muted={isMuted}
+                  />
               
               {/* Text Overlays - with dragging support */}
               {textOverlays.filter(overlay => 
@@ -1987,7 +2064,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 </div>
               ))}
               
-            </div>
+                </div>
+              );
+            })()}
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center px-8 py-20">
