@@ -7452,18 +7452,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               // Edit tool opens the edit menu (same style as audio)
               if (tool.id == 'edit') {
                 if (_videoClips.isNotEmpty) {
-                  String? targetClipId = _selectedClipId;
-                  if (targetClipId == null) {
-                    targetClipId = _videoClips.first.id;
-                    _selectedClipId = targetClipId;
-                  }
+                  // Always select the first clip (original layer) when clicking Edit button
+                  final targetClipId = _videoClips.first.id;
+                  _selectedClipId = targetClipId;
                   _editingClipId = targetClipId;
                   
                   // Load the selected clip's volume and speed
-                  final targetClip = _videoClips.firstWhere(
-                    (c) => c.id == targetClipId,
-                    orElse: () => _videoClips.first,
-                  );
+                  final targetClip = _videoClips.first;
                   _clipVolume = targetClip.volume;
                   _clipSpeed = targetClip.speed;
                   
