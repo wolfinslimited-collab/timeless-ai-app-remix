@@ -2416,12 +2416,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         child: Column(
           children: [
             _buildTopBar(),
-            // Video preview with strictly constrained max height (40% or 300px)
-            // Uses flex: 0 to prevent expansion, ensuring bottom UI is always visible
+            // Video preview with strictly constrained max height (35% or 280px)
+            // Uses fixed height to ensure bottom toolbar is always visible
             Container(
               constraints: BoxConstraints(
-                maxHeight: math.min(MediaQuery.of(context).size.height * 0.4, 300),
+                maxHeight: math.min(MediaQuery.of(context).size.height * 0.35, 280),
+                minHeight: 180,
               ),
+              margin: const EdgeInsets.symmetric(horizontal: 8),
               clipBehavior: Clip.hardEdge,
               decoration: BoxDecoration(
                 color: Colors.black,
