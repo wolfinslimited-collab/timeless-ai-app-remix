@@ -1763,19 +1763,19 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             <p className="mt-4 text-white/60 text-sm">Loading video...</p>
           </div>
         ) : videoUrl ? (
-          <div className="flex-1 flex items-center justify-center px-4 overflow-hidden min-h-0">
-            {/* Fixed-size parent container - height never changes */}
+          <div 
+            className="flex items-center justify-center px-4 overflow-hidden"
+            style={{ flex: '0 0 auto', maxHeight: 'min(40%, 300px)', height: 'min(40%, 300px)' }}
+          >
+            {/* Fixed-size parent container - strictly constrained height */}
             <div 
-              className="relative w-full flex items-center justify-center overflow-hidden"
-              style={{ height: 'min(70vh, 400px)', maxHeight: 'min(70vh, 400px)' }}
+              className="relative w-full h-full flex items-center justify-center overflow-hidden bg-black rounded-lg"
             >
-              {/* Black background fills the fixed container */}
-              <div className="absolute inset-0 bg-black rounded-lg" />
-              {/* Container with BoxFit.contain behavior - fixed height, width shrinks for vertical ratios */}
+              {/* Container with BoxFit.contain behavior - video fits within fixed bounds */}
               {(() => {
                 // Calculate container dimensions using BoxFit.contain logic
                 const getContainedDimensions = () => {
-                  const containerHeight = Math.min(window.innerHeight * 0.7, 400);
+                  const containerHeight = Math.min(window.innerHeight * 0.4, 300);
                   const containerWidth = window.innerWidth - 32; // Account for padding
                   
                   if (selectedAspectRatio === 'original') {

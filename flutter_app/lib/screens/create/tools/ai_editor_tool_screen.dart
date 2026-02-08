@@ -2416,14 +2416,18 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         child: Column(
           children: [
             _buildTopBar(),
-            // Video preview takes remaining space with constrained max height
-            Expanded(
-              child: Container(
-                // Clip any overflow from aspect ratio changes or dragging
-                clipBehavior: Clip.hardEdge,
-                decoration: const BoxDecoration(),
-                child: _buildVideoPreviewArea(),
+            // Video preview with strictly constrained max height (40% or 300px)
+            // Uses flex: 0 to prevent expansion, ensuring bottom UI is always visible
+            Container(
+              constraints: BoxConstraints(
+                maxHeight: math.min(MediaQuery.of(context).size.height * 0.4, 300),
               ),
+              clipBehavior: Clip.hardEdge,
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: _buildVideoPreviewArea(),
             ),
             // Fixed position elements below video
             if (_isVideoInitialized && _videoController != null)
@@ -2665,12 +2669,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     if (_isVideoInitialized && _videoController != null) {
       return LayoutBuilder(
         builder: (context, constraints) {
-          // BoxFit.contain behavior: fixed container height, width shrinks for vertical ratios
+          // BoxFit.contain behavior: video fits within fixed container bounds
           final videoAspectRatio = _videoController!.value.aspectRatio;
           
-          // Fixed container height - never expands vertically
-          final fixedHeight = math.min(constraints.maxHeight * 0.95, 400.0);
-          final availableWidth = constraints.maxWidth - 32;
+          // Use the full available height from parent constraint (already limited to 40%/300px)
+          final availableHeight = constraints.maxHeight;
+          final availableWidth = constraints.maxWidth - 16;
           
           // Get target aspect ratio from selection
           double targetAspectRatio = videoAspectRatio;
@@ -2682,18 +2686,22 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             targetAspectRatio = (preset['width'] as num) / (preset['height'] as num);
           }
           
-          // BoxFit.contain: calculate dimensions that fit within fixed bounds
-          // Start with the fixed height and calculate width from aspect ratio
-          double containerHeight = fixedHeight;
-          double containerWidth = containerHeight * targetAspectRatio;
+          // BoxFit.contain: fit within available space while maintaining aspect ratio
+          double containerWidth;
+          double containerHeight;
           
-          // If width exceeds available space, scale down proportionally
-          if (containerWidth > availableWidth) {
+          // Calculate dimensions that fit within bounds
+          if (availableWidth / availableHeight > targetAspectRatio) {
+            // Height constrained - use full height, calculate width
+            containerHeight = availableHeight;
+            containerWidth = containerHeight * targetAspectRatio;
+          } else {
+            // Width constrained - use full width, calculate height
             containerWidth = availableWidth;
             containerHeight = containerWidth / targetAspectRatio;
           }
           
-          // Calculate video scale to cover the container
+          // Calculate video scale to cover the container for non-original ratios
           final videoScale = _selectedAspectRatio == 'original' ? 1.0 : 1.2;
           
           return Center(
