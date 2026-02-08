@@ -2412,31 +2412,33 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
       body: SafeArea(
-        // Main layout is NOT scrollable - only timeline scrolls horizontally
+        // Main layout: Column with fixed bottom elements and flexible top
         child: Column(
           children: [
             _buildTopBar(),
-            // Video preview with strictly constrained max height (35% or 280px)
-            // Uses fixed height to ensure bottom toolbar is always visible
-            Container(
-              constraints: BoxConstraints(
-                maxHeight: math.min(MediaQuery.of(context).size.height * 0.35, 280),
-                minHeight: 180,
+            // Video preview - Expanded to fill remaining space, but with max constraint
+            Expanded(
+              child: Container(
+                constraints: const BoxConstraints(maxHeight: 280),
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                clipBehavior: Clip.hardEdge,
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: _buildVideoPreviewArea(),
               ),
-              margin: const EdgeInsets.symmetric(horizontal: 8),
-              clipBehavior: Clip.hardEdge,
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: _buildVideoPreviewArea(),
             ),
-            // Fixed position elements below video
+            // Fixed position elements below video - always visible
             if (_isVideoInitialized && _videoController != null)
               _buildVideoControlBar(),
             // Dynamic UI: Show timeline OR settings panel based on active tool
+            // This is a fixed-height section that doesn't push content off screen
             if (_isVideoInitialized && _videoController != null)
-              _buildDynamicBottomArea(),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 320),
+                child: _buildDynamicBottomArea(),
+              ),
           ],
         ),
       ),
@@ -5175,6 +5177,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   Widget _buildBottomToolbar() {
     return Container(
+      constraints: const BoxConstraints(maxHeight: 160),
       decoration: BoxDecoration(
         color: const Color(0xFF0A0A0A),
         border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
