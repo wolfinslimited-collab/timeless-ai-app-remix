@@ -2743,18 +2743,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             return (
                               <div 
                                 key={clip.id}
-                                className={cn(
-                                  "relative h-[48px] overflow-hidden cursor-pointer transition-all",
-                                  isSelected && "ring-2 ring-white shadow-lg"
-                                )}
+                                className="relative h-[48px] overflow-hidden cursor-pointer transition-all"
                                 style={{ 
-                                  borderColor: isSelected ? '#ffffff' : 'transparent', 
-                                  borderWidth: isSelected ? 2.5 : 0,
-                                  borderStyle: 'solid',
                                   width: clipWidth,
-                                  borderRadius: `${isFirst ? 8 : 0}px ${isLast ? 8 : 0}px ${isLast ? 8 : 0}px ${isFirst ? 8 : 0}px`,
                                   backgroundColor: '#2A1515',
-                                  boxShadow: isSelected ? '0 0 12px rgba(170, 34, 34, 0.5)' : undefined,
                                 }}
                                 onClick={() => setSelectedClipId(clip.id)}
                               >
@@ -2765,10 +2757,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                       "w-3 h-full flex items-center justify-center cursor-ew-resize z-10 shrink-0",
                                       isSelected ? "bg-white/60" : "bg-[#AA2222]/80"
                                     )}
-                                    style={{
-                                      borderTopLeftRadius: isFirst ? 6 : 0,
-                                      borderBottomLeftRadius: isFirst ? 6 : 0,
-                                    }}
                                     onMouseDown={(e) => {
                                       e.stopPropagation();
                                       saveStateToHistory(); // Save before trimming
@@ -2799,9 +2787,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                       document.addEventListener('mousemove', handleMove);
                                       document.addEventListener('mouseup', handleUp);
                                     }}
-                                  >
-                                    <div className="w-0.5 h-5 bg-white/90 rounded-full" />
-                                  </div>
+                                  />
                                   
                                   {/* Thumbnails content area */}
                                   <div className="flex-1 flex relative overflow-hidden">
@@ -2858,19 +2844,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                       </div>
                                     )}
                                     
-                                    {/* Edit button when selected */}
-                                    {isSelected && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          openClipEditPanel(clip.id);
-                                        }}
-                                        className="absolute right-7 top-0.5 w-5 h-5 bg-primary/90 hover:bg-primary rounded-full flex items-center justify-center"
-                                      >
-                                        <Scissors className="w-3 h-3 text-white" />
-                                      </button>
-                                    )}
-                                    
                                   </div>
                                   
                                   {/* Right trim handle */}
@@ -2879,10 +2852,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                       "w-3 h-full flex items-center justify-center cursor-ew-resize z-10 shrink-0",
                                       isSelected ? "bg-white/60" : "bg-[#AA2222]/80"
                                     )}
-                                    style={{
-                                      borderTopRightRadius: isLast ? 6 : 0,
-                                      borderBottomRightRadius: isLast ? 6 : 0,
-                                    }}
                                     onMouseDown={(e) => {
                                       e.stopPropagation();
                                       saveStateToHistory(); // Save before trimming
@@ -2913,9 +2882,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                       document.addEventListener('mousemove', handleMove);
                                       document.addEventListener('mouseup', handleUp);
                                     }}
-                                  >
-                                    <div className="w-0.5 h-5 bg-white/90 rounded-full" />
-                                  </div>
+                                  />
                                 </div>
                               </div>
                             );

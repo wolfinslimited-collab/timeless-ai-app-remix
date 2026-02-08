@@ -3132,29 +3132,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       child: Container(
         width: clipWidth,
         height: _thumbnailHeight + 4,
-        decoration: BoxDecoration(
-          color: const Color(0xFF2A1515),
-          // Only round corners on first/last clips for seamless join
-          borderRadius: BorderRadius.horizontal(
-            left: isFirst ? const Radius.circular(8) : Radius.zero,
-            right: isLast ? const Radius.circular(8) : Radius.zero,
-          ),
-          // Only show border when selected
-          border: isSelected 
-              ? Border.all(color: Colors.white, width: 2.5)
-              : null,
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: videoColor.withOpacity(0.5),
-              blurRadius: 12,
-            ),
-          ] : null,
+        decoration: const BoxDecoration(
+          color: Color(0xFF2A1515),
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.horizontal(
-            left: isFirst ? const Radius.circular(6) : Radius.zero,
-            right: isLast ? const Radius.circular(6) : Radius.zero,
-          ),
+        child: ClipRect(
           child: Row(
             children: [
               // Left trim handle
@@ -3184,27 +3165,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 },
                 child: Container(
                   width: 12,
-                  decoration: BoxDecoration(
-                    color: isSelected 
-                        ? Colors.white.withOpacity(0.6) 
-                        : videoColor.withOpacity(0.8),
-                    borderRadius: isFirst 
-                        ? const BorderRadius.only(
-                            topLeft: Radius.circular(6),
-                            bottomLeft: Radius.circular(6),
-                          ) 
-                        : null,
-                  ),
-                  child: Center(
-                    child: Container(
-                      width: 3,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(1.5),
-                      ),
-                    ),
-                  ),
+                  color: isSelected 
+                      ? Colors.white.withOpacity(0.6) 
+                      : videoColor.withOpacity(0.8),
                 ),
               ),
               
@@ -3326,24 +3289,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         ),
                       ),
                     
-                    // Edit button when selected
-                    if (isSelected)
-                      Positioned(
-                        right: _videoClips.length > 1 ? 28 : 4,
-                        top: 2,
-                        child: GestureDetector(
-                          onTap: () => _openClipEditPanel(clip.id),
-                          child: Container(
-                            width: 20,
-                            height: 20,
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).primaryColor.withOpacity(0.9),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.content_cut, size: 10, color: Colors.white),
-                          ),
-                        ),
-                      ),
                     
                   ],
                 ),
@@ -3376,27 +3321,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 },
                 child: Container(
                   width: 12,
-                  decoration: BoxDecoration(
-                    color: isSelected 
-                        ? Colors.white.withOpacity(0.6) 
-                        : videoColor.withOpacity(0.8),
-                    borderRadius: isLast 
-                        ? const BorderRadius.only(
-                            topRight: Radius.circular(6),
-                            bottomRight: Radius.circular(6),
-                          ) 
-                        : null,
-                  ),
-                  child: Center(
-                    child: Container(
-                      width: 3,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(1.5),
-                      ),
-                    ),
-                  ),
+                  color: isSelected 
+                      ? Colors.white.withOpacity(0.6) 
+                      : videoColor.withOpacity(0.8),
                 ),
               ),
             ],
