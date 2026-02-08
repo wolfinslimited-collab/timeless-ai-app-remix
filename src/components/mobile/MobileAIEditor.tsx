@@ -303,12 +303,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Captions menu mode state - activated by clicking "Captions" tool
   const [isCaptionsMenuMode, setIsCaptionsMenuMode] = useState(false);
   
-  // Settings panel overlay state - for adjust, aspect, background panels
+  // Aspect ratio menu mode state - activated by clicking "Aspect" tool
+  const [isAspectMenuMode, setIsAspectMenuMode] = useState(false);
+  
+  // Settings panel overlay state - for adjust, stickers, background panels
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-  const [settingsPanelType, setSettingsPanelType] = useState<'adjust' | 'stickers' | 'aspect' | 'background' | null>(null);
+  const [settingsPanelType, setSettingsPanelType] = useState<'adjust' | 'stickers' | 'background' | null>(null);
   
   // Computed: check if any overlay menu is currently open (to hide main toolbar)
-  const isAnyOverlayOpen = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isSettingsPanelOpen;
+  const isAnyOverlayOpen = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isSettingsPanelOpen;
   
   // Sticker presets
   const stickerCategories = [
@@ -1539,9 +1542,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       return;
     }
     
+    // Aspect tool opens the aspect ratio menu
+    if (tool.id === 'aspect') {
+      setIsAspectMenuMode(true);
+      setSelectedTool('aspect');
+      return;
+    }
+    
     // Settings panel tools - open as overlay
-    if (['adjust', 'stickers', 'aspect', 'background'].includes(tool.id)) {
-      setSettingsPanelType(tool.id as 'adjust' | 'stickers' | 'aspect' | 'background');
+    if (['adjust', 'stickers', 'background'].includes(tool.id)) {
+      setSettingsPanelType(tool.id as 'adjust' | 'stickers' | 'background');
       setIsSettingsPanelOpen(true);
       return;
     }
@@ -2992,7 +3002,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   {/* Title */}
                   <span className="text-foreground font-bold text-base">
                     {settingsPanelType === 'stickers' ? 'Stickers' :
-                     settingsPanelType === 'aspect' ? 'Aspect Ratio' :
                      settingsPanelType === 'background' ? 'Background' : 'Adjust'}
                   </span>
                   
@@ -3224,38 +3233,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             </button>
                           ))}
                         </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {settingsPanelType === 'aspect' && (
-                    <div className="px-4 py-4">
-                      <div className="grid grid-cols-3 gap-3">
-                        {[
-                          { id: '9:16', label: '9:16', desc: 'Portrait' },
-                          { id: '16:9', label: '16:9', desc: 'Landscape' },
-                          { id: '1:1', label: '1:1', desc: 'Square' },
-                          { id: '4:5', label: '4:5', desc: 'Instagram' },
-                          { id: '4:3', label: '4:3', desc: 'Standard' },
-                          { id: '21:9', label: '21:9', desc: 'Cinematic' },
-                        ].map((ratio) => (
-                          <button
-                            key={ratio.id}
-                            onClick={() => {
-                              setSelectedAspectRatio(ratio.id);
-                              toast({ title: `Aspect ratio set to ${ratio.label}` });
-                            }}
-                            className={cn(
-                              "flex flex-col items-center justify-center py-4 rounded-xl transition-all border",
-                              selectedAspectRatio === ratio.id 
-                                ? "bg-primary/20 border-primary/40 text-primary" 
-                                : "bg-white/5 border-transparent text-foreground/70 hover:bg-white/10"
-                            )}
-                          >
-                            <span className="text-lg font-bold">{ratio.label}</span>
-                            <span className="text-[10px] mt-1 opacity-70">{ratio.desc}</span>
-                          </button>
-                        ))}
                       </div>
                     </div>
                   )}
@@ -4669,6 +4646,71 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         </button>
                       );
                     })}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Aspect Ratio Menu Overlay */}
+            {isAspectMenuMode && (
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '200px' }}>
+                {/* Header with back button and title */}
+                <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
+                  <button
+                    onClick={() => setIsAspectMenuMode(false)}
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                  >
+                    <ChevronDown className="w-5 h-5 text-primary" />
+                  </button>
+                  <span className="flex-1 text-sm font-medium text-foreground text-center">
+                    Aspect Ratio
+                  </span>
+                  <button
+                    onClick={() => {
+                      setIsAspectMenuMode(false);
+                      toast({ title: "Aspect ratio applied" });
+                    }}
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary hover:bg-primary/90 transition-colors"
+                  >
+                    <Check className="w-5 h-5 text-primary-foreground" />
+                  </button>
+                </div>
+                
+                {/* Horizontal Scrollable Aspect Ratio Options */}
+                <div className="flex-1 flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  <div className="flex gap-3 min-w-max">
+                    {[
+                      { id: 'original', label: 'Original', icon: '📐' },
+                      { id: '9:16', label: '9:16', icon: '📱' },
+                      { id: '16:9', label: '16:9', icon: '🖥️' },
+                      { id: '1:1', label: '1:1', icon: '⬜' },
+                      { id: '4:5', label: '4:5', icon: '📷' },
+                      { id: '4:3', label: '4:3', icon: '📺' },
+                      { id: '21:9', label: '21:9', icon: '🎬' },
+                      { id: '2.35:1', label: '2.35:1', icon: '🎞️' },
+                    ].map((ratio) => (
+                      <button
+                        key={ratio.id}
+                        onClick={() => {
+                          setSelectedAspectRatio(ratio.id);
+                          setVideoPosition({ x: 0, y: 0 }); // Reset position on aspect change
+                        }}
+                        className={cn(
+                          "flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all border",
+                          selectedAspectRatio === ratio.id 
+                            ? "bg-primary/20 border-primary/40" 
+                            : "bg-muted/20 border-transparent hover:bg-muted/40"
+                        )}
+                      >
+                        <span className="text-xl mb-1">{ratio.icon}</span>
+                        <span className={cn(
+                          "text-xs font-medium",
+                          selectedAspectRatio === ratio.id ? "text-primary" : "text-foreground/70"
+                        )}>
+                          {ratio.label}
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
