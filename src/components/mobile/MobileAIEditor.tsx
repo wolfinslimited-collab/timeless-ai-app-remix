@@ -1764,36 +1764,53 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           </div>
         ) : videoUrl ? (
           <div className="flex-1 flex items-center justify-center px-4 overflow-hidden min-h-0">
-            {/* Fixed-size parent container with hard clipping - constrained max height */}
+            {/* Fixed-size parent container - height never changes */}
             <div 
               className="relative w-full flex items-center justify-center overflow-hidden"
-              style={{ maxHeight: 'min(70vh, 400px)', height: '100%' }}
+              style={{ height: 'min(70vh, 400px)', maxHeight: 'min(70vh, 400px)' }}
             >
-              {/* Container with selected aspect ratio - uses black background */}
+              {/* Black background fills the fixed container */}
+              <div className="absolute inset-0 bg-black rounded-lg" />
+              {/* Container with BoxFit.contain behavior - fixed height, width shrinks for vertical ratios */}
               {(() => {
-                // Calculate aspect ratio dimensions
-                const getAspectRatioStyle = () => {
+                // Calculate container dimensions using BoxFit.contain logic
+                const getContainedDimensions = () => {
+                  const containerHeight = Math.min(window.innerHeight * 0.7, 400);
+                  const containerWidth = window.innerWidth - 32; // Account for padding
+                  
                   if (selectedAspectRatio === 'original') {
-                    return { aspectRatio: '16/9', maxWidth: '100%', maxHeight: '100%' };
+                    // Original uses 16:9 as default
+                    const ratio = 16 / 9;
+                    const width = Math.min(containerWidth, containerHeight * ratio);
+                    return { width: `${width}px`, height: `${width / ratio}px` };
                   }
+                  
                   const preset = aspectRatioPresets.find(p => p.id === selectedAspectRatio);
                   if (preset) {
-                    const ratio = preset.width / preset.height;
-                    return { aspectRatio: `${preset.width}/${preset.height}`, maxWidth: ratio >= 1 ? '100%' : undefined, maxHeight: ratio < 1 ? '100%' : undefined };
+                    const targetRatio = preset.width / preset.height;
+                    // BoxFit.contain: fit within container while maintaining aspect ratio
+                    // Height is fixed, width adjusts
+                    let width = containerHeight * targetRatio;
+                    let height = containerHeight;
+                    
+                    // If width exceeds container, scale down
+                    if (width > containerWidth) {
+                      width = containerWidth;
+                      height = width / targetRatio;
+                    }
+                    
+                    return { width: `${width}px`, height: `${height}px` };
                   }
-                  return { aspectRatio: '16/9' };
+                  return { width: '100%', height: '100%' };
                 };
-                const aspectStyle = getAspectRatioStyle();
+                const dimensions = getContainedDimensions();
                 
                 return (
                   <div 
-                    className="relative bg-black rounded-lg flex items-center justify-center"
+                    className="relative bg-black rounded-lg flex items-center justify-center z-10"
                     style={{
-                      aspectRatio: aspectStyle.aspectRatio,
-                      maxWidth: aspectStyle.maxWidth || '28rem',
-                      maxHeight: aspectStyle.maxHeight || '100%',
-                      width: '100%',
-                      height: 'auto',
+                      width: dimensions.width,
+                      height: dimensions.height,
                       overflow: 'hidden',
                       clipPath: 'inset(0 round 8px)',
                     }}
