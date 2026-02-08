@@ -5214,47 +5214,66 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             ),
           
           if (_isTextMenuMode)
-            Positioned.fill(
-              child: SlideTransition(
-                position: AlwaysStoppedAnimation(Offset.zero),
-                child: FadeTransition(
-                  opacity: const AlwaysStoppedAnimation(1.0),
-                  child: Container(
-                    color: const Color(0xFF0A0A0A),
-                    child: _buildTextMenu(),
-                  ),
-                ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 160,
+              child: Material(
+                color: const Color(0xFF0A0A0A),
+                elevation: 8,
+                child: _buildTextMenu(),
               ),
             ),
           
           if (_isAudioMenuMode)
-            Positioned.fill(
-              child: Container(
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 160,
+              child: Material(
                 color: const Color(0xFF0A0A0A),
+                elevation: 8,
                 child: _buildAudioMenu(),
               ),
             ),
           
           if (_isEffectsMenuMode)
-            Positioned.fill(
-              child: Container(
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 160,
+              child: Material(
                 color: const Color(0xFF0A0A0A),
+                elevation: 8,
                 child: _buildEffectsMenu(),
               ),
             ),
           
           if (_isOverlayMenuMode)
-            Positioned.fill(
-              child: Container(
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 160,
+              child: Material(
                 color: const Color(0xFF0A0A0A),
+                elevation: 8,
                 child: _buildOverlayMenu(),
               ),
             ),
           
           if (_isCaptionsMenuMode)
-            Positioned.fill(
-              child: Container(
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 160,
+              child: Material(
                 color: const Color(0xFF0A0A0A),
+                elevation: 8,
                 child: _buildCaptionsMenu(),
               ),
             ),

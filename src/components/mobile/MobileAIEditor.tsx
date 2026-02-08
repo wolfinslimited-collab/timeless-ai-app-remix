@@ -3561,7 +3561,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Text Menu Overlay */}
             {isTextMenuMode && (
-              <div className="absolute inset-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-10 flex flex-col" style={{ maxHeight: '180px' }}>
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center px-2 py-2 border-b border-border/20">
                   <button
@@ -3655,7 +3655,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Effects Menu Overlay */}
             {isEffectsMenuMode && (
-              <div className="absolute inset-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-10 flex flex-col">
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center px-2 py-2 border-b border-border/20">
                   <button
@@ -3698,7 +3698,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Overlay Menu Overlay */}
             {isOverlayMenuMode && (
-              <div className="absolute inset-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-10 flex flex-col">
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center px-2 py-2 border-b border-border/20">
                   <button
@@ -3731,7 +3731,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Captions Menu Overlay */}
             {isCaptionsMenuMode && (
-              <div className="absolute inset-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-10 flex flex-col">
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center px-2 py-2 border-b border-border/20">
                   <button
@@ -3776,7 +3776,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Audio Menu Overlay */}
             {isAudioMenuMode && (
-              <div className="absolute inset-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-10 flex flex-col">
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center px-2 py-2 border-b border-border/20">
                   <button
