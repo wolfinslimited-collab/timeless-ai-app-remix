@@ -3813,122 +3813,117 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           </>
         )
       }
-      {/* Output Settings Drawer */}
+      {/* Output Settings Drawer - Opens from top */}
       {showOutputSettings && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-50 flex items-start justify-center">
+          {/* Backdrop with fade animation */}
           <div 
-            className="absolute inset-0 bg-black/60"
+            className="absolute inset-0 bg-black/50 animate-fade-in"
             onClick={() => setShowOutputSettings(false)}
           />
           
-          {/* Drawer Content */}
-          <div className="relative w-full max-w-md bg-[#0A0A0A] rounded-t-2xl p-5 animate-in slide-in-from-bottom duration-300">
+          {/* Drawer Content - slides from top */}
+          <div className="relative w-full bg-[#0A0A0A] rounded-b-xl p-3 shadow-2xl animate-in slide-in-from-top duration-200">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <span className="text-white text-lg font-semibold">video</span>
-                <div className="h-0.5 w-8 bg-primary mt-1 rounded-full" />
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-white text-xs font-semibold">Output Settings</span>
+                <div className="h-0.5 w-5 bg-primary rounded-full" />
               </div>
-            </div>
-            
-            {/* Resolution */}
-            <div className="mb-6">
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-white text-sm font-medium">Resolution</span>
-                  <HelpCircle className="w-4 h-4 text-white/50" />
-                </div>
-                <span className="text-white/50 text-xs text-right max-w-[180px]">
-                  {outputResolution === '480p' && 'Low quality - faster export'}
-                  {outputResolution === '720p' && 'Standard definition - the resolution used for most TikTok videos'}
-                  {outputResolution === '1080p' && 'Full HD - great for YouTube'}
-                  {outputResolution === '2K/4K' && 'Ultra HD - maximum quality'}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={3}
-                value={['480p', '720p', '1080p', '2K/4K'].indexOf(outputResolution)}
-                onChange={(e) => setOutputResolution(['480p', '720p', '1080p', '2K/4K'][parseInt(e.target.value)])}
-                className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-primary"
-              />
-              <div className="flex justify-between mt-2">
-                {['480p', '720p', '1080p', '2K/4K'].map((r) => (
-                  <span key={r} className="text-white/60 text-[11px]">{r}</span>
-                ))}
-              </div>
-            </div>
-            
-            {/* Frame Rate */}
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-white text-sm font-medium">Frame rate</span>
-                <span className="text-white/50 text-xs">Smoother playback</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={4}
-                value={[24, 25, 30, 50, 60].indexOf(outputFrameRate)}
-                onChange={(e) => setOutputFrameRate([24, 25, 30, 50, 60][parseInt(e.target.value)])}
-                className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-primary"
-              />
-              <div className="flex justify-between mt-2">
-                {[24, 25, 30, 50, 60].map((r) => (
-                  <span key={r} className="text-white/60 text-[11px]">{r}</span>
-                ))}
-              </div>
-            </div>
-            
-            {/* Optical Flow Toggle */}
-            <div className="flex items-center justify-between mb-6 py-3">
-              <div className="flex-1">
-                <span className="text-white text-sm font-medium">Optical flow</span>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-primary text-xs">Make video playback smoother.</span>
-                  <span className="text-white/50 text-xs">| ▶ Example</span>
-                </div>
-              </div>
-              <button
-                onClick={() => setOpticalFlowEnabled(!opticalFlowEnabled)}
-                className={cn(
-                  "w-11 h-6 rounded-full transition-colors relative",
-                  opticalFlowEnabled ? "bg-primary" : "bg-white/20"
-                )}
+              <button 
+                onClick={() => setShowOutputSettings(false)}
+                className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
               >
-                <div className={cn(
-                  "absolute top-1 w-4 h-4 rounded-full bg-white transition-transform",
-                  opticalFlowEnabled ? "translate-x-6" : "translate-x-1"
-                )} />
+                <X className="w-3 h-3 text-white" />
               </button>
             </div>
             
-            {/* Bitrate */}
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-white text-sm font-medium">Bitrate (Mbps)</span>
-                <span className="text-white/50 text-xs">Recommended for this video({outputBitrate})</span>
+            {/* Compact Grid Layout */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Resolution */}
+              <div className="bg-white/5 rounded-lg p-2">
+                <div className="flex items-center gap-1 mb-1.5">
+                  <span className="text-white text-[10px] font-medium">Resolution</span>
+                  <HelpCircle className="w-2.5 h-2.5 text-white/40" />
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={3}
+                  value={['480p', '720p', '1080p', '2K/4K'].indexOf(outputResolution)}
+                  onChange={(e) => setOutputResolution(['480p', '720p', '1080p', '2K/4K'][parseInt(e.target.value)])}
+                  className="w-full h-0.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+                <div className="flex justify-between mt-1">
+                  {['480p', '720p', '1080p', '4K'].map((r) => (
+                    <span key={r} className="text-white/50 text-[8px]">{r}</span>
+                  ))}
+                </div>
               </div>
-              <input
-                type="range"
-                min={0}
-                max={4}
-                value={[5, 10, 20, 50, 100].indexOf(outputBitrate)}
-                onChange={(e) => setOutputBitrate([5, 10, 20, 50, 100][parseInt(e.target.value)])}
-                className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-primary"
-              />
-              <div className="flex justify-between mt-2">
-                {[5, 10, 20, 50, 100].map((r) => (
-                  <span key={r} className="text-white/60 text-[11px]">{r}</span>
-                ))}
+              
+              {/* Frame Rate */}
+              <div className="bg-white/5 rounded-lg p-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-white text-[10px] font-medium">Frame Rate</span>
+                  <span className="text-primary text-[8px]">{outputFrameRate}fps</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={4}
+                  value={[24, 25, 30, 50, 60].indexOf(outputFrameRate)}
+                  onChange={(e) => setOutputFrameRate([24, 25, 30, 50, 60][parseInt(e.target.value)])}
+                  className="w-full h-0.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+                <div className="flex justify-between mt-1">
+                  {[24, 25, 30, 50, 60].map((r) => (
+                    <span key={r} className="text-white/50 text-[8px]">{r}</span>
+                  ))}
+                </div>
               </div>
-            </div>
-            
-            {/* Estimated File Size */}
-            <div className="text-center text-white/50 text-sm">
-              Estimated file size: {Math.round((outputBitrate * (duration || 10)) / 8)} MB
+              
+              {/* Bitrate */}
+              <div className="bg-white/5 rounded-lg p-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-white text-[10px] font-medium">Bitrate</span>
+                  <span className="text-primary text-[8px]">{outputBitrate}Mbps</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={4}
+                  value={[5, 10, 20, 50, 100].indexOf(outputBitrate)}
+                  onChange={(e) => setOutputBitrate([5, 10, 20, 50, 100][parseInt(e.target.value)])}
+                  className="w-full h-0.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+                <div className="flex justify-between mt-1">
+                  {[5, 10, 20, 50, 100].map((r) => (
+                    <span key={r} className="text-white/50 text-[8px]">{r}</span>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Optical Flow & File Size */}
+              <div className="bg-white/5 rounded-lg p-2 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-white text-[10px] font-medium">Optical Flow</span>
+                  <button
+                    onClick={() => setOpticalFlowEnabled(!opticalFlowEnabled)}
+                    className={cn(
+                      "w-8 h-4 rounded-full transition-all duration-200 relative",
+                      opticalFlowEnabled ? "bg-primary" : "bg-white/20"
+                    )}
+                  >
+                    <div className={cn(
+                      "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform duration-200",
+                      opticalFlowEnabled ? "translate-x-4" : "translate-x-0.5"
+                    )} />
+                  </button>
+                </div>
+                <div className="text-center mt-2">
+                  <span className="text-white/40 text-[9px]">~{Math.round((outputBitrate * (duration || 10)) / 8)} MB</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
