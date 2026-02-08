@@ -647,6 +647,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       if (videoRef.current && Math.abs(videoRef.current.currentTime - localTime) > 0.1) {
         videoRef.current.currentTime = localTime;
       }
+      
+      // Apply per-clip speed and volume
+      if (videoRef.current) {
+        videoRef.current.playbackRate = clip.speed;
+        videoRef.current.volume = isMuted ? 0 : Math.min(1, clip.volume);
+      }
     }
     
     // 2. Sync audio layers
