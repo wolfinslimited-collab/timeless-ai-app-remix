@@ -3621,12 +3621,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           )}
                         </div>
                         
-                        {/* Add video button - pinned directly to the right of video clips */}
+                        {/* Add video button - square, at end of video layer */}
                         <button 
                           onClick={handleDirectFilePick}
-                          className="w-11 h-[32px] bg-white rounded-xl flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(255,255,255,0.25)] ml-2"
+                          className="w-[32px] h-[32px] bg-white rounded flex items-center justify-center shrink-0"
                         >
-                          <Plus className="w-6 h-6 text-black" />
+                          <Plus className="w-4 h-4 text-black" />
                         </button>
                       </div>
                       
