@@ -5732,7 +5732,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         // Horizontal Scrollable Edit Tools
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.only(left: 8, right: 8, top: 12, bottom: 12),
+          padding: const EdgeInsets.only(left: 8, right: 8, top: 16, bottom: 16),
           child: Row(
             children: editTools.map((tool) {
               final isDelete = tool['id'] == 'delete';
