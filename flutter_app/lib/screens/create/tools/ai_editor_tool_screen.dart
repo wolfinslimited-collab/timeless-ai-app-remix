@@ -638,6 +638,22 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Edit sub-panel state for volume/speed controls
   String _editSubPanel = 'none'; // 'none', 'volume', 'speed'
   
+  // Speed mode: 'normal' for linear slider, 'curve' for presets
+  String _speedMode = 'normal';
+  
+  // Selected speed curve preset
+  String? _selectedSpeedCurve;
+  
+  // Speed curve presets
+  final List<Map<String, dynamic>> _speedCurvePresets = [
+    {'id': 'montage', 'name': 'Montage', 'description': 'Quick cuts with varying speed'},
+    {'id': 'hero', 'name': 'Hero', 'description': 'Slow-mo emphasis on action'},
+    {'id': 'bullet', 'name': 'Bullet', 'description': 'Extreme slow-motion effect'},
+    {'id': 'jump_cut', 'name': 'Jump Cut', 'description': 'Sudden speed changes'},
+    {'id': 'ramp_up', 'name': 'Ramp Up', 'description': 'Gradually accelerate'},
+    {'id': 'ramp_down', 'name': 'Ramp Down', 'description': 'Gradually decelerate'},
+  ];
+  
   // Effects menu mode state - activated by clicking "Effects" tool
   bool _isEffectsMenuMode = false;
   
@@ -647,7 +663,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Captions menu mode state - activated by clicking "Captions" tool
   bool _isCaptionsMenuMode = false;
   
-  // Speed presets
+  // Speed presets (legacy)
   final List<Map<String, dynamic>> _speedPresets = [
     {'value': 0.25, 'label': '0.25x'},
     {'value': 0.5, 'label': '0.5x'},
@@ -6379,56 +6395,212 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
-  /// Speed presets sub-panel
+  /// Speed sub-panel with Normal/Curve modes
   Widget _buildSpeedSubPanel() {
+    // Get the editing clip for duration calculation
+    final clip = _editingClipId != null 
+        ? _videoClips.firstWhere((c) => c.id == _editingClipId, orElse: () => _videoClips.first)
+        : (_videoClips.isNotEmpty ? _videoClips.first : null);
+    final originalDuration = clip?.trimmedDuration ?? 0;
+    final newDuration = _clipSpeed > 0 ? originalDuration / _clipSpeed : 0;
+    
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         children: [
-          Expanded(
-            child: GridView.count(
-              crossAxisCount: 4,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 1.8,
-              physics: const NeverScrollableScrollPhysics(),
-              children: _speedPresets.map((preset) {
-                final isSelected = _clipSpeed == preset['value'];
-                return GestureDetector(
-                  onTap: () => setState(() => _clipSpeed = preset['value']),
+          // Mode Toggle Buttons
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _speedMode = 'normal'),
                   child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.1),
+                      color: _speedMode == 'normal' ? AppTheme.primary : Colors.white.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.2),
+                        color: _speedMode == 'normal' ? AppTheme.primary : Colors.white.withOpacity(0.2),
                       ),
                     ),
                     child: Center(
                       child: Text(
-                        preset['label'],
+                        'Normal',
                         style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+                          color: _speedMode == 'normal' ? Colors.white : Colors.white.withOpacity(0.7),
                           fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.speed, color: AppTheme.primary, size: 16),
+                ),
+              ),
               const SizedBox(width: 8),
-              Text(
-                '${_clipSpeed.toStringAsFixed(2)}x',
-                style: const TextStyle(color: AppTheme.primary, fontSize: 14, fontWeight: FontWeight.bold),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _speedMode = 'curve'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _speedMode == 'curve' ? AppTheme.primary : Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _speedMode == 'curve' ? AppTheme.primary : Colors.white.withOpacity(0.2),
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Curve',
+                        style: TextStyle(
+                          color: _speedMode == 'curve' ? Colors.white : Colors.white.withOpacity(0.7),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          
+          // Content with fade transition
+          Expanded(
+            child: Stack(
+              children: [
+                // Normal Mode - Linear Speed Slider
+                AnimatedOpacity(
+                  opacity: _speedMode == 'normal' ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: IgnorePointer(
+                    ignoring: _speedMode != 'normal',
+                    child: Column(
+                      children: [
+                        // Speed info header
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${_clipSpeed.toStringAsFixed(1)}x',
+                              style: const TextStyle(
+                                color: AppTheme.primary,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'Duration: ${originalDuration.toStringAsFixed(1)}s → ${newDuration.toStringAsFixed(1)}s',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.5),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        
+                        // Logarithmic slider (0.1x to 100x)
+                        SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            activeTrackColor: AppTheme.primary,
+                            inactiveTrackColor: Colors.white.withOpacity(0.15),
+                            thumbColor: Colors.white,
+                            trackHeight: 4,
+                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                            overlayColor: AppTheme.primary.withOpacity(0.2),
+                          ),
+                          child: Slider(
+                            value: math.log(_clipSpeed.clamp(0.1, 100)) / math.ln10,
+                            min: -1, // log10(0.1)
+                            max: 2, // log10(100)
+                            onChanged: (logValue) {
+                              final newSpeed = math.pow(10, logValue).toDouble();
+                              setState(() => _clipSpeed = newSpeed.clamp(0.1, 100));
+                            },
+                          ),
+                        ),
+                        
+                        // Markers
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('0.1x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
+                            Text('1x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
+                            Text('2x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
+                            Text('5x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
+                            Text('10x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
+                            Text('100x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Curve Mode - Preset Cards
+                AnimatedOpacity(
+                  opacity: _speedMode == 'curve' ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: IgnorePointer(
+                    ignoring: _speedMode != 'curve',
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: _speedCurvePresets.map((preset) {
+                          final isSelected = _selectedSpeedCurve == preset['id'];
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: GestureDetector(
+                              onTap: () => setState(() => _selectedSpeedCurve = preset['id']),
+                              child: Container(
+                                width: 72,
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? AppTheme.primary.withOpacity(0.2) : Colors.white.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.2),
+                                  ),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Mini graph thumbnail
+                                    Container(
+                                      width: 56,
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.05),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: CustomPaint(
+                                        painter: _SpeedCurvePainter(preset['id'], isSelected),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      preset['name'],
+                                      style: TextStyle(
+                                        color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.7),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -9291,4 +9463,71 @@ class _FourWayResizeIconPainter extends CustomPainter {
   
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Custom painter for speed curve preset thumbnails
+class _SpeedCurvePainter extends CustomPainter {
+  final String curveId;
+  final bool isSelected;
+  
+  _SpeedCurvePainter(this.curveId, this.isSelected);
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = isSelected ? AppTheme.primary : Colors.white.withOpacity(0.5)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    
+    final path = Path();
+    
+    switch (curveId) {
+      case 'montage':
+        path.moveTo(2, size.height - 4);
+        path.lineTo(size.width * 0.25, 4);
+        path.lineTo(size.width * 0.45, size.height * 0.6);
+        path.lineTo(size.width * 0.65, 2);
+        path.lineTo(size.width * 0.8, size.height * 0.5);
+        path.lineTo(size.width - 2, 6);
+        break;
+      case 'hero':
+        path.moveTo(2, 6);
+        path.quadraticBezierTo(size.width * 0.35, 6, size.width * 0.5, size.height - 6);
+        path.quadraticBezierTo(size.width * 0.65, 6, size.width - 2, 6);
+        break;
+      case 'bullet':
+        path.moveTo(2, 4);
+        path.lineTo(size.width * 0.35, 4);
+        path.lineTo(size.width * 0.4, size.height - 4);
+        path.lineTo(size.width * 0.6, size.height - 4);
+        path.lineTo(size.width * 0.65, 4);
+        path.lineTo(size.width - 2, 4);
+        break;
+      case 'jump_cut':
+        path.moveTo(2, size.height * 0.6);
+        path.lineTo(size.width * 0.28, size.height * 0.6);
+        path.lineTo(size.width * 0.28, size.height * 0.25);
+        path.lineTo(size.width * 0.5, size.height * 0.25);
+        path.lineTo(size.width * 0.5, size.height * 0.75);
+        path.lineTo(size.width * 0.72, size.height * 0.75);
+        path.lineTo(size.width * 0.72, size.height * 0.4);
+        path.lineTo(size.width - 2, size.height * 0.4);
+        break;
+      case 'ramp_up':
+        path.moveTo(2, size.height - 4);
+        path.quadraticBezierTo(size.width * 0.5, size.height - 4, size.width - 2, 4);
+        break;
+      case 'ramp_down':
+        path.moveTo(2, 4);
+        path.quadraticBezierTo(size.width * 0.5, 4, size.width - 2, size.height - 4);
+        break;
+    }
+    
+    canvas.drawPath(path, paint);
+  }
+  
+  @override
+  bool shouldRepaint(covariant _SpeedCurvePainter oldDelegate) => 
+      oldDelegate.curveId != curveId || oldDelegate.isSelected != isSelected;
 }
