@@ -6320,7 +6320,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Slider with custom purple track
+          // Slider with custom purple track - uses 0-200 range
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               activeTrackColor: AppTheme.primary,
@@ -6331,13 +6331,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               overlayColor: AppTheme.primary.withOpacity(0.2),
             ),
             child: Slider(
-              value: _clipVolume,
+              value: displayValue.toDouble(),
               min: 0.0,
-              max: 2.0,
+              max: 200.0,
+              divisions: 200,
               onChanged: (value) {
-                setState(() => _clipVolume = value);
-                // Real-time volume update
-                _videoController?.setVolume(value.clamp(0.0, 1.0));
+                final newVolume = value / 100; // Convert 0-200 to 0-2
+                setState(() => _clipVolume = newVolume);
+                // Real-time volume update (capped at 1.0)
+                _videoController?.setVolume(newVolume.clamp(0.0, 1.0));
               },
             ),
           ),
