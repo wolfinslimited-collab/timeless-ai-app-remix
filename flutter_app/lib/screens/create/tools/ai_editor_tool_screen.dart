@@ -3894,28 +3894,22 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           // Video Track - Multi-clip filmstrip row
           _buildMultiClipFilmstrip(trackWidth),
           
-          const SizedBox(width: 10),
+          const SizedBox(width: 4),
           
-          // Add clip button - now adds to end of timeline
+          // Add clip button - square, at end of video layer
           GestureDetector(
             onTap: () {
               // Show media picker to add another video clip
               _showMediaPickerSheet();
             },
             child: Container(
-              width: 44,
+              width: _thumbnailHeight,
               height: _thumbnailHeight,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.white.withOpacity(0.25),
-                    blurRadius: 10,
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(4),
               ),
-              child: const Icon(Icons.add, color: Colors.black, size: 26),
+              child: const Icon(Icons.add, color: Colors.black, size: 18),
             ),
           ),
           
