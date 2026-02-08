@@ -5731,7 +5731,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         
         // Horizontal Scrollable Edit Tools
         Container(
-          height: 100,
+          height: 120,
           alignment: Alignment.center,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -5748,13 +5748,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     }
                   },
                   child: Container(
-                    width: 72,
+                    width: 64,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 48,
-                          height: 48,
+                          width: 40,
+                          height: 40,
                           decoration: BoxDecoration(
                             color: isDelete 
                                 ? Colors.red.withOpacity(0.2) 
@@ -5763,7 +5763,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                           ),
                           child: Icon(
                             tool['icon'] as IconData,
-                            size: 24,
+                            size: 20,
                             color: isDelete ? Colors.red : Colors.white,
                           ),
                         ),
@@ -5771,7 +5771,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         Text(
                           tool['name'] as String,
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: FontWeight.w500,
                             color: isDelete 
                                 ? Colors.red 
