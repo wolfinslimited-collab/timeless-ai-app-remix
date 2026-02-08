@@ -3563,19 +3563,21 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             {isTextMenuMode && (
               <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
                 {/* Header with back button and title */}
-                <div className="flex items-center px-2 py-2 border-b border-border/20">
+                <div className="flex items-center px-4 py-2 border-b border-border/20">
                   <button
                     onClick={() => setIsTextMenuMode(false)}
-                    className="shrink-0 flex items-center justify-center w-8 h-9 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
                   >
-                    <ChevronLeft className="w-5 h-5 text-primary" />
+                    <ChevronDown className="w-5 h-5 text-primary" />
                   </button>
-                  <span className="ml-3 text-sm font-medium text-foreground">Text</span>
+                  <span className="flex-1 text-sm font-medium text-foreground text-center pr-8">
+                    Text
+                  </span>
                 </div>
                 
-                {/* Horizontal Scrollable Icons - single row, no wrapping */}
-                <div className="overflow-x-auto overflow-y-visible px-2 py-3" style={{ WebkitOverflowScrolling: 'touch' }}>
-                  <div className="flex gap-2 min-w-max" style={{ overflow: 'visible' }}>
+                {/* Horizontal Scrollable Text Tools */}
+                <div className="flex-1 flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  <div className="flex gap-2 min-w-max">
                     {[
                       { id: 'add-text', name: 'Add text', icon: Type, action: () => { addTextOverlay(); setIsTextMenuMode(false); } },
                       { id: 'auto-captions', name: 'Auto captions', icon: Subtitles, action: () => { generateAutoCaptions(); setIsTextMenuMode(false); } },
@@ -3590,12 +3592,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         <button
                           key={tool.id}
                           onClick={tool.action}
-                          className="flex flex-col items-center justify-center shrink-0 w-16 py-2 rounded-xl transition-all hover:bg-muted/50"
+                          className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
                         >
-                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-muted/30">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-muted/30">
                             <IconComponent className="w-5 h-5 text-foreground" />
                           </div>
-                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight whitespace-nowrap">
+                          <span className="text-[10px] font-medium text-foreground/60">
                             {tool.name}
                           </span>
                         </button>
@@ -3657,19 +3659,21 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             {isEffectsMenuMode && (
               <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
                 {/* Header with back button and title */}
-                <div className="flex items-center px-2 py-2 border-b border-border/20">
+                <div className="flex items-center px-4 py-2 border-b border-border/20">
                   <button
                     onClick={() => setIsEffectsMenuMode(false)}
-                    className="shrink-0 flex items-center justify-center w-8 h-9 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
                   >
-                    <ChevronLeft className="w-5 h-5 text-primary" />
+                    <ChevronDown className="w-5 h-5 text-primary" />
                   </button>
-                  <span className="ml-3 text-sm font-medium text-foreground">Effects</span>
+                  <span className="flex-1 text-sm font-medium text-foreground text-center pr-8">
+                    Effects
+                  </span>
                 </div>
                 
-                {/* Horizontal Scrollable Effects Tools - single row, no wrapping */}
-                <div className="overflow-x-auto overflow-y-visible px-2 py-3" style={{ WebkitOverflowScrolling: 'touch' }}>
-                  <div className="flex gap-2 min-w-max" style={{ overflow: 'visible' }}>
+                {/* Horizontal Scrollable Effects Tools */}
+                <div className="flex-1 flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  <div className="flex gap-2 min-w-max">
                     {[
                       { id: 'video-effects', name: 'Video effects', icon: Video, action: () => toast({ title: "Video effects coming soon" }) },
                       { id: 'body-effects', name: 'Body effects', icon: Star, action: () => toast({ title: "Body effects coming soon" }) },
@@ -3680,12 +3684,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         <button
                           key={tool.id}
                           onClick={tool.action}
-                          className="flex flex-col items-center justify-center shrink-0 w-20 py-2 rounded-xl transition-all hover:bg-muted/50"
+                          className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
                         >
-                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-muted/30">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-muted/30">
                             <IconComponent className="w-5 h-5 text-foreground" />
                           </div>
-                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight whitespace-nowrap">
+                          <span className="text-[10px] font-medium text-foreground/60">
                             {tool.name}
                           </span>
                         </button>
@@ -3700,31 +3704,33 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             {isOverlayMenuMode && (
               <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
                 {/* Header with back button and title */}
-                <div className="flex items-center px-2 py-2 border-b border-border/20">
+                <div className="flex items-center px-4 py-2 border-b border-border/20">
                   <button
                     onClick={() => setIsOverlayMenuMode(false)}
-                    className="shrink-0 flex items-center justify-center w-8 h-9 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
                   >
-                    <ChevronLeft className="w-5 h-5 text-primary" />
+                    <ChevronDown className="w-5 h-5 text-primary" />
                   </button>
-                  <span className="ml-3 text-sm font-medium text-foreground">Overlay</span>
+                  <span className="flex-1 text-sm font-medium text-foreground text-center pr-8">
+                    Overlay
+                  </span>
                 </div>
                 
-                {/* Single Action Button */}
-                <div className="px-4 py-4">
-                  <button
-                    onClick={() => {
-                      toast({ title: "Add overlay coming soon" });
-                    }}
-                    className="flex flex-col items-center justify-center w-20 py-2 rounded-xl transition-all hover:bg-muted/50"
-                  >
-                    <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-muted/30">
-                      <Plus className="w-5 h-5 text-foreground" />
-                    </div>
-                    <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight">
-                      Add overlay
-                    </span>
-                  </button>
+                {/* Horizontal Scrollable Overlay Tools */}
+                <div className="flex-1 flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  <div className="flex gap-2 min-w-max">
+                    <button
+                      onClick={() => toast({ title: "Add overlay coming soon" })}
+                      className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
+                    >
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-muted/30">
+                        <Plus className="w-5 h-5 text-foreground" />
+                      </div>
+                      <span className="text-[10px] font-medium text-foreground/60">
+                        Add overlay
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -3733,19 +3739,21 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             {isCaptionsMenuMode && (
               <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
                 {/* Header with back button and title */}
-                <div className="flex items-center px-2 py-2 border-b border-border/20">
+                <div className="flex items-center px-4 py-2 border-b border-border/20">
                   <button
                     onClick={() => setIsCaptionsMenuMode(false)}
-                    className="shrink-0 flex items-center justify-center w-8 h-9 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
                   >
-                    <ChevronLeft className="w-5 h-5 text-primary" />
+                    <ChevronDown className="w-5 h-5 text-primary" />
                   </button>
-                  <span className="ml-3 text-sm font-medium text-foreground">Captions</span>
+                  <span className="flex-1 text-sm font-medium text-foreground text-center pr-8">
+                    Captions
+                  </span>
                 </div>
                 
-                {/* Horizontal Scrollable Caption Tools - single row, no wrapping */}
-                <div className="overflow-x-auto overflow-y-visible px-2 py-3" style={{ WebkitOverflowScrolling: 'touch' }}>
-                  <div className="flex gap-2 min-w-max" style={{ overflow: 'visible' }}>
+                {/* Horizontal Scrollable Caption Tools */}
+                <div className="flex-1 flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  <div className="flex gap-2 min-w-max">
                     {[
                       { id: 'enter-captions', name: 'Enter captions', icon: Type, action: () => toast({ title: "Enter captions coming soon" }) },
                       { id: 'auto-captions', name: 'Auto captions', icon: Subtitles, action: () => { generateAutoCaptions(); setIsCaptionsMenuMode(false); } },
@@ -3758,12 +3766,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         <button
                           key={tool.id}
                           onClick={tool.action}
-                          className="flex flex-col items-center justify-center shrink-0 w-20 py-2 rounded-xl transition-all hover:bg-muted/50"
+                          className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
                         >
-                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-muted/30">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-muted/30">
                             <IconComponent className="w-5 h-5 text-foreground" />
                           </div>
-                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight whitespace-nowrap">
+                          <span className="text-[10px] font-medium text-foreground/60">
                             {tool.name}
                           </span>
                         </button>
@@ -3778,19 +3786,21 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             {isAudioMenuMode && (
               <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
                 {/* Header with back button and title */}
-                <div className="flex items-center px-2 py-2 border-b border-border/20">
+                <div className="flex items-center px-4 py-2 border-b border-border/20">
                   <button
                     onClick={() => setIsAudioMenuMode(false)}
-                    className="shrink-0 flex items-center justify-center w-8 h-9 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
                   >
-                    <ChevronLeft className="w-5 h-5 text-primary" />
+                    <ChevronDown className="w-5 h-5 text-primary" />
                   </button>
-                  <span className="ml-3 text-sm font-medium text-foreground">Audio</span>
+                  <span className="flex-1 text-sm font-medium text-foreground text-center pr-8">
+                    Audio
+                  </span>
                 </div>
                 
-                {/* Horizontal Scrollable Audio Tools - single row, no wrapping */}
-                <div className="overflow-x-auto overflow-y-visible px-2 py-3" style={{ WebkitOverflowScrolling: 'touch' }}>
-                  <div className="flex gap-2 min-w-max" style={{ overflow: 'visible' }}>
+                {/* Horizontal Scrollable Audio Tools */}
+                <div className="flex-1 flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  <div className="flex gap-2 min-w-max">
                     {[
                       { id: 'extract', name: 'Extract', icon: Waves, action: () => toast({ title: "Extract coming soon" }) },
                       { id: 'sounds', name: 'Sounds', icon: Music, action: () => toast({ title: "Sounds coming soon" }) },
@@ -3803,12 +3813,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         <button
                           key={tool.id}
                           onClick={tool.action}
-                          className="flex flex-col items-center justify-center shrink-0 w-20 py-2 rounded-xl transition-all hover:bg-muted/50"
+                          className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
                         >
-                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-muted/30">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-muted/30">
                             <IconComponent className="w-5 h-5 text-foreground" />
                           </div>
-                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight whitespace-nowrap">
+                          <span className="text-[10px] font-medium text-foreground/60">
                             {tool.name}
                           </span>
                         </button>
