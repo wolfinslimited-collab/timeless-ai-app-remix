@@ -7426,14 +7426,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   /// Build the aspect ratio menu - horizontal scrollable menu
   Widget _buildAspectMenu() {
     final aspectOptions = [
-      {'id': 'original', 'label': 'Original', 'icon': '📐'},
-      {'id': '9:16', 'label': '9:16', 'icon': '📱'},
-      {'id': '16:9', 'label': '16:9', 'icon': '🖥️'},
-      {'id': '1:1', 'label': '1:1', 'icon': '⬜'},
-      {'id': '4:5', 'label': '4:5', 'icon': '📷'},
-      {'id': '4:3', 'label': '4:3', 'icon': '📺'},
-      {'id': '21:9', 'label': '21:9', 'icon': '🎬'},
-      {'id': '2.35:1', 'label': '2.35:1', 'icon': '🎞️'},
+      {'id': 'original', 'label': 'Original', 'width': 24.0, 'height': 24.0},
+      {'id': '9:16', 'label': '9:16', 'width': 18.0, 'height': 32.0},
+      {'id': '16:9', 'label': '16:9', 'width': 32.0, 'height': 18.0},
+      {'id': '1:1', 'label': '1:1', 'width': 24.0, 'height': 24.0},
+      {'id': '4:5', 'label': '4:5', 'width': 20.0, 'height': 25.0},
+      {'id': '4:3', 'label': '4:3', 'width': 28.0, 'height': 21.0},
+      {'id': '21:9', 'label': '21:9', 'width': 35.0, 'height': 15.0},
+      {'id': '2.35:1', 'label': '2.35:1', 'width': 38.0, 'height': 16.0},
     ];
     
     return Column(
@@ -7516,6 +7516,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             child: Row(
               children: aspectOptions.map((option) {
                 final isSelected = _selectedAspectRatio == option['id'];
+                final rectWidth = option['width'] as double;
+                final rectHeight = option['height'] as double;
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: GestureDetector(
@@ -7543,9 +7545,22 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            option['icon'] as String,
-                            style: const TextStyle(fontSize: 24),
+                          // Visual aspect ratio rectangle
+                          Container(
+                            width: rectWidth,
+                            height: rectHeight,
+                            decoration: BoxDecoration(
+                              color: isSelected 
+                                  ? AppTheme.primary.withOpacity(0.2) 
+                                  : Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(2),
+                              border: Border.all(
+                                color: isSelected 
+                                    ? AppTheme.primary 
+                                    : Colors.white.withOpacity(0.4),
+                                width: 2,
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 6),
                           Text(

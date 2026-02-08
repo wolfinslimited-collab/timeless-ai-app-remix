@@ -4680,14 +4680,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 <div className="flex-1 flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
                   <div className="flex gap-3 min-w-max">
                     {[
-                      { id: 'original', label: 'Original', icon: '📐' },
-                      { id: '9:16', label: '9:16', icon: '📱' },
-                      { id: '16:9', label: '16:9', icon: '🖥️' },
-                      { id: '1:1', label: '1:1', icon: '⬜' },
-                      { id: '4:5', label: '4:5', icon: '📷' },
-                      { id: '4:3', label: '4:3', icon: '📺' },
-                      { id: '21:9', label: '21:9', icon: '🎬' },
-                      { id: '2.35:1', label: '2.35:1', icon: '🎞️' },
+                      { id: 'original', label: 'Original', width: 24, height: 24 },
+                      { id: '9:16', label: '9:16', width: 18, height: 32 },
+                      { id: '16:9', label: '16:9', width: 32, height: 18 },
+                      { id: '1:1', label: '1:1', width: 24, height: 24 },
+                      { id: '4:5', label: '4:5', width: 20, height: 25 },
+                      { id: '4:3', label: '4:3', width: 28, height: 21 },
+                      { id: '21:9', label: '21:9', width: 35, height: 15 },
+                      { id: '2.35:1', label: '2.35:1', width: 38, height: 16 },
                     ].map((ratio) => (
                       <button
                         key={ratio.id}
@@ -4702,7 +4702,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             : "bg-muted/20 border-transparent hover:bg-muted/40"
                         )}
                       >
-                        <span className="text-xl mb-1">{ratio.icon}</span>
+                        {/* Visual aspect ratio rectangle */}
+                        <div 
+                          className={cn(
+                            "rounded-sm border-2 mb-1",
+                            selectedAspectRatio === ratio.id 
+                              ? "border-primary bg-primary/20" 
+                              : "border-foreground/40 bg-foreground/10"
+                          )}
+                          style={{ width: ratio.width, height: ratio.height }}
+                        />
                         <span className={cn(
                           "text-xs font-medium",
                           selectedAspectRatio === ratio.id ? "text-primary" : "text-foreground/70"
