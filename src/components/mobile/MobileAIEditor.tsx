@@ -1515,20 +1515,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     // Edit tool opens the edit menu (same style as audio)
     if (tool.id === 'edit') {
       if (videoClips.length > 0) {
-        // Select first clip if none selected
-        let targetClipId = selectedClipId;
-        if (!targetClipId) {
-          targetClipId = videoClips[0].id;
-          setSelectedClipId(targetClipId);
-        }
+        // Always select the first clip (original layer) when clicking Edit button
+        const targetClipId = videoClips[0].id;
+        setSelectedClipId(targetClipId);
         setEditingClipId(targetClipId);
         
         // Load the selected clip's volume and speed
-        const targetClip = videoClips.find(c => c.id === targetClipId);
-        if (targetClip) {
-          setClipVolume(targetClip.volume);
-          setClipSpeed(targetClip.speed);
-        }
+        const targetClip = videoClips[0];
+        setClipVolume(targetClip.volume);
+        setClipSpeed(targetClip.speed);
         
         setIsEditMenuMode(true);
       } else {
