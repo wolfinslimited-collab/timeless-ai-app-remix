@@ -164,6 +164,8 @@ interface TextOverlayData {
   // Transform properties
   rotation: number;
   scale: number;
+  scaleX: number;
+  scaleY: number;
 }
 
 interface CaptionLayerData {
@@ -769,6 +771,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       // Transform properties
       rotation: 0,
       scale: 1,
+      scaleX: 1,
+      scaleY: 1,
     };
     setTextOverlays(prev => [...prev, newText]);
     setSelectedTextId(newText.id);
@@ -1946,7 +1950,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     style={{
                       left: `${overlay.position.x * 100}%`,
                       top: `${overlay.position.y * 100}%`,
-                      transform: `translate(-50%, -50%) rotate(${overlay.rotation || 0}deg) scale(${overlay.scale || 1})`,
+                      transform: `translate(-50%, -50%) rotate(${overlay.rotation || 0}deg) scaleX(${overlay.scaleX || 1}) scaleY(${overlay.scaleY || 1})`,
                       cursor: draggingTextId === overlay.id ? 'grabbing' : 'grab',
                     }}
                     // Click to select - automatically show text edit panel
@@ -1968,7 +1972,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       setShowTextEditPanel(true);
                       setSelectedTool('text');
                     }}
-                    // Drag support with mouse
+                    // Drag support with mouse - with boundary constraints
                     onMouseDown={(e) => {
                       if (e.button !== 0) return;
                       e.preventDefault();
@@ -1985,8 +1989,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         if (!containerRect) return;
                         const deltaX = (moveEvent.clientX - startX) / containerRect.width;
                         const deltaY = (moveEvent.clientY - startY) / containerRect.height;
-                        const newX = Math.max(0.05, Math.min(0.95, startPosX + deltaX));
-                        const newY = Math.max(0.05, Math.min(0.95, startPosY + deltaY));
+                        // Boundary constraints: keep text within 2%-98% of video area
+                        const newX = Math.max(0.02, Math.min(0.98, startPosX + deltaX));
+                        const newY = Math.max(0.02, Math.min(0.98, startPosY + deltaY));
                         
                         setTextOverlays(prev => prev.map(t => 
                           t.id === overlay.id ? { ...t, position: { x: newX, y: newY } } : t
@@ -2046,39 +2051,46 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           <X className="w-3.5 h-3.5 text-white" />
                         </div>
                         
-                        {/* Rotate/Resize handle - bottom right corner */}
+                        {/* Free-form Resize handle - bottom right corner */}
                         <div 
-                          className="absolute -bottom-3 -right-3 w-7 h-7 rounded-full bg-black/80 border border-white/50 flex items-center justify-center cursor-grab active:cursor-grabbing z-50 touch-manipulation backdrop-blur-sm"
+                          className="absolute -bottom-3 -right-3 w-7 h-7 rounded-full bg-black/80 border border-white/50 flex items-center justify-center cursor-se-resize z-50 touch-manipulation backdrop-blur-sm"
                           style={{ pointerEvents: 'auto' }}
                           onMouseDown={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
-                            const rect = e.currentTarget.parentElement?.getBoundingClientRect();
-                            if (!rect) return;
-                            const centerX = rect.left + rect.width / 2;
-                            const centerY = rect.top + rect.height / 2;
-                            const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
-                            const startRotation = overlay.rotation || 0;
-                            const startScale = overlay.scale || 1;
-                            const startDistance = Math.sqrt(
-                              Math.pow(e.clientX - centerX, 2) + Math.pow(e.clientY - centerY, 2)
-                            );
+                            const containerRect = e.currentTarget.closest('.relative')?.getBoundingClientRect();
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const startScaleX = overlay.scaleX || 1;
+                            const startScaleY = overlay.scaleY || 1;
                             
                             const handleMouseMove = (moveE: MouseEvent) => {
-                              // Rotation
-                              const currentAngle = Math.atan2(moveE.clientY - centerY, moveE.clientX - centerX);
-                              const angleDelta = (currentAngle - startAngle) * (180 / Math.PI);
-                              const newRotation = startRotation + angleDelta;
+                              // Independent width/height scaling
+                              const deltaX = (moveE.clientX - startX) * 0.01;
+                              const deltaY = (moveE.clientY - startY) * 0.01;
                               
-                              // Scale based on distance from center
-                              const currentDistance = Math.sqrt(
-                                Math.pow(moveE.clientX - centerX, 2) + Math.pow(moveE.clientY - centerY, 2)
-                              );
-                              const scaleRatio = currentDistance / startDistance;
-                              const newScale = Math.max(0.3, Math.min(3, startScale * scaleRatio));
+                              // Calculate new scales with boundary constraints
+                              let newScaleX = Math.max(0.3, Math.min(3, startScaleX + deltaX));
+                              let newScaleY = Math.max(0.3, Math.min(3, startScaleY + deltaY));
+                              
+                              // Boundary constraints: prevent text from going outside video
+                              if (containerRect) {
+                                const textWidth = 100 * newScaleX; // Approximate
+                                const textHeight = 30 * newScaleY; // Approximate
+                                const posX = overlay.position.x * containerRect.width;
+                                const posY = overlay.position.y * containerRect.height;
+                                
+                                // Constrain if text would exceed boundaries
+                                if (posX + textWidth / 2 > containerRect.width) {
+                                  newScaleX = Math.min(newScaleX, (containerRect.width - posX) * 2 / 100);
+                                }
+                                if (posY + textHeight / 2 > containerRect.height) {
+                                  newScaleY = Math.min(newScaleY, (containerRect.height - posY) * 2 / 30);
+                                }
+                              }
                               
                               setTextOverlays(prev => prev.map(t => 
-                                t.id === overlay.id ? { ...t, rotation: Math.round(newRotation), scale: newScale } : t
+                                t.id === overlay.id ? { ...t, scaleX: newScaleX, scaleY: newScaleY } : t
                               ));
                             };
                             
@@ -2093,36 +2105,42 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           onTouchStart={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
-                            const rect = e.currentTarget.parentElement?.getBoundingClientRect();
-                            if (!rect) return;
+                            const containerRect = e.currentTarget.closest('.relative')?.getBoundingClientRect();
                             const touch = e.touches[0];
-                            const centerX = rect.left + rect.width / 2;
-                            const centerY = rect.top + rect.height / 2;
-                            const startAngle = Math.atan2(touch.clientY - centerY, touch.clientX - centerX);
-                            const startRotation = overlay.rotation || 0;
-                            const startScale = overlay.scale || 1;
-                            const startDistance = Math.sqrt(
-                              Math.pow(touch.clientX - centerX, 2) + Math.pow(touch.clientY - centerY, 2)
-                            );
+                            const startX = touch.clientX;
+                            const startY = touch.clientY;
+                            const startScaleX = overlay.scaleX || 1;
+                            const startScaleY = overlay.scaleY || 1;
                             
                             const handleTouchMove = (moveE: TouchEvent) => {
                               moveE.preventDefault();
                               const currentTouch = moveE.touches[0];
                               
-                              // Rotation
-                              const currentAngle = Math.atan2(currentTouch.clientY - centerY, currentTouch.clientX - centerX);
-                              const angleDelta = (currentAngle - startAngle) * (180 / Math.PI);
-                              const newRotation = startRotation + angleDelta;
+                              // Independent width/height scaling
+                              const deltaX = (currentTouch.clientX - startX) * 0.01;
+                              const deltaY = (currentTouch.clientY - startY) * 0.01;
                               
-                              // Scale based on distance from center
-                              const currentDistance = Math.sqrt(
-                                Math.pow(currentTouch.clientX - centerX, 2) + Math.pow(currentTouch.clientY - centerY, 2)
-                              );
-                              const scaleRatio = currentDistance / startDistance;
-                              const newScale = Math.max(0.3, Math.min(3, startScale * scaleRatio));
+                              // Calculate new scales with boundary constraints
+                              let newScaleX = Math.max(0.3, Math.min(3, startScaleX + deltaX));
+                              let newScaleY = Math.max(0.3, Math.min(3, startScaleY + deltaY));
+                              
+                              // Boundary constraints
+                              if (containerRect) {
+                                const textWidth = 100 * newScaleX;
+                                const textHeight = 30 * newScaleY;
+                                const posX = overlay.position.x * containerRect.width;
+                                const posY = overlay.position.y * containerRect.height;
+                                
+                                if (posX + textWidth / 2 > containerRect.width) {
+                                  newScaleX = Math.min(newScaleX, (containerRect.width - posX) * 2 / 100);
+                                }
+                                if (posY + textHeight / 2 > containerRect.height) {
+                                  newScaleY = Math.min(newScaleY, (containerRect.height - posY) * 2 / 30);
+                                }
+                              }
                               
                               setTextOverlays(prev => prev.map(t => 
-                                t.id === overlay.id ? { ...t, rotation: Math.round(newRotation), scale: newScale } : t
+                                t.id === overlay.id ? { ...t, scaleX: newScaleX, scaleY: newScaleY } : t
                               ));
                             };
                             
@@ -2135,11 +2153,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             document.addEventListener('touchend', handleTouchEnd);
                           }}
                         >
-                          {/* Square with curved arrow icon for rotate/resize */}
+                          {/* 4-way diagonal resize arrow icon */}
                           <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <rect x="4" y="4" width="12" height="12" rx="1" />
-                            <path d="M20 8v8a2 2 0 01-2 2h-2" />
-                            <path d="M20 8l-3-3m3 3l-3 3" />
+                            <path d="M4 14l-2 2m0 0l2 2m-2-2h6" />
+                            <path d="M20 10l2-2m0 0l-2-2m2 2h-6" />
+                            <path d="M10 4l-2-2m0 0L6 4m2-2v6" />
+                            <path d="M14 20l2 2m0 0l2-2m-2 2v-6" />
                           </svg>
                         </div>
                       </>
@@ -2500,6 +2519,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             // Transform properties
                             rotation: 0,
                             scale: 1,
+                            scaleX: 1,
+                            scaleY: 1,
                           };
                           setTextOverlays(prev => [...prev, newSticker]);
                           toast({ title: "Sticker added!" });
