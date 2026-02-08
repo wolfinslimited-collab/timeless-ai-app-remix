@@ -263,6 +263,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Effects menu mode state - activated by clicking "Effects" tool
   const [isEffectsMenuMode, setIsEffectsMenuMode] = useState(false);
   
+  // Overlay menu mode state - activated by clicking "Overlay" tool
+  const [isOverlayMenuMode, setIsOverlayMenuMode] = useState(false);
+  
   // Sticker presets
   const stickerCategories = [
     { id: 'emoji', name: 'Emoji', stickers: ['😀', '😂', '🥰', '😎', '🔥', '💯', '⭐', '❤️', '👍', '🎉', '✨', '🚀'] },
@@ -1338,8 +1341,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       return;
     }
     
+    // Overlay tool opens the overlay menu
+    if (tool.id === 'overlay') {
+      setIsOverlayMenuMode(true);
+      setSelectedTool('overlay');
+      return;
+    }
+    
     // Handle other tools that have implementations
-    if (!['adjust', 'filters', 'overlay', 'stickers', 'aspect', 'background'].includes(tool.id)) {
+    if (!['adjust', 'filters', 'stickers', 'aspect', 'background'].includes(tool.id)) {
       toast({
         title: tool.name,
         description: "Coming soon!",
@@ -3540,6 +3550,37 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       );
                     })}
                   </div>
+                </div>
+              </div>
+            ) : isOverlayMenuMode ? (
+              /* Overlay Menu - single action button */
+              <div className="animate-fade-in flex flex-col">
+                {/* Header with back button and title */}
+                <div className="flex items-center px-2 py-2 border-b border-border/20">
+                  <button
+                    onClick={() => setIsOverlayMenuMode(false)}
+                    className="shrink-0 flex items-center justify-center w-8 h-9 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-primary" />
+                  </button>
+                  <span className="ml-3 text-sm font-medium text-foreground">Overlay</span>
+                </div>
+                
+                {/* Single Action Button */}
+                <div className="px-4 py-4">
+                  <button
+                    onClick={() => {
+                      toast({ title: "Add overlay coming soon" });
+                    }}
+                    className="flex flex-col items-center justify-center w-20 py-2 rounded-xl transition-all hover:bg-white/5"
+                  >
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
+                      <Plus className="w-5 h-5 text-foreground" />
+                    </div>
+                    <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight">
+                      Add overlay
+                    </span>
+                  </button>
                 </div>
               </div>
             ) : isEditMenuMode ? (
