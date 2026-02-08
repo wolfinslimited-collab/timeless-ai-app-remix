@@ -3621,7 +3621,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               >
                 {/* Calculate dimensions using pixelsPerSecond - use totalTimelineDuration for multi-clip support */}
                 {(() => {
-                  const trackWidth = totalTimelineDuration * PIXELS_PER_SECOND;
+                  const safeDuration = isFinite(totalTimelineDuration) && totalTimelineDuration > 0 ? totalTimelineDuration : 10;
+                  const trackWidth = safeDuration * PIXELS_PER_SECOND;
                   
                   return (
                     <div 
@@ -3643,7 +3644,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     >
                       {/* Time Ruler using pixelsPerSecond */}
                       <div className="h-6 flex items-end relative" style={{ width: trackWidth }}>
-                        {totalTimelineDuration > 0 && Array.from({ length: Math.max(1, Math.ceil(totalTimelineDuration / 2) + 1) }).map((_, i) => {
+                        {totalTimelineDuration > 0 && isFinite(totalTimelineDuration) && Array.from({ length: Math.max(1, Math.min(1000, Math.ceil(totalTimelineDuration / 2) + 1)) }).map((_, i) => {
                           const seconds = i * 2;
                           if (seconds > totalTimelineDuration) return null;
                           // Position using global constant
@@ -3662,7 +3663,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           );
                         })}
                         {/* Minor ticks */}
-                        {totalTimelineDuration > 0 && Array.from({ length: Math.max(1, Math.ceil(totalTimelineDuration) + 1) }).map((_, i) => {
+                        {totalTimelineDuration > 0 && isFinite(totalTimelineDuration) && Array.from({ length: Math.max(1, Math.min(2000, Math.ceil(totalTimelineDuration) + 1)) }).map((_, i) => {
                           if (i % 2 === 0) return null;
                           const position = i * PIXELS_PER_SECOND;
                           return (
@@ -3680,8 +3681,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         {/* Render all video clips snapped together */}
                         <div className="flex h-[32px]">
                           {videoClips.map((clip, clipIndex) => {
-                            const clipWidth = getClipTrimmedDuration(clip) * PIXELS_PER_SECOND;
-                            const thumbCount = Math.max(1, Math.ceil(clipWidth / 60));
+                            const clipDuration = getClipTrimmedDuration(clip);
+                            const clipWidth = isFinite(clipDuration) ? clipDuration * PIXELS_PER_SECOND : 0;
+                            const thumbCount = Math.max(1, Math.min(100, Math.ceil(clipWidth / 60)));
                             const isFirst = clipIndex === 0;
                             const isLast = clipIndex === videoClips.length - 1;
                             const isSelected = clip.id === selectedClipId;
@@ -3853,7 +3855,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               className="relative h-[32px] rounded-lg overflow-hidden border-2 flex"
                               style={{ borderColor: 'transparent', width: duration * PIXELS_PER_SECOND }}
                             >
-                              {duration > 0 && Array.from({ length: Math.max(1, Math.ceil((duration * PIXELS_PER_SECOND) / 60)) }).map((_, i) => {
+                              {duration > 0 && isFinite(duration) && Array.from({ length: Math.max(1, Math.min(100, Math.ceil((duration * PIXELS_PER_SECOND) / 60))) }).map((_, i) => {
                                 const thumbTime = (i / Math.max(1, Math.ceil((duration * PIXELS_PER_SECOND) / 60))) * duration;
                                 return (
                                   <div
