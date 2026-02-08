@@ -2660,44 +2660,89 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     if (_isVideoInitialized && _videoController != null) {
       return LayoutBuilder(
         builder: (context, constraints) {
-          // Calculate maximized video dimensions - use full available space
+          // Calculate container dimensions based on selected aspect ratio
           final videoAspectRatio = _videoController!.value.aspectRatio;
           final availableHeight = constraints.maxHeight;
-          final availableWidth = constraints.maxWidth - 16; // Minimal horizontal margin
+          final availableWidth = constraints.maxWidth - 16;
           
-          // Calculate video dimensions to maximize space while maintaining aspect ratio
-          double videoWidth = availableWidth;
-          double videoHeight = videoWidth / videoAspectRatio;
-          
-          // Fill up to 98% of available height for maximum video size
-          if (videoHeight > availableHeight * 0.98) {
-            videoHeight = availableHeight * 0.98;
-            videoWidth = videoHeight * videoAspectRatio;
+          // Get selected aspect ratio
+          double targetAspectRatio = videoAspectRatio;
+          if (_selectedAspectRatio != 'original') {
+            final preset = _aspectRatioPresets.firstWhere(
+              (p) => p['id'] == _selectedAspectRatio,
+              orElse: () => {'width': 16, 'height': 9},
+            );
+            targetAspectRatio = (preset['width'] as num) / (preset['height'] as num);
           }
           
+          // Calculate container dimensions based on target aspect ratio
+          double containerWidth = availableWidth;
+          double containerHeight = containerWidth / targetAspectRatio;
+          
+          if (containerHeight > availableHeight * 0.98) {
+            containerHeight = availableHeight * 0.98;
+            containerWidth = containerHeight * targetAspectRatio;
+          }
+          
+          // Calculate video scale to cover the container
+          final videoScale = _selectedAspectRatio == 'original' ? 1.0 : 1.2;
+          
           return Center(
-            child: Container(
-              width: videoWidth,
-              height: videoHeight,
-              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: ColorFiltered(
-                  colorFilter: _buildColorFilter(),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // Video player only - no overlay buttons
-                      VideoPlayer(_videoController!),
-                      // Text overlays for editing
-                      ..._buildTextOverlays(constraints),
-                      // Caption overlays at bottom of video
-                      ..._buildCaptionOverlays(constraints),
-                    ],
+            child: GestureDetector(
+              onPanStart: _selectedAspectRatio == 'original' ? null : (details) {
+                setState(() {
+                  _isDraggingVideo = true;
+                  _dragStartPosition = details.localPosition;
+                  _dragStartVideoPosition = _videoPosition;
+                });
+              },
+              onPanUpdate: _selectedAspectRatio == 'original' ? null : (details) {
+                if (!_isDraggingVideo) return;
+                final delta = details.localPosition - _dragStartPosition;
+                setState(() {
+                  // Limit movement to reasonable bounds
+                  final newX = (_dragStartVideoPosition.dx + delta.dx * 0.5).clamp(-100.0, 100.0);
+                  final newY = (_dragStartVideoPosition.dy + delta.dy * 0.5).clamp(-100.0, 100.0);
+                  _videoPosition = Offset(newX, newY);
+                });
+              },
+              onPanEnd: _selectedAspectRatio == 'original' ? null : (_) {
+                setState(() => _isDraggingVideo = false);
+              },
+              child: Container(
+                width: containerWidth,
+                height: containerHeight,
+                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: ColorFiltered(
+                    colorFilter: _buildColorFilter(),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // Video player with position offset and scale
+                        Transform.translate(
+                          offset: _selectedAspectRatio == 'original' ? Offset.zero : _videoPosition,
+                          child: Transform.scale(
+                            scale: videoScale,
+                            child: Center(
+                              child: AspectRatio(
+                                aspectRatio: videoAspectRatio,
+                                child: VideoPlayer(_videoController!),
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Text overlays for editing
+                        ..._buildTextOverlays(constraints),
+                        // Caption overlays at bottom of video
+                        ..._buildCaptionOverlays(constraints),
+                      ],
+                    ),
                   ),
                 ),
               ),
