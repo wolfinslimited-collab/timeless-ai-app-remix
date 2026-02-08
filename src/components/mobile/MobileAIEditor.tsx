@@ -260,6 +260,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Edit menu mode state - activated by clicking "Edit" tool
   const [isEditMenuMode, setIsEditMenuMode] = useState(false);
   
+  // Effects menu mode state - activated by clicking "Effects" tool
+  const [isEffectsMenuMode, setIsEffectsMenuMode] = useState(false);
+  
   // Sticker presets
   const stickerCategories = [
     { id: 'emoji', name: 'Emoji', stickers: ['😀', '😂', '🥰', '😎', '🔥', '💯', '⭐', '❤️', '👍', '🎉', '✨', '🚀'] },
@@ -1300,8 +1303,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       return;
     }
     
+    // Effects tool opens the effects menu
+    if (tool.id === 'effects') {
+      setIsEffectsMenuMode(true);
+      setSelectedTool('effects');
+      return;
+    }
+    
     // Coming soon tools - show toast and don't change selection
-    if (['effects', 'captions'].includes(tool.id)) {
+    if (['captions'].includes(tool.id)) {
       toast({
         title: tool.name,
         description: "Coming soon!",
@@ -3490,6 +3500,47 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </div>
                   </div>
                 )}
+              </div>
+            ) : isEffectsMenuMode ? (
+              /* Effects Menu - horizontal scrollable menu with effects tools */
+              <div className="animate-fade-in flex flex-col">
+                {/* Header with back button and title */}
+                <div className="flex items-center px-2 py-2 border-b border-border/20">
+                  <button
+                    onClick={() => setIsEffectsMenuMode(false)}
+                    className="shrink-0 flex items-center justify-center w-8 h-9 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-primary" />
+                  </button>
+                  <span className="ml-3 text-sm font-medium text-foreground">Effects</span>
+                </div>
+                
+                {/* Horizontal Scrollable Effects Tools */}
+                <div className="overflow-x-auto px-2 py-3">
+                  <div className="flex gap-1 min-w-max">
+                    {[
+                      { id: 'video-effects', name: 'Video effects', icon: Video, action: () => toast({ title: "Video effects coming soon" }) },
+                      { id: 'body-effects', name: 'Body effects', icon: Star, action: () => toast({ title: "Body effects coming soon" }) },
+                      { id: 'photo-effects', name: 'Photo effects', icon: Image, action: () => toast({ title: "Photo effects coming soon" }) },
+                    ].map((tool) => {
+                      const IconComponent = tool.icon;
+                      return (
+                        <button
+                          key={tool.id}
+                          onClick={tool.action}
+                          className="flex flex-col items-center justify-center w-20 py-2 rounded-xl transition-all hover:bg-white/5"
+                        >
+                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
+                            <IconComponent className="w-5 h-5 text-foreground" />
+                          </div>
+                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight">
+                            {tool.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             ) : isEditMenuMode ? (
               /* Edit Menu - horizontal scrollable menu with edit tools (same style as audio) */
