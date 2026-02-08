@@ -110,6 +110,8 @@ interface VideoClip {
   inPoint: number; // Trim in point (0 = start of clip)
   outPoint: number; // Trim out point (duration = end of clip)
   thumbnails?: string[]; // Array of data URLs for frame thumbnails
+  volume: number; // Clip volume (0-2, where 1=100%, 2=200%)
+  speed: number; // Clip playback speed (0.25-4x)
 }
 
 // Helper to get trimmed duration
@@ -1093,6 +1095,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       startTime: 0, // Will be recalculated
       inPoint: splitPoint,
       outPoint: clip.outPoint,
+      volume: clip.volume,
+      speed: clip.speed,
     };
     
     setVideoClips(prev => {
@@ -1132,18 +1136,39 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setShowClipEditPanel(false);
   };
 
-  // Apply clip speed to video
+  // Apply clip speed to the selected clip
   const applyClipSpeed = () => {
+    if (!editingClipId) {
+      toast({ title: "No clip selected", description: "Select a clip first" });
+      return;
+    }
+    
+    // Update the clip's speed in state
+    setVideoClips(prev => prev.map(clip => 
+      clip.id === editingClipId ? { ...clip, speed: clipSpeed } : clip
+    ));
+    
+    // Apply real-time preview
     if (videoRef.current) {
       videoRef.current.playbackRate = clipSpeed;
     }
     toast({ title: "Speed Applied", description: `Playback speed set to ${clipSpeed.toFixed(1)}x` });
   };
 
-  // Apply clip volume to video (clipVolume is 0-2 where 1=100%, 2=200%)
+  // Apply clip volume to the selected clip (clipVolume is 0-2 where 1=100%, 2=200%)
   const applyClipVolume = () => {
+    if (!editingClipId) {
+      toast({ title: "No clip selected", description: "Select a clip first" });
+      return;
+    }
+    
+    // Update the clip's volume in state
+    setVideoClips(prev => prev.map(clip => 
+      clip.id === editingClipId ? { ...clip, volume: clipVolume } : clip
+    ));
+    
+    // Apply real-time preview if this is the currently playing clip
     if (videoRef.current) {
-      // HTML5 video volume is capped at 1.0, so we clamp it
       videoRef.current.volume = Math.min(1, clipVolume);
     }
     toast({ title: "Volume Applied", description: `Clip volume set to ${Math.round(clipVolume * 100)}` });
@@ -1357,6 +1382,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       inPoint: 0,
       outPoint: clipDuration,
       thumbnails: [],
+      volume: 1.0,
+      speed: 1.0,
     };
     
     setVideoClips(prev => [...prev, newClip]);
@@ -1388,6 +1415,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         inPoint: 0,
         outPoint: duration,
         thumbnails: [],
+        volume: 1.0,
+        speed: 1.0,
       }]);
       
       // Extract thumbnails for the primary clip
@@ -1437,12 +1466,20 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     if (tool.id === 'edit') {
       if (videoClips.length > 0) {
         // Select first clip if none selected
-        if (!selectedClipId) {
-          setSelectedClipId(videoClips[0].id);
-          setEditingClipId(videoClips[0].id);
-        } else {
-          setEditingClipId(selectedClipId);
+        let targetClipId = selectedClipId;
+        if (!targetClipId) {
+          targetClipId = videoClips[0].id;
+          setSelectedClipId(targetClipId);
         }
+        setEditingClipId(targetClipId);
+        
+        // Load the selected clip's volume and speed
+        const targetClip = videoClips.find(c => c.id === targetClipId);
+        if (targetClip) {
+          setClipVolume(targetClip.volume);
+          setClipSpeed(targetClip.speed);
+        }
+        
         setIsEditMenuMode(true);
       } else {
         toast({ title: "No clip selected", description: "Add a video clip first" });

@@ -168,6 +168,8 @@ class VideoClip {
   double inPoint; // Trim in point (0 = start of clip)
   double outPoint; // Trim out point (duration = end of clip)
   List<Uint8List>? thumbnails; // Array of thumbnail image bytes
+  double volume; // Clip volume (0-2, where 1=100%, 2=200%)
+  double speed; // Clip playback speed (0.25-4x)
   
   VideoClip({
     required this.id,
@@ -177,6 +179,8 @@ class VideoClip {
     double? inPoint,
     double? outPoint,
     this.thumbnails,
+    this.volume = 1.0,
+    this.speed = 1.0,
   }) : inPoint = inPoint ?? 0,
        outPoint = outPoint ?? duration;
   
@@ -252,6 +256,8 @@ class VideoClipSnapshot {
   final double startTime;
   final double inPoint;
   final double outPoint;
+  final double volume;
+  final double speed;
   
   VideoClipSnapshot({
     required this.id,
@@ -260,6 +266,8 @@ class VideoClipSnapshot {
     required this.startTime,
     required this.inPoint,
     required this.outPoint,
+    this.volume = 1.0,
+    this.speed = 1.0,
   });
   
   factory VideoClipSnapshot.from(VideoClip clip) => VideoClipSnapshot(
@@ -269,6 +277,8 @@ class VideoClipSnapshot {
     startTime: clip.startTime,
     inPoint: clip.inPoint,
     outPoint: clip.outPoint,
+    volume: clip.volume,
+    speed: clip.speed,
   );
   
   VideoClip toClip() => VideoClip(
@@ -278,6 +288,8 @@ class VideoClipSnapshot {
     startTime: startTime,
     inPoint: inPoint,
     outPoint: outPoint,
+    volume: volume,
+    speed: speed,
   );
 }
 
@@ -1451,6 +1463,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       duration: clipDuration,
       startTime: startTime,
       thumbnails: [],
+      volume: 1.0,
+      speed: 1.0,
     );
     
     setState(() {
@@ -1474,6 +1488,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           duration: duration,
           startTime: 0,
           thumbnails: [],
+          volume: 1.0,
+          speed: 1.0,
         ));
       });
       
@@ -1535,6 +1551,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       startTime: clip.startTime,
       inPoint: clip.inPoint,
       outPoint: splitPoint,
+      volume: clip.volume,
+      speed: clip.speed,
     );
     final secondClip = VideoClip(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -1543,6 +1561,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       startTime: 0, // Will be recalculated
       inPoint: splitPoint,
       outPoint: clip.outPoint,
+      volume: clip.volume,
+      speed: clip.speed,
     );
     
     setState(() {
@@ -1572,6 +1592,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       startTime: 0, // Will be recalculated
       inPoint: clip.inPoint,
       outPoint: clip.outPoint,
+      volume: clip.volume,
+      speed: clip.speed,
     );
     
     setState(() {
@@ -1586,15 +1608,42 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     _showSnackBar('Clip duplicated');
   }
   
-  /// Apply clip speed to video
+  /// Apply clip speed to the selected clip
   void _applyClipSpeed() {
+    if (_editingClipId == null) {
+      _showSnackBar('Select a clip first');
+      return;
+    }
+    
+    // Update the clip's speed in state
+    final clipIndex = _videoClips.indexWhere((c) => c.id == _editingClipId);
+    if (clipIndex != -1) {
+      setState(() {
+        _videoClips[clipIndex].speed = _clipSpeed;
+      });
+    }
+    
+    // Apply real-time preview
     _videoController?.setPlaybackSpeed(_clipSpeed);
     _showSnackBar('Speed set to ${_clipSpeed.toStringAsFixed(1)}x');
   }
   
-  /// Apply clip volume to video (clipVolume is 0-2 where 1=100%, 2=200%)
+  /// Apply clip volume to the selected clip (clipVolume is 0-2 where 1=100%, 2=200%)
   void _applyClipVolume() {
-    // Video player volume is capped at 1.0, so we clamp it
+    if (_editingClipId == null) {
+      _showSnackBar('Select a clip first');
+      return;
+    }
+    
+    // Update the clip's volume in state
+    final clipIndex = _videoClips.indexWhere((c) => c.id == _editingClipId);
+    if (clipIndex != -1) {
+      setState(() {
+        _videoClips[clipIndex].volume = _clipVolume;
+      });
+    }
+    
+    // Apply real-time preview (capped at 1.0)
     _videoController?.setVolume(_clipVolume.clamp(0.0, 1.0));
     _showSnackBar('Volume set to ${(_clipVolume * 100).round()}');
   }
@@ -6907,12 +6956,21 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               // Edit tool opens the edit menu (same style as audio)
               if (tool.id == 'edit') {
                 if (_videoClips.isNotEmpty) {
-                  if (_selectedClipId == null) {
-                    _selectedClipId = _videoClips.first.id;
-                    _editingClipId = _videoClips.first.id;
-                  } else {
-                    _editingClipId = _selectedClipId;
+                  String? targetClipId = _selectedClipId;
+                  if (targetClipId == null) {
+                    targetClipId = _videoClips.first.id;
+                    _selectedClipId = targetClipId;
                   }
+                  _editingClipId = targetClipId;
+                  
+                  // Load the selected clip's volume and speed
+                  final targetClip = _videoClips.firstWhere(
+                    (c) => c.id == targetClipId,
+                    orElse: () => _videoClips.first,
+                  );
+                  _clipVolume = targetClip.volume;
+                  _clipSpeed = targetClip.speed;
+                  
                   setState(() => _isEditMenuMode = true);
                 } else {
                   _showSnackBar('Add a video clip first');
@@ -7051,6 +7109,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       duration: clip.duration,
       inPoint: clip.inPoint,
       outPoint: clip.outPoint,
+      volume: clip.volume,
+      speed: clip.speed,
     );
     
     setState(() {
