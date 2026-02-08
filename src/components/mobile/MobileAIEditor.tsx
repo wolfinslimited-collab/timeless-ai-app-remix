@@ -56,7 +56,8 @@ import {
   AudioLines,
   Music2,
   HelpCircle,
-  Check
+  Check,
+  Eraser
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -170,6 +171,22 @@ interface TextOverlayData {
   scale: number;
   scaleX: number;
   scaleY: number;
+}
+
+// Drawing layer interface for canvas drawings
+interface DrawingLayerData {
+  id: string;
+  strokes: DrawingStroke[];
+  startTime: number;
+  endTime: number;
+}
+
+interface DrawingStroke {
+  id: string;
+  points: { x: number; y: number }[];
+  color: string;
+  size: number;
+  tool: 'brush' | 'eraser';
 }
 
 interface CaptionLayerData {
@@ -327,11 +344,27 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Background menu mode state - activated by clicking "Background" tool
   const [isBackgroundMenuMode, setIsBackgroundMenuMode] = useState(false);
   
+  // Draw mode state - activated by clicking "Draw" in Text menu
+  const [isDrawMode, setIsDrawMode] = useState(false);
+  const [drawTool, setDrawTool] = useState<'brush' | 'eraser'>('brush');
+  const [drawColor, setDrawColor] = useState('#FFFFFF');
+  const [drawSize, setDrawSize] = useState(5);
+  const [drawingLayers, setDrawingLayers] = useState<DrawingLayerData[]>([]);
+  const [currentStrokes, setCurrentStrokes] = useState<DrawingStroke[]>([]);
+  const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawingRef = useRef(false);
+  const currentStrokeRef = useRef<DrawingStroke | null>(null);
+  
+  // Drawing undo/redo for strokes (local to current drawing session)
+  const [drawUndoStack, setDrawUndoStack] = useState<DrawingStroke[][]>([]);
+  const [drawRedoStack, setDrawRedoStack] = useState<DrawingStroke[][]>([]);
+  
   // Settings panel overlay state - for adjust, stickers panels
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [settingsPanelType, setSettingsPanelType] = useState<'adjust' | 'stickers' | null>(null);
   
-  // Base overlay check - isAudioEditMode is added later
+  // Base overlay check - isAudioEditMode and isDrawMode are added later
   const isAnyOverlayOpenBase = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isSettingsPanelOpen;
   
   // Sticker presets
@@ -585,7 +618,170 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const selectedAudioLayer = audioLayers.find(a => a.id === selectedAudioId);
   
   // Computed: check if any overlay menu is currently open (to hide main toolbar)
-  const isAnyOverlayOpen = isAnyOverlayOpenBase || isAudioEditMode;
+  const isAnyOverlayOpen = isAnyOverlayOpenBase || isAudioEditMode || isDrawMode;
+  
+  // Drawing color presets
+  const drawColorPresets = ['#FFFFFF', '#FF4444', '#44FF44', '#4444FF', '#FFFF44', '#FF44FF', '#44FFFF', '#FFA500', '#FF69B4', '#8B5CF6'];
+  
+  // Drawing functions
+  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!canvasRef.current) return;
+    isDrawingRef.current = true;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const x = (clientX - rect.left) / rect.width;
+    const y = (clientY - rect.top) / rect.height;
+    
+    currentStrokeRef.current = {
+      id: Date.now().toString(),
+      points: [{ x, y }],
+      color: drawTool === 'eraser' ? 'eraser' : drawColor,
+      size: drawSize,
+      tool: drawTool,
+    };
+  };
+  
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawingRef.current || !canvasRef.current || !currentStrokeRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const x = (clientX - rect.left) / rect.width;
+    const y = (clientY - rect.top) / rect.height;
+    
+    currentStrokeRef.current.points.push({ x, y });
+    renderDrawingCanvas();
+  };
+  
+  const endDrawing = () => {
+    if (!isDrawingRef.current || !currentStrokeRef.current) return;
+    isDrawingRef.current = false;
+    
+    // Save undo state
+    setDrawUndoStack(prev => [...prev, currentStrokes]);
+    setDrawRedoStack([]);
+    
+    setCurrentStrokes(prev => [...prev, currentStrokeRef.current!]);
+    currentStrokeRef.current = null;
+  };
+  
+  const renderDrawingCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Render all strokes
+    const allStrokes = [...currentStrokes];
+    if (currentStrokeRef.current) {
+      allStrokes.push(currentStrokeRef.current);
+    }
+    
+    allStrokes.forEach(stroke => {
+      if (stroke.points.length < 2) return;
+      
+      ctx.beginPath();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = stroke.size * (canvas.width / 350);
+      
+      if (stroke.tool === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.strokeStyle = 'rgba(0,0,0,1)';
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = stroke.color;
+      }
+      
+      const firstPoint = stroke.points[0];
+      ctx.moveTo(firstPoint.x * canvas.width, firstPoint.y * canvas.height);
+      
+      for (let i = 1; i < stroke.points.length; i++) {
+        const point = stroke.points[i];
+        ctx.lineTo(point.x * canvas.width, point.y * canvas.height);
+      }
+      ctx.stroke();
+    });
+  };
+  
+  // Undo drawing stroke
+  const undoDrawStroke = () => {
+    if (currentStrokes.length === 0) {
+      toast({ title: "Nothing to undo" });
+      return;
+    }
+    setDrawRedoStack(prev => [...prev, currentStrokes]);
+    const previousState = drawUndoStack[drawUndoStack.length - 1] || [];
+    setDrawUndoStack(prev => prev.slice(0, -1));
+    setCurrentStrokes(previousState);
+  };
+  
+  // Redo drawing stroke
+  const redoDrawStroke = () => {
+    if (drawRedoStack.length === 0) {
+      toast({ title: "Nothing to redo" });
+      return;
+    }
+    setDrawUndoStack(prev => [...prev, currentStrokes]);
+    const redoState = drawRedoStack[drawRedoStack.length - 1];
+    setDrawRedoStack(prev => prev.slice(0, -1));
+    setCurrentStrokes(redoState);
+  };
+  
+  // Clear all drawing strokes
+  const clearAllDrawing = () => {
+    if (currentStrokes.length === 0) {
+      toast({ title: "Nothing to clear" });
+      return;
+    }
+    setDrawUndoStack(prev => [...prev, currentStrokes]);
+    setDrawRedoStack([]);
+    setCurrentStrokes([]);
+  };
+  
+  // Save drawing as layer
+  const saveDrawingAsLayer = () => {
+    if (currentStrokes.length === 0) {
+      toast({ title: "No drawing to save" });
+      return;
+    }
+    
+    saveStateToHistory();
+    const newLayer: DrawingLayerData = {
+      id: Date.now().toString(),
+      strokes: [...currentStrokes],
+      startTime: 0,
+      endTime: duration || 10,
+    };
+    setDrawingLayers(prev => [...prev, newLayer]);
+    setCurrentStrokes([]);
+    setIsDrawMode(false);
+    setIsTextMenuMode(false);
+    toast({ title: "Drawing saved to timeline" });
+  };
+  
+  // Delete drawing layer
+  const deleteDrawingLayer = (id: string) => {
+    saveStateToHistory();
+    setDrawingLayers(prev => prev.filter(d => d.id !== id));
+    if (selectedDrawingId === id) setSelectedDrawingId(null);
+    toast({ title: "Drawing deleted" });
+  };
+
+  // Effect to render canvas when strokes change
+  useEffect(() => {
+    if (isDrawMode) {
+      renderDrawingCanvas();
+    }
+  }, [currentStrokes, isDrawMode]);
 
   const handleAudioImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -3376,6 +3572,64 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 </div>
               ))}
               
+              {/* Drawing Layers - Render saved drawings on video */}
+              {drawingLayers.filter(layer => 
+                currentTime >= layer.startTime && currentTime <= layer.endTime
+              ).map(layer => (
+                <canvas
+                  key={`drawing-layer-${layer.id}`}
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  width={350}
+                  height={250}
+                  ref={(el) => {
+                    if (el) {
+                      const ctx = el.getContext('2d');
+                      if (ctx) {
+                        ctx.clearRect(0, 0, el.width, el.height);
+                        layer.strokes.forEach(stroke => {
+                          if (stroke.points.length < 2) return;
+                          ctx.beginPath();
+                          ctx.lineCap = 'round';
+                          ctx.lineJoin = 'round';
+                          ctx.lineWidth = stroke.size * (el.width / 350);
+                          if (stroke.tool === 'eraser') {
+                            ctx.globalCompositeOperation = 'destination-out';
+                            ctx.strokeStyle = 'rgba(0,0,0,1)';
+                          } else {
+                            ctx.globalCompositeOperation = 'source-over';
+                            ctx.strokeStyle = stroke.color;
+                          }
+                          const firstPoint = stroke.points[0];
+                          ctx.moveTo(firstPoint.x * el.width, firstPoint.y * el.height);
+                          for (let i = 1; i < stroke.points.length; i++) {
+                            const point = stroke.points[i];
+                            ctx.lineTo(point.x * el.width, point.y * el.height);
+                          }
+                          ctx.stroke();
+                        });
+                      }
+                    }
+                  }}
+                />
+              ))}
+              
+              {/* Drawing Canvas Overlay - Active when in draw mode */}
+              {isDrawMode && (
+                <canvas
+                  ref={canvasRef}
+                  className="absolute inset-0 w-full h-full cursor-crosshair touch-none"
+                  width={350}
+                  height={250}
+                  style={{ zIndex: 100 }}
+                  onMouseDown={startDrawing}
+                  onMouseMove={draw}
+                  onMouseUp={endDrawing}
+                  onMouseLeave={endDrawing}
+                  onTouchStart={startDrawing}
+                  onTouchMove={draw}
+                  onTouchEnd={endDrawing}
+                />
+              )}
                   </div>
                 );
               })()}
@@ -4780,6 +5034,149 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       );
                     })}
                   </div>
+                  
+                  {/* Drawing Track - Pink/Magenta themed */}
+                  {drawingLayers.length > 0 && (
+                    <div 
+                      className="relative h-10 cursor-pointer group"
+                      style={{ width: trackWidth }}
+                    >
+                      {/* Render drawing layers */}
+                      {drawingLayers.map(layer => {
+                        const isSelected = layer.id === selectedDrawingId;
+                        const leftOffset = layer.startTime * PIXELS_PER_SECOND;
+                        const itemWidth = Math.max(50, (layer.endTime - layer.startTime) * PIXELS_PER_SECOND);
+                        
+                        return (
+                          <div
+                            key={layer.id}
+                            className={cn(
+                              "absolute h-[34px] rounded flex items-center cursor-grab transition-all active:cursor-grabbing group/drawing",
+                              isSelected 
+                                ? "bg-gradient-to-r from-pink-500 to-fuchsia-500 border-2 border-white shadow-lg shadow-pink-500/30"
+                                : "bg-gradient-to-r from-pink-600 to-fuchsia-600 border border-pink-500/30 hover:border-pink-400/50"
+                            )}
+                            style={{ left: leftOffset, width: itemWidth, top: 3 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDrawingId(layer.id);
+                            }}
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              // Horizontal drag to move
+                              const startX = e.clientX;
+                              const startTime = layer.startTime;
+                              const layerDuration = layer.endTime - layer.startTime;
+                              
+                              const handleMove = (moveE: MouseEvent) => {
+                                const deltaX = moveE.clientX - startX;
+                                const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                let newStart = Math.max(0, Math.min(duration - layerDuration, startTime + timeDelta));
+                                
+                                setDrawingLayers(prev => prev.map(d => 
+                                  d.id === layer.id 
+                                    ? { ...d, startTime: newStart, endTime: newStart + layerDuration }
+                                    : d
+                                ));
+                              };
+                              
+                              const handleUp = () => {
+                                document.removeEventListener('mousemove', handleMove);
+                                document.removeEventListener('mouseup', handleUp);
+                              };
+                              
+                              document.addEventListener('mousemove', handleMove);
+                              document.addEventListener('mouseup', handleUp);
+                            }}
+                          >
+                            {/* Left trim handle */}
+                            <div 
+                              className={cn(
+                                "w-2.5 h-full rounded-l flex items-center justify-center cursor-ew-resize",
+                                isSelected ? "bg-white/50" : "bg-white/30"
+                              )}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                const startX = e.clientX;
+                                const startTime = layer.startTime;
+                                
+                                const handleMove = (moveE: MouseEvent) => {
+                                  const deltaX = moveE.clientX - startX;
+                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                  const newStart = Math.max(0, Math.min(layer.endTime - 0.5, startTime + timeDelta));
+                                  setDrawingLayers(prev => prev.map(d => 
+                                    d.id === layer.id ? { ...d, startTime: newStart } : d
+                                  ));
+                                };
+                                
+                                const handleUp = () => {
+                                  document.removeEventListener('mousemove', handleMove);
+                                  document.removeEventListener('mouseup', handleUp);
+                                };
+                                
+                                document.addEventListener('mousemove', handleMove);
+                                document.addEventListener('mouseup', handleUp);
+                              }}
+                            >
+                              <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                            </div>
+                            
+                            {/* Content */}
+                            <div className="flex-1 flex items-center gap-1 px-1 overflow-hidden cursor-grab">
+                              <Pencil className="w-3 h-3 text-white/90 shrink-0" />
+                              <span className="text-[10px] text-white font-semibold truncate flex-1">
+                                Drawing
+                              </span>
+                              {/* Delete button when selected */}
+                              {isSelected && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteDrawingLayer(layer.id);
+                                  }}
+                                  className="w-4 h-4 bg-destructive/90 hover:bg-destructive rounded-full flex items-center justify-center shrink-0"
+                                >
+                                  <X className="w-2.5 h-2.5 text-white" />
+                                </button>
+                              )}
+                            </div>
+                            
+                            {/* Right trim handle */}
+                            <div 
+                              className={cn(
+                                "w-2.5 h-full rounded-r flex items-center justify-center cursor-ew-resize",
+                                isSelected ? "bg-white/50" : "bg-white/30"
+                              )}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                const startX = e.clientX;
+                                const endTime = layer.endTime;
+                                
+                                const handleMove = (moveE: MouseEvent) => {
+                                  const deltaX = moveE.clientX - startX;
+                                  const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                  const newEnd = Math.min(duration, Math.max(layer.startTime + 0.5, endTime + timeDelta));
+                                  setDrawingLayers(prev => prev.map(d => 
+                                    d.id === layer.id ? { ...d, endTime: newEnd } : d
+                                  ));
+                                };
+                                
+                                const handleUp = () => {
+                                  document.removeEventListener('mousemove', handleMove);
+                                  document.removeEventListener('mouseup', handleUp);
+                                };
+                                
+                                document.addEventListener('mousemove', handleMove);
+                                document.addEventListener('mouseup', handleUp);
+                              }}
+                            >
+                              <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -5181,7 +5578,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       { id: 'add-text', name: 'Add text', icon: Type, action: () => { addTextOverlay(); setIsTextMenuMode(false); } },
                       { id: 'auto-captions', name: 'Auto captions', icon: Subtitles, action: () => { generateAutoCaptions(); setIsTextMenuMode(false); } },
                       { id: 'stickers', name: 'Stickers', icon: Smile, action: () => { setTextMenuTab('stickers'); } },
-                      { id: 'draw', name: 'Draw', icon: Pencil, action: () => toast({ title: "Drawing tools coming soon" }) },
+                      { id: 'draw', name: 'Draw', icon: Pencil, action: () => { setIsDrawMode(true); setIsTextMenuMode(false); } },
                       { id: 'text-template', name: 'Text template', icon: FileText, action: () => { addTextOverlay(); setIsTextMenuMode(false); } },
                       { id: 'text-to-audio', name: 'Text to audio', icon: AudioLines, action: () => toast({ title: "Text to audio coming soon" }) },
                       { id: 'auto-lyrics', name: 'Auto lyrics', icon: Music2, action: () => toast({ title: "Auto lyrics coming soon" }) },
@@ -5879,6 +6276,150 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+            
+            {/* Draw Mode Menu Overlay */}
+            {isDrawMode && (
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '220px' }}>
+                {/* Header with Undo/Redo and title and save button */}
+                <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={undoDrawStroke}
+                      disabled={currentStrokes.length === 0 && drawUndoStack.length === 0}
+                      className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-muted/20 hover:bg-muted/40 transition-colors disabled:opacity-30"
+                    >
+                      <Undo2 className="w-4 h-4 text-foreground" />
+                    </button>
+                    <button
+                      onClick={redoDrawStroke}
+                      disabled={drawRedoStack.length === 0}
+                      className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-muted/20 hover:bg-muted/40 transition-colors disabled:opacity-30"
+                    >
+                      <Redo2 className="w-4 h-4 text-foreground" />
+                    </button>
+                  </div>
+                  <span className="flex-1 text-sm font-medium text-foreground text-center">
+                    Draw
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        setCurrentStrokes([]);
+                        setIsDrawMode(false);
+                      }}
+                      className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-muted/20 hover:bg-muted/40 transition-colors"
+                    >
+                      <X className="w-4 h-4 text-foreground" />
+                    </button>
+                    <button
+                      onClick={saveDrawingAsLayer}
+                      className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary hover:bg-primary/90 transition-colors"
+                    >
+                      <Check className="w-5 h-5 text-primary-foreground" />
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Tools Row - Brush, Eraser, Clear */}
+                <div className="flex items-center justify-center gap-3 px-4 py-3 border-b border-border/10">
+                  <button
+                    onClick={() => setDrawTool('brush')}
+                    className={cn(
+                      "flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all border",
+                      drawTool === 'brush' 
+                        ? "bg-primary/20 border-primary/40" 
+                        : "bg-muted/20 border-transparent hover:bg-muted/40"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-9 h-9 rounded-full flex items-center justify-center mb-1",
+                      drawTool === 'brush' ? "bg-primary/30" : "bg-muted/30"
+                    )}>
+                      <Pencil className={cn("w-4 h-4", drawTool === 'brush' ? "text-primary" : "text-foreground")} />
+                    </div>
+                    <span className={cn("text-[10px] font-medium", drawTool === 'brush' ? "text-primary" : "text-foreground/60")}>
+                      Brush
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setDrawTool('eraser')}
+                    className={cn(
+                      "flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all border",
+                      drawTool === 'eraser' 
+                        ? "bg-primary/20 border-primary/40" 
+                        : "bg-muted/20 border-transparent hover:bg-muted/40"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-9 h-9 rounded-full flex items-center justify-center mb-1",
+                      drawTool === 'eraser' ? "bg-primary/30" : "bg-muted/30"
+                    )}>
+                      <Eraser className={cn("w-4 h-4", drawTool === 'eraser' ? "text-primary" : "text-foreground")} />
+                    </div>
+                    <span className={cn("text-[10px] font-medium", drawTool === 'eraser' ? "text-primary" : "text-foreground/60")}>
+                      Eraser
+                    </span>
+                  </button>
+                  <button
+                    onClick={clearAllDrawing}
+                    className="flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all border bg-muted/20 border-transparent hover:bg-destructive/20"
+                  >
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center mb-1 bg-muted/30">
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </div>
+                    <span className="text-[10px] font-medium text-destructive">
+                      Clear All
+                    </span>
+                  </button>
+                </div>
+                
+                {/* Color Picker Row */}
+                <div className="px-4 py-2">
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+                    {drawColorPresets.map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => { setDrawColor(color); setDrawTool('brush'); }}
+                        className={cn(
+                          "w-7 h-7 rounded-full shrink-0 border-2 transition-all",
+                          drawColor === color && drawTool === 'brush' 
+                            ? "border-primary ring-2 ring-primary/30 scale-110" 
+                            : "border-transparent hover:scale-105"
+                        )}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Size Slider */}
+                <div className="px-4 py-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-foreground/60 w-8">Size</span>
+                    <div className="flex-1 relative h-2">
+                      <div className="absolute inset-0 h-full bg-muted/30 rounded-full" />
+                      <div 
+                        className="absolute left-0 top-0 h-full rounded-full transition-all bg-primary"
+                        style={{ width: `${((drawSize - 1) / 29) * 100}%` }}
+                      />
+                      <div 
+                        className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full shadow-md transition-all"
+                        style={{ left: `calc(${((drawSize - 1) / 29) * 100}% - 8px)` }}
+                      />
+                      <input
+                        type="range"
+                        min="1"
+                        max="30"
+                        value={drawSize}
+                        onChange={(e) => setDrawSize(parseInt(e.target.value))}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                    </div>
+                    <span className="text-xs text-foreground font-medium w-6">{drawSize}px</span>
+                  </div>
+                </div>
               </div>
             )}
           </div>
