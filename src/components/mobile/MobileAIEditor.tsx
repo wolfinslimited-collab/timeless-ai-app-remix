@@ -189,6 +189,20 @@ interface EffectLayerData {
   endTime: number;
 }
 
+// Video overlay layer for Picture-in-Picture functionality
+interface VideoOverlayData {
+  id: string;
+  url: string;
+  duration: number; // Source video duration
+  position: { x: number; y: number }; // Normalized position (0-1)
+  size: { width: number; height: number }; // Size in pixels (for display)
+  scale: number; // Scale factor
+  startTime: number; // Timeline start position
+  endTime: number; // Timeline end position
+  volume: number; // 0-2 (0-200%)
+  opacity: number; // 0-1
+}
+
 const MAX_HISTORY_LENGTH = 50;
 
 export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
@@ -359,6 +373,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [selectedEffectId, setSelectedEffectId] = useState<string | null>(null);
 
   const selectedEffectLayer = effectLayers.find(e => e.id === selectedEffectId);
+
+  // Video overlay state (Picture-in-Picture)
+  const [videoOverlays, setVideoOverlays] = useState<VideoOverlayData[]>([]);
+  const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
+  const [draggingOverlayId, setDraggingOverlayId] = useState<string | null>(null);
+  const overlayVideoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
+
+  const selectedVideoOverlay = videoOverlays.find(o => o.id === selectedOverlayId);
 
   // Available effects - expanded with filter presets
   const effectPresets = [
@@ -694,6 +716,35 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         }
       }
     });
+    
+    // 3. Sync video overlay layers
+    videoOverlays.forEach(overlay => {
+      const overlayEl = overlayVideoRefs.current[overlay.id];
+      if (!overlayEl) return;
+      
+      // Check if current time is within overlay range
+      if (timelineTime >= overlay.startTime && timelineTime <= overlay.endTime) {
+        const overlayTime = timelineTime - overlay.startTime;
+        
+        // Sync position if drifted
+        if (Math.abs(overlayEl.currentTime - overlayTime) > 0.1) {
+          overlayEl.currentTime = Math.max(0, Math.min(overlayTime, overlay.duration));
+        }
+        
+        overlayEl.volume = isMuted ? 0 : Math.min(1, overlay.volume);
+        
+        if (isPlaying && overlayEl.paused) {
+          overlayEl.play().catch(() => {});
+        } else if (!isPlaying && !overlayEl.paused) {
+          overlayEl.pause();
+        }
+      } else {
+        // Outside range, pause
+        if (!overlayEl.paused) {
+          overlayEl.pause();
+        }
+      }
+    });
   };
   
   // Master playback loop - runs at 60fps for smooth sync
@@ -746,6 +797,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         const audioEl = audioRefs.current.get(audio.id);
         if (audioEl) audioEl.pause();
       });
+      // Pause overlay videos
+      videoOverlays.forEach(overlay => {
+        const overlayEl = overlayVideoRefs.current[overlay.id];
+        if (overlayEl) overlayEl.pause();
+      });
       setIsPlaying(false);
     } else {
       // Play all - sync first, then play
@@ -754,6 +810,18 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       if (videoRef.current) {
         videoRef.current.play().catch(() => {});
       }
+      
+      // Play overlay videos that should be visible at current time
+      videoOverlays.forEach(overlay => {
+        if (currentTime >= overlay.startTime && currentTime <= overlay.endTime) {
+          const overlayEl = overlayVideoRefs.current[overlay.id];
+          if (overlayEl) {
+            const overlayTime = currentTime - overlay.startTime;
+            overlayEl.currentTime = Math.max(0, Math.min(overlayTime, overlay.duration));
+            overlayEl.play().catch(() => {});
+          }
+        }
+      });
       
       // Audio layers will be started by the sync function
       setIsPlaying(true);
@@ -890,6 +958,71 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setCaptionLayers(prev => [...prev, newCaption]);
     setSelectedCaptionId(newCaption.id);
     setSelectedTool('captions');
+  };
+
+  // Video Overlay functions
+  const addVideoOverlay = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'video/*';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      
+      saveStateToHistory();
+      
+      // Create object URL for the overlay video
+      const overlayUrl = URL.createObjectURL(file);
+      
+      // Get video duration
+      const tempVideo = document.createElement('video');
+      tempVideo.src = overlayUrl;
+      tempVideo.preload = 'metadata';
+      
+      tempVideo.onloadedmetadata = () => {
+        const overlayDuration = tempVideo.duration;
+        
+        const newOverlay: VideoOverlayData = {
+          id: `overlay-${Date.now()}`,
+          url: overlayUrl,
+          duration: overlayDuration,
+          position: { x: 0.75, y: 0.25 }, // Top-right quadrant
+          size: { width: 150, height: 100 }, // Default PIP size
+          scale: 1,
+          startTime: currentTime,
+          endTime: Math.min(currentTime + overlayDuration, duration || overlayDuration),
+          volume: 0.5, // 50% default
+          opacity: 1,
+        };
+        
+        setVideoOverlays(prev => [...prev, newOverlay]);
+        setSelectedOverlayId(newOverlay.id);
+        setIsOverlayMenuMode(false);
+        toast({ title: "Overlay added", description: "Drag to reposition, resize with corner handles" });
+      };
+      
+      tempVideo.onerror = () => {
+        toast({ variant: "destructive", title: "Error", description: "Failed to load overlay video" });
+        URL.revokeObjectURL(overlayUrl);
+      };
+    };
+    input.click();
+  };
+  
+  const updateVideoOverlay = (id: string, updates: Partial<VideoOverlayData>) => {
+    setVideoOverlays(prev => prev.map(o => 
+      o.id === id ? { ...o, ...updates } : o
+    ));
+  };
+  
+  const deleteVideoOverlay = (id: string) => {
+    saveStateToHistory();
+    const overlay = videoOverlays.find(o => o.id === id);
+    if (overlay) {
+      URL.revokeObjectURL(overlay.url);
+    }
+    setVideoOverlays(prev => prev.filter(o => o.id !== id));
+    if (selectedOverlayId === id) setSelectedOverlayId(null);
   };
 
   const adjustmentTools: { id: keyof typeof adjustments; name: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -2648,6 +2781,198 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     muted={isMuted}
                   />
               
+              {/* Video Overlays - PiP with freeform transform */}
+              {videoOverlays.filter(overlay => 
+                currentTime >= overlay.startTime && currentTime <= overlay.endTime
+              ).map(overlay => {
+                const isSelected = overlay.id === selectedOverlayId;
+                return (
+                  <div
+                    key={overlay.id}
+                    className="absolute select-none"
+                    style={{
+                      left: `${overlay.position.x * 100}%`,
+                      top: `${overlay.position.y * 100}%`,
+                      transform: `translate(-50%, -50%) scale(${overlay.scale})`,
+                      width: overlay.size.width,
+                      height: overlay.size.height,
+                      cursor: draggingOverlayId === overlay.id ? 'grabbing' : 'grab',
+                      opacity: overlay.opacity,
+                      zIndex: 10,
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedOverlayId(overlay.id);
+                    }}
+                    // Drag support with mouse - with boundary constraints
+                    onMouseDown={(e) => {
+                      if (e.button !== 0) return;
+                      e.preventDefault();
+                      setDraggingOverlayId(overlay.id);
+                      setSelectedOverlayId(overlay.id);
+                      
+                      const startX = e.clientX;
+                      const startY = e.clientY;
+                      const startPosX = overlay.position.x;
+                      const startPosY = overlay.position.y;
+                      const containerRect = e.currentTarget.parentElement?.getBoundingClientRect();
+                      
+                      const handleMouseMove = (moveEvent: MouseEvent) => {
+                        if (!containerRect) return;
+                        const deltaX = (moveEvent.clientX - startX) / containerRect.width;
+                        const deltaY = (moveEvent.clientY - startY) / containerRect.height;
+                        // Boundary constraints: keep overlay within 5%-95% of video area
+                        const newX = Math.max(0.05, Math.min(0.95, startPosX + deltaX));
+                        const newY = Math.max(0.05, Math.min(0.95, startPosY + deltaY));
+                        
+                        updateVideoOverlay(overlay.id, { position: { x: newX, y: newY } });
+                      };
+                      
+                      const handleMouseUp = () => {
+                        setDraggingOverlayId(null);
+                        document.removeEventListener('mousemove', handleMouseMove);
+                        document.removeEventListener('mouseup', handleMouseUp);
+                      };
+                      
+                      document.addEventListener('mousemove', handleMouseMove);
+                      document.addEventListener('mouseup', handleMouseUp);
+                    }}
+                    // Touch support for mobile
+                    onTouchStart={(e) => {
+                      const touch = e.touches[0];
+                      setDraggingOverlayId(overlay.id);
+                      setSelectedOverlayId(overlay.id);
+                      
+                      const startX = touch.clientX;
+                      const startY = touch.clientY;
+                      const startPosX = overlay.position.x;
+                      const startPosY = overlay.position.y;
+                      const containerRect = e.currentTarget.parentElement?.getBoundingClientRect();
+                      
+                      const handleTouchMove = (moveEvent: TouchEvent) => {
+                        moveEvent.preventDefault();
+                        if (!containerRect) return;
+                        const currentTouch = moveEvent.touches[0];
+                        const deltaX = (currentTouch.clientX - startX) / containerRect.width;
+                        const deltaY = (currentTouch.clientY - startY) / containerRect.height;
+                        const newX = Math.max(0.05, Math.min(0.95, startPosX + deltaX));
+                        const newY = Math.max(0.05, Math.min(0.95, startPosY + deltaY));
+                        
+                        updateVideoOverlay(overlay.id, { position: { x: newX, y: newY } });
+                      };
+                      
+                      const handleTouchEnd = () => {
+                        setDraggingOverlayId(null);
+                        document.removeEventListener('touchmove', handleTouchMove);
+                        document.removeEventListener('touchend', handleTouchEnd);
+                      };
+                      
+                      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+                      document.addEventListener('touchend', handleTouchEnd);
+                    }}
+                  >
+                    {/* Video element */}
+                    <video
+                      ref={(el) => { overlayVideoRefs.current[overlay.id] = el; }}
+                      src={overlay.url}
+                      className={cn(
+                        "w-full h-full object-cover rounded-lg transition-all",
+                        isSelected && "ring-2 ring-white"
+                      )}
+                      muted={overlay.volume === 0}
+                      playsInline
+                      loop
+                    />
+                    
+                    {/* Transform handles - only when selected */}
+                    {isSelected && !draggingOverlayId && (
+                      <>
+                        {/* Delete button - top left */}
+                        <div
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            deleteVideoOverlay(overlay.id);
+                          }}
+                          className="absolute -top-3 -left-3 w-6 h-6 rounded-full bg-black/80 border border-white/50 flex items-center justify-center cursor-pointer z-50 touch-manipulation backdrop-blur-sm"
+                        >
+                          <X className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        
+                        {/* Resize handle - bottom right */}
+                        <div 
+                          className="absolute -bottom-3 -right-3 w-7 h-7 rounded-full bg-black/80 border border-white/50 flex items-center justify-center cursor-se-resize z-50 touch-manipulation backdrop-blur-sm"
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const startWidth = overlay.size.width;
+                            const startHeight = overlay.size.height;
+                            
+                            const handleMouseMove = (moveE: MouseEvent) => {
+                              const deltaX = moveE.clientX - startX;
+                              const deltaY = moveE.clientY - startY;
+                              
+                              // Independent width/height scaling with constraints
+                              const newWidth = Math.max(80, Math.min(400, startWidth + deltaX));
+                              const newHeight = Math.max(60, Math.min(300, startHeight + deltaY));
+                              
+                              updateVideoOverlay(overlay.id, { 
+                                size: { width: newWidth, height: newHeight } 
+                              });
+                            };
+                            
+                            const handleMouseUp = () => {
+                              document.removeEventListener('mousemove', handleMouseMove);
+                              document.removeEventListener('mouseup', handleMouseUp);
+                            };
+                            
+                            document.addEventListener('mousemove', handleMouseMove);
+                            document.addEventListener('mouseup', handleMouseUp);
+                          }}
+                          onTouchStart={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const touch = e.touches[0];
+                            const startX = touch.clientX;
+                            const startY = touch.clientY;
+                            const startWidth = overlay.size.width;
+                            const startHeight = overlay.size.height;
+                            
+                            const handleTouchMove = (moveE: TouchEvent) => {
+                              moveE.preventDefault();
+                              const currentTouch = moveE.touches[0];
+                              const deltaX = currentTouch.clientX - startX;
+                              const deltaY = currentTouch.clientY - startY;
+                              
+                              const newWidth = Math.max(80, Math.min(400, startWidth + deltaX));
+                              const newHeight = Math.max(60, Math.min(300, startHeight + deltaY));
+                              
+                              updateVideoOverlay(overlay.id, { 
+                                size: { width: newWidth, height: newHeight } 
+                              });
+                            };
+                            
+                            const handleTouchEnd = () => {
+                              document.removeEventListener('touchmove', handleTouchMove);
+                              document.removeEventListener('touchend', handleTouchEnd);
+                            };
+                            
+                            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+                            document.addEventListener('touchend', handleTouchEnd);
+                          }}
+                        >
+                          <Maximize className="w-3.5 h-3.5 text-white rotate-90" />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+              
               {/* Text Overlays - with dragging support */}
               {textOverlays.filter(overlay => 
                 currentTime >= overlay.startTime && currentTime <= overlay.endTime
@@ -3557,6 +3882,116 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             </div>
                           )}
                         </div>
+                      </div>
+                      
+                      {/* Video Overlay Track - Purple/Pink themed */}
+                      <div 
+                        className="relative h-10 cursor-pointer group"
+                        style={{ width: trackWidth }}
+                        onClick={() => {
+                          setIsOverlayMenuMode(true);
+                        }}
+                      >
+                        {/* Show "Add overlay" placeholder when no overlays */}
+                        {videoOverlays.length === 0 && (
+                          <div className="h-[34px] mt-[3px] rounded bg-[#2A2A2A] border border-border/30 hover:border-border/50 transition-all flex items-center gap-2 px-2" style={{ maxWidth: 180 }}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded bg-[#3A3A3A] flex items-center justify-center">
+                                <Layers className="w-2.5 h-2.5 text-foreground" />
+                              </div>
+                              <span className="text-[11px] text-foreground font-semibold">Add overlay</span>
+                            </div>
+                          </div>
+                        )}
+                        {/* Render overlay video layers */}
+                        {videoOverlays.map(overlay => {
+                          const isSelected = overlay.id === selectedOverlayId;
+                          const leftOffset = overlay.startTime * PIXELS_PER_SECOND;
+                          const itemWidth = Math.max(50, (overlay.endTime - overlay.startTime) * PIXELS_PER_SECOND);
+                          
+                          return (
+                            <div
+                              key={overlay.id}
+                              className={cn(
+                                "absolute h-[34px] mt-[3px] rounded flex items-center group/item transition-all",
+                                isSelected 
+                                  ? "bg-gradient-to-r from-purple-600/40 to-pink-600/40 border-2 border-white" 
+                                  : "bg-gradient-to-r from-purple-600/30 to-pink-600/30 border border-purple-500/30 hover:border-purple-400/50"
+                              )}
+                              style={{
+                                left: leftOffset,
+                                width: itemWidth,
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedOverlayId(overlay.id);
+                              }}
+                            >
+                              {/* Left trim handle */}
+                              <div 
+                                className="w-2 h-full flex items-center justify-center cursor-ew-resize opacity-0 group-hover/item:opacity-100 transition-opacity"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  const startX = e.clientX;
+                                  const startTime = overlay.startTime;
+                                  
+                                  const handleMove = (moveE: MouseEvent) => {
+                                    const deltaX = moveE.clientX - startX;
+                                    const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                    const newStart = Math.max(0, Math.min(overlay.endTime - 0.5, startTime + timeDelta));
+                                    updateVideoOverlay(overlay.id, { startTime: newStart });
+                                  };
+                                  
+                                  const handleUp = () => {
+                                    document.removeEventListener('mousemove', handleMove);
+                                    document.removeEventListener('mouseup', handleUp);
+                                  };
+                                  
+                                  document.addEventListener('mousemove', handleMove);
+                                  document.addEventListener('mouseup', handleUp);
+                                }}
+                              >
+                                <div className="w-0.5 h-3 bg-white/60 rounded-full" />
+                              </div>
+                              
+                              {/* Content */}
+                              <div className="flex-1 flex items-center gap-1.5 px-1 overflow-hidden cursor-grab">
+                                <Video className="w-3 h-3 text-white/70 shrink-0" />
+                                <span className="text-[10px] text-white/90 font-medium truncate flex-1">
+                                  Overlay
+                                </span>
+                              </div>
+                              
+                              {/* Right trim handle */}
+                              <div 
+                                className="w-2 h-full flex items-center justify-center cursor-ew-resize opacity-0 group-hover/item:opacity-100 transition-opacity"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  const startX = e.clientX;
+                                  const endTime = overlay.endTime;
+                                  
+                                  const handleMove = (moveE: MouseEvent) => {
+                                    const deltaX = moveE.clientX - startX;
+                                    const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                    const maxEnd = duration || totalTimelineDuration;
+                                    const newEnd = Math.min(maxEnd, Math.max(overlay.startTime + 0.5, endTime + timeDelta));
+                                    updateVideoOverlay(overlay.id, { endTime: newEnd });
+                                  };
+                                  
+                                  const handleUp = () => {
+                                    document.removeEventListener('mousemove', handleMove);
+                                    document.removeEventListener('mouseup', handleUp);
+                                  };
+                                  
+                                  document.addEventListener('mousemove', handleMove);
+                                  document.addEventListener('mouseup', handleUp);
+                                }}
+                              >
+                                <div className="w-0.5 h-3 bg-white/60 rounded-full" />
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                       
                       {/* + Add text row - only show placeholder when no text overlays */}
@@ -4545,16 +4980,38 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 <div className="flex-1 flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
                   <div className="flex gap-2 min-w-max">
                     <button
-                      onClick={() => toast({ title: "Add overlay coming soon" })}
+                      onClick={addVideoOverlay}
                       className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
                     >
                       <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-muted/30">
                         <Plus className="w-5 h-5 text-foreground" />
                       </div>
                       <span className="text-[10px] font-medium text-foreground/60">
-                        Add overlay
+                        Add video
                       </span>
                     </button>
+                    
+                    {/* Show existing overlays */}
+                    {videoOverlays.map((overlay) => (
+                      <button
+                        key={overlay.id}
+                        onClick={() => {
+                          setSelectedOverlayId(overlay.id);
+                          setIsOverlayMenuMode(false);
+                        }}
+                        className={cn(
+                          "flex flex-col items-center justify-center w-16 rounded-xl transition-all",
+                          selectedOverlayId === overlay.id ? "bg-primary/20" : "hover:bg-muted/50"
+                        )}
+                      >
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-1.5 bg-muted/30 overflow-hidden">
+                          <Video className="w-5 h-5 text-foreground" />
+                        </div>
+                        <span className="text-[10px] font-medium text-foreground/60 truncate max-w-[56px]">
+                          Overlay
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
