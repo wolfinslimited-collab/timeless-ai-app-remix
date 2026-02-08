@@ -1820,7 +1820,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             {/* Video container - uses BoxFit.contain to scale down when text panel is open */}
             <div 
               className={cn(
-                "relative w-full h-full flex items-center justify-center overflow-hidden bg-black rounded-lg transition-all duration-300",
+                "relative w-full h-full flex items-center justify-center overflow-hidden bg-black transition-all duration-300",
                 showTextEditPanel ? "max-h-full" : "max-h-[280px]"
               )}
             >
@@ -1869,12 +1869,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 
                 return (
                   <div 
-                    className="relative bg-black rounded-lg flex items-center justify-center z-10"
+                    className="relative bg-black flex items-center justify-center z-10"
                     style={{
                       width: dimensions.width,
                       height: dimensions.height,
                       overflow: 'hidden',
-                      clipPath: 'inset(0 round 8px)',
                     }}
                   // Handle video dragging on the container
                   onMouseDown={(e) => {
