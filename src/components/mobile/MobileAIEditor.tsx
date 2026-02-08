@@ -1763,9 +1763,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             <p className="mt-4 text-white/60 text-sm">Loading video...</p>
           </div>
         ) : videoUrl ? (
-          <div className="flex-1 flex items-center justify-center px-4 overflow-hidden">
-            {/* Fixed-size parent container with hard clipping */}
-            <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+          <div className="flex-1 flex items-center justify-center px-4 overflow-hidden min-h-0">
+            {/* Fixed-size parent container with hard clipping - constrained max height */}
+            <div 
+              className="relative w-full flex items-center justify-center overflow-hidden"
+              style={{ maxHeight: 'min(70vh, 400px)', height: '100%' }}
+            >
               {/* Container with selected aspect ratio - uses black background */}
               {(() => {
                 // Calculate aspect ratio dimensions
@@ -1788,8 +1791,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     style={{
                       aspectRatio: aspectStyle.aspectRatio,
                       maxWidth: aspectStyle.maxWidth || '28rem',
-                      maxHeight: aspectStyle.maxHeight || '70vh',
+                      maxHeight: aspectStyle.maxHeight || '100%',
                       width: '100%',
+                      height: 'auto',
                       overflow: 'hidden',
                       clipPath: 'inset(0 round 8px)',
                     }}
