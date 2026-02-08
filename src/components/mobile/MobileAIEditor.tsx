@@ -55,7 +55,8 @@ import {
   FileText,
   AudioLines,
   Music2,
-  HelpCircle
+  HelpCircle,
+  Check
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -1139,12 +1140,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     toast({ title: "Speed Applied", description: `Playback speed set to ${clipSpeed.toFixed(1)}x` });
   };
 
-  // Apply clip volume to video
+  // Apply clip volume to video (clipVolume is 0-2 where 1=100%, 2=200%)
   const applyClipVolume = () => {
     if (videoRef.current) {
-      videoRef.current.volume = clipVolume;
+      // HTML5 video volume is capped at 1.0, so we clamp it
+      videoRef.current.volume = Math.min(1, clipVolume);
     }
-    toast({ title: "Volume Applied", description: `Clip volume set to ${Math.round(clipVolume * 100)}%` });
+    toast({ title: "Volume Applied", description: `Clip volume set to ${Math.round(clipVolume * 100)}` });
   };
 
   // Animation presets configuration
@@ -3568,9 +3570,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         }
                         setEditSubPanel('none');
                       }}
-                      className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary hover:bg-primary/90 transition-colors"
+                      className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white hover:bg-white/90 transition-colors"
                     >
-                      <span className="text-primary-foreground text-xs font-medium">✓</span>
+                      <Check className="w-5 h-5 text-background" />
                     </button>
                   )}
                   {editSubPanel === 'none' && <div className="w-8" />}
@@ -3578,33 +3580,51 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 
                 {/* Sub-panel content or main tools */}
                 {editSubPanel === 'volume' ? (
-                  /* Volume Slider Sub-panel */
+                  /* Volume Slider Sub-panel - 0 to 200 range with cyan slider */
                   <div className="flex-1 flex flex-col justify-center px-6 py-4">
+                    {/* Slider container */}
                     <div className="flex items-center gap-4">
-                      <VolumeX className="w-5 h-5 text-muted-foreground shrink-0" />
-                      <div className="flex-1 relative">
-                        <div className="h-2 bg-muted/30 rounded-full">
-                          <div 
-                            className="h-full bg-primary rounded-full transition-all"
-                            style={{ width: `${clipVolume * 100}%` }}
-                          />
-                        </div>
+                      <div className="flex-1 relative h-3">
+                        {/* Track background */}
+                        <div className="absolute inset-0 h-full bg-muted/30 rounded-full" />
+                        {/* Active track - cyan/blue color */}
+                        <div 
+                          className="absolute left-0 top-0 h-full rounded-full transition-all"
+                          style={{ 
+                            width: `${(clipVolume / 2) * 100}%`,
+                            background: 'linear-gradient(90deg, #00D4FF, #0EA5E9)'
+                          }}
+                        />
+                        {/* Thumb indicator */}
+                        <div 
+                          className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-lg border-2 border-[#00D4FF] transition-all"
+                          style={{ left: `calc(${(clipVolume / 2) * 100}% - 10px)` }}
+                        />
                         <input
                           type="range"
                           min="0"
-                          max="1"
+                          max="2"
                           step="0.01"
                           value={clipVolume}
-                          onChange={(e) => setClipVolume(parseFloat(e.target.value))}
+                          onChange={(e) => {
+                            const newVolume = parseFloat(e.target.value);
+                            setClipVolume(newVolume);
+                            // Real-time volume update
+                            if (videoRef.current) {
+                              videoRef.current.volume = Math.min(1, newVolume);
+                            }
+                          }}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         />
                       </div>
-                      <Volume2 className="w-5 h-5 text-foreground shrink-0" />
                     </div>
-                    <div className="flex justify-between mt-3">
-                      <span className="text-xs text-muted-foreground">0%</span>
-                      <span className="text-sm font-semibold text-primary">{Math.round(clipVolume * 100)}%</span>
-                      <span className="text-xs text-muted-foreground">100%</span>
+                    {/* Labels */}
+                    <div className="flex justify-between mt-4">
+                      <span className="text-sm text-muted-foreground font-medium">0</span>
+                      <span className="text-lg font-bold" style={{ color: '#00D4FF' }}>
+                        {Math.round(clipVolume * 100)}
+                      </span>
+                      <span className="text-sm text-muted-foreground font-medium">200</span>
                     </div>
                   </div>
                 ) : editSubPanel === 'speed' ? (

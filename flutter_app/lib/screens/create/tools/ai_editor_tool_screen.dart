@@ -1592,10 +1592,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     _showSnackBar('Speed set to ${_clipSpeed.toStringAsFixed(1)}x');
   }
   
-  /// Apply clip volume to video
+  /// Apply clip volume to video (clipVolume is 0-2 where 1=100%, 2=200%)
   void _applyClipVolume() {
-    _videoController?.setVolume(_clipVolume);
-    _showSnackBar('Volume set to ${(_clipVolume * 100).round()}%');
+    // Video player volume is capped at 1.0, so we clamp it
+    _videoController?.setVolume(_clipVolume.clamp(0.0, 1.0));
+    _showSnackBar('Volume set to ${(_clipVolume * 100).round()}');
   }
   
   /// Show animations bottom sheet
@@ -6230,13 +6231,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         width: 32,
                         height: 32,
                         decoration: const BoxDecoration(
-                          color: AppTheme.primary,
+                          color: Colors.white,
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           Icons.check,
                           size: 18,
-                          color: Colors.white,
+                          color: Color(0xFF0A0A0A),
                         ),
                       ),
                     ),
@@ -6260,48 +6261,66 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
-  /// Volume slider sub-panel
+  /// Volume slider sub-panel - 0 to 200 range with cyan slider
   Widget _buildVolumeSubPanel() {
+    // Convert clipVolume (0-2) to display value (0-200)
+    final displayValue = (_clipVolume * 100).round();
+    
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              Icon(Icons.volume_off, color: Colors.white.withOpacity(0.5), size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    activeTrackColor: AppTheme.primary,
-                    inactiveTrackColor: Colors.white.withOpacity(0.2),
-                    thumbColor: Colors.white,
-                    trackHeight: 4,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                  ),
-                  child: Slider(
-                    value: _clipVolume,
-                    min: 0.0,
-                    max: 1.0,
-                    onChanged: (value) => setState(() => _clipVolume = value),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Icon(Icons.volume_up, color: Colors.white, size: 20),
-            ],
+          // Slider with custom cyan track
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: const Color(0xFF00D4FF),
+              inactiveTrackColor: Colors.white.withOpacity(0.2),
+              thumbColor: Colors.white,
+              trackHeight: 6,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+              overlayColor: const Color(0xFF00D4FF).withOpacity(0.2),
+            ),
+            child: Slider(
+              value: _clipVolume,
+              min: 0.0,
+              max: 2.0,
+              onChanged: (value) {
+                setState(() => _clipVolume = value);
+                // Real-time volume update
+                _videoController?.setVolume(value.clamp(0.0, 1.0));
+              },
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          // Labels row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('0%', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
               Text(
-                '${(_clipVolume * 100).round()}%',
-                style: const TextStyle(color: AppTheme.primary, fontSize: 14, fontWeight: FontWeight.bold),
+                '0',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-              Text('100%', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+              Text(
+                '$displayValue',
+                style: const TextStyle(
+                  color: Color(0xFF00D4FF),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                '200',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
         ],
