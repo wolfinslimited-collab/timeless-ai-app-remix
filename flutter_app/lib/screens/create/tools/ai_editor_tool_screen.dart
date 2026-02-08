@@ -668,6 +668,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Captions menu mode state - activated by clicking "Captions" tool
   bool _isCaptionsMenuMode = false;
   
+  // Aspect ratio menu mode state - activated by clicking "Aspect" tool
+  bool _isAspectMenuMode = false;
+  
   // Speed presets (legacy)
   final List<Map<String, dynamic>> _speedPresets = [
     {'value': 0.25, 'label': '0.25x'},
@@ -684,7 +687,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   bool get _isAnyOverlayOpen => 
       _isEditMenuMode || _isAudioMenuMode || _isTextMenuMode || 
       _isEffectsMenuMode || _isOverlayMenuMode || _isCaptionsMenuMode || 
-      _showTextEditPanel;
+      _isAspectMenuMode || _showTextEditPanel;
   
   // Background color presets
   final List<Color> _backgroundColorPresets = [
@@ -6059,6 +6062,19 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               ),
             ),
           
+          if (_isAspectMenuMode)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 200,
+              child: Material(
+                color: const Color(0xFF0A0A0A),
+                elevation: 8,
+                child: _buildAspectMenu(),
+              ),
+            ),
+          
           // Edit Menu Overlay - MOVED to _buildDynamicBottomArea Stack for proper z-ordering
         ],
       ),
@@ -7407,6 +7423,152 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
+  /// Build the aspect ratio menu - horizontal scrollable menu
+  Widget _buildAspectMenu() {
+    final aspectOptions = [
+      {'id': 'original', 'label': 'Original', 'icon': '📐'},
+      {'id': '9:16', 'label': '9:16', 'icon': '📱'},
+      {'id': '16:9', 'label': '16:9', 'icon': '🖥️'},
+      {'id': '1:1', 'label': '1:1', 'icon': '⬜'},
+      {'id': '4:5', 'label': '4:5', 'icon': '📷'},
+      {'id': '4:3', 'label': '4:3', 'icon': '📺'},
+      {'id': '21:9', 'label': '21:9', 'icon': '🎬'},
+      {'id': '2.35:1', 'label': '2.35:1', 'icon': '🎞️'},
+    ];
+    
+    return Column(
+      key: const ValueKey('aspect_menu'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Header with back button, centered title, and confirm button
+        Container(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+          ),
+          child: Row(
+            children: [
+              // Back button
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _isAspectMenuMode = false),
+                  child: Container(
+                    width: 32,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.primary.withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: const Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
+                  ),
+                ),
+              ),
+              // Centered Title
+              const Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'Aspect Ratio',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+              // Confirm button
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() => _isAspectMenuMode = false);
+                    _showSnackBar('Aspect ratio applied');
+                  },
+                  child: Container(
+                    width: 32,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.check, size: 20, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Horizontal Scrollable Aspect Ratio Options
+        Container(
+          height: 150,
+          alignment: Alignment.topCenter,
+          padding: const EdgeInsets.only(top: 16),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: aspectOptions.map((option) {
+                final isSelected = _selectedAspectRatio == option['id'];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedAspectRatio = option['id'] as String;
+                        _videoPosition = Offset.zero; // Reset position on aspect change
+                      });
+                    },
+                    child: Container(
+                      width: 64,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected 
+                            ? AppTheme.primary.withOpacity(0.2) 
+                            : Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected 
+                              ? AppTheme.primary.withOpacity(0.4) 
+                              : Colors.transparent,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            option['icon'] as String,
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            option['label'] as String,
+                            style: TextStyle(
+                              color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.7),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
   /// Build the main editor toolbar
   Widget _buildMainToolbar() {
     return SingleChildScrollView(
@@ -7486,8 +7648,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 return;
               }
               
+              // Aspect tool opens the aspect ratio menu
+              if (tool.id == 'aspect') {
+                setState(() => _isAspectMenuMode = true);
+                return;
+              }
+              
               // Only show coming soon for non-functional tools
-              if (tool.id != 'adjust' && tool.id != 'filters' && tool.id != 'stickers' && tool.id != 'aspect' && tool.id != 'background') {
+              if (tool.id != 'adjust' && tool.id != 'filters' && tool.id != 'stickers' && tool.id != 'background') {
                 _showSnackBar('${tool.name} coming soon');
               }
             },
