@@ -88,7 +88,6 @@ const EDITOR_TOOLS: EditorTool[] = [
   { id: "captions", name: "Captions", icon: MessageSquareText },
   { id: "filters", name: "Filters", icon: Circle },
   { id: "adjust", name: "Adjust", icon: SlidersHorizontal },
-  { id: "stickers", name: "Stickers", icon: Smile },
   { id: "aspect", name: "Aspect", icon: RectangleHorizontal },
   { id: "background", name: "Background", icon: Paintbrush },
 ];
