@@ -2709,39 +2709,43 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               onPanEnd: _selectedAspectRatio == 'original' ? null : (_) {
                 setState(() => _isDraggingVideo = false);
               },
-              child: Container(
-                width: containerWidth,
-                height: containerHeight,
-                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: ColorFiltered(
-                    colorFilter: _buildColorFilter(),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        // Video player with position offset and scale
-                        Transform.translate(
-                          offset: _selectedAspectRatio == 'original' ? Offset.zero : _videoPosition,
-                          child: Transform.scale(
-                            scale: videoScale,
-                            child: Center(
-                              child: AspectRatio(
-                                aspectRatio: videoAspectRatio,
-                                child: VideoPlayer(_videoController!),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                clipBehavior: Clip.hardEdge,
+                child: Container(
+                  width: containerWidth,
+                  height: containerHeight,
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ClipRect(
+                    clipBehavior: Clip.hardEdge,
+                    child: ColorFiltered(
+                      colorFilter: _buildColorFilter(),
+                      child: Stack(
+                        clipBehavior: Clip.hardEdge,
+                        fit: StackFit.expand,
+                        children: [
+                          // Video player with position offset and scale
+                          Transform.translate(
+                            offset: _selectedAspectRatio == 'original' ? Offset.zero : _videoPosition,
+                            child: Transform.scale(
+                              scale: videoScale,
+                              child: Center(
+                                child: AspectRatio(
+                                  aspectRatio: videoAspectRatio,
+                                  child: VideoPlayer(_videoController!),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        // Text overlays for editing
-                        ..._buildTextOverlays(constraints),
-                        // Caption overlays at bottom of video
-                        ..._buildCaptionOverlays(constraints),
-                      ],
+                          // Text overlays for editing
+                          ..._buildTextOverlays(constraints),
+                          // Caption overlays at bottom of video
+                          ..._buildCaptionOverlays(constraints),
+                        ],
+                      ),
                     ),
                   ),
                 ),
