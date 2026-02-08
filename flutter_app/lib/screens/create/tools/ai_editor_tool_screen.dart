@@ -145,6 +145,38 @@ class StickerLayer {
   });
 }
 
+/// Drawing stroke data model
+class DrawingStroke {
+  String id;
+  List<Offset> points;
+  Color color;
+  double size;
+  String tool; // 'brush' or 'eraser'
+  
+  DrawingStroke({
+    required this.id,
+    required this.points,
+    required this.color,
+    required this.size,
+    required this.tool,
+  });
+}
+
+/// Drawing layer data model for canvas drawings
+class DrawingLayer {
+  String id;
+  List<DrawingStroke> strokes;
+  double startTime;
+  double endTime;
+  
+  DrawingLayer({
+    required this.id,
+    required this.strokes,
+    this.startTime = 0,
+    this.endTime = 5,
+  });
+}
+
 /// Caption/Subtitle layer data model
 class CaptionLayer {
   String id;
@@ -723,6 +755,34 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Background menu mode state - activated by clicking "Background" tool
   bool _isBackgroundMenuMode = false;
   
+  // Draw mode state - activated by clicking "Draw" in Text menu
+  bool _isDrawMode = false;
+  String _drawTool = 'brush'; // 'brush' or 'eraser'
+  Color _drawColor = Colors.white;
+  double _drawSize = 5.0;
+  List<DrawingLayer> _drawingLayers = [];
+  List<DrawingStroke> _currentStrokes = [];
+  String? _selectedDrawingId;
+  List<Offset> _currentDrawingPoints = [];
+  
+  // Drawing undo/redo for strokes (local to current drawing session)
+  final List<List<DrawingStroke>> _drawUndoStack = [];
+  final List<List<DrawingStroke>> _drawRedoStack = [];
+  
+  // Drawing color presets
+  final List<Color> _drawColorPresets = [
+    Colors.white,
+    const Color(0xFFFF4444),
+    const Color(0xFF44FF44),
+    const Color(0xFF4444FF),
+    const Color(0xFFFFFF44),
+    const Color(0xFFFF44FF),
+    const Color(0xFF44FFFF),
+    const Color(0xFFFFA500),
+    const Color(0xFFFF69B4),
+    const Color(0xFF8B5CF6),
+  ];
+  
   // Speed presets (legacy)
   final List<Map<String, dynamic>> _speedPresets = [
     {'value': 0.25, 'label': '0.25x'},
@@ -739,7 +799,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   bool get _isAnyOverlayOpen => 
       _isEditMenuMode || _isAudioMenuMode || _isTextMenuMode || 
       _isEffectsMenuMode || _isOverlayMenuMode || _isCaptionsMenuMode || 
-      _isAspectMenuMode || _isBackgroundMenuMode || _showTextEditPanel;
+      _isAspectMenuMode || _isBackgroundMenuMode || _showTextEditPanel || _isDrawMode;
   
   // Background color presets
   final List<Color> _backgroundColorPresets = [
@@ -6599,7 +6659,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   setState(() => _textMenuTab = _textMenuTab == 'stickers' ? 'add-text' : 'stickers');
                 }),
                 _buildMenuToolButton('Draw', Icons.edit_outlined, () {
-                  _showSnackBar('Drawing tools coming soon');
+                  setState(() {
+                    _isDrawMode = true;
+                    _isTextMenuMode = false;
+                  });
                 }),
                 _buildMenuToolButton('Text template', Icons.description_outlined, () {
                   _addTextOverlay();
