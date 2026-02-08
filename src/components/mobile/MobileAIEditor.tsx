@@ -3637,13 +3637,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         <input
                           type="range"
                           min="0"
-                          max="2"
-                          step="0.01"
-                          value={clipVolume}
+                          max="200"
+                          step="1"
+                          value={Math.round(clipVolume * 100)}
                           onChange={(e) => {
-                            const newVolume = parseFloat(e.target.value);
+                            const displayValue = parseInt(e.target.value);
+                            const newVolume = displayValue / 100; // Convert 0-200 to 0-2
                             setClipVolume(newVolume);
-                            // Real-time volume update
+                            // Real-time volume update (capped at 1.0 for HTML5)
                             if (videoRef.current) {
                               videoRef.current.volume = Math.min(1, newVolume);
                             }
