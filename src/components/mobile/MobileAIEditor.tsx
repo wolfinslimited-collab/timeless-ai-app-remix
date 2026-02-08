@@ -293,6 +293,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [settingsPanelType, setSettingsPanelType] = useState<'adjust' | 'stickers' | 'aspect' | 'background' | null>(null);
   
+  // Computed: check if any overlay menu is currently open (to hide main toolbar)
+  const isAnyOverlayOpen = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isSettingsPanelOpen;
+  
   // Sticker presets
   const stickerCategories = [
     { id: 'emoji', name: 'Emoji', stickers: ['😀', '😂', '🥰', '😎', '🔥', '💯', '⭐', '❤️', '👍', '🎉', '✨', '🚀'] },
@@ -3484,49 +3487,91 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           </div>
 
           {/* Bottom Toolbar - Fixed height, always pinned to bottom */}
-          <div className="shrink-0 bg-background border-t border-border/10 pb-safe" style={{ maxHeight: showTextEditPanel ? '400px' : '200px' }}>
-            {showTextEditPanel && selectedTextOverlay ? (
-              /* Text Edit Panel - comprehensive text editing */
-              <TextEditPanel
-                onBack={() => setShowTextEditPanel(false)}
-                text={selectedTextOverlay.text}
-                onTextChange={(text) => updateSelectedText({ text })}
-                fontSize={selectedTextOverlay.fontSize}
-                onFontSizeChange={(fontSize) => updateSelectedText({ fontSize })}
-                textColor={selectedTextOverlay.textColor}
-                onTextColorChange={(textColor) => updateSelectedText({ textColor })}
-                fontFamily={selectedTextOverlay.fontFamily}
-                onFontFamilyChange={(fontFamily) => updateSelectedText({ fontFamily })}
-                opacity={selectedTextOverlay.opacity}
-                onOpacityChange={(opacity) => updateSelectedText({ opacity })}
-                strokeEnabled={selectedTextOverlay.strokeEnabled}
-                onStrokeEnabledChange={(strokeEnabled) => updateSelectedText({ strokeEnabled })}
-                strokeColor={selectedTextOverlay.strokeColor}
-                onStrokeColorChange={(strokeColor) => updateSelectedText({ strokeColor })}
-                strokeWidth={selectedTextOverlay.strokeWidth}
-                onStrokeWidthChange={(strokeWidth) => updateSelectedText({ strokeWidth })}
-                glowEnabled={selectedTextOverlay.glowEnabled}
-                onGlowEnabledChange={(glowEnabled) => updateSelectedText({ glowEnabled })}
-                glowColor={selectedTextOverlay.glowColor}
-                onGlowColorChange={(glowColor) => updateSelectedText({ glowColor })}
-                glowIntensity={selectedTextOverlay.glowIntensity}
-                onGlowIntensityChange={(glowIntensity) => updateSelectedText({ glowIntensity })}
-                shadowEnabled={selectedTextOverlay.shadowEnabled}
-                onShadowEnabledChange={(shadowEnabled) => updateSelectedText({ shadowEnabled })}
-                shadowColor={selectedTextOverlay.shadowColor}
-                onShadowColorChange={(shadowColor) => updateSelectedText({ shadowColor })}
-                letterSpacing={selectedTextOverlay.letterSpacing}
-                onLetterSpacingChange={(letterSpacing) => updateSelectedText({ letterSpacing })}
-                curveAmount={selectedTextOverlay.curveAmount}
-                onCurveAmountChange={(curveAmount) => updateSelectedText({ curveAmount })}
-                animation={selectedTextOverlay.animation}
-                onAnimationChange={(animation) => updateSelectedText({ animation })}
-                bubbleStyle={selectedTextOverlay.bubbleStyle}
-                onBubbleStyleChange={(bubbleStyle) => updateSelectedText({ bubbleStyle })}
-              />
-            ) : isTextMenuMode ? (
-              /* Text Menu - fixed-height horizontal scrollable row */
-              <div className="animate-fade-in flex flex-col" style={{ maxHeight: '180px' }}>
+          <div className="shrink-0 bg-background border-t border-border/10 pb-safe relative" style={{ maxHeight: showTextEditPanel ? '400px' : '200px' }}>
+            {/* Main toolbar - always rendered, fades out when overlay is open */}
+            <div 
+              className={cn(
+                "overflow-x-auto transition-all duration-200",
+                isAnyOverlayOpen ? "opacity-0 pointer-events-none" : "opacity-100"
+              )}
+            >
+              <div className="flex px-2 py-3 min-w-max">
+                {EDITOR_TOOLS.map((tool) => {
+                  const Icon = tool.icon;
+                  const isSelected = selectedTool === tool.id;
+
+                  return (
+                    <button
+                      key={tool.id}
+                      onClick={() => handleToolClick(tool)}
+                      className="flex flex-col items-center justify-center w-16 py-1"
+                    >
+                      <Icon
+                        className={cn(
+                          "w-6 h-6 mb-1",
+                          isSelected ? "text-foreground" : "text-foreground/60"
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          "text-[11px]",
+                          isSelected ? "text-foreground font-medium" : "text-foreground/60"
+                        )}
+                      >
+                        {tool.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            
+            {/* Overlay menus - absolute positioned, slide up with fade */}
+            {showTextEditPanel && selectedTextOverlay && (
+              <div className="absolute inset-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-10">
+                <TextEditPanel
+                  onBack={() => setShowTextEditPanel(false)}
+                  text={selectedTextOverlay.text}
+                  onTextChange={(text) => updateSelectedText({ text })}
+                  fontSize={selectedTextOverlay.fontSize}
+                  onFontSizeChange={(fontSize) => updateSelectedText({ fontSize })}
+                  textColor={selectedTextOverlay.textColor}
+                  onTextColorChange={(textColor) => updateSelectedText({ textColor })}
+                  fontFamily={selectedTextOverlay.fontFamily}
+                  onFontFamilyChange={(fontFamily) => updateSelectedText({ fontFamily })}
+                  opacity={selectedTextOverlay.opacity}
+                  onOpacityChange={(opacity) => updateSelectedText({ opacity })}
+                  strokeEnabled={selectedTextOverlay.strokeEnabled}
+                  onStrokeEnabledChange={(strokeEnabled) => updateSelectedText({ strokeEnabled })}
+                  strokeColor={selectedTextOverlay.strokeColor}
+                  onStrokeColorChange={(strokeColor) => updateSelectedText({ strokeColor })}
+                  strokeWidth={selectedTextOverlay.strokeWidth}
+                  onStrokeWidthChange={(strokeWidth) => updateSelectedText({ strokeWidth })}
+                  glowEnabled={selectedTextOverlay.glowEnabled}
+                  onGlowEnabledChange={(glowEnabled) => updateSelectedText({ glowEnabled })}
+                  glowColor={selectedTextOverlay.glowColor}
+                  onGlowColorChange={(glowColor) => updateSelectedText({ glowColor })}
+                  glowIntensity={selectedTextOverlay.glowIntensity}
+                  onGlowIntensityChange={(glowIntensity) => updateSelectedText({ glowIntensity })}
+                  shadowEnabled={selectedTextOverlay.shadowEnabled}
+                  onShadowEnabledChange={(shadowEnabled) => updateSelectedText({ shadowEnabled })}
+                  shadowColor={selectedTextOverlay.shadowColor}
+                  onShadowColorChange={(shadowColor) => updateSelectedText({ shadowColor })}
+                  letterSpacing={selectedTextOverlay.letterSpacing}
+                  onLetterSpacingChange={(letterSpacing) => updateSelectedText({ letterSpacing })}
+                  curveAmount={selectedTextOverlay.curveAmount}
+                  onCurveAmountChange={(curveAmount) => updateSelectedText({ curveAmount })}
+                  animation={selectedTextOverlay.animation}
+                  onAnimationChange={(animation) => updateSelectedText({ animation })}
+                  bubbleStyle={selectedTextOverlay.bubbleStyle}
+                  onBubbleStyleChange={(bubbleStyle) => updateSelectedText({ bubbleStyle })}
+                />
+              </div>
+            )}
+            
+            {/* Text Menu Overlay */}
+            {isTextMenuMode && (
+              <div className="absolute inset-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-10 flex flex-col" style={{ maxHeight: '180px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center px-2 py-2 border-b border-border/20">
                   <button
@@ -3555,9 +3600,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         <button
                           key={tool.id}
                           onClick={tool.action}
-                          className="flex flex-col items-center justify-center shrink-0 w-16 py-2 rounded-xl transition-all hover:bg-white/5"
+                          className="flex flex-col items-center justify-center shrink-0 w-16 py-2 rounded-xl transition-all hover:bg-muted/50"
                         >
-                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
+                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-muted/30">
                             <IconComponent className="w-5 h-5 text-foreground" />
                           </div>
                           <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight whitespace-nowrap">
@@ -3581,7 +3626,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
                             selectedStickerCategory === cat.id
                               ? "bg-primary text-primary-foreground"
-                              : "bg-white/10 text-foreground/70"
+                              : "bg-muted/30 text-foreground/70"
                           )}
                         >
                           {cat.name}
@@ -3607,7 +3652,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               });
                               setIsTextMenuMode(false);
                             }}
-                            className="w-9 h-9 flex items-center justify-center text-xl hover:bg-white/10 rounded-lg transition-colors"
+                            className="w-9 h-9 flex items-center justify-center text-xl hover:bg-muted/30 rounded-lg transition-colors"
                           >
                             {sticker}
                           </button>
@@ -3616,9 +3661,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   </div>
                 )}
               </div>
-            ) : isEffectsMenuMode ? (
-              /* Effects Menu - horizontal scrollable menu with effects tools */
-              <div className="animate-fade-in flex flex-col">
+            )}
+            
+            {/* Effects Menu Overlay */}
+            {isEffectsMenuMode && (
+              <div className="absolute inset-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-10 flex flex-col">
                 {/* Header with back button and title */}
                 <div className="flex items-center px-2 py-2 border-b border-border/20">
                   <button
@@ -3643,9 +3690,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         <button
                           key={tool.id}
                           onClick={tool.action}
-                          className="flex flex-col items-center justify-center shrink-0 w-20 py-2 rounded-xl transition-all hover:bg-white/5"
+                          className="flex flex-col items-center justify-center shrink-0 w-20 py-2 rounded-xl transition-all hover:bg-muted/50"
                         >
-                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
+                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-muted/30">
                             <IconComponent className="w-5 h-5 text-foreground" />
                           </div>
                           <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight whitespace-nowrap">
@@ -3657,9 +3704,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   </div>
                 </div>
               </div>
-            ) : isOverlayMenuMode ? (
-              /* Overlay Menu - single action button */
-              <div className="animate-fade-in flex flex-col">
+            )}
+            
+            {/* Overlay Menu Overlay */}
+            {isOverlayMenuMode && (
+              <div className="absolute inset-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-10 flex flex-col">
                 {/* Header with back button and title */}
                 <div className="flex items-center px-2 py-2 border-b border-border/20">
                   <button
@@ -3677,9 +3726,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     onClick={() => {
                       toast({ title: "Add overlay coming soon" });
                     }}
-                    className="flex flex-col items-center justify-center w-20 py-2 rounded-xl transition-all hover:bg-white/5"
+                    className="flex flex-col items-center justify-center w-20 py-2 rounded-xl transition-all hover:bg-muted/50"
                   >
-                    <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-muted/30">
                       <Plus className="w-5 h-5 text-foreground" />
                     </div>
                     <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight">
@@ -3688,9 +3737,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   </button>
                 </div>
               </div>
-            ) : isCaptionsMenuMode ? (
-              /* Captions Menu - horizontal scrollable menu */
-              <div className="animate-fade-in flex flex-col">
+            )}
+            
+            {/* Captions Menu Overlay */}
+            {isCaptionsMenuMode && (
+              <div className="absolute inset-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-10 flex flex-col">
                 {/* Header with back button and title */}
                 <div className="flex items-center px-2 py-2 border-b border-border/20">
                   <button
@@ -3717,9 +3768,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         <button
                           key={tool.id}
                           onClick={tool.action}
-                          className="flex flex-col items-center justify-center shrink-0 w-20 py-2 rounded-xl transition-all hover:bg-white/5"
+                          className="flex flex-col items-center justify-center shrink-0 w-20 py-2 rounded-xl transition-all hover:bg-muted/50"
                         >
-                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
+                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-muted/30">
                             <IconComponent className="w-5 h-5 text-foreground" />
                           </div>
                           <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight whitespace-nowrap">
@@ -3731,9 +3782,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   </div>
                 </div>
               </div>
-            ) : isAudioMenuMode ? (
-              /* Audio Menu - horizontal scrollable menu with audio tools */
-              <div className="animate-fade-in flex flex-col">
+            )}
+            
+            {/* Audio Menu Overlay */}
+            {isAudioMenuMode && (
+              <div className="absolute inset-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-10 flex flex-col">
                 {/* Header with back button and title */}
                 <div className="flex items-center px-2 py-2 border-b border-border/20">
                   <button
@@ -3760,9 +3813,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         <button
                           key={tool.id}
                           onClick={tool.action}
-                          className="flex flex-col items-center justify-center shrink-0 w-20 py-2 rounded-xl transition-all hover:bg-white/5"
+                          className="flex flex-col items-center justify-center shrink-0 w-20 py-2 rounded-xl transition-all hover:bg-muted/50"
                         >
-                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
+                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-muted/30">
                             <IconComponent className="w-5 h-5 text-foreground" />
                           </div>
                           <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight whitespace-nowrap">
@@ -3774,41 +3827,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   </div>
                 </div>
               </div>
-            ) : (
-              /* Main toolbar */
-              <div className="overflow-x-auto">
-                <div className="flex px-2 py-3 min-w-max">
-                  {EDITOR_TOOLS.map((tool) => {
-                    const Icon = tool.icon;
-                    const isSelected = selectedTool === tool.id;
-
-                    return (
-                      <button
-                        key={tool.id}
-                        onClick={() => handleToolClick(tool)}
-                        className="flex flex-col items-center justify-center w-16 py-1"
-                      >
-                        <Icon
-                          className={cn(
-                            "w-6 h-6 mb-1",
-                            isSelected ? "text-foreground" : "text-foreground/60"
-                          )}
-                        />
-                        <span
-                          className={cn(
-                            "text-[11px]",
-                            isSelected ? "text-foreground font-medium" : "text-foreground/60"
-                          )}
-                        >
-                          {tool.name}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
             )}
-            </div>
+          </div>
           </>
         )
       }
