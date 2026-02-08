@@ -54,7 +54,8 @@ import {
   Captions,
   FileText,
   AudioLines,
-  Music2
+  Music2,
+  HelpCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -199,7 +200,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [selectedTool, setSelectedTool] = useState("edit");
   const [isMuted, setIsMuted] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
-  // Export settings removed - coming soon
+  // Output/Export settings
+  const [showOutputSettings, setShowOutputSettings] = useState(false);
+  const [outputResolution, setOutputResolution] = useState<string>('1080p');
+  const [outputFrameRate, setOutputFrameRate] = useState<number>(30);
+  const [outputBitrate, setOutputBitrate] = useState<number>(10);
+  const [opticalFlowEnabled, setOpticalFlowEnabled] = useState(false);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -1775,7 +1781,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         </button>
         
         {videoUrl && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Output Settings Button */}
+            <button 
+              onClick={() => setShowOutputSettings(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-white/10 border border-white/20 rounded-lg"
+            >
+              <span className="text-white text-xs font-semibold">{outputResolution.toUpperCase()}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-white" />
+            </button>
             {/* Export Button */}
             <button 
               onClick={handleExport}
@@ -3799,6 +3813,126 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           </>
         )
       }
+      {/* Output Settings Drawer */}
+      {showOutputSettings && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setShowOutputSettings(false)}
+          />
+          
+          {/* Drawer Content */}
+          <div className="relative w-full max-w-md bg-[#0A0A0A] rounded-t-2xl p-5 animate-in slide-in-from-bottom duration-300">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <span className="text-white text-lg font-semibold">video</span>
+                <div className="h-0.5 w-8 bg-primary mt-1 rounded-full" />
+              </div>
+            </div>
+            
+            {/* Resolution */}
+            <div className="mb-6">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-white text-sm font-medium">Resolution</span>
+                  <HelpCircle className="w-4 h-4 text-white/50" />
+                </div>
+                <span className="text-white/50 text-xs text-right max-w-[180px]">
+                  {outputResolution === '480p' && 'Low quality - faster export'}
+                  {outputResolution === '720p' && 'Standard definition - the resolution used for most TikTok videos'}
+                  {outputResolution === '1080p' && 'Full HD - great for YouTube'}
+                  {outputResolution === '2K/4K' && 'Ultra HD - maximum quality'}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={3}
+                value={['480p', '720p', '1080p', '2K/4K'].indexOf(outputResolution)}
+                onChange={(e) => setOutputResolution(['480p', '720p', '1080p', '2K/4K'][parseInt(e.target.value)])}
+                className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-primary"
+              />
+              <div className="flex justify-between mt-2">
+                {['480p', '720p', '1080p', '2K/4K'].map((r) => (
+                  <span key={r} className="text-white/60 text-[11px]">{r}</span>
+                ))}
+              </div>
+            </div>
+            
+            {/* Frame Rate */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-white text-sm font-medium">Frame rate</span>
+                <span className="text-white/50 text-xs">Smoother playback</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={4}
+                value={[24, 25, 30, 50, 60].indexOf(outputFrameRate)}
+                onChange={(e) => setOutputFrameRate([24, 25, 30, 50, 60][parseInt(e.target.value)])}
+                className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-primary"
+              />
+              <div className="flex justify-between mt-2">
+                {[24, 25, 30, 50, 60].map((r) => (
+                  <span key={r} className="text-white/60 text-[11px]">{r}</span>
+                ))}
+              </div>
+            </div>
+            
+            {/* Optical Flow Toggle */}
+            <div className="flex items-center justify-between mb-6 py-3">
+              <div className="flex-1">
+                <span className="text-white text-sm font-medium">Optical flow</span>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-primary text-xs">Make video playback smoother.</span>
+                  <span className="text-white/50 text-xs">| ▶ Example</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setOpticalFlowEnabled(!opticalFlowEnabled)}
+                className={cn(
+                  "w-11 h-6 rounded-full transition-colors relative",
+                  opticalFlowEnabled ? "bg-primary" : "bg-white/20"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-1 w-4 h-4 rounded-full bg-white transition-transform",
+                  opticalFlowEnabled ? "translate-x-6" : "translate-x-1"
+                )} />
+              </button>
+            </div>
+            
+            {/* Bitrate */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-white text-sm font-medium">Bitrate (Mbps)</span>
+                <span className="text-white/50 text-xs">Recommended for this video({outputBitrate})</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={4}
+                value={[5, 10, 20, 50, 100].indexOf(outputBitrate)}
+                onChange={(e) => setOutputBitrate([5, 10, 20, 50, 100][parseInt(e.target.value)])}
+                className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-primary"
+              />
+              <div className="flex justify-between mt-2">
+                {[5, 10, 20, 50, 100].map((r) => (
+                  <span key={r} className="text-white/60 text-[11px]">{r}</span>
+                ))}
+              </div>
+            </div>
+            
+            {/* Estimated File Size */}
+            <div className="text-center text-white/50 text-sm">
+              Estimated file size: {Math.round((outputBitrate * (duration || 10)) / 8)} MB
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
