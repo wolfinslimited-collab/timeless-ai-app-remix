@@ -55,6 +55,8 @@ class TextOverlay {
   String bubbleStyle;
   // Transform properties
   double rotation;
+  double scaleX;
+  double scaleY;
 
   TextOverlay({
     required this.id,
@@ -87,6 +89,8 @@ class TextOverlay {
     this.bubbleStyle = 'none',
     // Transform defaults
     this.rotation = 0.0,
+    this.scaleX = 1.0,
+    this.scaleY = 1.0,
   });
 }
 
@@ -7513,12 +7517,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           },
           // Double tap: Always open inline editor
           onDoubleTap: () => _openInlineTextEditor(overlay),
-          // Pan for smooth dragging
+          // Pan for smooth dragging - with boundary constraints
           onPanUpdate: (details) {
             if (!_isTextEditorInline) {
               setState(() {
-                final newX = (overlay.position.dx + details.delta.dx / constraints.maxWidth).clamp(0.05, 0.95);
-                final newY = (overlay.position.dy + details.delta.dy / constraints.maxHeight).clamp(0.05, 0.95);
+                // Boundary constraints: keep text within 2%-98% of video area
+                final newX = (overlay.position.dx + details.delta.dx / constraints.maxWidth).clamp(0.02, 0.98);
+                final newY = (overlay.position.dy + details.delta.dy / constraints.maxHeight).clamp(0.02, 0.98);
                 overlay.position = Offset(newX, newY);
               });
             }
@@ -7528,11 +7533,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                // Text content with thin white border when selected
+                // Text content with independent scaleX/scaleY
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  transform: Matrix4.identity()..scale(overlay.scale),
+                  transform: Matrix4.identity()
+                    ..scale(overlay.scaleX, overlay.scaleY),
                   transformAlignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: overlay.hasBackground 
@@ -7558,7 +7564,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     ),
                   ),
                 ),
-                // Transform handles - X in top-left, Rotate/Resize in bottom-right
+                // Transform handles - X in top-left, Free-form Resize in bottom-right
                 if (isSelected) ...[
                   // X Delete button - top left corner
                   Positioned(
@@ -7589,24 +7595,36 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       ),
                     ),
                   ),
-                  // Rotate/Resize handle - bottom right corner (combined)
+                  // Free-form Resize handle - bottom right corner (independent width/height)
                   Positioned(
                     bottom: -14,
                     right: -14,
                     child: GestureDetector(
-                      onPanStart: (details) {
-                        // Store initial values
-                      },
                       onPanUpdate: (details) {
                         setState(() {
-                          // Combined rotation + scale based on drag direction
-                          // Horizontal movement = rotation, Diagonal = scale
-                          final rotationDelta = details.delta.dx * 0.8;
-                          overlay.rotation = (overlay.rotation + rotationDelta).clamp(-180.0, 180.0);
+                          // Independent width/height scaling
+                          final deltaX = details.delta.dx * 0.01;
+                          final deltaY = details.delta.dy * 0.01;
                           
-                          // Scale from diagonal movement
-                          final scaleDelta = 1 + (details.delta.dx + details.delta.dy) * 0.003;
-                          overlay.scale = (overlay.scale * scaleDelta).clamp(0.3, 3.0);
+                          // Calculate new scales with boundary constraints
+                          var newScaleX = (overlay.scaleX + deltaX).clamp(0.3, 3.0);
+                          var newScaleY = (overlay.scaleY + deltaY).clamp(0.3, 3.0);
+                          
+                          // Boundary constraints: prevent text from exceeding video area
+                          final textWidth = 100 * newScaleX;
+                          final textHeight = 30 * newScaleY;
+                          final posX = overlay.position.dx * constraints.maxWidth;
+                          final posY = overlay.position.dy * constraints.maxHeight;
+                          
+                          if (posX + textWidth / 2 > constraints.maxWidth) {
+                            newScaleX = ((constraints.maxWidth - posX) * 2 / 100).clamp(0.3, 3.0);
+                          }
+                          if (posY + textHeight / 2 > constraints.maxHeight) {
+                            newScaleY = ((constraints.maxHeight - posY) * 2 / 30).clamp(0.3, 3.0);
+                          }
+                          
+                          overlay.scaleX = newScaleX;
+                          overlay.scaleY = newScaleY;
                         });
                       },
                       behavior: HitTestBehavior.opaque,
@@ -7618,10 +7636,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white.withOpacity(0.5), width: 1),
                         ),
-                        // Square with curved arrow icon
+                        // 4-way diagonal resize arrow icon
                         child: CustomPaint(
                           size: const Size(16, 16),
-                          painter: _RotateResizeIconPainter(),
+                          painter: _FourWayResizeIconPainter(),
                         ),
                       ),
                     ),
@@ -8354,6 +8372,44 @@ class _RotateResizeIconPainter extends CustomPainter {
     arrowHeadPath.lineTo(center.dx + 4, center.dy - 2);
     arrowHeadPath.lineTo(center.dx + 7, center.dy - 4);
     canvas.drawPath(arrowHeadPath, paint);
+  }
+  
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Custom painter for the 4-way diagonal resize arrow icon
+class _FourWayResizeIconPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    
+    final center = Offset(size.width / 2, size.height / 2);
+    
+    // Draw 4-way diagonal arrows
+    // Top-left arrow
+    canvas.drawLine(Offset(center.dx - 4, center.dy - 4), Offset(center.dx - 1, center.dy - 1), paint);
+    canvas.drawLine(Offset(center.dx - 4, center.dy - 4), Offset(center.dx - 4, center.dy - 1), paint);
+    canvas.drawLine(Offset(center.dx - 4, center.dy - 4), Offset(center.dx - 1, center.dy - 4), paint);
+    
+    // Bottom-right arrow
+    canvas.drawLine(Offset(center.dx + 4, center.dy + 4), Offset(center.dx + 1, center.dy + 1), paint);
+    canvas.drawLine(Offset(center.dx + 4, center.dy + 4), Offset(center.dx + 4, center.dy + 1), paint);
+    canvas.drawLine(Offset(center.dx + 4, center.dy + 4), Offset(center.dx + 1, center.dy + 4), paint);
+    
+    // Top-right arrow
+    canvas.drawLine(Offset(center.dx + 4, center.dy - 4), Offset(center.dx + 1, center.dy - 1), paint);
+    canvas.drawLine(Offset(center.dx + 4, center.dy - 4), Offset(center.dx + 4, center.dy - 1), paint);
+    canvas.drawLine(Offset(center.dx + 4, center.dy - 4), Offset(center.dx + 1, center.dy - 4), paint);
+    
+    // Bottom-left arrow
+    canvas.drawLine(Offset(center.dx - 4, center.dy + 4), Offset(center.dx - 1, center.dy + 1), paint);
+    canvas.drawLine(Offset(center.dx - 4, center.dy + 4), Offset(center.dx - 4, center.dy + 1), paint);
+    canvas.drawLine(Offset(center.dx - 4, center.dy + 4), Offset(center.dx - 1, center.dy + 4), paint);
   }
   
   @override
