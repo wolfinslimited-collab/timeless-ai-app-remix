@@ -4235,12 +4235,29 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     if (showSettingsPanel) {
       return _buildContextualSettingsPanel();
     } else {
-      // Show normal timeline + toolbar
-      return Column(
-        mainAxisSize: MainAxisSize.min,
+      // Show normal timeline + toolbar - wrapped in Stack for edit menu overlay
+      return Stack(
         children: [
-          _buildTimelineSection(),
-          _buildBottomToolbar(),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildTimelineSection(),
+              _buildBottomToolbar(),
+            ],
+          ),
+          // Edit Menu Overlay - positioned here to cover timeline and toolbar
+          if (_isEditMenuMode)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 160,
+              child: Material(
+                color: const Color(0xFF0A0A0A),
+                elevation: 8,
+                child: _buildEditMenu(),
+              ),
+            ),
         ],
       );
     }
@@ -5242,18 +5259,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               ),
             ),
           
-          // Edit Menu Overlay
-          if (_isEditMenuMode)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 160,
-              child: Container(
-                color: const Color(0xFF0A0A0A),
-                child: _buildEditMenu(),
-              ),
-            ),
+          // Edit Menu Overlay - MOVED to _buildDynamicBottomArea Stack for proper z-ordering
         ],
       ),
     );

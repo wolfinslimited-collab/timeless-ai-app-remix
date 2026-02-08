@@ -3505,7 +3505,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Edit Menu Overlay */}
             {isEditMenuMode && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-10 flex flex-col" style={{ height: '160px' }}>
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center px-4 py-2 border-b border-border/20">
                   <button
