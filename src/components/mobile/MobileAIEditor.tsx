@@ -1560,6 +1560,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setExportProgress(0);
     setExportStage('Preparing export...');
 
+    // Variables to track cleanup
+    let exportVideo: HTMLVideoElement | null = null;
+    let audioContext: AudioContext | null = null;
+    let mediaRecorder: MediaRecorder | null = null;
+
     try {
       // Get resolution dimensions
       const getResolutionDimensions = () => {
@@ -1580,14 +1585,28 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       const ctx = canvas.getContext('2d')!;
       exportCanvasRef.current = canvas;
 
-      // Create a temporary video element for export
-      const exportVideo = document.createElement('video');
-      exportVideo.src = videoUrl;
-      exportVideo.muted = true;
+      // Create a temporary video element for export - use unique source to avoid caching issues
+      exportVideo = document.createElement('video');
+      // Add cache-busting query parameter for fresh load on each export
+      const exportUrl = videoUrl.includes('?') 
+        ? `${videoUrl}&_export=${Date.now()}` 
+        : `${videoUrl}?_export=${Date.now()}`;
+      exportVideo.src = exportUrl;
+      exportVideo.muted = true; // Start muted, we'll handle audio separately
       exportVideo.playsInline = true;
-      await new Promise<void>((resolve) => {
-        exportVideo.onloadedmetadata = () => resolve();
-        exportVideo.load();
+      exportVideo.crossOrigin = 'anonymous';
+      
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Video load timeout')), 30000);
+        exportVideo!.onloadedmetadata = () => {
+          clearTimeout(timeout);
+          resolve();
+        };
+        exportVideo!.onerror = () => {
+          clearTimeout(timeout);
+          reject(new Error('Failed to load video for export'));
+        };
+        exportVideo!.load();
       });
 
       // Apply clip speed (use first clip for now)
@@ -1606,19 +1625,41 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       // Use MediaRecorder if available
       const stream = canvas.captureStream(outputFrameRate);
       
-      // Add audio track if not muted
+      // Add audio track if not muted - create fresh audio context each time
       if (!isMuted && clipVolume > 0) {
         try {
-          const audioContext = new AudioContext();
-          const source = audioContext.createMediaElementSource(exportVideo);
+          // Create a separate audio element for audio capture to avoid reuse issues
+          const audioElement = document.createElement('video');
+          const audioUrl = videoUrl.includes('?') 
+            ? `${videoUrl}&_audio=${Date.now()}` 
+            : `${videoUrl}?_audio=${Date.now()}`;
+          audioElement.src = audioUrl;
+          audioElement.crossOrigin = 'anonymous';
+          
+          await new Promise<void>((resolve) => {
+            audioElement.onloadedmetadata = () => resolve();
+            audioElement.load();
+          });
+
+          audioContext = new AudioContext();
+          const source = audioContext.createMediaElementSource(audioElement);
           const gainNode = audioContext.createGain();
-          gainNode.gain.value = Math.min(clipVolume, 1.0); // Clamp to 1.0 for actual audio
+          gainNode.gain.value = Math.min(clipVolume, 1.0);
           const destination = audioContext.createMediaStreamDestination();
           source.connect(gainNode);
           gainNode.connect(destination);
-          gainNode.connect(audioContext.destination);
+          
           destination.stream.getAudioTracks().forEach(track => {
             stream.addTrack(track);
+          });
+          
+          // Sync audio element with export video
+          audioElement.currentTime = activeClip?.inPoint || 0;
+          audioElement.playbackRate = playbackSpeed;
+          exportVideo.addEventListener('play', () => audioElement.play());
+          exportVideo.addEventListener('pause', () => audioElement.pause());
+          exportVideo.addEventListener('seeked', () => {
+            audioElement.currentTime = exportVideo!.currentTime;
           });
         } catch (audioErr) {
           console.warn('Could not add audio track:', audioErr);
@@ -1628,7 +1669,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       // Determine bitrate in bits per second
       const videoBitsPerSecond = outputBitrate * 1000000;
       
-      const mediaRecorder = new MediaRecorder(stream, {
+      mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'video/webm;codecs=vp9',
         videoBitsPerSecond,
       });
@@ -1793,7 +1834,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       a.click();
       document.body.removeChild(a);
       
-      // Cleanup
+      // Cleanup download URL after a delay
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       
       toast({
@@ -1808,6 +1849,27 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         description: error instanceof Error ? error.message : "An error occurred during export",
       });
     } finally {
+      // Cleanup resources
+      if (audioContext) {
+        try {
+          await audioContext.close();
+        } catch (e) {
+          console.warn('Error closing audio context:', e);
+        }
+      }
+      if (exportVideo) {
+        exportVideo.pause();
+        exportVideo.src = '';
+        exportVideo.load();
+      }
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        try {
+          mediaRecorder.stop();
+        } catch (e) {
+          console.warn('Error stopping media recorder:', e);
+        }
+      }
+      
       setIsExporting(false);
       setExportProgress(0);
       setExportStage('');
