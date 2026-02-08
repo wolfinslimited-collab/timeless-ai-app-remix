@@ -3946,7 +3946,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     const videoColor = Color(0xFFAA2222);
     
     return GestureDetector(
-      onTap: () => setState(() => _selectedClipId = clip.id),
+      onTap: () => setState(() {
+        _selectedClipId = clip.id;
+        _editingClipId = clip.id;
+        _clipVolume = clip.volume;
+        _clipSpeed = clip.speed;
+        _isEditMenuMode = true;
+        _editSubPanel = 'none';
+      }),
       child: Container(
         width: clipWidth,
         height: _thumbnailHeight + 4,
