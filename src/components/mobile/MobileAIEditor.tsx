@@ -3381,7 +3381,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     >
                       {/* Time Ruler using pixelsPerSecond */}
                       <div className="h-6 flex items-end relative" style={{ width: trackWidth }}>
-                        {Array.from({ length: Math.ceil(totalTimelineDuration / 2) + 1 }).map((_, i) => {
+                        {totalTimelineDuration > 0 && Array.from({ length: Math.max(1, Math.ceil(totalTimelineDuration / 2) + 1) }).map((_, i) => {
                           const seconds = i * 2;
                           if (seconds > totalTimelineDuration) return null;
                           // Position using global constant
@@ -3400,7 +3400,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           );
                         })}
                         {/* Minor ticks */}
-                        {Array.from({ length: Math.ceil(totalTimelineDuration) + 1 }).map((_, i) => {
+                        {totalTimelineDuration > 0 && Array.from({ length: Math.max(1, Math.ceil(totalTimelineDuration) + 1) }).map((_, i) => {
                           if (i % 2 === 0) return null;
                           const position = i * PIXELS_PER_SECOND;
                           return (
@@ -3591,8 +3591,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               className="relative h-[32px] rounded-lg overflow-hidden border-2 flex"
                               style={{ borderColor: 'transparent', width: duration * PIXELS_PER_SECOND }}
                             >
-                              {Array.from({ length: Math.ceil((duration * PIXELS_PER_SECOND) / 60) }).map((_, i) => {
-                                const thumbTime = (i / Math.ceil((duration * PIXELS_PER_SECOND) / 60)) * duration;
+                              {duration > 0 && Array.from({ length: Math.max(1, Math.ceil((duration * PIXELS_PER_SECOND) / 60)) }).map((_, i) => {
+                                const thumbTime = (i / Math.max(1, Math.ceil((duration * PIXELS_PER_SECOND) / 60))) * duration;
                                 return (
                                   <div
                                     key={i}
