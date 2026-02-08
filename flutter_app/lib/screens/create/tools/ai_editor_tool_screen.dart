@@ -5244,7 +5244,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           
           // Edit Menu Overlay
           if (_isEditMenuMode)
-            Positioned.fill(
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 160,
               child: Container(
                 color: const Color(0xFF0A0A0A),
                 child: _buildEditMenu(),
