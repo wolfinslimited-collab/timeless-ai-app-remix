@@ -583,6 +583,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Effects menu mode state - activated by clicking "Effects" tool
   bool _isEffectsMenuMode = false;
   
+  // Overlay menu mode state - activated by clicking "Overlay" tool
+  bool _isOverlayMenuMode = false;
+  
   // Background color presets
   final List<Color> _backgroundColorPresets = [
     const Color(0xFF000000), const Color(0xFFFFFFFF), const Color(0xFF1A1A1A), const Color(0xFF2D2D2D),
@@ -5114,9 +5117,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 ? _buildAudioMenu()
                 : (_isEffectsMenuMode 
                     ? _buildEffectsMenu()
-                    : (_isEditMenuMode 
-                        ? _buildEditMenu()
-                        : _buildMainToolbar()))),
+                    : (_isOverlayMenuMode 
+                        ? _buildOverlayMenu()
+                        : (_isEditMenuMode 
+                            ? _buildEditMenu()
+                            : _buildMainToolbar())))),
       ),
     );
   }
@@ -5714,6 +5719,92 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
+  /// Build the overlay menu - single action button
+  Widget _buildOverlayMenu() {
+    return Column(
+      key: const ValueKey('overlay_menu'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Header with back button and title
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+          ),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => setState(() => _isOverlayMenuMode = false),
+                child: Container(
+                  width: 32,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppTheme.primary.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Overlay',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Single Action Button
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: GestureDetector(
+            onTap: () => _showSnackBar('Add overlay coming soon'),
+            child: Container(
+              width: 80,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.add,
+                      size: 20,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Add overlay',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withOpacity(0.7),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
   /// Build the main editor toolbar
   Widget _buildMainToolbar() {
     return SingleChildScrollView(
@@ -5753,6 +5844,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 return;
               }
               
+              // Overlay tool opens the overlay menu
+              if (tool.id == 'overlay') {
+                setState(() {
+                  _isOverlayMenuMode = true;
+                  _selectedTool = 'overlay';
+                });
+                return;
+              }
+              
               // Coming soon tools - show snackbar and don't change selection
               if (tool.id == 'captions') {
                 _showSnackBar('${tool.name} coming soon');
@@ -5778,7 +5878,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               }
               
               // Only show coming soon for non-functional tools
-              if (tool.id != 'adjust' && tool.id != 'filters' && tool.id != 'overlay' && tool.id != 'stickers' && tool.id != 'aspect' && tool.id != 'background') {
+              if (tool.id != 'adjust' && tool.id != 'filters' && tool.id != 'stickers' && tool.id != 'aspect' && tool.id != 'background') {
                 _showSnackBar('${tool.name} coming soon');
               }
             },
