@@ -3375,6 +3375,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         width: trackWidth,
                         boxSizing: 'content-box',
                       }}
+                      onClick={(e) => {
+                        // Deselect clip when clicking on empty timeline area
+                        if (e.target === e.currentTarget) {
+                          setSelectedClipId(null);
+                          setIsEditMenuMode(false);
+                          setEditSubPanel('none');
+                        }
+                      }}
                     >
                       {/* Time Ruler using pixelsPerSecond */}
                       <div className="h-6 flex items-end relative" style={{ width: trackWidth }}>
