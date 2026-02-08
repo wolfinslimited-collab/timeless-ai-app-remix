@@ -306,12 +306,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Aspect ratio menu mode state - activated by clicking "Aspect" tool
   const [isAspectMenuMode, setIsAspectMenuMode] = useState(false);
   
-  // Settings panel overlay state - for adjust, stickers, background panels
+  // Background menu mode state - activated by clicking "Background" tool
+  const [isBackgroundMenuMode, setIsBackgroundMenuMode] = useState(false);
+  
+  // Settings panel overlay state - for adjust, stickers panels
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-  const [settingsPanelType, setSettingsPanelType] = useState<'adjust' | 'stickers' | 'background' | null>(null);
+  const [settingsPanelType, setSettingsPanelType] = useState<'adjust' | 'stickers' | null>(null);
   
   // Computed: check if any overlay menu is currently open (to hide main toolbar)
-  const isAnyOverlayOpen = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isSettingsPanelOpen;
+  const isAnyOverlayOpen = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isSettingsPanelOpen;
   
   // Sticker presets
   const stickerCategories = [
@@ -1549,9 +1552,17 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       return;
     }
     
+    // Background tool opens the background menu
+    if (tool.id === 'background') {
+      setIsBackgroundMenuMode(true);
+      setBackgroundTab('main');
+      setSelectedTool('background');
+      return;
+    }
+    
     // Settings panel tools - open as overlay
-    if (['adjust', 'stickers', 'background'].includes(tool.id)) {
-      setSettingsPanelType(tool.id as 'adjust' | 'stickers' | 'background');
+    if (['adjust', 'stickers'].includes(tool.id)) {
+      setSettingsPanelType(tool.id as 'adjust' | 'stickers');
       setIsSettingsPanelOpen(true);
       return;
     }
@@ -3001,8 +3012,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   
                   {/* Title */}
                   <span className="text-foreground font-bold text-base">
-                    {settingsPanelType === 'stickers' ? 'Stickers' :
-                     settingsPanelType === 'background' ? 'Background' : 'Adjust'}
+                    {settingsPanelType === 'stickers' ? 'Stickers' : 'Adjust'}
                   </span>
                   
                   {/* Done button (checkmark) */}
@@ -3233,60 +3243,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             </button>
                           ))}
                         </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {settingsPanelType === 'background' && (
-                    <div className="flex flex-col">
-                      {/* Main background options */}
-                      <div className="overflow-x-auto px-2 py-4" style={{ WebkitOverflowScrolling: 'touch' }}>
-                        <div className="flex gap-2 min-w-max">
-                          {[
-                            { id: 'color', name: 'Color', icon: Palette },
-                            { id: 'image', name: 'Image', icon: ImageIcon },
-                            { id: 'blur', name: 'Blur', icon: Focus },
-                          ].map((tool) => {
-                            const IconComponent = tool.icon;
-                            return (
-                              <button
-                                key={tool.id}
-                                onClick={() => {
-                                  if (tool.id === 'color') {
-                                    setBackgroundColor('#1A1A2E');
-                                  } else if (tool.id === 'blur') {
-                                    setBackgroundBlur(prev => prev === 0 ? 20 : 0);
-                                  }
-                                  toast({ title: `${tool.name} applied` });
-                                }}
-                                className="flex flex-col items-center justify-center shrink-0 w-20 py-2 rounded-xl transition-all hover:bg-white/5"
-                              >
-                                <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
-                                  <IconComponent className="w-5 h-5 text-foreground" />
-                                </div>
-                                <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight">
-                                  {tool.name}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      
-                      {/* Blur slider */}
-                      <div className="px-4 pb-6">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm text-foreground/70">Blur Amount</span>
-                          <span className="text-sm font-mono text-foreground/50">{backgroundBlur}px</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="50"
-                          value={backgroundBlur}
-                          onChange={(e) => setBackgroundBlur(Number(e.target.value))}
-                          className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
-                        />
                       </div>
                     </div>
                   )}
@@ -4721,6 +4677,154 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       </button>
                     ))}
                   </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Background Menu Overlay */}
+            {isBackgroundMenuMode && (
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '200px' }}>
+                {/* Header with back button and title */}
+                <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
+                  <button
+                    onClick={() => {
+                      if (backgroundTab === 'main') {
+                        setIsBackgroundMenuMode(false);
+                      } else {
+                        setBackgroundTab('main');
+                      }
+                    }}
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                  >
+                    <ChevronDown className="w-5 h-5 text-primary" />
+                  </button>
+                  <span className="flex-1 text-sm font-medium text-foreground text-center">
+                    {backgroundTab === 'main' ? 'Background' : backgroundTab.charAt(0).toUpperCase() + backgroundTab.slice(1)}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setIsBackgroundMenuMode(false);
+                      setBackgroundTab('main');
+                      toast({ title: "Background applied" });
+                    }}
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary hover:bg-primary/90 transition-colors"
+                  >
+                    <Check className="w-5 h-5 text-primary-foreground" />
+                  </button>
+                </div>
+                
+                {/* Content based on tab */}
+                <div className="flex-1 overflow-y-auto">
+                  {backgroundTab === 'main' && (
+                    <div className="flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
+                      <div className="flex gap-3 min-w-max">
+                        {[
+                          { id: 'color', label: 'Color', icon: Palette },
+                          { id: 'image', label: 'Image', icon: ImageIcon },
+                          { id: 'blur', label: 'Blur', icon: Focus },
+                        ].map((option) => {
+                          const IconComponent = option.icon;
+                          return (
+                            <button
+                              key={option.id}
+                              onClick={() => setBackgroundTab(option.id as 'color' | 'image' | 'blur')}
+                              className="flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all border bg-muted/20 border-transparent hover:bg-muted/40"
+                            >
+                              <div className="w-10 h-10 rounded-full bg-foreground/10 flex items-center justify-center mb-1">
+                                <IconComponent className="w-5 h-5 text-foreground/70" />
+                              </div>
+                              <span className="text-xs font-medium text-foreground/70">
+                                {option.label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {backgroundTab === 'color' && (
+                    <div className="px-4 pt-4">
+                      <div className="flex flex-wrap gap-2">
+                        {['#000000', '#1A1A2E', '#16213E', '#1F1F1F', '#2D2D2D', '#3D3D3D', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD'].map((color) => (
+                          <button
+                            key={color}
+                            onClick={() => setBackgroundColor(color)}
+                            className={cn(
+                              "w-10 h-10 rounded-lg border-2 transition-all",
+                              backgroundColor === color ? "border-primary ring-2 ring-primary/30" : "border-transparent"
+                            )}
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {backgroundTab === 'image' && (
+                    <div className="px-4 pt-4">
+                      <div className="grid grid-cols-4 gap-2">
+                        {[
+                          { id: 'gradient-sunset', colors: ['#FF6B6B', '#FFA07A'] },
+                          { id: 'gradient-ocean', colors: ['#4ECDC4', '#45B7D1'] },
+                          { id: 'gradient-forest', colors: ['#96CEB4', '#2E8B57'] },
+                          { id: 'gradient-night', colors: ['#1A1A2E', '#16213E'] },
+                          { id: 'gradient-purple', colors: ['#667eea', '#764ba2'] },
+                          { id: 'gradient-pink', colors: ['#f093fb', '#f5576c'] },
+                          { id: 'gradient-gold', colors: ['#f7971e', '#ffd200'] },
+                          { id: 'gradient-mint', colors: ['#56ab2f', '#a8e063'] },
+                        ].map((preset) => (
+                          <button
+                            key={preset.id}
+                            onClick={() => setBackgroundImage(preset.id)}
+                            className={cn(
+                              "aspect-square rounded-lg border-2 transition-all",
+                              backgroundImage === preset.id ? "border-primary ring-2 ring-primary/30" : "border-transparent"
+                            )}
+                            style={{ background: `linear-gradient(135deg, ${preset.colors[0]}, ${preset.colors[1]})` }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {backgroundTab === 'blur' && (
+                    <div className="px-4 pt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-sm text-foreground/70">Blur Intensity</span>
+                        <span className="text-sm font-mono text-foreground/50">{backgroundBlur}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="50"
+                        value={backgroundBlur}
+                        onChange={(e) => setBackgroundBlur(Number(e.target.value))}
+                        className="w-full h-2 bg-foreground/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                      />
+                      <div className="flex gap-2 mt-4">
+                        {[
+                          { label: 'None', value: 0 },
+                          { label: 'Light', value: 10 },
+                          { label: 'Medium', value: 25 },
+                          { label: 'Heavy', value: 50 },
+                        ].map((preset) => (
+                          <button
+                            key={preset.label}
+                            onClick={() => setBackgroundBlur(preset.value)}
+                            className={cn(
+                              "flex-1 py-2 rounded-lg text-xs font-medium transition-all",
+                              backgroundBlur === preset.value 
+                                ? "bg-primary/20 text-primary border border-primary/40" 
+                                : "bg-muted/20 text-foreground/70 border border-transparent"
+                            )}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

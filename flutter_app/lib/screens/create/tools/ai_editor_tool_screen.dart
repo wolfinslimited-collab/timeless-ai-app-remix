@@ -671,6 +671,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Aspect ratio menu mode state - activated by clicking "Aspect" tool
   bool _isAspectMenuMode = false;
   
+  // Background menu mode state - activated by clicking "Background" tool
+  bool _isBackgroundMenuMode = false;
+  
   // Speed presets (legacy)
   final List<Map<String, dynamic>> _speedPresets = [
     {'value': 0.25, 'label': '0.25x'},
@@ -687,7 +690,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   bool get _isAnyOverlayOpen => 
       _isEditMenuMode || _isAudioMenuMode || _isTextMenuMode || 
       _isEffectsMenuMode || _isOverlayMenuMode || _isCaptionsMenuMode || 
-      _isAspectMenuMode || _showTextEditPanel;
+      _isAspectMenuMode || _isBackgroundMenuMode || _showTextEditPanel;
   
   // Background color presets
   final List<Color> _backgroundColorPresets = [
@@ -6075,6 +6078,19 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               ),
             ),
           
+          if (_isBackgroundMenuMode)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 200,
+              child: Material(
+                color: const Color(0xFF0A0A0A),
+                elevation: 8,
+                child: _buildBackgroundMenu(),
+              ),
+            ),
+          
           // Edit Menu Overlay - MOVED to _buildDynamicBottomArea Stack for proper z-ordering
         ],
       ),
@@ -7584,6 +7600,155 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
+  /// Build the background menu - horizontal scrollable menu with tabs
+  Widget _buildBackgroundMenu() {
+    return Column(
+      key: const ValueKey('background_menu'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Header with back button, centered title, and confirm button
+        Container(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+          ),
+          child: Row(
+            children: [
+              // Back button
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: GestureDetector(
+                  onTap: () {
+                    if (_backgroundTab == 'main') {
+                      setState(() => _isBackgroundMenuMode = false);
+                    } else {
+                      setState(() => _backgroundTab = 'main');
+                    }
+                  },
+                  child: Container(
+                    width: 32,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.primary.withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: const Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
+                  ),
+                ),
+              ),
+              // Centered Title
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    _backgroundTab == 'main' ? 'Background' : _backgroundTab[0].toUpperCase() + _backgroundTab.substring(1),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+              // Confirm button
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _isBackgroundMenuMode = false;
+                      _backgroundTab = 'main';
+                    });
+                    _showSnackBar('Background applied');
+                  },
+                  child: Container(
+                    width: 32,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.check, size: 20, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Content based on tab
+        Expanded(
+          child: _backgroundTab == 'main' 
+            ? _buildBackgroundMainMenu()
+            : _buildBackgroundSubContent(),
+        ),
+      ],
+    );
+  }
+  
+  /// Build the main background menu with Color, Image, Blur options
+  Widget _buildBackgroundMainMenu() {
+    final options = [
+      {'id': 'color', 'label': 'Color', 'icon': Icons.palette_outlined},
+      {'id': 'image', 'label': 'Image', 'icon': Icons.image_outlined},
+      {'id': 'blur', 'label': 'Blur', 'icon': Icons.blur_on},
+    ];
+    
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
+      child: Row(
+        children: options.map((option) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: GestureDetector(
+              onTap: () => setState(() => _backgroundTab = option['id'] as String),
+              child: Container(
+                width: 64,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        option['icon'] as IconData,
+                        size: 20,
+                        color: Colors.white.withOpacity(0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      option['label'] as String,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+  
   /// Build the main editor toolbar
   Widget _buildMainToolbar() {
     return SingleChildScrollView(
@@ -7669,8 +7834,17 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 return;
               }
               
+              // Background tool opens the background menu
+              if (tool.id == 'background') {
+                setState(() {
+                  _isBackgroundMenuMode = true;
+                  _backgroundTab = 'main';
+                });
+                return;
+              }
+              
               // Only show coming soon for non-functional tools
-              if (tool.id != 'adjust' && tool.id != 'filters' && tool.id != 'stickers' && tool.id != 'background') {
+              if (tool.id != 'adjust' && tool.id != 'filters' && tool.id != 'stickers') {
                 _showSnackBar('${tool.name} coming soon');
               }
             },
