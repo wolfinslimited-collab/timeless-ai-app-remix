@@ -586,6 +586,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Overlay menu mode state - activated by clicking "Overlay" tool
   bool _isOverlayMenuMode = false;
   
+  // Captions menu mode state - activated by clicking "Captions" tool
+  bool _isCaptionsMenuMode = false;
+  
   // Background color presets
   final List<Color> _backgroundColorPresets = [
     const Color(0xFF000000), const Color(0xFFFFFFFF), const Color(0xFF1A1A1A), const Color(0xFF2D2D2D),
@@ -5119,9 +5122,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     ? _buildEffectsMenu()
                     : (_isOverlayMenuMode 
                         ? _buildOverlayMenu()
-                        : (_isEditMenuMode 
-                            ? _buildEditMenu()
-                            : _buildMainToolbar())))),
+                        : (_isCaptionsMenuMode 
+                            ? _buildCaptionsMenu()
+                            : (_isEditMenuMode 
+                                ? _buildEditMenu()
+                                : _buildMainToolbar()))))),
       ),
     );
   }
@@ -5805,6 +5810,116 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
+  /// Build the captions menu - horizontal scrollable menu
+  Widget _buildCaptionsMenu() {
+    final captionsTools = [
+      {'id': 'enter-captions', 'name': 'Enter captions', 'icon': Icons.text_fields},
+      {'id': 'auto-captions', 'name': 'Auto captions', 'icon': Icons.subtitles_outlined},
+      {'id': 'caption-templates', 'name': 'Caption templates', 'icon': Icons.description_outlined},
+      {'id': 'auto-lyrics', 'name': 'Auto lyrics', 'icon': Icons.music_note_outlined},
+      {'id': 'import-captions', 'name': 'Import captions', 'icon': Icons.download_outlined},
+    ];
+    
+    return Column(
+      key: const ValueKey('captions_menu'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Header with back button and title
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+          ),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => setState(() => _isCaptionsMenuMode = false),
+                child: Container(
+                  width: 32,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppTheme.primary.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Captions',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Horizontal Scrollable Caption Tools
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: captionsTools.map((tool) {
+                return GestureDetector(
+                  onTap: () {
+                    if (tool['id'] == 'auto-captions') {
+                      _generateCaptions();
+                      setState(() => _isCaptionsMenuMode = false);
+                    } else {
+                      _showSnackBar('${tool['name']} coming soon');
+                    }
+                  },
+                  child: Container(
+                    width: 80,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            tool['icon'] as IconData,
+                            size: 20,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          tool['name'] as String,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withOpacity(0.7),
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
   /// Build the main editor toolbar
   Widget _buildMainToolbar() {
     return SingleChildScrollView(
@@ -5853,9 +5968,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 return;
               }
               
-              // Coming soon tools - show snackbar and don't change selection
+              // Captions tool opens the captions menu
               if (tool.id == 'captions') {
-                _showSnackBar('${tool.name} coming soon');
+                setState(() {
+                  _isCaptionsMenuMode = true;
+                  _selectedTool = 'captions';
+                });
                 return;
               }
               
