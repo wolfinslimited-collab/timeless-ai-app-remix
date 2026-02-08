@@ -228,6 +228,7 @@ class VideoOverlay {
   double opacity;
   VideoPlayerController? controller;
   bool isInitialized;
+  List<Uint8List>? thumbnails; // Array of thumbnail image bytes
   
   VideoOverlay({
     required this.id,
@@ -244,6 +245,7 @@ class VideoOverlay {
     this.opacity = 1.0,
     this.controller,
     this.isInitialized = false,
+    this.thumbnails,
   }) : endTime = endTime ?? duration;
   
   void dispose() {
@@ -1574,6 +1576,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           newOverlay.controller!.setVolume(newOverlay.volume);
           newOverlay.controller!.setLooping(false);
           newOverlay.isInitialized = true;
+          
+          // Generate placeholder thumbnails for overlay
+          final numThumbs = math.min(10, (overlayDuration * 2).ceil());
+          newOverlay.thumbnails = List.generate(numThumbs, (_) => Uint8List(0));
           
           setState(() {
             _videoOverlays.add(newOverlay);
@@ -4571,44 +4577,63 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                               ),
                             ),
                           ),
-                          // Content
+                          // Thumbnails content
                           Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.videocam,
-                                    size: 14,
-                                    color: Colors.white.withOpacity(0.9),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      'Overlay ${_videoOverlays.indexOf(overlay) + 1}',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  // Delete button when selected
-                                  if (isSelected)
-                                    GestureDetector(
-                                      onTap: () => _removeVideoOverlay(overlay.id),
-                                      child: Container(
-                                        width: 16,
-                                        height: 16,
-                                        decoration: BoxDecoration(
-                                          color: Colors.red.withOpacity(0.9),
-                                          shape: BoxShape.circle,
+                            child: ClipRRect(
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final contentWidth = constraints.maxWidth;
+                                  const thumbWidth = 40.0;
+                                  final thumbCount = math.max(1, (contentWidth / thumbWidth).floor());
+                                  
+                                  return Row(
+                                    children: List.generate(thumbCount, (i) {
+                                      final hasThumbnails = overlay.thumbnails != null && overlay.thumbnails!.isNotEmpty;
+                                      final thumbIndex = hasThumbnails
+                                          ? ((i / thumbCount) * overlay.thumbnails!.length).floor()
+                                          : -1;
+                                      final hasThumbnail = thumbIndex >= 0 && 
+                                          overlay.thumbnails![thumbIndex].isNotEmpty;
+                                      
+                                      return Expanded(
+                                        child: Container(
+                                          height: 34,
+                                          decoration: BoxDecoration(
+                                            border: Border(
+                                              right: i < thumbCount - 1 
+                                                  ? BorderSide(color: const Color(0xFF8B5CF6).withOpacity(0.3))
+                                                  : BorderSide.none,
+                                            ),
+                                          ),
+                                          child: hasThumbnail
+                                              ? Image.memory(
+                                                  overlay.thumbnails![thumbIndex],
+                                                  fit: BoxFit.cover,
+                                                )
+                                              : Container(
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      colors: [
+                                                        const Color(0xFF8B5CF6).withOpacity(0.2 + (i * 0.05)),
+                                                        const Color(0xFFA78BFA).withOpacity(0.2 + (i * 0.05)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  child: i == 0
+                                                      ? Center(
+                                                          child: Icon(
+                                                            Icons.videocam,
+                                                            size: 12,
+                                                            color: Colors.white.withOpacity(0.5),
+                                                          ),
+                                                        )
+                                                      : null,
+                                                ),
                                         ),
-                                        child: const Icon(Icons.close, color: Colors.white, size: 10),
-                                      ),
-                                    ),
-                                ],
+                                      );
+                                    }),
+                                  );
+                                },
                               ),
                             ),
                           ),
