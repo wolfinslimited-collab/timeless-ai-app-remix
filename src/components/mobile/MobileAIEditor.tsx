@@ -3427,7 +3427,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 className="relative h-[48px] overflow-hidden cursor-pointer transition-all"
                                 style={{ 
                                   width: clipWidth,
-                                  backgroundColor: '#2A1515',
+                                  backgroundColor: '#1a1a1a',
                                 }}
                                 onClick={() => setSelectedClipId(clip.id)}
                               >
@@ -3436,7 +3436,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                   <div 
                                     className={cn(
                                       "w-3 h-full flex items-center justify-center cursor-ew-resize z-10 shrink-0",
-                                      isSelected ? "bg-white/60" : "bg-[#AA2222]/80"
+                                      isSelected ? "bg-white/60" : "bg-white/20"
                                     )}
                                     onMouseDown={(e) => {
                                       e.stopPropagation();
@@ -3488,7 +3488,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                           key={i}
                                           className="w-[60px] h-full shrink-0 relative overflow-hidden"
                                           style={{
-                                            borderRight: i < thumbCount - 1 ? '1px solid rgba(90, 0, 0, 0.4)' : 'none',
+                                            borderRight: i < thumbCount - 1 ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
                                           }}
                                         >
                                           {thumbnailSrc ? (
@@ -3502,8 +3502,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                             <div 
                                               className="w-full h-full bg-cover bg-center"
                                               style={{
-                                                backgroundImage: `linear-gradient(135deg, rgba(139,0,0,0.3), rgba(90,0,0,0.5))`,
-                                                backgroundColor: '#2A1515',
+                                                backgroundImage: `linear-gradient(135deg, rgba(60,60,60,0.3), rgba(40,40,40,0.5))`,
+                                                backgroundColor: '#1a1a1a',
                                               }}
                                             >
                                               <div className="w-full h-full flex items-center justify-center">
@@ -3531,7 +3531,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                   <div 
                                     className={cn(
                                       "w-3 h-full flex items-center justify-center cursor-ew-resize z-10 shrink-0",
-                                      isSelected ? "bg-white/60" : "bg-[#AA2222]/80"
+                                      isSelected ? "bg-white/60" : "bg-white/20"
                                     )}
                                     onMouseDown={(e) => {
                                       e.stopPropagation();
@@ -3573,7 +3573,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           {videoClips.length === 0 && videoUrl && (
                             <div 
                               className="relative h-[48px] rounded-lg overflow-hidden border-2 flex"
-                              style={{ borderColor: '#AA2222', width: duration * PIXELS_PER_SECOND }}
+                              style={{ borderColor: 'transparent', width: duration * PIXELS_PER_SECOND }}
                             >
                               {Array.from({ length: Math.ceil((duration * PIXELS_PER_SECOND) / 60) }).map((_, i) => {
                                 const thumbTime = (i / Math.ceil((duration * PIXELS_PER_SECOND) / 60)) * duration;
@@ -3582,14 +3582,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                     key={i}
                                     className="w-[60px] h-full shrink-0 relative overflow-hidden"
                                     style={{
-                                      borderRight: '1px solid rgba(90, 0, 0, 0.4)',
+                                      borderRight: '1px solid rgba(255, 255, 255, 0.1)',
                                     }}
                                   >
                                     <div 
                                       className="w-full h-full bg-cover bg-center"
                                       style={{
-                                        backgroundImage: `linear-gradient(135deg, rgba(139,0,0,0.3), rgba(90,0,0,0.5))`,
-                                        backgroundColor: '#2A1515',
+                                        backgroundImage: `linear-gradient(135deg, rgba(60,60,60,0.3), rgba(40,40,40,0.5))`,
+                                        backgroundColor: '#1a1a1a',
                                       }}
                                     >
                                       <div className="w-full h-full flex items-center justify-center">
