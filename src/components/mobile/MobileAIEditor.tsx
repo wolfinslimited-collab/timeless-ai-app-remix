@@ -693,12 +693,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     
     // Render all strokes
     const allStrokes = [...currentStrokes];
-    if (currentStrokeRef.current) {
+    if (currentStrokeRef.current && currentStrokeRef.current.points) {
       allStrokes.push(currentStrokeRef.current);
     }
     
     allStrokes.forEach(stroke => {
-      if (stroke.points.length < 2) return;
+      if (!stroke || !stroke.points || stroke.points.length < 2) return;
       
       ctx.beginPath();
       ctx.lineCap = 'round';
