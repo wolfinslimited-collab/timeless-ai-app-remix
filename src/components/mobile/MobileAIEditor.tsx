@@ -138,6 +138,7 @@ interface AudioLayerSnapshot {
   volume: number;
   startTime: number;
   endTime: number;
+  waveformData: number[];
 }
 
 // Data-only interfaces for snapshots
@@ -462,6 +463,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       volume: a.volume,
       startTime: a.startTime,
       endTime: a.endTime,
+      waveformData: a.waveformData || [],
     })),
     captionLayers: captionLayers.map(c => ({ ...c })),
     effectLayers: effectLayers.map(e => ({ ...e })),
@@ -535,7 +537,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     const existingAudioMap = new Map<string, HTMLAudioElement>();
     audioRefs.current.forEach((el, id) => existingAudioMap.set(id, el));
 
-    setAudioLayers(snapshot.audioLayers.map(a => ({ ...a, fadeIn: 0, fadeOut: 0 })));
+    setAudioLayers(snapshot.audioLayers.map(a => ({ ...a, fadeIn: 0, fadeOut: 0, waveformData: a.waveformData || [] })));
 
     // Clean up audio elements for removed layers
     existingAudioMap.forEach((el, id) => {
@@ -610,6 +612,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     endTime: number;
     fadeIn: number; // seconds
     fadeOut: number; // seconds
+    waveformData: number[]; // Normalized amplitudes 0-1
   }
 
   const [audioLayers, setAudioLayers] = useState<AudioLayer[]>([]);
@@ -799,8 +802,47 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     // Create local URL for the audio file
     const audioUrl = URL.createObjectURL(file);
     
+    // Extract waveform data from audio file
+    const extractWaveform = async (audioBuffer: ArrayBuffer): Promise<number[]> => {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const buffer = await audioContext.decodeAudioData(audioBuffer.slice(0));
+      const channelData = buffer.getChannelData(0);
+      
+      // Sample ~100 points from the audio
+      const samples = 100;
+      const blockSize = Math.floor(channelData.length / samples);
+      const waveform: number[] = [];
+      
+      for (let i = 0; i < samples; i++) {
+        let sum = 0;
+        for (let j = 0; j < blockSize; j++) {
+          sum += Math.abs(channelData[i * blockSize + j]);
+        }
+        waveform.push(sum / blockSize);
+      }
+      
+      // Normalize to 0-1
+      const max = Math.max(...waveform, 0.01);
+      return waveform.map(v => v / max);
+    };
+    
     // Create audio element to get duration
     const audioElement = new Audio(audioUrl);
+    
+    // Read the file for waveform extraction
+    const arrayBuffer = await file.arrayBuffer();
+    let waveformData: number[] = [];
+    
+    try {
+      waveformData = await extractWaveform(arrayBuffer);
+    } catch (err) {
+      console.warn('Could not extract waveform:', err);
+      // Generate placeholder waveform
+      waveformData = Array.from({ length: 100 }, (_, i) => 
+        0.2 + 0.6 * Math.abs(Math.sin(i * 0.3) * Math.sin(i * 0.1))
+      );
+    }
+    
     audioElement.addEventListener('loadedmetadata', () => {
       saveStateToHistory();
       const audioDuration = audioElement.duration;
@@ -813,6 +855,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         endTime: Math.min(audioDuration, duration || 10),
         fadeIn: 0,
         fadeOut: 0,
+        waveformData,
       };
       setAudioLayers(prev => [...prev, newAudio]);
       setSelectedAudioId(newAudio.id);
@@ -5260,12 +5303,57 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             <div className="w-0.5 h-4 bg-white/80 rounded-full" />
                           </div>
                           
-                          {/* Content - draggable center area */}
-                          <div className="flex-1 flex items-center gap-1 px-1 overflow-hidden cursor-grab">
-                            <Music className="w-3 h-3 text-white/90 shrink-0" />
-                            <span className="text-[10px] text-white font-semibold truncate flex-1">
-                              {audio.name.length > 12 ? audio.name.substring(0, 12) + '...' : audio.name}
-                            </span>
+                          {/* Content - waveform and label */}
+                          <div className="flex-1 h-full flex flex-col overflow-hidden cursor-grab relative">
+                            {/* Waveform visualization */}
+                            <div className="absolute inset-0 flex items-center justify-center px-1">
+                              <svg 
+                                viewBox="0 0 100 24" 
+                                preserveAspectRatio="none" 
+                                className="w-full h-full"
+                              >
+                                {audio.waveformData && audio.waveformData.length > 0 ? (
+                                  audio.waveformData.map((amp, i) => {
+                                    const x = (i / audio.waveformData.length) * 100;
+                                    const height = Math.max(2, amp * 20);
+                                    return (
+                                      <rect
+                                        key={i}
+                                        x={x}
+                                        y={12 - height / 2}
+                                        width={0.8}
+                                        height={height}
+                                        fill="rgba(255, 255, 255, 0.7)"
+                                        rx={0.2}
+                                      />
+                                    );
+                                  })
+                                ) : (
+                                  // Placeholder waveform
+                                  Array.from({ length: 50 }, (_, i) => {
+                                    const height = 3 + Math.abs(Math.sin(i * 0.4)) * 10;
+                                    return (
+                                      <rect
+                                        key={i}
+                                        x={i * 2}
+                                        y={12 - height / 2}
+                                        width={1.2}
+                                        height={height}
+                                        fill="rgba(255, 255, 255, 0.4)"
+                                        rx={0.3}
+                                      />
+                                    );
+                                  })
+                                )}
+                              </svg>
+                            </div>
+                            {/* Audio name overlay */}
+                            <div className="absolute top-0 left-1 right-1 flex items-center gap-1 h-full">
+                              <Music className="w-3 h-3 text-white/90 shrink-0 drop-shadow-sm" />
+                              <span className="text-[10px] text-white font-semibold truncate drop-shadow-sm">
+                                {audio.name.length > 10 ? audio.name.substring(0, 10) + '...' : audio.name}
+                              </span>
+                            </div>
                           </div>
                           
                           {/* Right trim handle */}

@@ -106,6 +106,7 @@ class AudioLayer {
   int trackIndex;
   AudioPlayer? player;
   Duration? duration;
+  List<double> waveformData; // Normalized amplitudes 0-1
   
   AudioLayer({
     required this.id,
@@ -117,7 +118,8 @@ class AudioLayer {
     this.trackIndex = 0,
     this.player,
     this.duration,
-  });
+    List<double>? waveformData,
+  }) : waveformData = waveformData ?? [];
   
   void dispose() {
     player?.dispose();
@@ -445,6 +447,7 @@ class AudioLayerSnapshot {
   final double endTime;
   final double volume;
   final int trackIndex;
+  final List<double> waveformData;
   
   AudioLayerSnapshot({
     required this.id,
@@ -454,6 +457,7 @@ class AudioLayerSnapshot {
     required this.endTime,
     required this.volume,
     required this.trackIndex,
+    required this.waveformData,
   });
   
   factory AudioLayerSnapshot.from(AudioLayer layer) => AudioLayerSnapshot(
@@ -464,6 +468,7 @@ class AudioLayerSnapshot {
     endTime: layer.endTime,
     volume: layer.volume,
     trackIndex: layer.trackIndex,
+    waveformData: List.from(layer.waveformData),
   );
 }
 
@@ -1045,6 +1050,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           volume: s.volume,
           trackIndex: s.trackIndex,
           player: existingAudioMap[s.id], // Preserve existing player if any
+          waveformData: s.waveformData,
         );
         return layer;
       }).toList();
@@ -1198,6 +1204,22 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // AUDIO LAYER FUNCTIONS
   // ============================================
   
+  /// Generate waveform data from a seed for consistent visualization
+  List<double> _generateWaveformFromSeed(int seed, int samples) {
+    final random = math.Random(seed);
+    final waveform = <double>[];
+    
+    for (int i = 0; i < samples; i++) {
+      // Create organic-looking waveform with multiple frequencies
+      final base = random.nextDouble() * 0.3 + 0.2;
+      final wave1 = math.sin(i * 0.2 + random.nextDouble()) * 0.3;
+      final wave2 = math.sin(i * 0.05 + random.nextDouble() * 2) * 0.2;
+      final amplitude = (base + wave1.abs() + wave2.abs()).clamp(0.1, 1.0);
+      waveform.add(amplitude);
+    }
+    
+    return waveform;
+  }
   /// Import audio file from device
   Future<void> _importAudioFile() async {
     setState(() => _isImportingAudio = true);
@@ -1231,6 +1253,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           final videoDuration = _videoController?.value.duration.inSeconds.toDouble() ?? 30.0;
           final audioSeconds = audioDuration?.inSeconds.toDouble() ?? 30.0;
           
+          // Generate waveform data from file name hash for consistent visualization
+          // This creates a pseudo-random but reproducible waveform pattern
+          final waveformData = _generateWaveformFromSeed(file.name.hashCode, 100);
+          
           final newAudio = AudioLayer(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             name: file.name,
@@ -1239,6 +1265,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             endTime: math.min(audioSeconds, videoDuration),
             player: player,
             duration: audioDuration,
+            waveformData: waveformData,
           );
           
           setState(() {
@@ -5343,6 +5370,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       painter: _AudioWaveformPainter(
                         color: Colors.white.withOpacity(0.8),
                         backgroundColor: Colors.transparent,
+                        waveformData: audio.waveformData,
                       ),
                     ),
                   ),
@@ -10864,10 +10892,12 @@ class _WaveformPainter extends CustomPainter {
 class _AudioWaveformPainter extends CustomPainter {
   final Color color;
   final Color backgroundColor;
+  final List<double> waveformData;
   
   _AudioWaveformPainter({
     required this.color,
     required this.backgroundColor,
+    this.waveformData = const [],
   });
   
   @override
@@ -10884,29 +10914,51 @@ class _AudioWaveformPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
     
     final centerY = size.height / 2;
-    final barCount = (size.width / 4).toInt(); // More bars for denser waveform
-    final spacing = size.width / barCount;
     
-    for (int i = 0; i < barCount; i++) {
-      // Create a pseudo-random but consistent waveform pattern
-      final seed1 = (i * 0.7 + 0.5);
-      final seed2 = (i * 0.3 + 1.2);
-      final combinedSeed = (seed1.abs() % 1) * 0.5 + (seed2.abs() % 1) * 0.5;
-      final height = (0.15 + combinedSeed * 0.7) * size.height * 0.85;
-      final halfHeight = height / 2;
+    if (waveformData.isNotEmpty) {
+      // Use actual waveform data
+      final barCount = waveformData.length;
+      final spacing = size.width / barCount;
       
-      final x = i * spacing + spacing / 2;
+      for (int i = 0; i < barCount; i++) {
+        final amp = waveformData[i].clamp(0.0, 1.0);
+        final height = (0.1 + amp * 0.8) * size.height * 0.9;
+        final halfHeight = height / 2;
+        final x = i * spacing + spacing / 2;
+        
+        canvas.drawLine(
+          Offset(x, centerY - halfHeight),
+          Offset(x, centerY + halfHeight),
+          barPaint,
+        );
+      }
+    } else {
+      // Fallback: pseudo-random waveform
+      final barCount = (size.width / 4).toInt();
+      final spacing = size.width / barCount;
       
-      canvas.drawLine(
-        Offset(x, centerY - halfHeight),
-        Offset(x, centerY + halfHeight),
-        barPaint,
-      );
+      for (int i = 0; i < barCount; i++) {
+        final seed1 = (i * 0.7 + 0.5);
+        final seed2 = (i * 0.3 + 1.2);
+        final combinedSeed = (seed1.abs() % 1) * 0.5 + (seed2.abs() % 1) * 0.5;
+        final height = (0.15 + combinedSeed * 0.7) * size.height * 0.85;
+        final halfHeight = height / 2;
+        
+        final x = i * spacing + spacing / 2;
+        
+        canvas.drawLine(
+          Offset(x, centerY - halfHeight),
+          Offset(x, centerY + halfHeight),
+          barPaint,
+        );
+      }
     }
   }
   
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _AudioWaveformPainter oldDelegate) => 
+    waveformData != oldDelegate.waveformData || 
+    color != oldDelegate.color;
 }
 
 class EditorTool {
