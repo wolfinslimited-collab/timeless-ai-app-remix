@@ -5292,72 +5292,85 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       key: const ValueKey('text_menu'),
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Header with back button and title
+        // Header with back button and centered title
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
           ),
           child: Row(
             children: [
-              GestureDetector(
-                onTap: () => setState(() => _isTextMenuMode = false),
-                child: Container(
-                  width: 32,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppTheme.primary.withOpacity(0.2),
-                      width: 1,
+              // Back button
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _isTextMenuMode = false),
+                  child: Container(
+                    width: 32,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.primary.withOpacity(0.2),
+                        width: 1,
+                      ),
                     ),
+                    child: const Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
                   ),
-                  child: Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                'Text',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
+              // Centered Title
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'Text',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
+              const SizedBox(width: 40), // Balance for the back button
             ],
           ),
         ),
         
-        // Horizontal Scrollable Icons - single row
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        // Horizontal Scrollable Text Tools
+        Container(
+          height: 120,
+          alignment: Alignment.topCenter,
+          padding: const EdgeInsets.only(top: 16),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
-                _buildTextToolIcon('Add text', Icons.text_fields, false, () {
+                _buildMenuToolButton('Add text', Icons.text_fields, () {
                   _addTextOverlay();
                   setState(() => _isTextMenuMode = false);
                 }),
-                _buildTextToolIcon('Auto captions', Icons.subtitles_outlined, false, () {
+                _buildMenuToolButton('Auto captions', Icons.subtitles_outlined, () {
                   _generateCaptions();
                   setState(() => _isTextMenuMode = false);
                 }),
-                _buildTextToolIcon('Stickers', Icons.emoji_emotions_outlined, false, () {
+                _buildMenuToolButton('Stickers', Icons.emoji_emotions_outlined, () {
                   setState(() => _textMenuTab = _textMenuTab == 'stickers' ? 'add-text' : 'stickers');
                 }),
-                _buildTextToolIcon('Draw', Icons.edit_outlined, false, () {
+                _buildMenuToolButton('Draw', Icons.edit_outlined, () {
                   _showSnackBar('Drawing tools coming soon');
                 }),
-                _buildTextToolIcon('Text template', Icons.description_outlined, false, () {
+                _buildMenuToolButton('Text template', Icons.description_outlined, () {
                   _addTextOverlay();
                   setState(() => _isTextMenuMode = false);
                 }),
-                _buildTextToolIcon('Text to audio', Icons.audiotrack_outlined, false, () {
+                _buildMenuToolButton('Text to audio', Icons.audiotrack_outlined, () {
                   _showSnackBar('Text to audio coming soon');
                 }),
-                _buildTextToolIcon('Auto lyrics', Icons.music_note_outlined, false, () {
+                _buildMenuToolButton('Auto lyrics', Icons.music_note_outlined, () {
                   _showSnackBar('Auto lyrics coming soon');
                 }),
               ],
@@ -5477,6 +5490,50 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 fontWeight: FontWeight.w500,
                 color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.6),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  /// Shared helper for menu tool buttons - matches Edit menu button style
+  Widget _buildMenuToolButton(String label, IconData icon, VoidCallback onTap, {bool isDestructive = false}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 64,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isDestructive 
+                    ? Colors.red.withOpacity(0.2) 
+                    : Colors.white.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 20,
+                color: isDestructive ? Colors.red : Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: isDestructive 
+                    ? Colors.red 
+                    : Colors.white.withOpacity(0.6),
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -5634,49 +5691,22 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         ),
         
         // Horizontal Scrollable Audio Tools
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-          child: Row(
-            children: audioTools.map((tool) {
-              return GestureDetector(
-                onTap: () => _showSnackBar('${tool['name']} coming soon'),
-                child: Container(
-                  width: 64,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          tool['icon'] as IconData,
-                          size: 20,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        tool['name'] as String,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white.withOpacity(0.6),
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
+        Container(
+          height: 120,
+          alignment: Alignment.topCenter,
+          padding: const EdgeInsets.only(top: 16),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: audioTools.map((tool) {
+                return _buildMenuToolButton(
+                  tool['name'] as String,
+                  tool['icon'] as IconData,
+                  () => _showSnackBar('${tool['name']} coming soon'),
+                );
+              }).toList(),
+            ),
           ),
         ),
       ],
@@ -5991,86 +6021,65 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       key: const ValueKey('effects_menu'),
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Header with back button and title
+        // Header with back button and centered title
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
           ),
           child: Row(
             children: [
-              GestureDetector(
-                onTap: () => setState(() => _isEffectsMenuMode = false),
-                child: Container(
-                  width: 32,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppTheme.primary.withOpacity(0.2),
-                      width: 1,
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _isEffectsMenuMode = false),
+                  child: Container(
+                    width: 32,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.primary.withOpacity(0.2),
+                        width: 1,
+                      ),
                     ),
+                    child: const Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
                   ),
-                  child: Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                'Effects',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'Effects',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
+              const SizedBox(width: 40),
             ],
           ),
         ),
         
         // Horizontal Scrollable Effects Tools
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        Container(
+          height: 120,
+          alignment: Alignment.topCenter,
+          padding: const EdgeInsets.only(top: 16),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: effectsTools.map((tool) {
-                return GestureDetector(
-                  onTap: () => _showSnackBar('${tool['name']} coming soon'),
-                  child: Container(
-                    width: 80,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            tool['icon'] as IconData,
-                            size: 20,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          tool['name'] as String,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white.withOpacity(0.7),
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
+                return _buildMenuToolButton(
+                  tool['name'] as String,
+                  tool['icon'] as IconData,
+                  () => _showSnackBar('${tool['name']} coming soon'),
                 );
               }).toList(),
             ),
@@ -6086,79 +6095,65 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       key: const ValueKey('overlay_menu'),
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Header with back button and title
+        // Header with back button and centered title
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
           ),
           child: Row(
             children: [
-              GestureDetector(
-                onTap: () => setState(() => _isOverlayMenuMode = false),
-                child: Container(
-                  width: 32,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppTheme.primary.withOpacity(0.2),
-                      width: 1,
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _isOverlayMenuMode = false),
+                  child: Container(
+                    width: 32,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.primary.withOpacity(0.2),
+                        width: 1,
+                      ),
                     ),
+                    child: const Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
                   ),
-                  child: Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                'Overlay',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'Overlay',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
+              const SizedBox(width: 40),
             ],
           ),
         ),
         
-        // Single Action Button
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: GestureDetector(
-            onTap: () => _showSnackBar('Add overlay coming soon'),
-            child: Container(
-              width: 80,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.add,
-                      size: 20,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Add overlay',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withOpacity(0.7),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
+        // Horizontal Scrollable Overlay Tools
+        Container(
+          height: 120,
+          alignment: Alignment.topCenter,
+          padding: const EdgeInsets.only(top: 16),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                _buildMenuToolButton('Add overlay', Icons.add, () {
+                  _showSnackBar('Add overlay coming soon');
+                }),
+              ],
             ),
           ),
         ),
@@ -6180,52 +6175,65 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       key: const ValueKey('captions_menu'),
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Header with back button and title
+        // Header with back button and centered title
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
           ),
           child: Row(
             children: [
-              GestureDetector(
-                onTap: () => setState(() => _isCaptionsMenuMode = false),
-                child: Container(
-                  width: 32,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppTheme.primary.withOpacity(0.2),
-                      width: 1,
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _isCaptionsMenuMode = false),
+                  child: Container(
+                    width: 32,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.primary.withOpacity(0.2),
+                        width: 1,
+                      ),
                     ),
+                    child: const Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
                   ),
-                  child: Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                'Captions',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'Captions',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
+              const SizedBox(width: 40),
             ],
           ),
         ),
         
         // Horizontal Scrollable Caption Tools
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        Container(
+          height: 120,
+          alignment: Alignment.topCenter,
+          padding: const EdgeInsets.only(top: 16),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: captionsTools.map((tool) {
-                return GestureDetector(
-                  onTap: () {
+                return _buildMenuToolButton(
+                  tool['name'] as String,
+                  tool['icon'] as IconData,
+                  () {
                     if (tool['id'] == 'auto-captions') {
                       _generateCaptions();
                       setState(() => _isCaptionsMenuMode = false);
@@ -6233,40 +6241,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       _showSnackBar('${tool['name']} coming soon');
                     }
                   },
-                  child: Container(
-                    width: 80,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            tool['icon'] as IconData,
-                            size: 20,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          tool['name'] as String,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white.withOpacity(0.7),
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
                 );
               }).toList(),
             ),
