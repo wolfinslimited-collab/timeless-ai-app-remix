@@ -3520,8 +3520,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 </div>
                 
                 {/* Horizontal Scrollable Edit Tools */}
-                <div className="overflow-x-auto px-2 py-4" style={{ WebkitOverflowScrolling: 'touch' }}>
-                  <div className="flex gap-1 min-w-max">
+                <div className="overflow-x-auto overflow-y-visible px-2 py-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  <div className="flex gap-1 min-w-max" style={{ overflow: 'visible' }}>
                     {clipEditTools.map((tool) => {
                       const IconComponent = tool.icon;
                       const isDelete = tool.id === 'delete';
