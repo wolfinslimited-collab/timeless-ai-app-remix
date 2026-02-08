@@ -175,6 +175,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [videoDimensions, setVideoDimensions] = useState<{ width: number; height: number } | null>(null);
   const [selectedTool, setSelectedTool] = useState("edit");
   const [isMuted, setIsMuted] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -884,7 +885,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         setTimeout(() => setIsAutoScrolling(false), 50);
       }
     };
-    const handleLoadedMetadata = () => setDuration(video.duration);
+    const handleLoadedMetadata = () => {
+      setDuration(video.duration);
+      setVideoDimensions({ width: video.videoWidth, height: video.videoHeight });
+    };
     const handleEnded = () => setIsPlaying(false);
 
     video.addEventListener("timeupdate", handleTimeUpdate);
@@ -974,6 +978,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setVideoClips([]);
     setCurrentTime(0);
     setDuration(0);
+    setVideoDimensions(null);
     setIsPlaying(false);
   };
 
@@ -1778,10 +1783,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   const containerWidth = window.innerWidth - 32; // Account for padding
                   
                   if (selectedAspectRatio === 'original') {
-                    // Original uses 16:9 as default
-                    const ratio = 16 / 9;
-                    const width = Math.min(containerWidth, containerHeight * ratio);
-                    return { width: `${width}px`, height: `${width / ratio}px` };
+                    // Original uses actual video dimensions
+                    const ratio = videoDimensions ? videoDimensions.width / videoDimensions.height : 16 / 9;
+                    // BoxFit.contain: fit within container while maintaining actual aspect ratio
+                    let width = containerHeight * ratio;
+                    let height = containerHeight;
+                    if (width > containerWidth) {
+                      width = containerWidth;
+                      height = width / ratio;
+                    }
+                    return { width: `${width}px`, height: `${height}px` };
                   }
                   
                   const preset = aspectRatioPresets.find(p => p.id === selectedAspectRatio);
