@@ -3778,52 +3778,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         children: [
           SizedBox(width: startPadding),
           
-          // Add audio button
-          GestureDetector(
-            onTap: _isImportingAudio ? null : _importAudioFile,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2A2A2A),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.white.withOpacity(0.15)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF3A3A3A),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: _isImportingAudio
-                        ? const SizedBox(
-                            width: 12,
-                            height: 12,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.5,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.add, size: 12, color: Colors.white),
-                  ),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'Add audio',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
           
-          const SizedBox(width: 10),
           
           // Add text button
           GestureDetector(
