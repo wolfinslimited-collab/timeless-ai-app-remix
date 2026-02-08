@@ -3620,16 +3620,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             </div>
                           )}
                         </div>
-                        
-                        {/* Add video button - square, at end of video layer */}
-                        <button 
-                          onClick={handleDirectFilePick}
-                          className="w-[32px] h-[32px] bg-white rounded flex items-center justify-center shrink-0"
-                        >
-                          <Plus className="w-4 h-4 text-black" />
-                        </button>
                       </div>
-                      
                       
                       {/* + Add text row - only show placeholder when no text overlays */}
                       <div 
@@ -4082,6 +4073,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               );
             })()}
             </div>
+            
+            {/* Fixed Add Video Button - Sticky on right side */}
+            {videoUrl && (
+              <button 
+                onClick={handleDirectFilePick}
+                className="absolute right-2 top-[34px] w-[32px] h-[32px] bg-white rounded flex items-center justify-center z-20"
+              >
+                <Plus className="w-4 h-4 text-black" />
+              </button>
+            )}
           </div>
 
           {/* Bottom Toolbar - Fixed height, always pinned to bottom */}

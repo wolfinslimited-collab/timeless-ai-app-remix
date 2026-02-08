@@ -3877,6 +3877,25 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 color: const Color(0xFF00FF00).withOpacity(0.8),
               ),
             ),
+          
+          // Fixed Add Video Button - Sticky on right side
+          if (_videoUrl != null)
+            Positioned(
+              right: 8,
+              top: 34,
+              child: GestureDetector(
+                onTap: _showMediaPickerSheet,
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(Icons.add, color: Colors.black, size: 16),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -3893,25 +3912,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           
           // Video Track - Multi-clip filmstrip row
           _buildMultiClipFilmstrip(trackWidth),
-          
-          const SizedBox(width: 4),
-          
-          // Add clip button - square, at end of video layer
-          GestureDetector(
-            onTap: () {
-              // Show media picker to add another video clip
-              _showMediaPickerSheet();
-            },
-            child: Container(
-              width: _thumbnailHeight,
-              height: _thumbnailHeight,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Icon(Icons.add, color: Colors.black, size: 18),
-            ),
-          ),
           
           // Right padding (half screen width)
           SizedBox(width: startPadding),
