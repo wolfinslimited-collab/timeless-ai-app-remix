@@ -3537,9 +3537,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   <span className="ml-3 text-sm font-medium text-foreground">Text</span>
                 </div>
                 
-                {/* Horizontal Scrollable Icons - single row */}
-                <div className="overflow-x-auto px-2 py-3">
-                  <div className="flex gap-1 min-w-max">
+                {/* Horizontal Scrollable Icons - single row, no wrapping */}
+                <div className="overflow-x-auto overflow-y-visible px-2 py-3" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  <div className="flex gap-2 min-w-max" style={{ overflow: 'visible' }}>
                     {[
                       { id: 'add-text', name: 'Add text', icon: Type, action: () => { addTextOverlay(); setIsTextMenuMode(false); } },
                       { id: 'auto-captions', name: 'Auto captions', icon: Subtitles, action: () => { generateAutoCaptions(); setIsTextMenuMode(false); } },
@@ -3554,12 +3554,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         <button
                           key={tool.id}
                           onClick={tool.action}
-                          className="flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all hover:bg-white/5"
+                          className="flex flex-col items-center justify-center shrink-0 w-16 py-2 rounded-xl transition-all hover:bg-white/5"
                         >
                           <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
                             <IconComponent className="w-5 h-5 text-foreground" />
                           </div>
-                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight">
+                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight whitespace-nowrap">
                             {tool.name}
                           </span>
                         </button>
@@ -3629,9 +3629,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   <span className="ml-3 text-sm font-medium text-foreground">Effects</span>
                 </div>
                 
-                {/* Horizontal Scrollable Effects Tools */}
-                <div className="overflow-x-auto px-2 py-3">
-                  <div className="flex gap-1 min-w-max">
+                {/* Horizontal Scrollable Effects Tools - single row, no wrapping */}
+                <div className="overflow-x-auto overflow-y-visible px-2 py-3" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  <div className="flex gap-2 min-w-max" style={{ overflow: 'visible' }}>
                     {[
                       { id: 'video-effects', name: 'Video effects', icon: Video, action: () => toast({ title: "Video effects coming soon" }) },
                       { id: 'body-effects', name: 'Body effects', icon: Star, action: () => toast({ title: "Body effects coming soon" }) },
@@ -3642,12 +3642,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         <button
                           key={tool.id}
                           onClick={tool.action}
-                          className="flex flex-col items-center justify-center w-20 py-2 rounded-xl transition-all hover:bg-white/5"
+                          className="flex flex-col items-center justify-center shrink-0 w-20 py-2 rounded-xl transition-all hover:bg-white/5"
                         >
                           <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
                             <IconComponent className="w-5 h-5 text-foreground" />
                           </div>
-                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight">
+                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight whitespace-nowrap">
                             {tool.name}
                           </span>
                         </button>
@@ -3701,9 +3701,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   <span className="ml-3 text-sm font-medium text-foreground">Captions</span>
                 </div>
                 
-                {/* Horizontal Scrollable Caption Tools */}
-                <div className="overflow-x-auto px-2 py-3">
-                  <div className="flex gap-1 min-w-max">
+                {/* Horizontal Scrollable Caption Tools - single row, no wrapping */}
+                <div className="overflow-x-auto overflow-y-visible px-2 py-3" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  <div className="flex gap-2 min-w-max" style={{ overflow: 'visible' }}>
                     {[
                       { id: 'enter-captions', name: 'Enter captions', icon: Type, action: () => toast({ title: "Enter captions coming soon" }) },
                       { id: 'auto-captions', name: 'Auto captions', icon: Subtitles, action: () => { generateAutoCaptions(); setIsCaptionsMenuMode(false); } },
@@ -3716,12 +3716,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         <button
                           key={tool.id}
                           onClick={tool.action}
-                          className="flex flex-col items-center justify-center w-20 py-2 rounded-xl transition-all hover:bg-white/5"
+                          className="flex flex-col items-center justify-center shrink-0 w-20 py-2 rounded-xl transition-all hover:bg-white/5"
                         >
                           <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
                             <IconComponent className="w-5 h-5 text-foreground" />
                           </div>
-                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight">
+                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight whitespace-nowrap">
                             {tool.name}
                           </span>
                         </button>
@@ -3799,9 +3799,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   <span className="ml-3 text-sm font-medium text-foreground">Audio</span>
                 </div>
                 
-                {/* Horizontal Scrollable Audio Tools */}
-                <div className="overflow-x-auto px-2 py-3">
-                  <div className="flex gap-1 min-w-max">
+                {/* Horizontal Scrollable Audio Tools - single row, no wrapping */}
+                <div className="overflow-x-auto overflow-y-visible px-2 py-3" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  <div className="flex gap-2 min-w-max" style={{ overflow: 'visible' }}>
                     {[
                       { id: 'extract', name: 'Extract', icon: Waves, action: () => toast({ title: "Extract coming soon" }) },
                       { id: 'sounds', name: 'Sounds', icon: Music, action: () => toast({ title: "Sounds coming soon" }) },
@@ -3814,12 +3814,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         <button
                           key={tool.id}
                           onClick={tool.action}
-                          className="flex flex-col items-center justify-center w-20 py-2 rounded-xl transition-all hover:bg-white/5"
+                          className="flex flex-col items-center justify-center shrink-0 w-20 py-2 rounded-xl transition-all hover:bg-white/5"
                         >
                           <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
                             <IconComponent className="w-5 h-5 text-foreground" />
                           </div>
-                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight">
+                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight whitespace-nowrap">
                             {tool.name}
                           </span>
                         </button>
