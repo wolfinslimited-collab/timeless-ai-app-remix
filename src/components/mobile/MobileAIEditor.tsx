@@ -68,6 +68,7 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
+import { TextEditPanel } from "./TextEditPanel";
 
 interface MobileAIEditorProps {
   onBack: () => void;
@@ -146,6 +147,20 @@ interface TextOverlayData {
   backgroundOpacity: number;
   startTime: number;
   endTime: number;
+  // Extended text styling properties
+  opacity: number;
+  strokeEnabled: boolean;
+  strokeColor: string;
+  strokeWidth: number;
+  glowEnabled: boolean;
+  glowColor: string;
+  glowIntensity: number;
+  shadowEnabled: boolean;
+  shadowColor: string;
+  letterSpacing: number;
+  curveAmount: number;
+  animation: string;
+  bubbleStyle: string;
 }
 
 interface CaptionLayerData {
@@ -231,7 +246,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [textInput, setTextInput] = useState('');
   const [isEditingTextInline, setIsEditingTextInline] = useState(false);
   const [draggingTextId, setDraggingTextId] = useState<string | null>(null);
-  
+  const [showTextEditPanel, setShowTextEditPanel] = useState(false);
   // Adjust panel state
   const [adjustPanelTab, setAdjustPanelTab] = useState<'filters' | 'adjust'>('adjust');
   const [adjustSubTab, setAdjustSubTab] = useState<'smart' | 'customize'>('customize');
@@ -734,11 +749,26 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       backgroundOpacity: 0.5,
       startTime: 0,
       endTime: Math.min(5, duration || 10),
+      // Extended defaults
+      opacity: 1,
+      strokeEnabled: false,
+      strokeColor: '#000000',
+      strokeWidth: 2,
+      glowEnabled: false,
+      glowColor: '#ffffff',
+      glowIntensity: 10,
+      shadowEnabled: false,
+      shadowColor: '#000000',
+      letterSpacing: 0,
+      curveAmount: 0,
+      animation: 'none',
+      bubbleStyle: 'none',
     };
     setTextOverlays(prev => [...prev, newText]);
     setSelectedTextId(newText.id);
     setTextInput(newText.text);
     setSelectedTool('text');
+    setShowTextEditPanel(true); // Open text edit panel
   };
 
   const updateSelectedText = (updates: Partial<TextOverlayData>) => {
@@ -2410,6 +2440,20 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             backgroundOpacity: 0.5,
                             startTime: currentTime,
                             endTime: Math.min(currentTime + 3, duration),
+                            // Extended defaults
+                            opacity: 1,
+                            strokeEnabled: false,
+                            strokeColor: '#000000',
+                            strokeWidth: 2,
+                            glowEnabled: false,
+                            glowColor: '#ffffff',
+                            glowIntensity: 10,
+                            shadowEnabled: false,
+                            shadowColor: '#000000',
+                            letterSpacing: 0,
+                            curveAmount: 0,
+                            animation: 'none',
+                            bubbleStyle: 'none',
                           };
                           setTextOverlays(prev => [...prev, newSticker]);
                           toast({ title: "Sticker added!" });
@@ -3533,8 +3577,47 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           </div>
 
           {/* Bottom Toolbar - Fixed height, always pinned to bottom */}
-          <div className="shrink-0 bg-background border-t border-border/10 pb-safe" style={{ maxHeight: '200px' }}>
-            {isTextMenuMode ? (
+          <div className="shrink-0 bg-background border-t border-border/10 pb-safe" style={{ maxHeight: showTextEditPanel ? '400px' : '200px' }}>
+            {showTextEditPanel && selectedTextOverlay ? (
+              /* Text Edit Panel - comprehensive text editing */
+              <TextEditPanel
+                onBack={() => setShowTextEditPanel(false)}
+                text={selectedTextOverlay.text}
+                onTextChange={(text) => updateSelectedText({ text })}
+                fontSize={selectedTextOverlay.fontSize}
+                onFontSizeChange={(fontSize) => updateSelectedText({ fontSize })}
+                textColor={selectedTextOverlay.textColor}
+                onTextColorChange={(textColor) => updateSelectedText({ textColor })}
+                fontFamily={selectedTextOverlay.fontFamily}
+                onFontFamilyChange={(fontFamily) => updateSelectedText({ fontFamily })}
+                opacity={selectedTextOverlay.opacity}
+                onOpacityChange={(opacity) => updateSelectedText({ opacity })}
+                strokeEnabled={selectedTextOverlay.strokeEnabled}
+                onStrokeEnabledChange={(strokeEnabled) => updateSelectedText({ strokeEnabled })}
+                strokeColor={selectedTextOverlay.strokeColor}
+                onStrokeColorChange={(strokeColor) => updateSelectedText({ strokeColor })}
+                strokeWidth={selectedTextOverlay.strokeWidth}
+                onStrokeWidthChange={(strokeWidth) => updateSelectedText({ strokeWidth })}
+                glowEnabled={selectedTextOverlay.glowEnabled}
+                onGlowEnabledChange={(glowEnabled) => updateSelectedText({ glowEnabled })}
+                glowColor={selectedTextOverlay.glowColor}
+                onGlowColorChange={(glowColor) => updateSelectedText({ glowColor })}
+                glowIntensity={selectedTextOverlay.glowIntensity}
+                onGlowIntensityChange={(glowIntensity) => updateSelectedText({ glowIntensity })}
+                shadowEnabled={selectedTextOverlay.shadowEnabled}
+                onShadowEnabledChange={(shadowEnabled) => updateSelectedText({ shadowEnabled })}
+                shadowColor={selectedTextOverlay.shadowColor}
+                onShadowColorChange={(shadowColor) => updateSelectedText({ shadowColor })}
+                letterSpacing={selectedTextOverlay.letterSpacing}
+                onLetterSpacingChange={(letterSpacing) => updateSelectedText({ letterSpacing })}
+                curveAmount={selectedTextOverlay.curveAmount}
+                onCurveAmountChange={(curveAmount) => updateSelectedText({ curveAmount })}
+                animation={selectedTextOverlay.animation}
+                onAnimationChange={(animation) => updateSelectedText({ animation })}
+                bubbleStyle={selectedTextOverlay.bubbleStyle}
+                onBubbleStyleChange={(bubbleStyle) => updateSelectedText({ bubbleStyle })}
+              />
+            ) : isTextMenuMode ? (
               /* Text Menu - fixed-height horizontal scrollable row */
               <div className="animate-fade-in flex flex-col" style={{ maxHeight: '180px' }}>
                 {/* Header with back button and title */}
