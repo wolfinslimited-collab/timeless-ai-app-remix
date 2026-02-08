@@ -3431,6 +3431,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 style={{ 
                                   width: clipWidth,
                                   backgroundColor: '#1a1a1a',
+                                  border: isSelected ? '2px solid white' : 'none',
+                                  borderRadius: isSelected ? '4px' : '0',
                                 }}
                                 onClick={() => {
                                   setSelectedClipId(clip.id);
@@ -3440,11 +3442,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 }}
                               >
                                 <div className="flex h-full">
-                                  {/* Left trim handle */}
+                                  {/* Left trim handle - white box with black line when selected */}
                                   <div 
                                     className={cn(
-                                      "w-3 h-full flex items-center justify-center cursor-ew-resize z-10 shrink-0",
-                                      isSelected ? "bg-white/60" : "bg-white/20"
+                                      "h-full flex items-center justify-center cursor-ew-resize z-10 shrink-0",
+                                      isSelected ? "w-[10px] bg-white" : "w-3 bg-white/20"
                                     )}
                                     onMouseDown={(e) => {
                                       e.stopPropagation();
@@ -3476,7 +3478,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                       document.addEventListener('mousemove', handleMove);
                                       document.addEventListener('mouseup', handleUp);
                                     }}
-                                  />
+                                  >
+                                    {/* Black line indicator when selected */}
+                                    {isSelected && <div className="w-[2px] h-3 bg-black rounded-full" />}
+                                  </div>
                                   
                                   {/* Thumbnails content area */}
                                   <div className="flex-1 flex relative overflow-hidden">
@@ -3535,11 +3540,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                     
                                   </div>
                                   
-                                  {/* Right trim handle */}
+                                  {/* Right trim handle - white box with black line when selected */}
                                   <div 
                                     className={cn(
-                                      "w-3 h-full flex items-center justify-center cursor-ew-resize z-10 shrink-0",
-                                      isSelected ? "bg-white/60" : "bg-white/20"
+                                      "h-full flex items-center justify-center cursor-ew-resize z-10 shrink-0",
+                                      isSelected ? "w-[10px] bg-white" : "w-3 bg-white/20"
                                     )}
                                     onMouseDown={(e) => {
                                       e.stopPropagation();
@@ -3571,7 +3576,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                       document.addEventListener('mousemove', handleMove);
                                       document.addEventListener('mouseup', handleUp);
                                     }}
-                                  />
+                                  >
+                                    {/* Black line indicator when selected */}
+                                    {isSelected && <div className="w-[2px] h-3 bg-black rounded-full" />}
+                                  </div>
                                 </div>
                               </div>
                             );

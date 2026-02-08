@@ -3968,13 +3968,16 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       child: Container(
         width: clipWidth,
         height: _thumbnailHeight + 4,
-        decoration: const BoxDecoration(
-          color: Color(0xFF2A1515),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1a1a1a),
+          border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
+          borderRadius: isSelected ? BorderRadius.circular(4) : null,
         ),
-        child: ClipRect(
+        child: ClipRRect(
+          borderRadius: isSelected ? BorderRadius.circular(2) : BorderRadius.zero,
           child: Row(
             children: [
-              // Left trim handle
+              // Left trim handle - white box with black line when selected
               GestureDetector(
                 onHorizontalDragStart: (_) {
                   _saveStateToHistory(); // Save state before trimming
@@ -4000,10 +4003,20 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   });
                 },
                 child: Container(
-                  width: 12,
-                  color: isSelected 
-                      ? Colors.white.withOpacity(0.6) 
-                      : videoColor.withOpacity(0.8),
+                  width: isSelected ? 10 : 12,
+                  color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
+                  child: isSelected
+                      ? Center(
+                          child: Container(
+                            width: 2,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: Colors.black,
+                              borderRadius: BorderRadius.circular(1),
+                            ),
+                          ),
+                        )
+                      : null,
                 ),
               ),
               
@@ -4130,7 +4143,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 ),
               ),
               
-              // Right trim handle
+              // Right trim handle - white box with black line when selected
               GestureDetector(
                 onHorizontalDragStart: (_) {
                   _saveStateToHistory(); // Save state before trimming
@@ -4156,10 +4169,20 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   });
                 },
                 child: Container(
-                  width: 12,
-                  color: isSelected 
-                      ? Colors.white.withOpacity(0.6) 
-                      : videoColor.withOpacity(0.8),
+                  width: isSelected ? 10 : 12,
+                  color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
+                  child: isSelected
+                      ? Center(
+                          child: Container(
+                            width: 2,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: Colors.black,
+                              borderRadius: BorderRadius.circular(1),
+                            ),
+                          ),
+                        )
+                      : null,
                 ),
               ),
             ],
