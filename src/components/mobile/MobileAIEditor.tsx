@@ -201,6 +201,7 @@ interface VideoOverlayData {
   endTime: number; // Timeline end position
   volume: number; // 0-2 (0-200%)
   opacity: number; // 0-1
+  thumbnails?: string[]; // Array of data URLs for frame thumbnails
 }
 
 const MAX_HISTORY_LENGTH = 50;
@@ -979,8 +980,30 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       tempVideo.src = overlayUrl;
       tempVideo.preload = 'metadata';
       
-      tempVideo.onloadedmetadata = () => {
+      tempVideo.onloadedmetadata = async () => {
         const overlayDuration = tempVideo.duration;
+        
+        // Generate thumbnails for the overlay
+        const thumbnails: string[] = [];
+        const numThumbs = Math.min(10, Math.ceil(overlayDuration * 2)); // 2 per second, max 10
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 60;
+        canvas.height = 40;
+        
+        for (let i = 0; i < numThumbs; i++) {
+          const thumbTime = (i / numThumbs) * overlayDuration;
+          tempVideo.currentTime = thumbTime;
+          await new Promise<void>((resolve) => {
+            tempVideo.onseeked = () => {
+              if (ctx) {
+                ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+                thumbnails.push(canvas.toDataURL('image/jpeg', 0.7));
+              }
+              resolve();
+            };
+          });
+        }
         
         const newOverlay: VideoOverlayData = {
           id: `overlay-${Date.now()}`,
@@ -993,6 +1016,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           endTime: Math.min(currentTime + overlayDuration, duration || overlayDuration),
           volume: 0.5, // 50% default
           opacity: 1,
+          thumbnails,
         };
         
         setVideoOverlays(prev => [...prev, newOverlay]);
@@ -3956,12 +3980,48 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 <div className="w-0.5 h-3 bg-white/60 rounded-full" />
                               </div>
                               
-                              {/* Content */}
-                              <div className="flex-1 flex items-center gap-1.5 px-1 overflow-hidden cursor-grab">
-                                <Video className="w-3 h-3 text-white/70 shrink-0" />
-                                <span className="text-[10px] text-white/90 font-medium truncate flex-1">
-                                  Overlay
-                                </span>
+                              {/* Thumbnails content */}
+                              <div className="flex-1 flex h-full overflow-hidden cursor-grab">
+                                {(() => {
+                                  const overlayWidth = itemWidth - 16; // Subtract trim handle widths
+                                  const thumbWidth = 40;
+                                  const thumbCount = Math.max(1, Math.min(10, Math.floor(overlayWidth / thumbWidth)));
+                                  
+                                  return Array.from({ length: thumbCount }).map((_, i) => {
+                                    const thumbIndex = overlay.thumbnails && overlay.thumbnails.length > 0
+                                      ? Math.floor((i / thumbCount) * overlay.thumbnails.length)
+                                      : -1;
+                                    const thumbnailSrc = thumbIndex >= 0 && overlay.thumbnails 
+                                      ? overlay.thumbnails[thumbIndex] 
+                                      : null;
+                                    
+                                    return (
+                                      <div
+                                        key={i}
+                                        className="h-full shrink-0 relative overflow-hidden"
+                                        style={{
+                                          width: overlayWidth / thumbCount,
+                                          borderRight: i < thumbCount - 1 ? '1px solid rgba(139, 92, 246, 0.3)' : 'none',
+                                        }}
+                                      >
+                                        {thumbnailSrc ? (
+                                          <img 
+                                            src={thumbnailSrc} 
+                                            alt="" 
+                                            className="w-full h-full object-cover"
+                                            draggable={false}
+                                          />
+                                        ) : (
+                                          <div 
+                                            className="w-full h-full bg-gradient-to-br from-purple-600/40 to-pink-600/40 flex items-center justify-center"
+                                          >
+                                            {i === 0 && <Video className="w-3 h-3 text-white/50" />}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  });
+                                })()}
                               </div>
                               
                               {/* Right trim handle */}
