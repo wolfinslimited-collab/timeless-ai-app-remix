@@ -3345,6 +3345,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   // Convert scroll to time using pixelsPerSecond
                   const timeUnderPlayhead = scrollLeft / PIXELS_PER_SECOND;
                   const clampedTime = Math.max(0, Math.min(totalTimelineDuration, timeUnderPlayhead));
+                  
+                  // Update both the video element and the React state
+                  setCurrentTime(clampedTime);
+                  
                   if (videoRef.current) {
                     videoRef.current.pause();
                     videoRef.current.currentTime = clampedTime;
