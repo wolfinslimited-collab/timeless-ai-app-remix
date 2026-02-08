@@ -2440,35 +2440,57 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   @override
   Widget build(BuildContext context) {
+    // Calculate video preview height - scales down when text edit panel is open
+    final screenHeight = MediaQuery.of(context).size.height;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final hasKeyboard = keyboardHeight > 0;
+    
+    // Dynamic max height based on text panel and keyboard state
+    double videoMaxHeight;
+    if (_showTextEditPanel || hasKeyboard) {
+      // Scale down video when text panel or keyboard is open
+      videoMaxHeight = (screenHeight * 0.25).clamp(100.0, 180.0);
+    } else {
+      videoMaxHeight = 280.0;
+    }
+    
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
+      resizeToAvoidBottomInset: true, // Allow keyboard to push content up
       body: SafeArea(
         // Main layout: Column with fixed bottom elements and flexible top
         child: Column(
           children: [
             _buildTopBar(),
-            // Video preview - Expanded to fill remaining space, but with max constraint
-            Expanded(
-              child: Container(
-                constraints: const BoxConstraints(maxHeight: 280),
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                clipBehavior: Clip.hardEdge,
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: _buildVideoPreviewArea(),
+            // Video preview - Scales down when text panel/keyboard is open (BoxFit.contain behavior)
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              constraints: BoxConstraints(
+                maxHeight: videoMaxHeight,
+                minHeight: _showTextEditPanel || hasKeyboard ? 100.0 : 180.0,
               ),
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              clipBehavior: Clip.hardEdge,
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: _buildVideoPreviewArea(),
             ),
             // Fixed position elements below video - always visible
             if (_isVideoInitialized && _videoController != null)
               _buildVideoControlBar(),
             // Dynamic UI: Show timeline OR settings panel based on active tool
-            // This is a fixed-height section that doesn't push content off screen
+            // This section expands to fill remaining space, fixed at bottom
             if (_isVideoInitialized && _videoController != null)
-              Container(
-                constraints: const BoxConstraints(maxHeight: 320),
-                child: _buildDynamicBottomArea(),
+              Expanded(
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxHeight: _showTextEditPanel ? 450 : 320,
+                  ),
+                  child: _buildDynamicBottomArea(),
+                ),
               ),
           ],
         ),
