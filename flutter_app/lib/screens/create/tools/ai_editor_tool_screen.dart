@@ -5729,7 +5729,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         // Horizontal Scrollable Edit Tools
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 8),
           child: Row(
             children: editTools.map((tool) {
               final isDelete = tool['id'] == 'delete';
@@ -5881,7 +5881,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 // Horizontal Scrollable Edit Tools
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                  padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 8),
                   child: Row(
                     children: editTools.map((tool) {
                       final isDelete = tool['id'] == 'delete';
