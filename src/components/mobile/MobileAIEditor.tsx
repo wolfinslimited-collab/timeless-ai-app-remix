@@ -289,6 +289,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Captions menu mode state - activated by clicking "Captions" tool
   const [isCaptionsMenuMode, setIsCaptionsMenuMode] = useState(false);
   
+  // Settings panel overlay state - for adjust, aspect, background panels
+  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
+  const [settingsPanelType, setSettingsPanelType] = useState<'adjust' | 'stickers' | 'aspect' | 'background' | null>(null);
+  
   // Sticker presets
   const stickerCategories = [
     { id: 'emoji', name: 'Emoji', stickers: ['😀', '😂', '🥰', '😎', '🔥', '💯', '⭐', '❤️', '👍', '🎉', '✨', '🚀'] },
@@ -2275,11 +2279,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         </div>
       )}
 
-      {/* Dynamic Bottom Area - Timeline OR Settings Panel */}
+      {/* Timeline + Toolbar Section (always rendered when video loaded) */}
       {videoUrl && duration > 0 && (
-        (selectedTool === 'adjust' || selectedTool === 'stickers' || selectedTool === 'aspect' || selectedTool === 'background') ? (
-          // Contextual Settings Panel - OVERLAYS the timeline area
-          <div className="shrink-0 bg-background border-t border-border/10 pb-safe">
+        <>
+          {/* Timeline Section - Multi-Track with Sync Engine (Mobile Optimized) */}
+          <div className="h-[200px] shrink-0 bg-[#0D0D0D] overflow-hidden relative">
             {/* Header with Cancel (X) and Done (checkmark) buttons */}
             <div className="flex items-center justify-between px-4 py-3">
               {/* Cancel button (X) */}
