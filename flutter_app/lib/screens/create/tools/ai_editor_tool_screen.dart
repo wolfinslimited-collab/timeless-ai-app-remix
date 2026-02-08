@@ -6863,14 +6863,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   
   /// Build the audio menu - horizontal scrollable menu with audio tools
   Widget _buildAudioMenu() {
-    final audioTools = [
-      {'id': 'extract', 'name': 'Extract', 'icon': Icons.waves_outlined},
-      {'id': 'sounds', 'name': 'Sounds', 'icon': Icons.music_note},
-      {'id': 'sound-fx', 'name': 'Sound FX', 'icon': Icons.auto_awesome},
-      {'id': 'record', 'name': 'Record', 'icon': Icons.circle_outlined},
-      {'id': 'text-to-audio', 'name': 'Text to audio', 'icon': Icons.record_voice_over_outlined},
-    ];
-    
     return Column(
       key: const ValueKey('audio_menu'),
       mainAxisSize: MainAxisSize.min,
@@ -6937,13 +6929,68 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
-              children: audioTools.map((tool) {
-                return _buildMenuToolButton(
-                  tool['name'] as String,
-                  tool['icon'] as IconData,
-                  () => _showSnackBar('${tool['name']} coming soon'),
-                );
-              }).toList(),
+              children: [
+                // Music - File Picker (green themed)
+                GestureDetector(
+                  onTap: () => _importAudioFile(),
+                  child: Container(
+                    width: 64,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF22C55E).withOpacity(0.2),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFF22C55E).withOpacity(0.3)),
+                          ),
+                          child: const Icon(Icons.music_note, size: 20, color: Color(0xFF4ADE80)),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Music',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.6)),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Sound FX
+                _buildMenuToolButton('Sound FX', Icons.auto_awesome, () => _showSnackBar('Sound FX library coming soon')),
+                // Record (red themed)
+                GestureDetector(
+                  onTap: () => _showSnackBar('Voiceover recording coming soon'),
+                  child: Container(
+                    width: 64,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.red.withOpacity(0.3)),
+                          ),
+                          child: const Icon(Icons.circle, size: 20, color: Colors.red),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Record',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.6)),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                _buildMenuToolButton('Extract', Icons.waves_outlined, () => _showSnackBar('Extract coming soon')),
+                _buildMenuToolButton('Text to audio', Icons.record_voice_over_outlined, () => _showSnackBar('Text to audio coming soon')),
+              ],
             ),
           ),
         ),
