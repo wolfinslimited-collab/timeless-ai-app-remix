@@ -3620,30 +3620,21 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     required IconData icon,
     required String label,
   }) {
+    // Simplified clip without the outer box - just the content
     return Container(
       width: itemWidth,
       height: 34,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isSelected 
-              ? [const Color(0xFFF59E0B), const Color(0xFFD97706)]
-              : [color, color.withOpacity(0.8)],
-        ),
-        borderRadius: BorderRadius.circular(6),
-        border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(isDragging ? 0.6 : 0.3),
-            blurRadius: isDragging ? 16 : 8,
-          ),
-        ],
+        // Only show border when selected, no background box
+        border: isSelected ? Border.all(color: Colors.white, width: 1.5) : null,
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
         children: [
-          // Left trim handle - uses pixelsPerSecond
+          // Left trim handle - minimal, only visible when selected
           GestureDetector(
             onHorizontalDragStart: (_) {
-              _saveStateToHistory(); // Save state before trimming
+              _saveStateToHistory();
               setState(() {
                 _trimmingLayerId = overlay.id;
                 _isTrimmingStart = true;
@@ -3651,7 +3642,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             },
             onHorizontalDragUpdate: (details) {
               final delta = details.primaryDelta ?? 0;
-              // Convert pixel delta to time using global pixelsPerSecond
               final timeDelta = delta / _pixelsPerSecond;
               setState(() {
                 overlay.startTime = (overlay.startTime + timeDelta).clamp(0.0, overlay.endTime - 0.5);
@@ -3664,69 +3654,52 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               });
             },
             child: Container(
-              width: 10,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(isSelected ? 0.5 : 0.3),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(6),
-                  bottomLeft: Radius.circular(6),
-                ),
-              ),
+              width: 8,
               child: Center(
-                child: Container(
-                  width: 3,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(1.5),
+                child: AnimatedOpacity(
+                  opacity: isSelected ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 150),
+                  child: Container(
+                    width: 2,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(1),
+                    ),
                   ),
                 ),
               ),
             ),
           ),
           
-          // Content
+          // Content - just icon and text label
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Row(
                 children: [
-                  Icon(icon, size: 12, color: Colors.white.withOpacity(0.9)),
+                  Icon(icon, size: 12, color: Colors.white.withOpacity(0.7)),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       label,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
                         fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  // Delete button when selected
-                  if (isSelected)
-                    GestureDetector(
-                      onTap: () => _deleteTextFromTimeline(overlay.id),
-                      child: Container(
-                        width: 16,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.9),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.close, size: 10, color: Colors.white),
-                      ),
-                    ),
                 ],
               ),
             ),
           ),
           
-          // Right trim handle - uses pixelsPerSecond
+          // Right trim handle - minimal, only visible when selected
           GestureDetector(
             onHorizontalDragStart: (_) {
-              _saveStateToHistory(); // Save state before trimming
+              _saveStateToHistory();
               setState(() {
                 _trimmingLayerId = overlay.id;
                 _isTrimmingEnd = true;
@@ -3734,7 +3707,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             },
             onHorizontalDragUpdate: (details) {
               final delta = details.primaryDelta ?? 0;
-              // Convert pixel delta to time using global pixelsPerSecond
               final timeDelta = delta / _pixelsPerSecond;
               setState(() {
                 overlay.endTime = (overlay.endTime + timeDelta).clamp(overlay.startTime + 0.5, duration);
@@ -3747,21 +3719,18 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               });
             },
             child: Container(
-              width: 10,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(isSelected ? 0.5 : 0.3),
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(6),
-                  bottomRight: Radius.circular(6),
-                ),
-              ),
+              width: 8,
               child: Center(
-                child: Container(
-                  width: 3,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(1.5),
+                child: AnimatedOpacity(
+                  opacity: isSelected ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 150),
+                  child: Container(
+                    width: 2,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(1),
+                    ),
                   ),
                 ),
               ),
