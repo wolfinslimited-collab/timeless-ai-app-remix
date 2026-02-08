@@ -3779,38 +3779,49 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               controller: _timelineScrollController,
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
-              child: SizedBox(
-                width: totalScrollWidth,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Time Ruler
-                    _buildTimeRuler(halfScreenPadding),
-                    const SizedBox(height: 4),
-                    
-                    // Video Track (filmstrip only) - supports multi-clip
-                    _buildVideoTrackFilmstripOnly(halfScreenPadding, trackWidth),
-                    const SizedBox(height: 6),
-                    
-                    // Audio Track (Green waveform layers)
-                    _buildAudioTrack(halfScreenPadding, trackWidth, duration),
-                    const SizedBox(height: 6),
-                    
-                    // Text Track (Purple/Yellow layers)
-                    _buildTextTrack(halfScreenPadding, trackWidth, duration),
-                    const SizedBox(height: 6),
-                    
-                    // Caption/Subtitle Track (Cyan layers)
-                    _buildCaptionTrack(halfScreenPadding, trackWidth, duration),
-                    const SizedBox(height: 6),
-                    
-                    // Effects Track (Amber/Gold layers)
-                    _buildEffectsTrack(halfScreenPadding, trackWidth, duration),
-                    const SizedBox(height: 6),
-                    
-                    // Add layer buttons row
-                    _buildAddLayerRow(halfScreenPadding),
-                  ],
+              child: GestureDetector(
+                onTap: () {
+                  // Deselect clip when tapping on empty timeline area
+                  setState(() {
+                    _selectedClipId = null;
+                    _isEditMenuMode = false;
+                    _editSubPanel = 'none';
+                  });
+                },
+                behavior: HitTestBehavior.translucent,
+                child: SizedBox(
+                  width: totalScrollWidth,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Time Ruler
+                      _buildTimeRuler(halfScreenPadding),
+                      const SizedBox(height: 4),
+                      
+                      // Video Track (filmstrip only) - supports multi-clip
+                      _buildVideoTrackFilmstripOnly(halfScreenPadding, trackWidth),
+                      const SizedBox(height: 6),
+                      
+                      // Audio Track (Green waveform layers)
+                      _buildAudioTrack(halfScreenPadding, trackWidth, duration),
+                      const SizedBox(height: 6),
+                      
+                      // Text Track (Purple/Yellow layers)
+                      _buildTextTrack(halfScreenPadding, trackWidth, duration),
+                      const SizedBox(height: 6),
+                      
+                      // Caption/Subtitle Track (Cyan layers)
+                      _buildCaptionTrack(halfScreenPadding, trackWidth, duration),
+                      const SizedBox(height: 6),
+                      
+                      // Effects Track (Amber/Gold layers)
+                      _buildEffectsTrack(halfScreenPadding, trackWidth, duration),
+                      const SizedBox(height: 6),
+                      
+                      // Add layer buttons row
+                      _buildAddLayerRow(halfScreenPadding),
+                    ],
+                  ),
                 ),
               ),
             ),
