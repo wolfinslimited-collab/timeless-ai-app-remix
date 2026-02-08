@@ -331,8 +331,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [settingsPanelType, setSettingsPanelType] = useState<'adjust' | 'stickers' | null>(null);
   
-  // Computed: check if any overlay menu is currently open (to hide main toolbar)
-  const isAnyOverlayOpen = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isSettingsPanelOpen;
+  // Base overlay check - isAudioEditMode is added later
+  const isAnyOverlayOpenBase = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isSettingsPanelOpen;
   
   // Sticker presets
   const stickerCategories = [
@@ -493,7 +493,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     const existingAudioMap = new Map<string, HTMLAudioElement>();
     audioRefs.current.forEach((el, id) => existingAudioMap.set(id, el));
 
-    setAudioLayers(snapshot.audioLayers.map(a => ({ ...a })));
+    setAudioLayers(snapshot.audioLayers.map(a => ({ ...a, fadeIn: 0, fadeOut: 0 })));
 
     // Clean up audio elements for removed layers
     existingAudioMap.forEach((el, id) => {
@@ -566,14 +566,26 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     volume: number;
     startTime: number;
     endTime: number;
+    fadeIn: number; // seconds
+    fadeOut: number; // seconds
   }
 
   const [audioLayers, setAudioLayers] = useState<AudioLayer[]>([]);
   const [selectedAudioId, setSelectedAudioId] = useState<string | null>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
+  
+  // Audio editing state
+  const [isAudioEditMode, setIsAudioEditMode] = useState(false);
+  const [audioEditSubPanel, setAudioEditSubPanel] = useState<'none' | 'volume' | 'fade'>('none');
+  const [editingAudioVolume, setEditingAudioVolume] = useState(100); // 0-1000
+  const [editingAudioFadeIn, setEditingAudioFadeIn] = useState(0);
+  const [editingAudioFadeOut, setEditingAudioFadeOut] = useState(0);
 
   const selectedAudioLayer = audioLayers.find(a => a.id === selectedAudioId);
+  
+  // Computed: check if any overlay menu is currently open (to hide main toolbar)
+  const isAnyOverlayOpen = isAnyOverlayOpenBase || isAudioEditMode;
 
   const handleAudioImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -594,19 +606,29 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         volume: 1.0,
         startTime: 0,
         endTime: Math.min(audioDuration, duration || 10),
+        fadeIn: 0,
+        fadeOut: 0,
       };
       setAudioLayers(prev => [...prev, newAudio]);
       setSelectedAudioId(newAudio.id);
+      setIsAudioMenuMode(false);
       setSelectedTool('audio');
       
       // Store reference for sync
       audioRefs.current.set(newAudio.id, audioElement);
+      toast({ title: `Audio "${file.name}" added` });
     });
 
     // Reset input
     if (audioInputRef.current) {
       audioInputRef.current.value = '';
     }
+  };
+
+  const updateAudioLayer = (id: string, updates: Partial<AudioLayer>) => {
+    setAudioLayers(prev => prev.map(a => 
+      a.id === id ? { ...a, ...updates } : a
+    ));
   };
 
   const updateSelectedAudio = (updates: Partial<AudioLayer>) => {
@@ -626,7 +648,75 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       audioRefs.current.delete(id);
     }
     setAudioLayers(prev => prev.filter(a => a.id !== id));
-    if (selectedAudioId === id) setSelectedAudioId(null);
+    if (selectedAudioId === id) {
+      setSelectedAudioId(null);
+      setIsAudioEditMode(false);
+    }
+    toast({ title: "Audio deleted" });
+  };
+  
+  const splitAudioAtPlayhead = (audioId: string) => {
+    const audio = audioLayers.find(a => a.id === audioId);
+    if (!audio) return;
+    
+    // Check if playhead is within audio range
+    if (currentTime <= audio.startTime || currentTime >= audio.endTime) {
+      toast({ title: "Move playhead within audio clip to split" });
+      return;
+    }
+    
+    saveStateToHistory();
+    
+    // Create two new audio clips
+    const firstHalf: AudioLayer = {
+      ...audio,
+      id: Date.now().toString(),
+      endTime: currentTime,
+    };
+    
+    const secondHalf: AudioLayer = {
+      ...audio,
+      id: (Date.now() + 1).toString(),
+      startTime: currentTime,
+    };
+    
+    // Clone audio element for second half
+    const originalAudioEl = audioRefs.current.get(audioId);
+    if (originalAudioEl) {
+      const newAudioEl = new Audio(audio.fileUrl);
+      audioRefs.current.set(secondHalf.id, newAudioEl);
+    }
+    
+    setAudioLayers(prev => [
+      ...prev.filter(a => a.id !== audioId),
+      firstHalf,
+      secondHalf,
+    ]);
+    
+    setSelectedAudioId(secondHalf.id);
+    toast({ title: "Audio split at playhead" });
+  };
+  
+  const applyAudioVolume = () => {
+    if (!selectedAudioId) return;
+    const newVolume = editingAudioVolume / 100; // Convert 0-1000 to 0-10
+    updateAudioLayer(selectedAudioId, { volume: newVolume });
+    
+    // Apply to audio element (capped at 1.0 for HTML5)
+    const audioEl = audioRefs.current.get(selectedAudioId);
+    if (audioEl) {
+      audioEl.volume = Math.min(1, newVolume);
+    }
+    toast({ title: `Volume set to ${editingAudioVolume}%` });
+  };
+  
+  const applyAudioFade = () => {
+    if (!selectedAudioId) return;
+    updateAudioLayer(selectedAudioId, { 
+      fadeIn: editingAudioFadeIn, 
+      fadeOut: editingAudioFadeOut 
+    });
+    toast({ title: "Fade applied" });
   };
 
   // ============================================
@@ -4545,6 +4635,151 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       })}
                     </div>
                   )}
+                  
+                  {/* Audio Track - Green themed */}
+                  <div 
+                    className="relative h-10 cursor-pointer group"
+                    style={{ width: trackWidth }}
+                    onClick={() => {
+                      if (audioLayers.length === 0) {
+                        setIsAudioMenuMode(true);
+                      }
+                    }}
+                  >
+                    {/* Show "Add audio" placeholder when no audio layers */}
+                    {audioLayers.length === 0 && (
+                      <div className="h-[34px] mt-[3px] rounded bg-[#2A2A2A] border border-border/30 hover:border-border/50 transition-all flex items-center gap-2 px-2" style={{ maxWidth: 180 }}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded bg-[#3A3A3A] flex items-center justify-center">
+                            <Music className="w-2.5 h-2.5 text-foreground" />
+                          </div>
+                          <span className="text-[11px] text-foreground font-semibold">Add audio</span>
+                        </div>
+                      </div>
+                    )}
+                    {/* Render actual audio layers on top */}
+                    {audioLayers.map(audio => {
+                      const isSelected = audio.id === selectedAudioId;
+                      const leftOffset = audio.startTime * PIXELS_PER_SECOND;
+                      const itemWidth = Math.max(50, (audio.endTime - audio.startTime) * PIXELS_PER_SECOND);
+                      
+                      return (
+                        <div
+                          key={audio.id}
+                          className={cn(
+                            "absolute h-[34px] rounded flex items-center cursor-grab transition-all active:cursor-grabbing group/audio",
+                            isSelected 
+                              ? "bg-gradient-to-r from-emerald-500 to-emerald-600 border-2 border-white shadow-lg shadow-emerald-500/30"
+                              : "bg-gradient-to-r from-emerald-600 to-emerald-700 border border-emerald-500/30 hover:border-emerald-400/50"
+                          )}
+                          style={{ left: leftOffset, width: itemWidth, top: 3 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedAudioId(audio.id);
+                            setEditingAudioVolume(Math.round(audio.volume * 100));
+                            setEditingAudioFadeIn(audio.fadeIn);
+                            setEditingAudioFadeOut(audio.fadeOut);
+                            setIsAudioEditMode(true);
+                            setAudioEditSubPanel('none');
+                          }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            // Horizontal drag to move
+                            const startX = e.clientX;
+                            const startTime = audio.startTime;
+                            const audioDuration = audio.endTime - audio.startTime;
+                            
+                            const handleMove = (moveE: MouseEvent) => {
+                              const deltaX = moveE.clientX - startX;
+                              const timeDelta = deltaX / PIXELS_PER_SECOND;
+                              let newStart = Math.max(0, Math.min(duration - audioDuration, startTime + timeDelta));
+                              
+                              updateAudioLayer(audio.id, { 
+                                startTime: newStart, 
+                                endTime: newStart + audioDuration 
+                              });
+                            };
+                            
+                            const handleUp = () => {
+                              document.removeEventListener('mousemove', handleMove);
+                              document.removeEventListener('mouseup', handleUp);
+                            };
+                            
+                            document.addEventListener('mousemove', handleMove);
+                            document.addEventListener('mouseup', handleUp);
+                          }}
+                        >
+                          {/* Left trim handle */}
+                          <div 
+                            className={cn(
+                              "w-2.5 h-full rounded-l flex items-center justify-center cursor-ew-resize",
+                              isSelected ? "bg-white/50" : "bg-white/30"
+                            )}
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              const startX = e.clientX;
+                              const startTime = audio.startTime;
+                              
+                              const handleMove = (moveE: MouseEvent) => {
+                                const deltaX = moveE.clientX - startX;
+                                const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                const newStart = Math.max(0, Math.min(audio.endTime - 0.5, startTime + timeDelta));
+                                updateAudioLayer(audio.id, { startTime: newStart });
+                              };
+                              
+                              const handleUp = () => {
+                                document.removeEventListener('mousemove', handleMove);
+                                document.removeEventListener('mouseup', handleUp);
+                              };
+                              
+                              document.addEventListener('mousemove', handleMove);
+                              document.addEventListener('mouseup', handleUp);
+                            }}
+                          >
+                            <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                          </div>
+                          
+                          {/* Content - draggable center area */}
+                          <div className="flex-1 flex items-center gap-1 px-1 overflow-hidden cursor-grab">
+                            <Music className="w-3 h-3 text-white/90 shrink-0" />
+                            <span className="text-[10px] text-white font-semibold truncate flex-1">
+                              {audio.name.length > 12 ? audio.name.substring(0, 12) + '...' : audio.name}
+                            </span>
+                          </div>
+                          
+                          {/* Right trim handle */}
+                          <div 
+                            className={cn(
+                              "w-2.5 h-full rounded-r flex items-center justify-center cursor-ew-resize",
+                              isSelected ? "bg-white/50" : "bg-white/30"
+                            )}
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              const startX = e.clientX;
+                              const endTime = audio.endTime;
+                              
+                              const handleMove = (moveE: MouseEvent) => {
+                                const deltaX = moveE.clientX - startX;
+                                const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                const newEnd = Math.min(duration, Math.max(audio.startTime + 0.5, endTime + timeDelta));
+                                updateAudioLayer(audio.id, { endTime: newEnd });
+                              };
+                              
+                              const handleUp = () => {
+                                document.removeEventListener('mousemove', handleMove);
+                                document.removeEventListener('mouseup', handleUp);
+                              };
+                              
+                              document.addEventListener('mousemove', handleMove);
+                              document.addEventListener('mouseup', handleUp);
+                            }}
+                          >
+                            <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })()}
@@ -5409,11 +5644,45 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 {/* Horizontal Scrollable Audio Tools */}
                 <div className="flex-1 flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
                   <div className="flex gap-2 min-w-max">
+                    {/* Music - File Picker */}
+                    <button
+                      onClick={() => audioInputRef.current?.click()}
+                      className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
+                    >
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-emerald-500/20 border border-emerald-500/30">
+                        <Music className="w-5 h-5 text-emerald-400" />
+                      </div>
+                      <span className="text-[10px] font-medium text-foreground/60">
+                        Music
+                      </span>
+                    </button>
+                    {/* Sound FX */}
+                    <button
+                      onClick={() => toast({ title: "Sound FX library coming soon" })}
+                      className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
+                    >
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-muted/30">
+                        <Sparkles className="w-5 h-5 text-foreground" />
+                      </div>
+                      <span className="text-[10px] font-medium text-foreground/60">
+                        Sound FX
+                      </span>
+                    </button>
+                    {/* Record */}
+                    <button
+                      onClick={() => toast({ title: "Voiceover recording coming soon" })}
+                      className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
+                    >
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-destructive/20 border border-destructive/30">
+                        <Circle className="w-5 h-5 text-destructive" />
+                      </div>
+                      <span className="text-[10px] font-medium text-foreground/60">
+                        Record
+                      </span>
+                    </button>
+                    {/* Other tools */}
                     {[
                       { id: 'extract', name: 'Extract', icon: Waves, action: () => toast({ title: "Extract coming soon" }) },
-                      { id: 'sounds', name: 'Sounds', icon: Music, action: () => toast({ title: "Sounds coming soon" }) },
-                      { id: 'sound-fx', name: 'Sound FX', icon: Sparkles, action: () => toast({ title: "Sound FX coming soon" }) },
-                      { id: 'record', name: 'Record', icon: Circle, action: () => toast({ title: "Record coming soon" }) },
                       { id: 'text-to-audio', name: 'Text to audio', icon: AudioLines, action: () => toast({ title: "Text to audio coming soon" }) },
                     ].map((tool) => {
                       const IconComponent = tool.icon;
@@ -5434,6 +5703,182 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     })}
                   </div>
                 </div>
+                {/* Hidden audio input */}
+                <input
+                  ref={audioInputRef}
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleAudioImport}
+                  className="hidden"
+                />
+              </div>
+            )}
+            
+            {/* Audio Edit Menu Overlay */}
+            {isAudioEditMode && selectedAudioLayer && (
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: audioEditSubPanel !== 'none' ? '220px' : '160px' }}>
+                {/* Header with back button, title and confirm */}
+                <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
+                  <button
+                    onClick={() => {
+                      if (audioEditSubPanel !== 'none') {
+                        setAudioEditSubPanel('none');
+                      } else {
+                        setIsAudioEditMode(false);
+                        setSelectedAudioId(null);
+                      }
+                    }}
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                  >
+                    {audioEditSubPanel !== 'none' ? (
+                      <ChevronLeft className="w-5 h-5 text-primary" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-primary" />
+                    )}
+                  </button>
+                  <span className="flex-1 text-sm font-medium text-foreground text-center">
+                    {audioEditSubPanel === 'volume' ? 'Volume' : audioEditSubPanel === 'fade' ? 'Fade In/Out' : 'Edit Audio'}
+                  </span>
+                  {audioEditSubPanel !== 'none' && (
+                    <button
+                      onClick={() => {
+                        if (audioEditSubPanel === 'volume') {
+                          applyAudioVolume();
+                        } else if (audioEditSubPanel === 'fade') {
+                          applyAudioFade();
+                        }
+                        setAudioEditSubPanel('none');
+                      }}
+                      className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white hover:bg-white/90 transition-colors"
+                    >
+                      <Check className="w-5 h-5 text-background" />
+                    </button>
+                  )}
+                  {audioEditSubPanel === 'none' && <div className="w-8" />}
+                </div>
+                
+                {/* Sub-panel content or main tools */}
+                {audioEditSubPanel === 'volume' ? (
+                  /* Volume Slider Sub-panel - 0 to 1000 range */
+                  <div className="flex-1 flex flex-col justify-center px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Volume2 className="w-5 h-5 text-emerald-400" />
+                      <div className="flex-1 relative h-2">
+                        <div className="absolute inset-0 h-full bg-muted/30 rounded-full" />
+                        <div 
+                          className="absolute left-0 top-0 h-full rounded-full transition-all bg-emerald-500"
+                          style={{ width: `${(editingAudioVolume / 1000) * 100}%` }}
+                        />
+                        <div 
+                          className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-md border border-emerald-500 transition-all"
+                          style={{ left: `calc(${(editingAudioVolume / 1000) * 100}% - 8px)` }}
+                        />
+                        <input
+                          type="range"
+                          min="0"
+                          max="1000"
+                          step="10"
+                          value={editingAudioVolume}
+                          onChange={(e) => setEditingAudioVolume(parseInt(e.target.value))}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-between mt-2">
+                      <span className="text-xs text-muted-foreground font-medium">0</span>
+                      <span className="text-sm font-bold text-emerald-400">{editingAudioVolume}%</span>
+                      <span className="text-xs text-muted-foreground font-medium">1000</span>
+                    </div>
+                  </div>
+                ) : audioEditSubPanel === 'fade' ? (
+                  /* Fade In/Out Sub-panel */
+                  <div className="flex-1 flex flex-col justify-center px-4 py-3 gap-4">
+                    {/* Fade In */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-foreground/70">Fade In</span>
+                        <span className="text-xs font-bold text-emerald-400">{editingAudioFadeIn.toFixed(1)}s</span>
+                      </div>
+                      <div className="relative h-2">
+                        <div className="absolute inset-0 h-full bg-muted/30 rounded-full" />
+                        <div 
+                          className="absolute left-0 top-0 h-full rounded-full transition-all bg-emerald-500"
+                          style={{ width: `${(editingAudioFadeIn / 5) * 100}%` }}
+                        />
+                        <input
+                          type="range"
+                          min="0"
+                          max="5"
+                          step="0.1"
+                          value={editingAudioFadeIn}
+                          onChange={(e) => setEditingAudioFadeIn(parseFloat(e.target.value))}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                    {/* Fade Out */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-foreground/70">Fade Out</span>
+                        <span className="text-xs font-bold text-emerald-400">{editingAudioFadeOut.toFixed(1)}s</span>
+                      </div>
+                      <div className="relative h-2">
+                        <div className="absolute inset-0 h-full bg-muted/30 rounded-full" />
+                        <div 
+                          className="absolute left-0 top-0 h-full rounded-full transition-all bg-emerald-500"
+                          style={{ width: `${(editingAudioFadeOut / 5) * 100}%` }}
+                        />
+                        <input
+                          type="range"
+                          min="0"
+                          max="5"
+                          step="0.1"
+                          value={editingAudioFadeOut}
+                          onChange={(e) => setEditingAudioFadeOut(parseFloat(e.target.value))}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Main Audio Edit Tools */
+                  <div className="flex-1 flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
+                    <div className="flex gap-2 min-w-max">
+                      {[
+                        { id: 'volume', name: 'Volume', icon: Volume2, action: () => setAudioEditSubPanel('volume') },
+                        { id: 'fade', name: 'Fade In/Out', icon: Sunrise, action: () => setAudioEditSubPanel('fade') },
+                        { id: 'split', name: 'Split', icon: Scissors, action: () => { splitAudioAtPlayhead(selectedAudioId!); setIsAudioEditMode(false); } },
+                        { id: 'delete', name: 'Delete', icon: Trash2, isDestructive: true, action: () => { deleteAudioLayer(selectedAudioId!); setIsAudioEditMode(false); } },
+                      ].map((tool) => {
+                        const IconComponent = tool.icon;
+                        const isDestructive = 'isDestructive' in tool && tool.isDestructive;
+                        return (
+                          <button
+                            key={tool.id}
+                            onClick={tool.action}
+                            className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
+                          >
+                            <div className={cn(
+                              "w-10 h-10 rounded-full flex items-center justify-center mb-1.5",
+                              isDestructive ? "bg-destructive/20" : "bg-emerald-500/20"
+                            )}>
+                              <IconComponent className={cn(
+                                "w-5 h-5",
+                                isDestructive ? "text-destructive" : "text-emerald-400"
+                              )} />
+                            </div>
+                            <span className={cn(
+                              "text-[10px] font-medium",
+                              isDestructive ? "text-destructive" : "text-foreground/60"
+                            )}>
+                              {tool.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
