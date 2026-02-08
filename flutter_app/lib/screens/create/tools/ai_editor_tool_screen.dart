@@ -629,6 +629,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   double _clipVolume = 1.0;
   bool _isEditToolbarMode = false; // Edit toolbar replaces main toolbar
   
+  // Editing layer type: 'clip' for main video clips, 'overlay' for video overlays
+  String _editingLayerType = 'clip'; // 'clip' or 'overlay'
+  
   // Adjust panel state
   String _adjustPanelTab = 'adjust'; // 'filters' or 'adjust'
   String _adjustSubTab = 'customize'; // 'smart' or 'customize'
@@ -1846,44 +1849,55 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     _showSnackBar('Clip duplicated');
   }
   
-  /// Apply clip speed to the selected clip
+  /// Apply clip speed to the selected clip or overlay
   void _applyClipSpeed() {
     if (_editingClipId == null) {
-      _showSnackBar('Select a clip first');
+      _showSnackBar('Select a layer first');
       return;
     }
     
-    // Update the clip's speed in state
-    final clipIndex = _videoClips.indexWhere((c) => c.id == _editingClipId);
-    if (clipIndex != -1) {
-      setState(() {
-        _videoClips[clipIndex].speed = _clipSpeed;
-      });
+    if (_editingLayerType == 'overlay') {
+      // Speed for overlays - show coming soon message
+      _showSnackBar('Speed for overlays coming soon');
+    } else {
+      // Update the clip's speed in state
+      final clipIndex = _videoClips.indexWhere((c) => c.id == _editingClipId);
+      if (clipIndex != -1) {
+        setState(() {
+          _videoClips[clipIndex].speed = _clipSpeed;
+        });
+      }
+      
+      // Apply real-time preview
+      _videoController?.setPlaybackSpeed(_clipSpeed);
+      _showSnackBar('Speed set to ${_clipSpeed.toStringAsFixed(1)}x');
     }
-    
-    // Apply real-time preview
-    _videoController?.setPlaybackSpeed(_clipSpeed);
-    _showSnackBar('Speed set to ${_clipSpeed.toStringAsFixed(1)}x');
   }
   
-  /// Apply clip volume to the selected clip (clipVolume is 0-2 where 1=100%, 2=200%)
+  /// Apply clip volume to the selected clip or overlay (clipVolume is 0-2 where 1=100%, 2=200%)
   void _applyClipVolume() {
     if (_editingClipId == null) {
-      _showSnackBar('Select a clip first');
+      _showSnackBar('Select a layer first');
       return;
     }
     
-    // Update the clip's volume in state
-    final clipIndex = _videoClips.indexWhere((c) => c.id == _editingClipId);
-    if (clipIndex != -1) {
-      setState(() {
-        _videoClips[clipIndex].volume = _clipVolume;
-      });
+    if (_editingLayerType == 'overlay') {
+      // Update the overlay's volume
+      _updateVideoOverlay(_editingClipId!, volume: _clipVolume);
+      _showSnackBar('Overlay volume set to ${(_clipVolume * 100).round()}');
+    } else {
+      // Update the clip's volume in state
+      final clipIndex = _videoClips.indexWhere((c) => c.id == _editingClipId);
+      if (clipIndex != -1) {
+        setState(() {
+          _videoClips[clipIndex].volume = _clipVolume;
+        });
+      }
+      
+      // Apply real-time preview (capped at 1.0)
+      _videoController?.setVolume(_clipVolume.clamp(0.0, 1.0));
+      _showSnackBar('Volume set to ${(_clipVolume * 100).round()}');
     }
-    
-    // Apply real-time preview (capped at 1.0)
-    _videoController?.setVolume(_clipVolume.clamp(0.0, 1.0));
-    _showSnackBar('Volume set to ${(_clipVolume * 100).round()}');
   }
   
   /// Show animations bottom sheet
@@ -4509,7 +4523,17 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 return Positioned(
                   left: leftOffset,
                   child: GestureDetector(
-                    onTap: () => setState(() => _selectedOverlayId = overlay.id),
+                    onTap: () {
+                      // Select the overlay and open edit menu for it
+                      setState(() {
+                        _selectedOverlayId = overlay.id;
+                        _editingClipId = overlay.id;
+                        _editingLayerType = 'overlay';
+                        _clipVolume = overlay.volume;
+                        _clipSpeed = 1.0; // Overlays don't have speed yet
+                        _isEditMenuMode = true;
+                      });
+                    },
                     onHorizontalDragUpdate: (details) {
                       final delta = details.primaryDelta ?? 0;
                       final timeDelta = delta / _pixelsPerSecond;
@@ -7446,15 +7470,34 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   /// Build the edit menu overlay - slides up from bottom, covers timeline
   Widget _buildEditMenuOverlay() {
     final editTools = [
-      {'id': 'split', 'name': 'Split', 'icon': Icons.content_cut, 'action': () => _editingClipId != null ? _splitClipAtPlayhead(_editingClipId!) : null},
+      {'id': 'split', 'name': 'Split', 'icon': Icons.content_cut, 'action': () {
+        if (_editingLayerType == 'overlay') {
+          _showSnackBar('Split for overlays coming soon');
+        } else if (_editingClipId != null) {
+          _splitClipAtPlayhead(_editingClipId!);
+        }
+      }},
       {'id': 'volume', 'name': 'Volume', 'icon': Icons.volume_up, 'action': () => setState(() => _editSubPanel = 'volume')},
       {'id': 'animations', 'name': 'Animations', 'icon': Icons.auto_awesome, 'action': _showAnimationsBottomSheet},
       {'id': 'effects', 'name': 'Effects', 'icon': Icons.star_outline, 'action': () { setState(() { _selectedTool = 'effects'; _isEditMenuMode = false; }); }},
-      {'id': 'delete', 'name': 'Delete', 'icon': Icons.delete_outline, 'action': () { if (_editingClipId != null) _deleteVideoClip(_editingClipId!); setState(() => _isEditMenuMode = false); }},
+      {'id': 'delete', 'name': 'Delete', 'icon': Icons.delete_outline, 'action': () {
+        if (_editingClipId != null) {
+          if (_editingLayerType == 'overlay') {
+            _removeVideoOverlay(_editingClipId!);
+          } else {
+            _deleteVideoClip(_editingClipId!);
+          }
+        }
+        setState(() {
+          _isEditMenuMode = false;
+          _editingClipId = null;
+          _editingLayerType = 'clip';
+        });
+      }},
       {'id': 'speed', 'name': 'Speed', 'icon': Icons.speed, 'action': () => setState(() => _editSubPanel = 'speed')},
       {'id': 'beats', 'name': 'Beats', 'icon': Icons.waves, 'action': _showBeatsBottomSheet},
       {'id': 'crop', 'name': 'Crop', 'icon': Icons.crop, 'action': _showCropBottomSheet},
-      {'id': 'duplicate', 'name': 'Duplicate', 'icon': Icons.copy, 'action': () { if (_editingClipId != null) { _duplicateClipInline(_editingClipId!); } }},
+      {'id': 'duplicate', 'name': 'Duplicate', 'icon': Icons.copy, 'action': () { if (_editingClipId != null && _editingLayerType != 'overlay') { _duplicateClipInline(_editingClipId!); } else { _showSnackBar('Duplicate for overlays coming soon'); } }},
       {'id': 'replace', 'name': 'Replace', 'icon': Icons.swap_horiz, 'action': () { setState(() => _isEditMenuMode = false); _pickAndLoadVideo(); }},
       {'id': 'overlay', 'name': 'Overlay', 'icon': Icons.layers_outlined, 'action': () { setState(() { _selectedTool = 'overlay'; _isEditMenuMode = false; }); }},
       {'id': 'adjust', 'name': 'Adjust', 'icon': Icons.tune, 'action': () { setState(() { _selectedTool = 'adjust'; _isEditMenuMode = false; }); }},
@@ -7520,7 +7563,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       // Title
                       Expanded(
                         child: Text(
-                          'Edit',
+                          _editingLayerType == 'overlay' ? 'Edit Overlay' : 'Edit',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,
@@ -8262,6 +8305,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   final targetClipId = _videoClips.first.id;
                   _selectedClipId = targetClipId;
                   _editingClipId = targetClipId;
+                  _editingLayerType = 'clip'; // Editing main video clip
                   
                   // Load the selected clip's volume and speed
                   final targetClip = _videoClips.first;

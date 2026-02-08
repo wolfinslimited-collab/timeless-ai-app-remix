@@ -262,6 +262,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [clipSpeed, setClipSpeed] = useState(1.0);
   const [clipVolume, setClipVolume] = useState(1.0);
   
+  // Editing layer type: 'clip' for main video clips, 'overlay' for video overlays
+  const [editingLayerType, setEditingLayerType] = useState<'clip' | 'overlay'>('clip');
+  
   // Additional editing panel states
   const [showAnimationsPanel, setShowAnimationsPanel] = useState(false);
   const [showBeatsPanel, setShowBeatsPanel] = useState(false);
@@ -1310,42 +1313,58 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setShowClipEditPanel(false);
   };
 
-  // Apply clip speed to the selected clip
+  // Apply clip speed to the selected clip or overlay
   const applyClipSpeed = () => {
     if (!editingClipId) {
-      toast({ title: "No clip selected", description: "Select a clip first" });
+      toast({ title: "No layer selected", description: "Select a layer first" });
       return;
     }
     
-    // Update the clip's speed in state
-    setVideoClips(prev => prev.map(clip => 
-      clip.id === editingClipId ? { ...clip, speed: clipSpeed } : clip
-    ));
-    
-    // Apply real-time preview
-    if (videoRef.current) {
-      videoRef.current.playbackRate = clipSpeed;
+    if (editingLayerType === 'overlay') {
+      // Speed for overlays - show coming soon message since overlay speed needs more work
+      toast({ title: "Speed for overlays", description: "Coming soon!" });
+    } else {
+      // Update the clip's speed in state
+      setVideoClips(prev => prev.map(clip => 
+        clip.id === editingClipId ? { ...clip, speed: clipSpeed } : clip
+      ));
+      
+      // Apply real-time preview
+      if (videoRef.current) {
+        videoRef.current.playbackRate = clipSpeed;
+      }
+      toast({ title: "Speed Applied", description: `Playback speed set to ${clipSpeed.toFixed(1)}x` });
     }
-    toast({ title: "Speed Applied", description: `Playback speed set to ${clipSpeed.toFixed(1)}x` });
   };
 
-  // Apply clip volume to the selected clip (clipVolume is 0-2 where 1=100%, 2=200%)
+  // Apply clip volume to the selected clip or overlay (clipVolume is 0-2 where 1=100%, 2=200%)
   const applyClipVolume = () => {
     if (!editingClipId) {
-      toast({ title: "No clip selected", description: "Select a clip first" });
+      toast({ title: "No layer selected", description: "Select a layer first" });
       return;
     }
     
-    // Update the clip's volume in state
-    setVideoClips(prev => prev.map(clip => 
-      clip.id === editingClipId ? { ...clip, volume: clipVolume } : clip
-    ));
-    
-    // Apply real-time preview if this is the currently playing clip
-    if (videoRef.current) {
-      videoRef.current.volume = Math.min(1, clipVolume);
+    if (editingLayerType === 'overlay') {
+      // Update the overlay's volume
+      updateVideoOverlay(editingClipId, { volume: clipVolume });
+      // Apply real-time preview to overlay video element
+      const overlayVideoEl = overlayVideoRefs.current[editingClipId];
+      if (overlayVideoEl) {
+        overlayVideoEl.volume = Math.min(1, clipVolume);
+      }
+      toast({ title: "Volume Applied", description: `Overlay volume set to ${Math.round(clipVolume * 100)}` });
+    } else {
+      // Update the clip's volume in state
+      setVideoClips(prev => prev.map(clip => 
+        clip.id === editingClipId ? { ...clip, volume: clipVolume } : clip
+      ));
+      
+      // Apply real-time preview if this is the currently playing clip
+      if (videoRef.current) {
+        videoRef.current.volume = Math.min(1, clipVolume);
+      }
+      toast({ title: "Volume Applied", description: `Clip volume set to ${Math.round(clipVolume * 100)}` });
     }
-    toast({ title: "Volume Applied", description: `Clip volume set to ${Math.round(clipVolume * 100)}` });
   };
 
   // Animation presets configuration
@@ -1410,6 +1429,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   // Split clip at current playhead position (uses selectedClipId or finds clip under playhead)
   const handleSplitAtPlayhead = () => {
+    // If editing an overlay, show coming soon (split for overlays is more complex)
+    if (editingLayerType === 'overlay') {
+      toast({ title: "Split for overlays", description: "Coming soon!" });
+      return;
+    }
+    
     // Find which clip the playhead is currently over
     let targetClipId = selectedClipId;
     
@@ -1429,8 +1454,17 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     }
   };
 
-  // Delete current clip (uses selectedClipId or finds clip under playhead)
+  // Delete current clip or overlay
   const handleDeleteClip = () => {
+    // If editing an overlay, delete the overlay
+    if (editingLayerType === 'overlay' && editingClipId) {
+      deleteVideoOverlay(editingClipId);
+      setIsEditMenuMode(false);
+      setEditingClipId(null);
+      setEditingLayerType('clip');
+      return;
+    }
+    
     let targetClipId = selectedClipId;
     
     if (!targetClipId) {
@@ -1443,6 +1477,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     
     if (targetClipId) {
       deleteVideoClip(targetClipId);
+      setIsEditMenuMode(false);
     } else {
       toast({ variant: "destructive", title: "No clip to delete" });
     }
@@ -1682,6 +1717,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         const targetClipId = videoClips[0].id;
         setSelectedClipId(targetClipId);
         setEditingClipId(targetClipId);
+        setEditingLayerType('clip'); // Editing main video clip
         
         // Load the selected clip's volume and speed
         const targetClip = videoClips[0];
@@ -3950,7 +3986,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();
+                                // Select the overlay and open edit menu for it
                                 setSelectedOverlayId(overlay.id);
+                                setEditingClipId(overlay.id);
+                                setEditingLayerType('overlay');
+                                setClipVolume(overlay.volume);
+                                setClipSpeed(1.0); // Overlays don't have speed yet, default to 1
+                                setIsEditMenuMode(true);
                               }}
                             >
                               {/* Left trim handle */}
@@ -4625,7 +4667,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     )}
                   </button>
                   <span className="flex-1 text-sm font-medium text-foreground text-center">
-                    {editSubPanel === 'volume' ? 'Volume' : editSubPanel === 'speed' ? 'Speed' : 'Edit'}
+                    {editSubPanel === 'volume' ? 'Volume' : editSubPanel === 'speed' ? 'Speed' : (editingLayerType === 'overlay' ? 'Edit Overlay' : 'Edit')}
                   </span>
                   {editSubPanel !== 'none' && (
                     <button
