@@ -7556,28 +7556,26 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           },
           child: Transform.rotate(
             angle: (overlay.rotation * math.pi / 180), // Convert degrees to radians
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              transform: Matrix4.identity()..scale(overlay.scale),
-              transformAlignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: overlay.hasBackground 
-                    ? overlay.backgroundColor.withOpacity(overlay.backgroundOpacity)
-                    : null,
-                borderRadius: BorderRadius.circular(8),
-                // Show bounding box only when selected
-                border: isSelected 
-                    ? Border.all(color: AppTheme.primary, width: 2)
-                    : null,
-                boxShadow: isSelected 
-                    ? [BoxShadow(color: AppTheme.primary.withOpacity(0.3), blurRadius: 12)]
-                    : null,
-              ),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Opacity(
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Text content with thin white border when selected
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  transform: Matrix4.identity()..scale(overlay.scale),
+                  transformAlignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: overlay.hasBackground 
+                        ? overlay.backgroundColor.withOpacity(overlay.backgroundOpacity)
+                        : null,
+                    borderRadius: BorderRadius.circular(4),
+                    // Thin white border when selected - crisp and visible
+                    border: isSelected 
+                        ? Border.all(color: Colors.white.withOpacity(0.9), width: 1)
+                        : null,
+                  ),
+                  child: Opacity(
                     opacity: overlay.opacity,
                     child: Text(
                       overlay.text,
@@ -7590,202 +7588,85 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       textAlign: overlay.alignment,
                     ),
                   ),
-                  // Transform gesture overlay - corner handles and rotation anchor
-                  if (isSelected) ...[
-                    // Delete button (top-right) - larger hit area for mobile
-                    Positioned(
-                      top: -28,
-                      right: -28,
-                      child: GestureDetector(
-                        onTap: () {
-                          _saveStateToHistory();
-                          setState(() {
-                            _textOverlays.removeWhere((t) => t.id == overlay.id);
-                            if (_selectedTextId == overlay.id) {
-                              _selectedTextId = null;
-                              _showTextEditPanel = false;
-                            }
-                          });
-                          _showSnackBar('Text deleted');
-                        },
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.5), blurRadius: 10, spreadRadius: 2)],
-                          ),
-                          child: const Icon(Icons.close, color: Colors.white, size: 20),
+                ),
+                // Transform handles - X in top-left, Rotate/Resize in bottom-right
+                if (isSelected) ...[
+                  // X Delete button - top left corner
+                  Positioned(
+                    top: -14,
+                    left: -14,
+                    child: GestureDetector(
+                      onTap: () {
+                        _saveStateToHistory();
+                        setState(() {
+                          _textOverlays.removeWhere((t) => t.id == overlay.id);
+                          if (_selectedTextId == overlay.id) {
+                            _selectedTextId = null;
+                            _showTextEditPanel = false;
+                          }
+                        });
+                        _showSnackBar('Text deleted');
+                      },
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.8),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white.withOpacity(0.5), width: 1),
+                        ),
+                        child: const Icon(Icons.close, color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                  // Rotate/Resize handle - bottom right corner (combined)
+                  Positioned(
+                    bottom: -14,
+                    right: -14,
+                    child: GestureDetector(
+                      onPanStart: (details) {
+                        // Store initial values
+                      },
+                      onPanUpdate: (details) {
+                        setState(() {
+                          // Combined rotation + scale based on drag direction
+                          // Horizontal movement = rotation, Diagonal = scale
+                          final rotationDelta = details.delta.dx * 0.8;
+                          overlay.rotation = (overlay.rotation + rotationDelta).clamp(-180.0, 180.0);
+                          
+                          // Scale from diagonal movement
+                          final scaleDelta = 1 + (details.delta.dx + details.delta.dy) * 0.003;
+                          overlay.scale = (overlay.scale * scaleDelta).clamp(0.3, 3.0);
+                        });
+                      },
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.8),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white.withOpacity(0.5), width: 1),
+                        ),
+                        // Square with curved arrow icon
+                        child: CustomPaint(
+                          size: const Size(16, 16),
+                          painter: _RotateResizeIconPainter(),
                         ),
                       ),
                     ),
-                    // Edit button (top-left) - opens text edit panel
-                    Positioned(
-                      top: -28,
-                      left: -28,
-                      child: GestureDetector(
-                        onTap: () => setState(() => _showTextEditPanel = true),
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary,
-                            shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: AppTheme.primary.withOpacity(0.5), blurRadius: 10, spreadRadius: 2)],
-                          ),
-                          child: const Icon(Icons.edit, color: Colors.white, size: 20),
-                        ),
-                      ),
-                    ),
-                    // Rotation anchor (top-center) - above the text
-                    Positioned(
-                      top: -50,
-                      left: 0,
-                      right: 0,
-                      child: Column(
-                        children: [
-                          GestureDetector(
-                            onPanStart: (_) {},
-                            onPanUpdate: (details) {
-                              setState(() {
-                                // Calculate rotation based on horizontal drag
-                                final rotationDelta = details.delta.dx * 0.5;
-                                overlay.rotation = (overlay.rotation + rotationDelta).clamp(-180.0, 180.0);
-                              });
-                            },
-                            onPanEnd: (_) {
-                              _showSnackBar('Rotation: ${overlay.rotation.round()}°');
-                            },
-                            behavior: HitTestBehavior.opaque,
-                            child: Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: AppTheme.primary, width: 3),
-                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8)],
-                              ),
-                              child: const Icon(Icons.rotate_right, color: AppTheme.primary, size: 16),
-                            ),
-                          ),
-                          Container(
-                            width: 2,
-                            height: 12,
-                            color: AppTheme.primary.withOpacity(0.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Corner resize handles
-                    // Top-left corner
-                    Positioned(
-                      top: -8,
-                      left: -8,
-                      child: GestureDetector(
-                        onPanUpdate: (details) {
-                          setState(() {
-                            final scaleDelta = 1 - (details.delta.dx + details.delta.dy) * 0.005;
-                            overlay.scale = (overlay.scale * scaleDelta).clamp(0.3, 3.0);
-                          });
-                        },
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          width: 16,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(2),
-                            border: Border.all(color: AppTheme.primary, width: 2),
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Top-right corner
-                    Positioned(
-                      top: -8,
-                      right: -8,
-                      child: GestureDetector(
-                        onPanUpdate: (details) {
-                          setState(() {
-                            final scaleDelta = 1 + (details.delta.dx - details.delta.dy) * 0.005;
-                            overlay.scale = (overlay.scale * scaleDelta).clamp(0.3, 3.0);
-                          });
-                        },
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          width: 16,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(2),
-                            border: Border.all(color: AppTheme.primary, width: 2),
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Bottom-left corner
-                    Positioned(
-                      bottom: -8,
-                      left: -8,
-                      child: GestureDetector(
-                        onPanUpdate: (details) {
-                          setState(() {
-                            final scaleDelta = 1 + (-details.delta.dx + details.delta.dy) * 0.005;
-                            overlay.scale = (overlay.scale * scaleDelta).clamp(0.3, 3.0);
-                          });
-                        },
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          width: 16,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(2),
-                            border: Border.all(color: AppTheme.primary, width: 2),
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Bottom-right corner - main resize handle
-                    Positioned(
-                      bottom: -12,
-                      right: -12,
-                      child: GestureDetector(
-                        onPanUpdate: (details) {
-                          setState(() {
-                            final scaleDelta = 1 + (details.delta.dx + details.delta.dy) * 0.005;
-                            overlay.scale = (overlay.scale * scaleDelta).clamp(0.3, 3.0);
-                          });
-                        },
-                        onPanEnd: (_) {
-                          _showSnackBar('Scale: ${(overlay.scale * 100).round()}%');
-                        },
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary,
-                            borderRadius: BorderRadius.circular(4),
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8)],
-                          ),
-                          child: const Icon(Icons.open_in_full, color: Colors.white, size: 14),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ],
-              ),
+              ],
             ),
           ),
         ),
       );
     }).toList();
   }
+  
+  /// Build caption overlays positioned at bottom of video preview
 
   /// Build caption overlays positioned at bottom of video preview
   /// Synced with unified timeline position
@@ -8466,4 +8347,46 @@ class _ClipEditTool {
     required this.onTap,
     this.isDestructive = false,
   });
+}
+
+/// Custom painter for the rotate/resize icon (square with curved arrow)
+class _RotateResizeIconPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    
+    final center = Offset(size.width / 2, size.height / 2);
+    
+    // Draw small rectangle
+    final rect = Rect.fromCenter(
+      center: Offset(center.dx - 1, center.dy + 1),
+      width: 8,
+      height: 8,
+    );
+    canvas.drawRect(rect, paint);
+    
+    // Draw curved arrow (rotation indicator)
+    final arrowPath = Path();
+    arrowPath.moveTo(center.dx + 4, center.dy - 4);
+    arrowPath.arcTo(
+      Rect.fromCircle(center: center, radius: 5),
+      -0.5, // start angle
+      1.5,  // sweep angle
+      false,
+    );
+    canvas.drawPath(arrowPath, paint);
+    
+    // Arrow head
+    final arrowHeadPath = Path();
+    arrowHeadPath.moveTo(center.dx + 4, center.dy - 6);
+    arrowHeadPath.lineTo(center.dx + 4, center.dy - 2);
+    arrowHeadPath.lineTo(center.dx + 7, center.dy - 4);
+    canvas.drawPath(arrowHeadPath, paint);
+  }
+  
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
