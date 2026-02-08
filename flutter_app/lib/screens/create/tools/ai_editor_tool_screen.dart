@@ -576,7 +576,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   Color _backgroundColor = Colors.black;
   double _backgroundBlur = 0.0;
   String? _backgroundImage;
-  String _backgroundTab = 'color'; // 'color', 'image', 'blur'
+  String _backgroundTab = 'main'; // 'main', 'color', 'image', 'blur'
   String _selectedStickerCategory = 'emoji';
   
   // Video position within frame (for drag repositioning)
@@ -6781,16 +6781,55 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   /// Background settings content panel
   Widget _buildBackgroundSettingsContent() {
+    if (_backgroundTab == 'main') {
+      // Main Menu - Three Buttons
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            _buildBackgroundMainButton('color', 'Color', Icons.palette_outlined),
+            const SizedBox(width: 12),
+            _buildBackgroundMainButton('image', 'Image', Icons.image_outlined),
+            const SizedBox(width: 12),
+            _buildBackgroundMainButton('blur', 'Blur', Icons.blur_on),
+          ],
+        ),
+      );
+    }
+    
+    // Sub-menu with Back Arrow
     return Column(
       children: [
-        // Tab Navigation
+        // Header with Back Arrow
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
-              _buildBackgroundTab('color', 'Color', Icons.palette_outlined),
-              _buildBackgroundTab('image', 'Image', Icons.image_outlined),
-              _buildBackgroundTab('blur', 'Blur', Icons.blur_on),
+              GestureDetector(
+                onTap: () => setState(() => _backgroundTab = 'main'),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                _backgroundTab[0].toUpperCase() + _backgroundTab.substring(1),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
             ],
           ),
         ),
@@ -6802,81 +6841,87 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           color: Colors.white.withOpacity(0.1),
         ),
         
-        // Tab Content
+        // Sub-menu Content
         Padding(
           padding: const EdgeInsets.all(16),
-          child: _buildBackgroundTabContent(),
+          child: _buildBackgroundSubContent(),
         ),
       ],
     );
   }
   
-  Widget _buildBackgroundTab(String id, String label, IconData icon) {
-    final isActive = _backgroundTab == id;
+  Widget _buildBackgroundMainButton(String id, String label, IconData icon) {
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _backgroundTab = id),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              size: 18,
-              color: isActive ? AppTheme.primary : Colors.white.withOpacity(0.6),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: isActive ? AppTheme.primary : Colors.white.withOpacity(0.6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withOpacity(0.1)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 20, color: AppTheme.primary),
               ),
-            ),
-            const SizedBox(height: 6),
-            Container(
-              height: 2,
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: isActive ? AppTheme.primary : Colors.transparent,
-                borderRadius: BorderRadius.circular(1),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withOpacity(0.9),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
   
-  Widget _buildBackgroundTabContent() {
+  Widget _buildBackgroundSubContent() {
     switch (_backgroundTab) {
       case 'color':
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _backgroundColorPresets.map((color) {
-            final isSelected = _backgroundColor == color;
-            return GestureDetector(
-              onTap: () => setState(() => _backgroundColor = color),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isSelected ? AppTheme.primary : Colors.transparent,
-                    width: 2,
-                  ),
-                  boxShadow: isSelected ? [
-                    BoxShadow(
-                      color: AppTheme.primary.withOpacity(0.4),
-                      blurRadius: 8,
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _backgroundColorPresets.map((color) {
+              final isSelected = _backgroundColor == color;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _backgroundColor = color),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSelected ? AppTheme.primary : Colors.transparent,
+                        width: 2,
+                      ),
+                      boxShadow: isSelected ? [
+                        BoxShadow(
+                          color: AppTheme.primary.withOpacity(0.4),
+                          blurRadius: 8,
+                        ),
+                      ] : null,
                     ),
-                  ] : null,
+                  ),
                 ),
-              ),
-            );
-          }).toList(),
+              );
+            }).toList(),
+          ),
         );
         
       case 'image':
@@ -6960,46 +7005,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         
         return Column(
           children: [
-            // Blur Presets
-            Row(
-              children: blurPresets.map((preset) {
-                final isSelected = _backgroundBlur == preset['value'];
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: GestureDetector(
-                      onTap: () => setState(() => _backgroundBlur = preset['value'] as double),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: Text(
-                            preset['label'] as String,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // Custom Slider
+            // Blur Slider
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Custom Intensity',
+                  'Blur Intensity',
                   style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
                 ),
                 Container(
@@ -7020,10 +7031,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             SliderTheme(
               data: SliderTheme.of(context).copyWith(
-                trackHeight: 6,
+                trackHeight: 8,
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
                 activeTrackColor: AppTheme.primary,
@@ -7036,6 +7047,40 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 max: 50,
                 onChanged: (value) => setState(() => _backgroundBlur = value),
               ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Quick Presets
+            Row(
+              children: blurPresets.map((preset) {
+                final isSelected = _backgroundBlur == preset['value'];
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _backgroundBlur = preset['value'] as double),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Text(
+                            preset['label'] as String,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
           ],
         );
