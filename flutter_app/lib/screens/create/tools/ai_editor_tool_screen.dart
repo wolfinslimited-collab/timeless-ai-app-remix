@@ -2665,14 +2665,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     if (_isVideoInitialized && _videoController != null) {
       return LayoutBuilder(
         builder: (context, constraints) {
-          // Calculate container dimensions based on selected aspect ratio
+          // BoxFit.contain behavior: fixed container height, width shrinks for vertical ratios
           final videoAspectRatio = _videoController!.value.aspectRatio;
-          // Use a constrained height to prevent overflow
-          final maxPreviewHeight = constraints.maxHeight * 0.95;
-          final availableHeight = maxPreviewHeight.clamp(0.0, 400.0); // Max 400px
-          final availableWidth = constraints.maxWidth - 32; // Add more horizontal margin
           
-          // Get selected aspect ratio
+          // Fixed container height - never expands vertically
+          final fixedHeight = math.min(constraints.maxHeight * 0.95, 400.0);
+          final availableWidth = constraints.maxWidth - 32;
+          
+          // Get target aspect ratio from selection
           double targetAspectRatio = videoAspectRatio;
           if (_selectedAspectRatio != 'original') {
             final preset = _aspectRatioPresets.firstWhere(
@@ -2682,18 +2682,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             targetAspectRatio = (preset['width'] as num) / (preset['height'] as num);
           }
           
-          // Calculate container dimensions based on target aspect ratio
-          // Prioritize fitting within available space
-          double containerWidth = availableWidth;
-          double containerHeight = containerWidth / targetAspectRatio;
+          // BoxFit.contain: calculate dimensions that fit within fixed bounds
+          // Start with the fixed height and calculate width from aspect ratio
+          double containerHeight = fixedHeight;
+          double containerWidth = containerHeight * targetAspectRatio;
           
-          // Ensure we don't exceed the max height
-          if (containerHeight > availableHeight) {
-            containerHeight = availableHeight;
-            containerWidth = containerHeight * targetAspectRatio;
-          }
-          
-          // Also ensure we don't exceed the available width
+          // If width exceeds available space, scale down proportionally
           if (containerWidth > availableWidth) {
             containerWidth = availableWidth;
             containerHeight = containerWidth / targetAspectRatio;
