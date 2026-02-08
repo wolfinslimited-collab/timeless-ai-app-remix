@@ -1586,47 +1586,112 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       exportCanvasRef.current = canvas;
 
       // Create a temporary video element for export
+      const activeClip = videoClips[0];
+      const sourceUrl = activeClip?.url || videoUrl;
+
       exportVideo = document.createElement('video');
-      
-      // For blob URLs, we can't add query params - use the URL directly
-      // For network URLs, we can add cache-busting
-      const isBlobUrl = videoUrl.startsWith('blob:');
-      const exportUrl = isBlobUrl 
-        ? videoUrl 
-        : (videoUrl.includes('?') 
-            ? `${videoUrl}&_export=${Date.now()}` 
-            : `${videoUrl}?_export=${Date.now()}`);
-      
-      exportVideo.src = exportUrl;
       exportVideo.muted = true; // Start muted, we'll handle audio separately
       exportVideo.playsInline = true;
-      exportVideo.crossOrigin = isBlobUrl ? undefined : 'anonymous';
+      exportVideo.setAttribute('playsinline', 'true');
       exportVideo.preload = 'auto';
-      
-      await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Video load timeout')), 30000);
-        
-        const handleLoaded = () => {
-          clearTimeout(timeout);
-          exportVideo!.removeEventListener('loadeddata', handleLoaded);
-          exportVideo!.removeEventListener('error', handleError);
-          resolve();
-        };
-        
-        const handleError = () => {
-          clearTimeout(timeout);
-          exportVideo!.removeEventListener('loadeddata', handleLoaded);
-          exportVideo!.removeEventListener('error', handleError);
-          reject(new Error('Failed to load video for export'));
-        };
-        
-        exportVideo!.addEventListener('loadeddata', handleLoaded);
-        exportVideo!.addEventListener('error', handleError);
-        exportVideo!.load();
-      });
+
+      // Some browsers (notably mobile Safari) are more reliable when the video is in the DOM
+      exportVideo.style.position = 'fixed';
+      exportVideo.style.left = '-99999px';
+      exportVideo.style.top = '0';
+      exportVideo.style.width = '1px';
+      exportVideo.style.height = '1px';
+      document.body.appendChild(exportVideo);
+
+      // For blob URLs, we can't add query params - use the URL directly
+      // For network URLs, we can add cache-busting
+      const isBlobUrl = sourceUrl.startsWith('blob:');
+      const exportUrl = isBlobUrl
+        ? sourceUrl
+        : (sourceUrl.includes('?')
+            ? `${sourceUrl}&_export=${Date.now()}`
+            : `${sourceUrl}?_export=${Date.now()}`);
+
+      // Only set crossOrigin for non-blob URLs
+      exportVideo.crossOrigin = isBlobUrl ? undefined : 'anonymous';
+      exportVideo.src = exportUrl;
+
+      const loadVideoForExport = async () => {
+        // First attempt: normal load
+        try {
+          await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Video load timeout')), 30000);
+
+            const cleanup = () => {
+              clearTimeout(timeout);
+              exportVideo?.removeEventListener('loadedmetadata', onReady);
+              exportVideo?.removeEventListener('canplay', onReady);
+              exportVideo?.removeEventListener('error', onError);
+            };
+
+            const onReady = () => {
+              cleanup();
+              resolve();
+            };
+
+            const onError = () => {
+              cleanup();
+              reject(new Error('Failed to load video for export'));
+            };
+
+            exportVideo!.addEventListener('loadedmetadata', onReady, { once: true });
+            exportVideo!.addEventListener('canplay', onReady, { once: true });
+            exportVideo!.addEventListener('error', onError, { once: true });
+            exportVideo!.load();
+          });
+          return;
+        } catch (e) {
+          // Retry strategy: for blob URLs, try recreating a fresh blob URL
+          if (isBlobUrl) {
+            try {
+              const blob = await fetch(sourceUrl).then(r => r.blob());
+              const freshUrl = URL.createObjectURL(blob);
+              exportVideo!.dataset.tmpObjectUrl = freshUrl;
+              exportVideo!.src = freshUrl;
+              await new Promise<void>((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('Video load timeout')), 30000);
+
+                const cleanup = () => {
+                  clearTimeout(timeout);
+                  exportVideo?.removeEventListener('loadedmetadata', onReady);
+                  exportVideo?.removeEventListener('canplay', onReady);
+                  exportVideo?.removeEventListener('error', onError);
+                };
+
+                const onReady = () => {
+                  cleanup();
+                  resolve();
+                };
+
+                const onError = () => {
+                  cleanup();
+                  reject(new Error('Failed to load video for export'));
+                };
+
+                exportVideo!.addEventListener('loadedmetadata', onReady, { once: true });
+                exportVideo!.addEventListener('canplay', onReady, { once: true });
+                exportVideo!.addEventListener('error', onError, { once: true });
+                exportVideo!.load();
+              });
+              // Note: we'll revoke this fresh URL in the finally cleanup
+              return;
+            } catch {
+              // Fall through to original error
+            }
+          }
+
+          throw e;
+        }
+      };
+
+      await loadVideoForExport();
 
       // Apply clip speed (use first clip for now)
-      const activeClip = videoClips[0];
       const playbackSpeed = activeClip?.speed || 1.0;
       const clipVolume = activeClip?.volume || 1.0;
       exportVideo.playbackRate = playbackSpeed;
@@ -1907,9 +1972,25 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         }
       }
       if (exportVideo) {
-        exportVideo.pause();
-        exportVideo.src = '';
-        exportVideo.load();
+        try {
+          exportVideo.pause();
+
+          // Revoke any temporary blob URL we created during retry
+          const tmpUrl = exportVideo.dataset.tmpObjectUrl;
+          if (tmpUrl && tmpUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(tmpUrl);
+          }
+
+          // Remove from DOM (helps mobile Safari clean up)
+          if (exportVideo.parentNode) {
+            exportVideo.parentNode.removeChild(exportVideo);
+          }
+
+          exportVideo.src = '';
+          exportVideo.load();
+        } catch (e) {
+          console.warn('Error cleaning up export video element:', e);
+        }
       }
       if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         try {
