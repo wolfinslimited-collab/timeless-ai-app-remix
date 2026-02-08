@@ -5730,62 +5730,63 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         ),
         
         // Horizontal Scrollable Edit Tools
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          clipBehavior: Clip.none,
-          padding: const EdgeInsets.only(left: 8, right: 8, top: 16, bottom: 16),
-          child: Row(
-            clipBehavior: Clip.none,
-            children: editTools.map((tool) {
-              final isDelete = tool['id'] == 'delete';
-              return GestureDetector(
-                onTap: () {
-                  (tool['action'] as VoidCallback)();
-                  // Don't close for tools that need to stay open
-                  if (!['volume', 'speed', 'animations', 'beats', 'crop'].contains(tool['id'])) {
-                    setState(() => _isEditMenuMode = false);
-                  }
-                },
-                child: Container(
-                  width: 64,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: isDelete 
-                              ? Colors.red.withOpacity(0.2) 
-                              : Colors.white.withOpacity(0.1),
-                          shape: BoxShape.circle,
+        Container(
+          height: 100,
+          alignment: Alignment.center,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: editTools.map((tool) {
+                final isDelete = tool['id'] == 'delete';
+                return GestureDetector(
+                  onTap: () {
+                    (tool['action'] as VoidCallback)();
+                    // Don't close for tools that need to stay open
+                    if (!['volume', 'speed', 'animations', 'beats', 'crop'].contains(tool['id'])) {
+                      setState(() => _isEditMenuMode = false);
+                    }
+                  },
+                  child: Container(
+                    width: 72,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: isDelete 
+                                ? Colors.red.withOpacity(0.2) 
+                                : Colors.white.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            tool['icon'] as IconData,
+                            size: 24,
+                            color: isDelete ? Colors.red : Colors.white,
+                          ),
                         ),
-                        child: Icon(
-                          tool['icon'] as IconData,
-                          size: 20,
-                          color: isDelete ? Colors.red : Colors.white,
+                        const SizedBox(height: 8),
+                        Text(
+                          tool['name'] as String,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: isDelete 
+                                ? Colors.red 
+                                : Colors.white.withOpacity(0.6),
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        tool['name'] as String,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: isDelete 
-                              ? Colors.red 
-                              : Colors.white.withOpacity(0.6),
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              );
-            }).toList(),
+                );
+              }).toList(),
+            ),
           ),
         ),
       ],

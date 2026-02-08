@@ -3520,8 +3520,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 </div>
                 
                 {/* Horizontal Scrollable Edit Tools */}
-                <div className="overflow-x-auto overflow-y-visible px-2 py-4" style={{ WebkitOverflowScrolling: 'touch' }}>
-                  <div className="flex gap-1 min-w-max" style={{ overflow: 'visible' }}>
+                <div className="flex-1 flex items-center overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch', minHeight: '100px' }}>
+                  <div className="flex gap-2 min-w-max">
                     {clipEditTools.map((tool) => {
                       const IconComponent = tool.icon;
                       const isDelete = tool.id === 'delete';
@@ -3534,19 +3534,19 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               setIsEditMenuMode(false);
                             }
                           }}
-                          className="flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all hover:bg-muted/50"
+                          className="flex flex-col items-center justify-center w-[72px] rounded-xl transition-all hover:bg-muted/50"
                         >
                           <div className={cn(
-                            "w-11 h-11 rounded-full flex items-center justify-center mb-1",
+                            "w-12 h-12 rounded-full flex items-center justify-center mb-1.5",
                             isDelete ? "bg-destructive/20" : "bg-muted/30"
                           )}>
                             <IconComponent className={cn(
-                              "w-5 h-5",
+                              "w-6 h-6",
                               isDelete ? "text-destructive" : "text-foreground"
                             )} />
                           </div>
                           <span className={cn(
-                            "text-[10px] font-medium",
+                            "text-[11px] font-medium",
                             isDelete ? "text-destructive" : "text-foreground/60"
                           )}>
                             {tool.name}
