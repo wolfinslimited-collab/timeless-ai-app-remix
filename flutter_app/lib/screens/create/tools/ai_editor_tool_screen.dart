@@ -2416,9 +2416,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         child: Column(
           children: [
             _buildTopBar(),
-            // Video preview takes remaining space but is NOT scrollable
+            // Video preview takes remaining space with constrained max height
             Expanded(
-              child: _buildVideoPreviewArea(),
+              child: Container(
+                // Clip any overflow from aspect ratio changes or dragging
+                clipBehavior: Clip.hardEdge,
+                decoration: const BoxDecoration(),
+                child: _buildVideoPreviewArea(),
+              ),
             ),
             // Fixed position elements below video
             if (_isVideoInitialized && _videoController != null)
@@ -2662,8 +2667,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         builder: (context, constraints) {
           // Calculate container dimensions based on selected aspect ratio
           final videoAspectRatio = _videoController!.value.aspectRatio;
-          final availableHeight = constraints.maxHeight;
-          final availableWidth = constraints.maxWidth - 16;
+          // Use a constrained height to prevent overflow
+          final maxPreviewHeight = constraints.maxHeight * 0.95;
+          final availableHeight = maxPreviewHeight.clamp(0.0, 400.0); // Max 400px
+          final availableWidth = constraints.maxWidth - 32; // Add more horizontal margin
           
           // Get selected aspect ratio
           double targetAspectRatio = videoAspectRatio;
@@ -2676,12 +2683,20 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           }
           
           // Calculate container dimensions based on target aspect ratio
+          // Prioritize fitting within available space
           double containerWidth = availableWidth;
           double containerHeight = containerWidth / targetAspectRatio;
           
-          if (containerHeight > availableHeight * 0.98) {
-            containerHeight = availableHeight * 0.98;
+          // Ensure we don't exceed the max height
+          if (containerHeight > availableHeight) {
+            containerHeight = availableHeight;
             containerWidth = containerHeight * targetAspectRatio;
+          }
+          
+          // Also ensure we don't exceed the available width
+          if (containerWidth > availableWidth) {
+            containerWidth = availableWidth;
+            containerHeight = containerWidth / targetAspectRatio;
           }
           
           // Calculate video scale to cover the container
