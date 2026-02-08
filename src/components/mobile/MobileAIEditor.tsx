@@ -3580,25 +3580,22 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 
                 {/* Sub-panel content or main tools */}
                 {editSubPanel === 'volume' ? (
-                  /* Volume Slider Sub-panel - 0 to 200 range with cyan slider */
-                  <div className="flex-1 flex flex-col justify-center px-6 py-4">
+                  /* Volume Slider Sub-panel - 0 to 200 range with purple slider */
+                  <div className="flex-1 flex flex-col justify-center px-4 py-2">
                     {/* Slider container */}
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1 relative h-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 relative h-1.5">
                         {/* Track background */}
                         <div className="absolute inset-0 h-full bg-muted/30 rounded-full" />
-                        {/* Active track - cyan/blue color */}
+                        {/* Active track - purple color */}
                         <div 
-                          className="absolute left-0 top-0 h-full rounded-full transition-all"
-                          style={{ 
-                            width: `${(clipVolume / 2) * 100}%`,
-                            background: 'linear-gradient(90deg, #00D4FF, #0EA5E9)'
-                          }}
+                          className="absolute left-0 top-0 h-full rounded-full transition-all bg-primary"
+                          style={{ width: `${(clipVolume / 2) * 100}%` }}
                         />
                         {/* Thumb indicator */}
                         <div 
-                          className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-lg border-2 border-[#00D4FF] transition-all"
-                          style={{ left: `calc(${(clipVolume / 2) * 100}% - 10px)` }}
+                          className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-md border border-primary transition-all"
+                          style={{ left: `calc(${(clipVolume / 2) * 100}% - 7px)` }}
                         />
                         <input
                           type="range"
@@ -3619,12 +3616,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       </div>
                     </div>
                     {/* Labels */}
-                    <div className="flex justify-between mt-4">
-                      <span className="text-sm text-muted-foreground font-medium">0</span>
-                      <span className="text-lg font-bold" style={{ color: '#00D4FF' }}>
+                    <div className="flex justify-between mt-2">
+                      <span className="text-xs text-muted-foreground font-medium">0</span>
+                      <span className="text-sm font-bold text-primary">
                         {Math.round(clipVolume * 100)}
                       </span>
-                      <span className="text-sm text-muted-foreground font-medium">200</span>
+                      <span className="text-xs text-muted-foreground font-medium">200</span>
                     </div>
                   </div>
                 ) : editSubPanel === 'speed' ? (
