@@ -1729,8 +1729,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         )}
       </div>
 
-      {/* Video Preview Area */}
-      <div className="flex-1 flex flex-col">
+      {/* Video Preview Area - Flex to fill remaining space, shrinks as needed */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {isUploading ? (
           <div className="flex-1 flex flex-col items-center justify-center">
             <div className="relative w-20 h-20">
@@ -1764,23 +1764,17 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           </div>
         ) : videoUrl ? (
           <div 
-            className="flex items-center justify-center px-4 overflow-hidden"
-            style={{ 
-              flex: '0 0 auto', 
-              height: 'min(35vh, 280px)', 
-              maxHeight: 'min(35vh, 280px)',
-              minHeight: '180px'
-            }}
+            className="flex-1 flex items-center justify-center px-4 overflow-hidden min-h-0"
           >
-            {/* Fixed-size parent container - strictly constrained to 35% screen height */}
+            {/* Video container - uses flex-1 to fill available space, max constrained */}
             <div 
-              className="relative w-full h-full flex items-center justify-center overflow-hidden bg-black rounded-lg"
+              className="relative w-full h-full max-h-[280px] flex items-center justify-center overflow-hidden bg-black rounded-lg"
             >
               {/* Container with BoxFit.contain behavior - video fits within fixed bounds */}
               {(() => {
                 // Calculate container dimensions using BoxFit.contain logic
                 const getContainedDimensions = () => {
-                  const containerHeight = Math.min(window.innerHeight * 0.35, 280);
+                  const containerHeight = Math.min(window.innerHeight * 0.32, 260);
                   const containerWidth = window.innerWidth - 32; // Account for padding
                   
                   if (selectedAspectRatio === 'original') {
@@ -3527,11 +3521,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             </div>
           </div>
 
-          {/* Bottom Toolbar - Switches between main, edit, and text menu mode */}
-          <div className="shrink-0 bg-background border-t border-border/10 pb-safe">
+          {/* Bottom Toolbar - Fixed height, always pinned to bottom */}
+          <div className="shrink-0 bg-background border-t border-border/10 pb-safe" style={{ maxHeight: '200px' }}>
             {isTextMenuMode ? (
-              /* Text Menu - single horizontal scrollable row matching Audio/Edit style */
-              <div className="animate-fade-in flex flex-col">
+              /* Text Menu - fixed-height horizontal scrollable row */
+              <div className="animate-fade-in flex flex-col" style={{ maxHeight: '180px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center px-2 py-2 border-b border-border/20">
                   <button
