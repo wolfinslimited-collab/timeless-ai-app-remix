@@ -1715,15 +1715,35 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
       await loadVideoForExport();
 
+      // CRITICAL: Use the export video's actual duration as the source of truth
+      // Some browsers initially report incorrect duration on loadedmetadata
+      // The export video element has the correct duration after loading
+      const actualVideoDuration = exportVideo.duration;
+      console.log('[Export] Export video duration:', actualVideoDuration, 'Clip outPoint:', activeClip?.outPoint, 'State duration:', duration);
+
+      // Determine if user has explicitly trimmed the clip
+      // A clip is "untrimmed" if inPoint=0 and outPoint equals the clip's stored duration
+      const clipWasTrimmed = activeClip && (activeClip.inPoint > 0.01 || Math.abs(activeClip.outPoint - activeClip.duration) > 0.01);
+      
+      // Use the actual video duration unless user explicitly trimmed
+      const effectiveInPoint = activeClip?.inPoint || 0;
+      const effectiveOutPoint = clipWasTrimmed 
+        ? Math.min(activeClip!.outPoint, actualVideoDuration) 
+        : actualVideoDuration;
+
+      console.log('[Export] Effective in/out points:', effectiveInPoint, effectiveOutPoint, 'Was trimmed:', clipWasTrimmed);
+
       // Apply clip speed (use first clip for now)
       const playbackSpeed = activeClip?.speed || 1.0;
       const clipVolume = activeClip?.volume || 1.0;
       exportVideo.playbackRate = playbackSpeed;
 
-      // Calculate total frames based on trimmed duration
-      const trimmedDuration = activeClip ? (activeClip.outPoint - activeClip.inPoint) : duration;
+      // Calculate total frames based on the effective trimmed duration
+      const trimmedDuration = effectiveOutPoint - effectiveInPoint;
       const actualDuration = trimmedDuration / playbackSpeed;
       const totalFrames = Math.floor(actualDuration * outputFrameRate);
+      
+      console.log('[Export] Trimmed duration:', trimmedDuration, 'Actual duration (with speed):', actualDuration, 'Total frames:', totalFrames);
       
       setExportStage('Recording video...');
 
@@ -1773,7 +1793,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           });
           
           // Sync audio element with export video
-          audioElement.currentTime = activeClip?.inPoint || 0;
+          audioElement.currentTime = effectiveInPoint;
           audioElement.playbackRate = playbackSpeed;
           exportVideo.addEventListener('play', () => audioElement.play());
           exportVideo.addEventListener('pause', () => audioElement.pause());
@@ -1800,10 +1820,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         }
       };
 
-      // Set video to starting position (respect inPoint)
-      const inPoint = activeClip?.inPoint || 0;
-      const outPoint = Math.min(activeClip?.outPoint ?? exportVideo.duration, exportVideo.duration);
-      exportVideo.currentTime = inPoint;
+      // Set video to starting position
+      exportVideo.currentTime = effectiveInPoint;
       await new Promise(resolve => setTimeout(resolve, 200));
 
       // Start recording
@@ -1825,7 +1843,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       const renderFrame = async () => {
         // Check if we've reached the end based on current position
         const currentPos = exportVideo.currentTime;
-        const hasReachedEnd = currentPos >= outPoint - 0.05 || videoEnded || frameCount >= totalFrames;
+        const hasReachedEnd = currentPos >= effectiveOutPoint - 0.05 || videoEnded || frameCount >= totalFrames;
         
         if (hasReachedEnd) {
           // Stop recording
@@ -1942,7 +1960,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         });
 
         frameCount++;
-        const progress = Math.min(99, Math.round((currentPos - inPoint) / (outPoint - inPoint) * 100));
+        const progress = Math.min(99, Math.round((currentPos - effectiveInPoint) / (effectiveOutPoint - effectiveInPoint) * 100));
         setExportProgress(progress);
 
         requestAnimationFrame(renderFrame);
