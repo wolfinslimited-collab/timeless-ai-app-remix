@@ -3682,6 +3682,49 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   </div>
                 </div>
               </div>
+            ) : isAudioMenuMode ? (
+              /* Audio Menu - horizontal scrollable menu with audio tools */
+              <div className="animate-fade-in flex flex-col">
+                {/* Header with back button and title */}
+                <div className="flex items-center px-2 py-2 border-b border-border/20">
+                  <button
+                    onClick={() => setIsAudioMenuMode(false)}
+                    className="shrink-0 flex items-center justify-center w-8 h-9 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-primary" />
+                  </button>
+                  <span className="ml-3 text-sm font-medium text-foreground">Audio</span>
+                </div>
+                
+                {/* Horizontal Scrollable Audio Tools */}
+                <div className="overflow-x-auto px-2 py-3">
+                  <div className="flex gap-1 min-w-max">
+                    {[
+                      { id: 'extract', name: 'Extract', icon: Waves, action: () => toast({ title: "Extract coming soon" }) },
+                      { id: 'sounds', name: 'Sounds', icon: Music, action: () => toast({ title: "Sounds coming soon" }) },
+                      { id: 'sound-fx', name: 'Sound FX', icon: Sparkles, action: () => toast({ title: "Sound FX coming soon" }) },
+                      { id: 'record', name: 'Record', icon: Circle, action: () => toast({ title: "Record coming soon" }) },
+                      { id: 'text-to-audio', name: 'Text to audio', icon: AudioLines, action: () => toast({ title: "Text to audio coming soon" }) },
+                    ].map((tool) => {
+                      const IconComponent = tool.icon;
+                      return (
+                        <button
+                          key={tool.id}
+                          onClick={tool.action}
+                          className="flex flex-col items-center justify-center w-20 py-2 rounded-xl transition-all hover:bg-white/5"
+                        >
+                          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-1 bg-white/10">
+                            <IconComponent className="w-5 h-5 text-foreground" />
+                          </div>
+                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight">
+                            {tool.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             ) : (
               /* Main toolbar */
               <div className="overflow-x-auto">
