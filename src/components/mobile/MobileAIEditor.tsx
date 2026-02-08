@@ -1764,8 +1764,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         )}
       </div>
 
-      {/* Video Preview Area - Flex to fill remaining space, shrinks as needed */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      {/* Video Preview Area - Flex to fill remaining space, scales down when text panel is open */}
+      <div 
+        className="flex-1 flex flex-col min-h-0 overflow-hidden transition-all duration-300"
+        style={{ 
+          maxHeight: showTextEditPanel ? '35%' : undefined,
+          minHeight: showTextEditPanel ? '120px' : '180px'
+        }}
+      >
         {isUploading ? (
           <div className="flex-1 flex flex-col items-center justify-center">
             <div className="relative w-20 h-20">
@@ -1801,23 +1807,30 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           <div 
             className="flex-1 flex items-center justify-center px-4 overflow-hidden min-h-0"
           >
-            {/* Video container - uses flex-1 to fill available space, max constrained */}
+            {/* Video container - uses BoxFit.contain to scale down when text panel is open */}
             <div 
-              className="relative w-full h-full max-h-[280px] flex items-center justify-center overflow-hidden bg-black rounded-lg"
+              className={cn(
+                "relative w-full h-full flex items-center justify-center overflow-hidden bg-black rounded-lg transition-all duration-300",
+                showTextEditPanel ? "max-h-full" : "max-h-[280px]"
+              )}
             >
-              {/* Container with BoxFit.contain behavior - video fits within fixed bounds */}
+              {/* Container with BoxFit.contain behavior - video fits within available bounds */}
               {(() => {
                 // Calculate container dimensions using BoxFit.contain logic
+                // Adjusts dynamically when text edit panel is open
                 const getContainedDimensions = () => {
-                  const containerHeight = Math.min(window.innerHeight * 0.32, 260);
+                  // When text panel is open, use smaller height constraint
+                  const maxContainerHeight = showTextEditPanel 
+                    ? Math.min(window.innerHeight * 0.22, 160) 
+                    : Math.min(window.innerHeight * 0.32, 260);
                   const containerWidth = window.innerWidth - 32; // Account for padding
                   
                   if (selectedAspectRatio === 'original') {
                     // Original uses actual video dimensions
                     const ratio = videoDimensions ? videoDimensions.width / videoDimensions.height : 16 / 9;
                     // BoxFit.contain: fit within container while maintaining actual aspect ratio
-                    let width = containerHeight * ratio;
-                    let height = containerHeight;
+                    let width = maxContainerHeight * ratio;
+                    let height = maxContainerHeight;
                     if (width > containerWidth) {
                       width = containerWidth;
                       height = width / ratio;
@@ -1829,9 +1842,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   if (preset) {
                     const targetRatio = preset.width / preset.height;
                     // BoxFit.contain: fit within container while maintaining aspect ratio
-                    // Height is fixed, width adjusts
-                    let width = containerHeight * targetRatio;
-                    let height = containerHeight;
+                    let width = maxContainerHeight * targetRatio;
+                    let height = maxContainerHeight;
                     
                     // If width exceeds container, scale down
                     if (width > containerWidth) {
