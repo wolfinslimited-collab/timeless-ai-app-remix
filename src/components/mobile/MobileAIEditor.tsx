@@ -3054,13 +3054,46 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Project Manager handlers
   const handleOpenProject = async (project: EditorProject) => {
     setCurrentProject(project);
-    // Restore all project state except video URL
+    // Restore all project state including overlays
     setVideoPosition(project.videoPosition);
     setSelectedAspectRatio(project.selectedAspectRatio);
     setBackgroundColor(project.backgroundColor);
     setBackgroundBlur(project.backgroundBlur);
     setBackgroundImage(project.backgroundImage);
     setAdjustments(project.adjustments);
+
+    // Restore overlay layers from saved project
+    if (project.textOverlays?.length) {
+      setTextOverlays(project.textOverlays.map((t, i) => ({ ...t, layerOrder: (t as any).layerOrder ?? i })) as TextOverlayData[]);
+    }
+    if (project.effectLayers?.length) {
+      setEffectLayers(project.effectLayers as EffectLayerData[]);
+    }
+    if (project.captionLayers?.length) {
+      setCaptionLayers(project.captionLayers as CaptionLayerData[]);
+    }
+    if (project.drawingLayers?.length) {
+      setDrawingLayers(project.drawingLayers.map(d => ({
+        ...d,
+        strokes: d.strokes.map(s => ({ ...s, tool: s.tool as 'brush' | 'eraser', points: s.points.map(p => ({ ...p })) })),
+      })));
+    }
+    if (project.videoOverlays?.length) {
+      setVideoOverlays(project.videoOverlays as VideoOverlayData[]);
+    }
+    // Audio layers need file URLs to be valid — restore metadata only
+    if (project.audioLayers?.length) {
+      setAudioLayers(project.audioLayers as any[]);
+    }
+
+    // Restore video clips
+    if (project.videoClips?.length) {
+      setVideoClips(project.videoClips.map(c => ({
+        ...c,
+        animationIn: c.animationIn ? { ...c.animationIn, type: c.animationIn.type as 'in' | 'out' | 'combo' } : null,
+        animationOut: c.animationOut ? { ...c.animationOut, type: c.animationOut.type as 'in' | 'out' | 'combo' } : null,
+      })));
+    }
 
     // Blob URLs don't persist across sessions — need to re-select video
     const url = project.videoUrl;
@@ -3133,12 +3166,87 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               duration: clip.animationOut.duration,
             } : null,
           })),
-          textOverlays: [],
-          audioLayers: [],
-          effectLayers: [],
-          captionLayers: [],
-          drawingLayers: [],
-          videoOverlays: [],
+          textOverlays: textOverlays.map(t => ({
+            id: t.id,
+            text: t.text,
+            position: t.position,
+            fontSize: t.fontSize,
+            textColor: t.textColor,
+            fontFamily: t.fontFamily,
+            alignment: t.alignment,
+            hasBackground: t.hasBackground,
+            backgroundColor: t.backgroundColor,
+            backgroundOpacity: t.backgroundOpacity,
+            startTime: t.startTime,
+            endTime: t.endTime,
+            opacity: t.opacity,
+            strokeEnabled: t.strokeEnabled,
+            strokeColor: t.strokeColor,
+            strokeWidth: t.strokeWidth,
+            glowEnabled: t.glowEnabled,
+            glowColor: t.glowColor,
+            glowIntensity: t.glowIntensity,
+            shadowEnabled: t.shadowEnabled,
+            shadowColor: t.shadowColor,
+            letterSpacing: t.letterSpacing,
+            curveAmount: t.curveAmount,
+            animation: t.animation,
+            bubbleStyle: t.bubbleStyle,
+            rotation: t.rotation,
+            scale: t.scale,
+            scaleX: t.scaleX,
+            scaleY: t.scaleY,
+          })),
+          audioLayers: audioLayers.map(a => ({
+            id: a.id,
+            name: a.name,
+            fileUrl: a.fileUrl,
+            volume: a.volume,
+            startTime: a.startTime,
+            endTime: a.endTime,
+            fadeIn: a.fadeIn,
+            fadeOut: a.fadeOut,
+            waveformData: a.waveformData || [],
+          })),
+          effectLayers: effectLayers.map(e => ({
+            id: e.id,
+            effectId: e.effectId,
+            name: e.name,
+            category: e.category,
+            intensity: e.intensity,
+            startTime: e.startTime,
+            endTime: e.endTime,
+          })),
+          captionLayers: captionLayers.map(c => ({
+            id: c.id,
+            text: c.text,
+            startTime: c.startTime,
+            endTime: c.endTime,
+          })),
+          drawingLayers: drawingLayers.map(d => ({
+            id: d.id,
+            strokes: d.strokes.map(s => ({
+              id: s.id,
+              points: s.points.map(p => ({ x: p.x, y: p.y })),
+              color: s.color,
+              size: s.size,
+              tool: s.tool,
+            })),
+            startTime: d.startTime,
+            endTime: d.endTime,
+          })),
+          videoOverlays: videoOverlays.map(o => ({
+            id: o.id,
+            url: o.url,
+            duration: o.duration,
+            position: o.position,
+            size: o.size,
+            scale: o.scale,
+            startTime: o.startTime,
+            endTime: o.endTime,
+            volume: o.volume,
+            opacity: o.opacity,
+          })),
         };
         
         await saveProject(updatedProject);
@@ -3149,7 +3257,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     }, 2000); // Debounce 2 seconds
     
     return () => clearTimeout(saveTimer);
-  }, [videoUrl, duration, adjustments, selectedAspectRatio, backgroundColor, backgroundBlur, backgroundImage, videoPosition, videoClips]);
+  }, [videoUrl, duration, adjustments, selectedAspectRatio, backgroundColor, backgroundBlur, backgroundImage, videoPosition, videoClips, textOverlays, audioLayers, effectLayers, captionLayers, drawingLayers, videoOverlays]);
 
   // Show Project Manager when no video is loaded
   if (showProjectManager) {

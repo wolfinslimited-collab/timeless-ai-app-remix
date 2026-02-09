@@ -575,7 +575,9 @@ class EffectLayerSnapshot {
 }
 
 class AIEditorToolScreen extends StatefulWidget {
-  const AIEditorToolScreen({super.key});
+  final EditorProject? initialProject;
+  
+  const AIEditorToolScreen({super.key, this.initialProject});
 
   @override
   State<AIEditorToolScreen> createState() => _AIEditorToolScreenState();
@@ -862,6 +864,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   final TextEditingController _aiEditPromptController = TextEditingController();
   static const int _aiEditCreditCost = 5;
   
+  // Project persistence
+  EditorProject? _currentProject;
+  bool _autoSavePending = false;
+  
   // Computed: check if any overlay menu is currently open (to hide main toolbar)
   bool get _isAnyOverlayOpen => 
       _isEditMenuMode || _isAudioMenuMode || _isTextMenuMode || 
@@ -976,6 +982,186 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     super.initState();
     _textTabController = TabController(length: 5, vsync: this);
     _loadRecentVideos();
+    
+    // Restore project state if opening an existing project
+    if (widget.initialProject != null) {
+      _currentProject = widget.initialProject;
+      _restoreProjectState(widget.initialProject!);
+    }
+  }
+  
+  /// Restore all editor state from a saved project
+  void _restoreProjectState(EditorProject project) {
+    // Restore adjustments
+    _brightness = project.adjustments['brightness'] ?? 0;
+    _contrast = project.adjustments['contrast'] ?? 0;
+    _saturation = project.adjustments['saturation'] ?? 0;
+    _exposure = project.adjustments['exposure'] ?? 0;
+    _sharpen = project.adjustments['sharpen'] ?? 0;
+    _highlight = project.adjustments['highlight'] ?? 0;
+    _shadow = project.adjustments['shadow'] ?? 0;
+    _temperature = project.adjustments['temp'] ?? 0;
+    _hue = project.adjustments['hue'] ?? 0;
+    
+    // Restore background state
+    _selectedAspectRatio = project.selectedAspectRatio;
+    _backgroundColor = Color(project.backgroundColor);
+    _backgroundBlur = project.backgroundBlur;
+    _backgroundImage = project.backgroundImage;
+    _videoPosition = Offset(project.videoPositionX, project.videoPositionY);
+    
+    // Restore text overlays
+    _textOverlays = project.textOverlays.map((t) => TextOverlay(
+      id: t.id,
+      text: t.text,
+      position: Offset(t.positionX, t.positionY),
+      fontSize: t.fontSize,
+      textColor: Color(t.textColor),
+      fontFamily: t.fontFamily,
+      hasBackground: t.hasBackground,
+      backgroundColor: Color(t.backgroundColor),
+      backgroundOpacity: t.backgroundOpacity,
+      startTime: t.startTime,
+      endTime: t.endTime,
+      opacity: t.opacity,
+      layerOrder: t.layerOrder,
+      rotation: t.rotation,
+      scaleX: t.scaleX,
+      scaleY: t.scaleY,
+    )).toList();
+    
+    // Restore effect layers
+    _effectLayers = project.effectLayers.map((e) => EffectLayer(
+      id: e.id,
+      effectId: e.effectId,
+      name: e.name,
+      category: e.category,
+      intensity: e.intensity,
+      startTime: e.startTime,
+      endTime: e.endTime,
+    )).toList();
+    
+    // Restore caption layers
+    _captionLayers = project.captionLayers.map((c) => CaptionLayer(
+      id: c.id,
+      text: c.text,
+      startTime: c.startTime,
+      endTime: c.endTime,
+    )).toList();
+    
+    // Restore drawing layers
+    _drawingLayers = project.drawingLayers.map((d) => DrawingLayer(
+      id: d.id,
+      strokes: d.strokes.map((s) => DrawingStroke(
+        id: s.id,
+        points: s.points.map((p) => Offset(p['x']!, p['y']!)).toList(),
+        color: Color(s.color),
+        size: s.size,
+        tool: s.tool,
+      )).toList(),
+      startTime: d.startTime,
+      endTime: d.endTime,
+    )).toList();
+    
+    // Video URL will trigger file re-select if missing
+    if (project.videoUrl != null) {
+      final file = File(project.videoUrl!);
+      if (file.existsSync()) {
+        _videoUrl = project.videoUrl;
+        _videoFile = file;
+      }
+    }
+  }
+  
+  /// Auto-save current editor state to project storage
+  Future<void> _autoSaveProject() async {
+    if (_currentProject == null || _videoUrl == null) return;
+    if (_autoSavePending) return;
+    _autoSavePending = true;
+    
+    // Debounce 2 seconds
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    _autoSavePending = false;
+    
+    try {
+      final project = _currentProject!;
+      project.videoUrl = _videoUrl;
+      project.videoDuration = _videoController?.value.duration.inSeconds.toDouble() ?? 0;
+      project.adjustments = {
+        'brightness': _brightness,
+        'contrast': _contrast,
+        'saturation': _saturation,
+        'exposure': _exposure,
+        'sharpen': _sharpen,
+        'highlight': _highlight,
+        'shadow': _shadow,
+        'temp': _temperature,
+        'hue': _hue,
+      };
+      project.selectedAspectRatio = _selectedAspectRatio;
+      project.backgroundColor = _backgroundColor.value;
+      project.backgroundBlur = _backgroundBlur;
+      project.backgroundImage = _backgroundImage;
+      project.videoPositionX = _videoPosition.dx;
+      project.videoPositionY = _videoPosition.dy;
+      
+      // Save video clips
+      project.videoClips = _videoClips.map((c) => SavedVideoClip(
+        id: c.id, url: c.url, duration: c.duration,
+        startTime: c.startTime, inPoint: c.inPoint, outPoint: c.outPoint,
+        volume: c.volume, speed: c.speed, aiEnhanced: c.aiEnhanced,
+      )).toList();
+      
+      // Save text overlays
+      project.textOverlays = _textOverlays.map((t) => SavedTextOverlay(
+        id: t.id, text: t.text,
+        positionX: t.position.dx, positionY: t.position.dy,
+        fontSize: t.fontSize, textColor: t.textColor.value,
+        fontFamily: t.fontFamily, hasBackground: t.hasBackground,
+        backgroundColor: t.backgroundColor.value,
+        backgroundOpacity: t.backgroundOpacity,
+        startTime: t.startTime, endTime: t.endTime,
+        opacity: t.opacity, layerOrder: t.layerOrder,
+        rotation: t.rotation, scaleX: t.scaleX, scaleY: t.scaleY,
+      )).toList();
+      
+      // Save audio layers
+      project.audioLayers = _audioLayers.map((a) => SavedAudioLayer(
+        id: a.id, name: a.name, filePath: a.filePath,
+        volume: a.volume, startTime: a.startTime, endTime: a.endTime,
+      )).toList();
+      
+      // Save effect layers
+      project.effectLayers = _effectLayers.map((e) => SavedEffectLayer(
+        id: e.id, effectId: e.effectId, name: e.name,
+        category: e.category, intensity: e.intensity,
+        startTime: e.startTime, endTime: e.endTime,
+      )).toList();
+      
+      // Save caption layers
+      project.captionLayers = _captionLayers.map((c) => SavedCaptionLayer(
+        id: c.id, text: c.text,
+        startTime: c.startTime, endTime: c.endTime,
+      )).toList();
+      
+      // Save drawing layers
+      project.drawingLayers = _drawingLayers.map((d) => SavedDrawingLayer(
+        id: d.id,
+        strokes: d.strokes.map((s) => SavedDrawingStroke(
+          id: s.id,
+          points: s.points.map((p) => {'x': p.dx, 'y': p.dy}).toList(),
+          color: s.color.value,
+          size: s.size,
+          tool: s.tool,
+        )).toList(),
+        startTime: d.startTime, endTime: d.endTime,
+      )).toList();
+      
+      await ProjectStorage.saveProject(project);
+    } catch (e) {
+      debugPrint('Auto-save error: $e');
+    }
   }
 
   void _resetAllAdjustments() {
@@ -1023,6 +1209,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     
     // Clear redo stack when new action is performed
     _redoStack.clear();
+    
+    // Trigger auto-save
+    _autoSaveProject();
   }
   
   /// Check if undo is available
