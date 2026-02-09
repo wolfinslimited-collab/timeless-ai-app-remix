@@ -147,6 +147,7 @@ interface VideoClip {
   speed: number; // Clip playback speed (0.25-4x)
   animationIn?: ClipAnimation; // Entry animation
   animationOut?: ClipAnimation; // Exit animation
+  aiEnhanced?: boolean; // Whether AI auto-adjustments have been applied
 }
 
 // Helper to get trimmed duration
@@ -348,6 +349,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [adjustPanelTab, setAdjustPanelTab] = useState<'filters' | 'adjust'>('adjust');
   const [adjustSubTab, setAdjustSubTab] = useState<'smart' | 'customize'>('customize');
   const [selectedAdjustmentId, setSelectedAdjustmentId] = useState<keyof typeof adjustments>('brightness');
+  const [isAIEnhancing, setIsAIEnhancing] = useState(false); // AI auto-adjust loading state
   
   // Stickers, Aspect Ratio, Background state
   const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>('original');
@@ -4513,8 +4515,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       
                       {adjustPanelTab === 'adjust' && (
                         <>
-                          {/* Sub-menu: Smart / Customize */}
-                          <div className="flex gap-3 px-4 py-3">
+                          {/* Sub-menu: Smart / Customize + AI Enhance Button */}
+                          <div className="flex items-center gap-3 px-4 py-3">
                             {(['smart', 'customize'] as const).map((subTab) => (
                               <button
                                 key={subTab}
@@ -4529,6 +4531,56 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 {subTab}
                               </button>
                             ))}
+                            <div className="flex-1" />
+                            {/* AI Enhance Button */}
+                            <button
+                              onClick={async () => {
+                                setIsAIEnhancing(true);
+                                // Simulate AI analysis (in production, this would call an AI service)
+                                await new Promise(resolve => setTimeout(resolve, 1500));
+                                // Apply AI-suggested adjustments
+                                setAdjustments({
+                                  brightness: 0.08,
+                                  contrast: 0.12,
+                                  saturation: 0.15,
+                                  exposure: 0.05,
+                                  sharpen: 0.18,
+                                  highlight: -0.1,
+                                  shadow: 0.12,
+                                  temp: 0.02,
+                                  hue: 0,
+                                });
+                                // Mark selected clip as AI enhanced
+                                if (selectedClipId) {
+                                  setVideoClips(prev => prev.map(clip => 
+                                    clip.id === selectedClipId 
+                                      ? { ...clip, aiEnhanced: true }
+                                      : clip
+                                  ));
+                                }
+                                setIsAIEnhancing(false);
+                                toast({ title: "AI Enhancement applied", description: "Adjustments optimized for best visual quality" });
+                              }}
+                              disabled={isAIEnhancing}
+                              className={cn(
+                                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                                "bg-gradient-to-r from-violet-500 to-purple-500 text-white",
+                                "hover:from-violet-600 hover:to-purple-600",
+                                "disabled:opacity-60 disabled:cursor-not-allowed"
+                              )}
+                            >
+                              {isAIEnhancing ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  <span>Analyzing...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Wand2 className="w-3.5 h-3.5" />
+                                  <span>AI Enhance</span>
+                                </>
+                              )}
+                            </button>
                           </div>
                           
                           {/* Horizontal Scrollable Adjustment Icons */}
@@ -5016,6 +5068,19 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                         <Sparkles className="w-2.5 h-2.5 text-white/80" />
                                       </div>
                                     )}
+                                  </div>
+                                )}
+                                
+                                {/* AI Enhancement indicator */}
+                                {clip.aiEnhanced && (
+                                  <div 
+                                    className="flex h-[5px] mt-0.5 rounded-full overflow-hidden bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500"
+                                    style={{ width: clipWidth }}
+                                    title="AI Enhanced"
+                                  >
+                                    <div className="flex-1 flex items-center justify-center">
+                                      <Wand2 className="w-2 h-2 text-white/90" />
+                                    </div>
                                   </div>
                                 )}
                               </div>

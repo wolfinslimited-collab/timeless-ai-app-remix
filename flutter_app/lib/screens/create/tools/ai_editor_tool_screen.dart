@@ -224,6 +224,7 @@ class VideoClip {
   double speed; // Clip playback speed (0.25-4x)
   ClipAnimation? animationIn; // Entry animation
   ClipAnimation? animationOut; // Exit animation
+  bool aiEnhanced; // Whether AI auto-adjustments have been applied
   
   VideoClip({
     required this.id,
@@ -237,6 +238,7 @@ class VideoClip {
     this.speed = 1.0,
     this.animationIn,
     this.animationOut,
+    this.aiEnhanced = false,
   }) : inPoint = inPoint ?? 0,
        outPoint = outPoint ?? duration;
   
@@ -694,6 +696,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   String _adjustPanelTab = 'adjust'; // 'filters' or 'adjust'
   String _adjustSubTab = 'customize'; // 'smart' or 'customize'
   String _selectedAdjustmentId = 'brightness';
+  bool _isAIEnhancing = false; // AI auto-adjust loading state
   
   // Stickers, Aspect Ratio, Background state
   String _selectedAspectRatio = 'original';
@@ -4807,7 +4810,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
   
-  /// Build a single clip filmstrip segment with trim handles
+  /// Build a single clip filmstrip segment with trim handles and indicator bars
   Widget _buildSingleClipFilmstrip(VideoClip clip, int clipIndex, bool isFirst, bool isLast) {
     final clipWidth = clip.trimmedDuration * _pixelsPerSecond;
     final thumbCount = (clipWidth / _thumbnailWidth).ceil().clamp(1, 100);
@@ -4816,239 +4819,317 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     
     const videoColor = Color(0xFFAA2222);
     
-    return GestureDetector(
-      onTap: () => setState(() {
-        _selectedClipId = clip.id;
-        _editingClipId = clip.id;
-        _clipVolume = clip.volume;
-        _clipSpeed = clip.speed;
-        _isEditMenuMode = true;
-        _editSubPanel = 'none';
-      }),
-      child: Container(
-        width: clipWidth,
-        height: _thumbnailHeight + 4,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1a1a1a),
-          border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
-          borderRadius: isSelected ? BorderRadius.circular(4) : null,
-        ),
-        child: ClipRRect(
-          borderRadius: isSelected ? BorderRadius.circular(2) : BorderRadius.zero,
-          child: Row(
-            children: [
-              // Left trim handle - white box with black line when selected
-              GestureDetector(
-                onHorizontalDragStart: (_) {
-                  _saveStateToHistory(); // Save state before trimming
-                  setState(() {
-                    _trimmingClipId = clip.id;
-                    _isTrimmingClipStart = true;
-                    _selectedClipId = clip.id;
-                  });
-                },
-                onHorizontalDragUpdate: (details) {
-                  final delta = details.primaryDelta ?? 0;
-                  final timeDelta = delta / _pixelsPerSecond;
-                  setState(() {
-                    // Adjust in point - min 0, max outPoint - 0.5s
-                    clip.inPoint = (clip.inPoint + timeDelta).clamp(0.0, clip.outPoint - 0.5);
-                    _recalculateClipStartTimes();
-                  });
-                },
-                onHorizontalDragEnd: (_) {
-                  setState(() {
-                    _trimmingClipId = null;
-                    _isTrimmingClipStart = false;
-                  });
-                },
-                child: Container(
-                  width: isSelected ? 10 : 12,
-                  color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
-                  child: isSelected
-                      ? Center(
-                          child: Container(
-                            width: 2,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: Colors.black,
-                              borderRadius: BorderRadius.circular(1),
-                            ),
-                          ),
-                        )
-                      : null,
-                ),
-              ),
-              
-              // Thumbnails content area
-              Expanded(
-                child: Stack(
-                  children: [
-                    // Thumbnails row
-                    ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: thumbCount,
-                      itemBuilder: (context, index) {
-                        // Adjust thumbTime to account for inPoint
-                        final thumbTime = clip.inPoint + (index / thumbCount) * clip.trimmedDuration;
-                        
-                        // Get thumbnail from clip's thumbnails array
-                        final clipThumbnails = clip.thumbnails;
-                        final hasThumbnails = clipThumbnails != null && clipThumbnails.isNotEmpty;
-                        final thumbnailIndex = hasThumbnails 
-                            ? (index * clipThumbnails.length / thumbCount).floor().clamp(0, clipThumbnails.length - 1)
-                            : -1;
-                        final thumbnail = thumbnailIndex >= 0 && clipThumbnails != null && thumbnailIndex < clipThumbnails.length 
-                            ? clipThumbnails[thumbnailIndex] 
-                            : null;
-                        final hasValidThumbnail = thumbnail != null && thumbnail.isNotEmpty;
-                        
-                        // Generate a gradient color that varies based on position for visual variety
-                        final gradientProgress = index / thumbCount;
-                        final baseHue = 0.0; // Red hue for video
-                        final saturation = 0.7 + (gradientProgress * 0.1);
-                        final lightness = 0.15 + (math.sin(gradientProgress * math.pi) * 0.05);
-                        
-                        return Container(
-                          width: _thumbnailWidth,
-                          height: _thumbnailHeight,
-                          decoration: BoxDecoration(
-                            border: Border(
-                              right: index < thumbCount - 1
-                                  ? BorderSide(color: const Color(0xFF5A0000).withOpacity(0.4), width: 0.5)
-                                  : BorderSide.none,
-                            ),
-                          ),
-                          child: hasValidThumbnail
-                              ? Image.memory(thumbnail, fit: BoxFit.cover, gaplessPlayback: true)
-                              : Container(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        HSLColor.fromAHSL(1.0, baseHue, saturation, lightness + 0.05).toColor(),
-                                        HSLColor.fromAHSL(1.0, baseHue, saturation - 0.1, lightness).toColor(),
-                                      ],
-                                    ),
-                                  ),
-                                  child: Stack(
-                                    children: [
-                                      // Film grain effect
-                                      Positioned.fill(
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                Colors.white.withOpacity(0.03),
-                                                Colors.transparent,
-                                                Colors.black.withOpacity(0.1),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      // Timestamp
-                                      Center(
-                                        child: Text(
-                                          '${thumbTime.toInt()}s',
-                                          style: TextStyle(
-                                            color: Colors.white.withOpacity(0.4),
-                                            fontSize: 8,
-                                            fontFamily: 'monospace',
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                        );
-                      },
-                    ),
-                    
-                    // Clip info overlay when selected
-                    if (isSelected)
-                      Positioned(
-                        left: 4,
-                        top: 2,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.videocam, size: 10, color: Colors.white.withOpacity(0.9)),
-                              const SizedBox(width: 3),
-                              Text(
-                                '${clip.trimmedDuration.toStringAsFixed(1)}s',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
+    // Check if clip has any indicators to show
+    final hasAnimationIn = clip.animationIn != null;
+    final hasAnimationOut = clip.animationOut != null;
+    final hasAnyAnimation = hasAnimationIn || hasAnimationOut;
+    final hasAIEnhanced = clip.aiEnhanced;
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Main filmstrip clip
+        GestureDetector(
+          onTap: () => setState(() {
+            _selectedClipId = clip.id;
+            _editingClipId = clip.id;
+            _clipVolume = clip.volume;
+            _clipSpeed = clip.speed;
+            _isEditMenuMode = true;
+            _editSubPanel = 'none';
+          }),
+          child: Container(
+            width: clipWidth,
+            height: _thumbnailHeight + 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1a1a1a),
+              border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
+              borderRadius: isSelected ? BorderRadius.circular(4) : null,
+            ),
+            child: ClipRRect(
+              borderRadius: isSelected ? BorderRadius.circular(2) : BorderRadius.zero,
+              child: Row(
+                children: [
+                  // Left trim handle - white box with black line when selected
+                  GestureDetector(
+                    onHorizontalDragStart: (_) {
+                      _saveStateToHistory(); // Save state before trimming
+                      setState(() {
+                        _trimmingClipId = clip.id;
+                        _isTrimmingClipStart = true;
+                        _selectedClipId = clip.id;
+                      });
+                    },
+                    onHorizontalDragUpdate: (details) {
+                      final delta = details.primaryDelta ?? 0;
+                      final timeDelta = delta / _pixelsPerSecond;
+                      setState(() {
+                        // Adjust in point - min 0, max outPoint - 0.5s
+                        clip.inPoint = (clip.inPoint + timeDelta).clamp(0.0, clip.outPoint - 0.5);
+                        _recalculateClipStartTimes();
+                      });
+                    },
+                    onHorizontalDragEnd: (_) {
+                      setState(() {
+                        _trimmingClipId = null;
+                        _isTrimmingClipStart = false;
+                      });
+                    },
+                    child: Container(
+                      width: isSelected ? 10 : 12,
+                      color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
+                      child: isSelected
+                          ? Center(
+                              child: Container(
+                                width: 2,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: Colors.black,
+                                  borderRadius: BorderRadius.circular(1),
                                 ),
                               ),
-                            ],
-                          ),
+                            )
+                          : null,
+                    ),
+                  ),
+                  
+                  // Thumbnails content area
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        // Thumbnails row
+                        ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: thumbCount,
+                          itemBuilder: (context, index) {
+                            // Adjust thumbTime to account for inPoint
+                            final thumbTime = clip.inPoint + (index / thumbCount) * clip.trimmedDuration;
+                            
+                            // Get thumbnail from clip's thumbnails array
+                            final clipThumbnails = clip.thumbnails;
+                            final hasThumbnails = clipThumbnails != null && clipThumbnails.isNotEmpty;
+                            final thumbnailIndex = hasThumbnails 
+                                ? (index * clipThumbnails.length / thumbCount).floor().clamp(0, clipThumbnails.length - 1)
+                                : -1;
+                            final thumbnail = thumbnailIndex >= 0 && clipThumbnails != null && thumbnailIndex < clipThumbnails.length 
+                                ? clipThumbnails[thumbnailIndex] 
+                                : null;
+                            final hasValidThumbnail = thumbnail != null && thumbnail.isNotEmpty;
+                            
+                            // Generate a gradient color that varies based on position for visual variety
+                            final gradientProgress = index / thumbCount;
+                            final baseHue = 0.0; // Red hue for video
+                            final saturation = 0.7 + (gradientProgress * 0.1);
+                            final lightness = 0.15 + (math.sin(gradientProgress * math.pi) * 0.05);
+                            
+                            return Container(
+                              width: _thumbnailWidth,
+                              height: _thumbnailHeight,
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  right: index < thumbCount - 1
+                                      ? BorderSide(color: const Color(0xFF5A0000).withOpacity(0.4), width: 0.5)
+                                      : BorderSide.none,
+                                ),
+                              ),
+                              child: hasValidThumbnail
+                                  ? Image.memory(thumbnail, fit: BoxFit.cover, gaplessPlayback: true)
+                                  : Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            HSLColor.fromAHSL(1.0, baseHue, saturation, lightness + 0.05).toColor(),
+                                            HSLColor.fromAHSL(1.0, baseHue, saturation - 0.1, lightness).toColor(),
+                                          ],
+                                        ),
+                                      ),
+                                      child: Stack(
+                                        children: [
+                                          // Film grain effect
+                                          Positioned.fill(
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topCenter,
+                                                  end: Alignment.bottomCenter,
+                                                  colors: [
+                                                    Colors.white.withOpacity(0.03),
+                                                    Colors.transparent,
+                                                    Colors.black.withOpacity(0.1),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          // Timestamp
+                                          Center(
+                                            child: Text(
+                                              '${thumbTime.toInt()}s',
+                                              style: TextStyle(
+                                                color: Colors.white.withOpacity(0.4),
+                                                fontSize: 8,
+                                                fontFamily: 'monospace',
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                            );
+                          },
                         ),
-                      ),
-                    
-                    
-                  ],
-                ),
-              ),
-              
-              // Right trim handle - white box with black line when selected
-              GestureDetector(
-                onHorizontalDragStart: (_) {
-                  _saveStateToHistory(); // Save state before trimming
-                  setState(() {
-                    _trimmingClipId = clip.id;
-                    _isTrimmingClipEnd = true;
-                    _selectedClipId = clip.id;
-                  });
-                },
-                onHorizontalDragUpdate: (details) {
-                  final delta = details.primaryDelta ?? 0;
-                  final timeDelta = delta / _pixelsPerSecond;
-                  setState(() {
-                    // Adjust out point - min inPoint + 0.5s, max duration
-                    clip.outPoint = (clip.outPoint + timeDelta).clamp(clip.inPoint + 0.5, clip.duration);
-                    _recalculateClipStartTimes();
-                  });
-                },
-                onHorizontalDragEnd: (_) {
-                  setState(() {
-                    _trimmingClipId = null;
-                    _isTrimmingClipEnd = false;
-                  });
-                },
-                child: Container(
-                  width: isSelected ? 10 : 12,
-                  color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
-                  child: isSelected
-                      ? Center(
-                          child: Container(
-                            width: 2,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: Colors.black,
-                              borderRadius: BorderRadius.circular(1),
+                        
+                        // Clip info overlay when selected
+                        if (isSelected)
+                          Positioned(
+                            left: 4,
+                            top: 2,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.6),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.videocam, size: 10, color: Colors.white.withOpacity(0.9)),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    '${clip.trimmedDuration.toStringAsFixed(1)}s',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        )
-                      : null,
-                ),
+                        
+                        
+                      ],
+                    ),
+                  ),
+                  
+                  // Right trim handle - white box with black line when selected
+                  GestureDetector(
+                    onHorizontalDragStart: (_) {
+                      _saveStateToHistory(); // Save state before trimming
+                      setState(() {
+                        _trimmingClipId = clip.id;
+                        _isTrimmingClipEnd = true;
+                        _selectedClipId = clip.id;
+                      });
+                    },
+                    onHorizontalDragUpdate: (details) {
+                      final delta = details.primaryDelta ?? 0;
+                      final timeDelta = delta / _pixelsPerSecond;
+                      setState(() {
+                        // Adjust out point - min inPoint + 0.5s, max duration
+                        clip.outPoint = (clip.outPoint + timeDelta).clamp(clip.inPoint + 0.5, clip.duration);
+                        _recalculateClipStartTimes();
+                      });
+                    },
+                    onHorizontalDragEnd: (_) {
+                      setState(() {
+                        _trimmingClipId = null;
+                        _isTrimmingClipEnd = false;
+                      });
+                    },
+                    child: Container(
+                      width: isSelected ? 10 : 12,
+                      color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
+                      child: isSelected
+                          ? Center(
+                              child: Container(
+                                width: 2,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: Colors.black,
+                                  borderRadius: BorderRadius.circular(1),
+                                ),
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
-      ),
+        
+        // Animation indicators below the clip
+        if (hasAnyAnimation)
+          Container(
+            width: clipWidth,
+            height: 6,
+            margin: const EdgeInsets.only(top: 2),
+            child: Row(
+              children: [
+                // In animation indicator
+                if (hasAnimationIn)
+                  Container(
+                    width: math.max(16, (clip.animationIn!.duration / clip.trimmedDuration) * clipWidth),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF06B6D4), Color(0xFF22D3EE)],
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(3),
+                        bottomLeft: Radius.circular(3),
+                      ),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.auto_awesome, size: 8, color: Colors.white),
+                    ),
+                  ),
+                // Spacer
+                if (hasAnimationIn && hasAnimationOut)
+                  const Spacer(),
+                // Out animation indicator
+                if (hasAnimationOut)
+                  Container(
+                    width: math.max(16, (clip.animationOut!.duration / clip.trimmedDuration) * clipWidth),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFB923C), Color(0xFFF97316)],
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(3),
+                        bottomRight: Radius.circular(3),
+                      ),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.auto_awesome, size: 8, color: Colors.white),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        
+        // AI Enhancement indicator
+        if (hasAIEnhanced)
+          Container(
+            width: clipWidth,
+            height: 5,
+            margin: const EdgeInsets.only(top: 2),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF8B5CF6), Color(0xFFA855F7), Color(0xFFD946EF)],
+              ),
+              borderRadius: BorderRadius.circular(2.5),
+            ),
+            child: const Center(
+              child: Icon(Icons.auto_fix_high, size: 8, color: Colors.white),
+            ),
+          ),
+      ],
     );
   }
 
@@ -6379,7 +6460,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         ),
         
         if (_adjustPanelTab == 'adjust') ...[
-          // Sub-menu: Smart / Customize
+          // Sub-menu: Smart / Customize + AI Enhance Button
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
@@ -6424,6 +6505,81 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         fontWeight: FontWeight.w500,
                         color: _adjustSubTab == 'customize' ? AppTheme.primary : Colors.white.withOpacity(0.6),
                       ),
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                // AI Enhance Button
+                GestureDetector(
+                  onTap: _isAIEnhancing ? null : () async {
+                    setState(() => _isAIEnhancing = true);
+                    // Simulate AI analysis (in production, this would call an AI service)
+                    await Future.delayed(const Duration(milliseconds: 1500));
+                    // Apply AI-suggested adjustments
+                    for (var tool in _adjustmentTools) {
+                      switch (tool.id) {
+                        case 'brightness': tool.onChanged(0.08); break;
+                        case 'contrast': tool.onChanged(0.12); break;
+                        case 'saturation': tool.onChanged(0.15); break;
+                        case 'exposure': tool.onChanged(0.05); break;
+                        case 'sharpen': tool.onChanged(0.18); break;
+                        case 'highlight': tool.onChanged(-0.1); break;
+                        case 'shadow': tool.onChanged(0.12); break;
+                        case 'temp': tool.onChanged(0.02); break;
+                        case 'hue': tool.onChanged(0.0); break;
+                      }
+                    }
+                    // Mark selected clip as AI enhanced
+                    if (_selectedClipId != null) {
+                      final clipIndex = _videoClips.indexWhere((c) => c.id == _selectedClipId);
+                      if (clipIndex >= 0) {
+                        setState(() {
+                          _videoClips[clipIndex].aiEnhanced = true;
+                        });
+                      }
+                    }
+                    setState(() => _isAIEnhancing = false);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('AI Enhancement applied'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF8B5CF6), Color(0xFFA855F7)],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_isAIEnhancing)
+                          const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        else
+                          const Icon(Icons.auto_fix_high, size: 14, color: Colors.white),
+                        const SizedBox(width: 6),
+                        Text(
+                          _isAIEnhancing ? 'Analyzing...' : 'AI Enhance',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
