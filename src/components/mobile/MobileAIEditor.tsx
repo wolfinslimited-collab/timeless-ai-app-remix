@@ -59,7 +59,10 @@ import {
   Check,
   Eraser,
   RotateCw,
-  FlipHorizontal
+  FlipHorizontal,
+  Mic,
+  Square,
+  FolderOpen
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -336,6 +339,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   
   // Audio menu mode state - activated by clicking "Audio" tool
   const [isAudioMenuMode, setIsAudioMenuMode] = useState(false);
+  
+  // Audio recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [showRecordingOverlay, setShowRecordingOverlay] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const recordingIntervalRef = useRef<number | null>(null);
   
   // Edit menu mode state - activated by clicking "Edit" tool
   const [isEditMenuMode, setIsEditMenuMode] = useState(false);
@@ -988,6 +999,123 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       fadeIn: editingAudioFadeIn, 
       fadeOut: editingAudioFadeOut 
     });
+    toast({ title: "Fade applied" });
+  };
+
+  // Start recording audio from microphone
+  const startAudioRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100,
+        } 
+      });
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      });
+      
+      recordingChunksRef.current = [];
+      mediaRecorderRef.current = mediaRecorder;
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          recordingChunksRef.current.push(e.data);
+        }
+      };
+      
+      mediaRecorder.onstop = async () => {
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+        
+        if (recordingChunksRef.current.length > 0) {
+          const mimeType = mediaRecorder.mimeType;
+          const audioBlob = new Blob(recordingChunksRef.current, { type: mimeType });
+          const audioUrl = URL.createObjectURL(audioBlob);
+          
+          // Create audio element to get duration
+          const audioElement = new Audio(audioUrl);
+          
+          // Generate waveform placeholder
+          const waveformData = Array.from({ length: 100 }, (_, i) => 
+            0.3 + 0.5 * Math.abs(Math.sin(i * 0.2) * Math.sin(i * 0.05))
+          );
+          
+          audioElement.addEventListener('loadedmetadata', () => {
+            saveStateToHistory();
+            const recordingName = `Recording ${new Date().toLocaleTimeString()}`;
+            const audioDuration = audioElement.duration;
+            const videoDuration = duration || 10;
+            
+            const newAudio: AudioLayer = {
+              id: Date.now().toString(),
+              name: recordingName,
+              fileUrl: audioUrl,
+              volume: 1.0,
+              startTime: currentTime, // Start at playhead position
+              endTime: Math.min(currentTime + audioDuration, videoDuration),
+              fadeIn: 0,
+              fadeOut: 0,
+              waveformData,
+            };
+            
+            setAudioLayers(prev => [...prev, newAudio]);
+            setSelectedAudioId(newAudio.id);
+            audioRefs.current.set(newAudio.id, audioElement);
+            toast({ title: `"${recordingName}" added to timeline` });
+          });
+        }
+        
+        setShowRecordingOverlay(false);
+        setRecordingDuration(0);
+        if (recordingIntervalRef.current) {
+          clearInterval(recordingIntervalRef.current);
+          recordingIntervalRef.current = null;
+        }
+      };
+      
+      // Start recording
+      mediaRecorder.start(100); // Capture in 100ms chunks
+      setIsRecording(true);
+      setShowRecordingOverlay(true);
+      setIsAudioMenuMode(false);
+      setRecordingDuration(0);
+      
+      // Start timer
+      const startTime = Date.now();
+      recordingIntervalRef.current = window.setInterval(() => {
+        setRecordingDuration(Math.floor((Date.now() - startTime) / 1000));
+      }, 1000);
+      
+    } catch (err) {
+      console.error('Error accessing microphone:', err);
+      toast({ 
+        title: "Microphone access denied",
+        description: "Please allow microphone access to record audio",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  // Stop recording audio
+  const stopAudioRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+  };
+  
+  // Format recording duration
+  const formatRecordingTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
     toast({ title: "Fade applied" });
   };
 
@@ -6413,9 +6541,33 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 {/* Horizontal Scrollable Audio Tools */}
                 <div className="flex-1 flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
                   <div className="flex gap-2 min-w-max">
-                    {/* Music - File Picker */}
+                    {/* Upload - File Picker for audio files */}
                     <button
                       onClick={() => audioInputRef.current?.click()}
+                      className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
+                    >
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-primary/20 border border-primary/30">
+                        <FolderOpen className="w-5 h-5 text-primary" />
+                      </div>
+                      <span className="text-[10px] font-medium text-foreground/60">
+                        Upload
+                      </span>
+                    </button>
+                    {/* Record - Voice recording */}
+                    <button
+                      onClick={startAudioRecording}
+                      className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
+                    >
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-destructive/20 border border-destructive/30">
+                        <Mic className="w-5 h-5 text-destructive" />
+                      </div>
+                      <span className="text-[10px] font-medium text-foreground/60">
+                        Record
+                      </span>
+                    </button>
+                    {/* Music - Music library */}
+                    <button
+                      onClick={() => toast({ title: "Music library coming soon" })}
                       className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
                     >
                       <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-emerald-500/20 border border-emerald-500/30">
@@ -6435,18 +6587,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       </div>
                       <span className="text-[10px] font-medium text-foreground/60">
                         Sound FX
-                      </span>
-                    </button>
-                    {/* Record */}
-                    <button
-                      onClick={() => toast({ title: "Voiceover recording coming soon" })}
-                      className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
-                    >
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-destructive/20 border border-destructive/30">
-                        <Circle className="w-5 h-5 text-destructive" />
-                      </div>
-                      <span className="text-[10px] font-medium text-foreground/60">
-                        Record
                       </span>
                     </button>
                     {/* Other tools */}
@@ -6480,6 +6620,51 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   onChange={handleAudioImport}
                   className="hidden"
                 />
+              </div>
+            )}
+            
+            {/* Audio Recording Overlay */}
+            {showRecordingOverlay && (
+              <div className="absolute inset-0 bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center z-50 animate-in fade-in duration-200">
+                {/* Recording animation */}
+                <div className="relative mb-8">
+                  {/* Pulsing rings */}
+                  <div className="absolute inset-0 -m-4 rounded-full bg-destructive/20 animate-ping" />
+                  <div className="absolute inset-0 -m-8 rounded-full bg-destructive/10 animate-pulse" style={{ animationDelay: '0.5s' }} />
+                  
+                  {/* Center mic button */}
+                  <button
+                    onClick={stopAudioRecording}
+                    className="relative w-24 h-24 rounded-full bg-destructive flex items-center justify-center shadow-lg hover:bg-destructive/90 transition-colors"
+                  >
+                    {isRecording ? (
+                      <Square className="w-10 h-10 text-white fill-white" />
+                    ) : (
+                      <Mic className="w-10 h-10 text-white" />
+                    )}
+                  </button>
+                </div>
+                
+                {/* Timer */}
+                <div className="text-3xl font-mono font-bold text-foreground mb-3">
+                  {formatRecordingTime(recordingDuration)}
+                </div>
+                
+                {/* Status text */}
+                <p className="text-muted-foreground text-sm mb-6">
+                  {isRecording ? 'Recording... Tap to stop' : 'Tap to start recording'}
+                </p>
+                
+                {/* Cancel button */}
+                <button
+                  onClick={() => {
+                    stopAudioRecording();
+                    recordingChunksRef.current = []; // Discard recording
+                  }}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
               </div>
             )}
             

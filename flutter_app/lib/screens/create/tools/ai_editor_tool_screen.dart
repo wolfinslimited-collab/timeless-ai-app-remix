@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'dart:typed_data';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -9,6 +10,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:record/record.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../core/theme.dart';
 import 'widgets/text_edit_panel.dart';
 
@@ -718,6 +721,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Audio menu mode state - activated by clicking "Audio" tool
   bool _isAudioMenuMode = false;
   
+  // Audio recording state
+  bool _isRecording = false;
+  bool _showRecordingOverlay = false;
+  int _recordingDuration = 0;
+  DateTime? _recordingStartTime;
+  String? _recordedFilePath;
+  
   // Edit menu mode state - activated by clicking "Edit" tool
   bool _isEditMenuMode = false;
   
@@ -1197,6 +1207,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     for (final overlay in _videoOverlays) {
       overlay.dispose();
     }
+    // Dispose audio recorder
+    _recordingTimer?.cancel();
+    _audioRecorder.dispose();
     super.dispose();
   }
 
@@ -1282,6 +1295,168 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     } finally {
       setState(() => _isImportingAudio = false);
     }
+  }
+  
+  // Audio recorder instance
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  Timer? _recordingTimer;
+  
+  /// Start recording audio from microphone
+  Future<void> _startAudioRecording() async {
+    try {
+      // Request microphone permission
+      final status = await Permission.microphone.request();
+      if (status != PermissionStatus.granted) {
+        _showSnackBar('Microphone permission denied');
+        return;
+      }
+      
+      // Check if we can record
+      if (!await _audioRecorder.hasPermission()) {
+        _showSnackBar('Microphone permission required');
+        return;
+      }
+      
+      // Get temp directory for recording
+      final tempDir = await getTemporaryDirectory();
+      final filePath = '${tempDir.path}/recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      
+      // Configure and start recording
+      await _audioRecorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.aacLc,
+          sampleRate: 44100,
+          bitRate: 128000,
+        ),
+        path: filePath,
+      );
+      
+      setState(() {
+        _isRecording = true;
+        _showRecordingOverlay = true;
+        _recordingStartTime = DateTime.now();
+        _recordingDuration = 0;
+        _recordedFilePath = filePath;
+        _isAudioMenuMode = false;
+      });
+      
+      // Start timer to update duration
+      _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (_recordingStartTime != null) {
+          setState(() {
+            _recordingDuration = DateTime.now().difference(_recordingStartTime!).inSeconds;
+          });
+        }
+      });
+      
+    } catch (e) {
+      debugPrint('Error starting recording: $e');
+      _showSnackBar('Failed to start recording');
+    }
+  }
+  
+  /// Stop recording audio
+  Future<void> _stopAudioRecording() async {
+    try {
+      _recordingTimer?.cancel();
+      _recordingTimer = null;
+      
+      final path = await _audioRecorder.stop();
+      
+      if (path != null && _recordedFilePath != null) {
+        // Create audio player to get duration
+        final player = AudioPlayer();
+        await player.setSourceDeviceFile(path);
+        
+        Duration? audioDuration;
+        try {
+          audioDuration = await player.getDuration();
+        } catch (e) {
+          debugPrint('Could not get audio duration: $e');
+        }
+        
+        final videoDuration = _videoController?.value.duration.inSeconds.toDouble() ?? 30.0;
+        final audioSeconds = audioDuration?.inSeconds.toDouble() ?? _recordingDuration.toDouble();
+        final currentPlayhead = _currentPosition;
+        
+        // Generate waveform data from recording
+        final waveformData = _generateWaveformFromSeed(path.hashCode, 100);
+        
+        final recordingName = 'Recording ${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}';
+        
+        _saveStateToHistory();
+        
+        final newAudio = AudioLayer(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          name: recordingName,
+          filePath: path,
+          startTime: currentPlayhead, // Start at playhead position
+          endTime: math.min(currentPlayhead + audioSeconds, videoDuration),
+          player: player,
+          duration: audioDuration,
+          waveformData: waveformData,
+        );
+        
+        setState(() {
+          _audioLayers.add(newAudio);
+          _selectedAudioId = newAudio.id;
+          _isRecording = false;
+          _showRecordingOverlay = false;
+          _recordingDuration = 0;
+          _recordingStartTime = null;
+        });
+        
+        _showSnackBar('"$recordingName" added to timeline');
+      } else {
+        setState(() {
+          _isRecording = false;
+          _showRecordingOverlay = false;
+          _recordingDuration = 0;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error stopping recording: $e');
+      _showSnackBar('Failed to save recording');
+      setState(() {
+        _isRecording = false;
+        _showRecordingOverlay = false;
+        _recordingDuration = 0;
+      });
+    }
+  }
+  
+  /// Cancel recording without saving
+  Future<void> _cancelAudioRecording() async {
+    _recordingTimer?.cancel();
+    _recordingTimer = null;
+    
+    try {
+      await _audioRecorder.stop();
+      // Delete the temp file
+      if (_recordedFilePath != null) {
+        final file = File(_recordedFilePath!);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error cancelling recording: $e');
+    }
+    
+    setState(() {
+      _isRecording = false;
+      _showRecordingOverlay = false;
+      _recordingDuration = 0;
+      _recordingStartTime = null;
+      _recordedFilePath = null;
+    });
+  }
+  
+  /// Format recording duration as MM:SS
+  String _formatRecordingTime(int seconds) {
+    final mins = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '$mins:${secs.toString().padLeft(2, '0')}';
   }
   
   // ============================================
@@ -6847,6 +7022,105 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               ),
             ),
           
+          // Audio Recording Overlay
+          if (_showRecordingOverlay)
+            Positioned.fill(
+              child: Material(
+                color: const Color(0xFF0A0A0A).withOpacity(0.95),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Animated recording indicator
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Outer pulsing ring
+                        TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 1.0, end: 1.3),
+                          duration: const Duration(milliseconds: 1000),
+                          builder: (context, value, child) {
+                            return Container(
+                              width: 120 * value,
+                              height: 120 * value,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.red.withOpacity(0.1 / value),
+                              ),
+                            );
+                          },
+                          onEnd: () {}, // Loops via rebuild
+                        ),
+                        // Inner pulsing ring
+                        Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.red.withOpacity(0.15),
+                          ),
+                        ),
+                        // Stop button
+                        GestureDetector(
+                          onTap: _stopAudioRecording,
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.red,
+                            ),
+                            child: Icon(
+                              _isRecording ? Icons.stop : Icons.mic,
+                              size: 36,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // Timer display
+                    Text(
+                      _formatRecordingTime(_recordingDuration),
+                      style: const TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'monospace',
+                        color: Colors.white,
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 12),
+                    
+                    // Status text
+                    Text(
+                      _isRecording ? 'Recording... Tap to stop' : 'Tap to start recording',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.6),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // Cancel button
+                    TextButton(
+                      onPressed: _cancelAudioRecording,
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          
           if (_isEffectsMenuMode)
             Positioned(
               left: 0,
@@ -7357,9 +7631,65 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
-                // Music - File Picker (green themed)
+                // Upload - File Picker for audio files (primary themed)
                 GestureDetector(
                   onTap: () => _importAudioFile(),
+                  child: Container(
+                    width: 64,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppTheme.primary.withOpacity(0.3)),
+                          ),
+                          child: Icon(Icons.folder_open, size: 20, color: AppTheme.primary),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Upload',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.6)),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Record - Voice recording (red themed)
+                GestureDetector(
+                  onTap: () => _startAudioRecording(),
+                  child: Container(
+                    width: 64,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.red.withOpacity(0.3)),
+                          ),
+                          child: const Icon(Icons.mic, size: 20, color: Colors.red),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Record',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.6)),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Music - Music library (green themed)
+                GestureDetector(
+                  onTap: () => _showSnackBar('Music library coming soon'),
                   child: Container(
                     width: 64,
                     child: Column(
@@ -7387,34 +7717,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 ),
                 // Sound FX
                 _buildMenuToolButton('Sound FX', Icons.auto_awesome, () => _showSnackBar('Sound FX library coming soon')),
-                // Record (red themed)
-                GestureDetector(
-                  onTap: () => _showSnackBar('Voiceover recording coming soon'),
-                  child: Container(
-                    width: 64,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.red.withOpacity(0.3)),
-                          ),
-                          child: const Icon(Icons.circle, size: 20, color: Colors.red),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Record',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.6)),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
                 _buildMenuToolButton('Extract', Icons.waves_outlined, () => _showSnackBar('Extract coming soon')),
                 _buildMenuToolButton('Text to audio', Icons.record_voice_over_outlined, () => _showSnackBar('Text to audio coming soon')),
               ],
