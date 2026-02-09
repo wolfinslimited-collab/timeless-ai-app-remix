@@ -244,7 +244,21 @@ interface EffectLayerData {
   intensity: number;
   startTime: number;
   endTime: number;
+  filterCSS?: string;
+  adjustments?: Partial<typeof defaultAdjustments>;
 }
+
+const defaultAdjustments = {
+  brightness: 0,
+  contrast: 0,
+  saturation: 0,
+  exposure: 0,
+  sharpen: 0,
+  highlight: 0,
+  shadow: 0,
+  temp: 0,
+  hue: 0,
+};
 
 // Video overlay layer for Picture-in-Picture functionality
 interface VideoOverlayData {
@@ -1615,21 +1629,53 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     toast({ title: "Reset", description: "All adjustments reset to default" });
   };
 
-  // Build CSS filter string from adjustment values
+  // Build CSS filter string from adjustment values + active AI effects
   const buildVideoFilter = () => {
-    const brightness = 1 + adjustments.brightness * 0.5;
-    const contrast = 1 + adjustments.contrast;
-    const saturation = 1 + adjustments.saturation;
-    const exposure = 1 + adjustments.exposure * 0.5;
-    const hueRotate = adjustments.hue * 180; // -180 to 180 degrees
+    // Start with base adjustments
+    let adj = { ...adjustments };
     
-    // Combine brightness and exposure
+    // Composite active AI effect adjustments for current time
+    const activeEffects = effectLayers.filter(e => 
+      e.effectId === 'ai-generated' && 
+      e.adjustments && 
+      currentTime >= e.startTime && currentTime <= e.endTime
+    );
+    
+    activeEffects.forEach(effect => {
+      const ea = effect.adjustments!;
+      const intensity = effect.intensity;
+      if (ea.brightness !== undefined) adj.brightness = adj.brightness + ea.brightness * intensity;
+      if (ea.contrast !== undefined) adj.contrast = adj.contrast + ea.contrast * intensity;
+      if (ea.saturation !== undefined) adj.saturation = adj.saturation + ea.saturation * intensity;
+      if (ea.hue !== undefined) adj.hue = adj.hue + ea.hue * intensity;
+      if (ea.exposure !== undefined) adj.exposure = adj.exposure + ea.exposure * intensity;
+      if (ea.temp !== undefined) adj.temp = adj.temp + ea.temp * intensity;
+      if (ea.sharpen !== undefined) adj.sharpen = adj.sharpen + ea.sharpen * intensity;
+      if (ea.shadow !== undefined) adj.shadow = adj.shadow + ea.shadow * intensity;
+      if (ea.highlight !== undefined) adj.highlight = adj.highlight + ea.highlight * intensity;
+    });
+
+    const brightness = 1 + adj.brightness * 0.5;
+    const contrast = 1 + adj.contrast;
+    const saturation = 1 + adj.saturation;
+    const exposure = 1 + adj.exposure * 0.5;
+    const hueRotate = adj.hue * 180;
     const combinedBrightness = brightness * exposure;
+    const sepia = adj.temp > 0 ? adj.temp * 0.3 : 0;
     
-    // Temperature affects sepia for warmth
-    const sepia = adjustments.temp > 0 ? adjustments.temp * 0.3 : 0;
+    let filter = `brightness(${combinedBrightness}) contrast(${contrast}) saturate(${saturation}) hue-rotate(${hueRotate}deg) sepia(${sepia})`;
     
-    return `brightness(${combinedBrightness}) contrast(${contrast}) saturate(${saturation}) hue-rotate(${hueRotate}deg) sepia(${sepia})`;
+    // Append any raw filterCSS from active AI effects
+    const activeFilterCSS = effectLayers.filter(e => 
+      e.effectId === 'ai-generated' && 
+      e.filterCSS && 
+      currentTime >= e.startTime && currentTime <= e.endTime
+    );
+    activeFilterCSS.forEach(effect => {
+      filter += ` ${effect.filterCSS}`;
+    });
+    
+    return filter;
   };
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -2135,26 +2181,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
       const effect = data.effect;
       
-      // Apply adjustments if provided
-      if (effect.adjustments) {
-        const adj = effect.adjustments;
-        setAdjustments(prev => ({
-          ...prev,
-          brightness: adj.brightness !== undefined ? adj.brightness : prev.brightness,
-          contrast: adj.contrast !== undefined ? adj.contrast : prev.contrast,
-          saturation: adj.saturation !== undefined ? adj.saturation : prev.saturation,
-          hue: adj.hue !== undefined ? adj.hue : prev.hue,
-          exposure: adj.exposure !== undefined ? adj.exposure : prev.exposure,
-          temp: adj.temp !== undefined ? adj.temp : prev.temp,
-          sharpen: adj.sharpen !== undefined ? adj.sharpen : prev.sharpen,
-          shadow: adj.shadow !== undefined ? adj.shadow : prev.shadow,
-          highlight: adj.highlight !== undefined ? adj.highlight : prev.highlight,
-        }));
-      }
-
-      // Add as AI Generated Effect layer on the timeline
+      // Store AI adjustments and filterCSS on the effect layer (NOT globally)
       saveStateToHistory();
-      const newEffect = {
+      const newEffect: EffectLayerData = {
         id: `ai-effect-${Date.now()}`,
         effectId: 'ai-generated',
         name: effect.effectName || 'AI Generated Effect',
@@ -2162,6 +2191,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         intensity: effect.intensity || 0.7,
         startTime: currentTime,
         endTime: Math.min(currentTime + 5, duration || 10),
+        filterCSS: effect.filterCSS || undefined,
+        adjustments: effect.adjustments || undefined,
       };
       setEffectLayers(prev => [...prev, newEffect]);
       setSelectedEffectId(newEffect.id);
