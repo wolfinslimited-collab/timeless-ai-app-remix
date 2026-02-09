@@ -24,13 +24,14 @@ class ProjectManagerScreen extends StatefulWidget {
 class _ProjectManagerScreenState extends State<ProjectManagerScreen> {
   List<EditorProject> _projects = [];
   bool _isLoading = true;
+  bool _isAuthenticated = false;
   String? _renameProjectId;
   final TextEditingController _renameController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _loadProjects();
+    _checkAuthAndLoadProjects();
   }
 
   @override
@@ -39,7 +40,29 @@ class _ProjectManagerScreenState extends State<ProjectManagerScreen> {
     super.dispose();
   }
 
+  Future<void> _checkAuthAndLoadProjects() async {
+    setState(() => _isLoading = true);
+    try {
+      _isAuthenticated = ProjectStorage.isAuthenticated;
+      
+      if (_isAuthenticated) {
+        final projects = await ProjectStorage.getAllProjects();
+        setState(() {
+          _projects = projects;
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showSnackBar('Failed to load projects');
+    }
+  }
+
   Future<void> _loadProjects() async {
+    if (!_isAuthenticated) return;
+    
     setState(() => _isLoading = true);
     try {
       final projects = await ProjectStorage.getAllProjects();
@@ -60,6 +83,11 @@ class _ProjectManagerScreenState extends State<ProjectManagerScreen> {
   }
 
   Future<void> _handleNewProject() async {
+    if (!_isAuthenticated) {
+      _showSnackBar('Please sign in to create projects');
+      return;
+    }
+    
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.video,
@@ -72,9 +100,14 @@ class _ProjectManagerScreenState extends State<ProjectManagerScreen> {
 
         if (filePath != null) {
           final videoFile = File(filePath);
-          final newProject = EditorProject.createNew();
+          final newProject = await ProjectStorage.createNewProject();
+          
+          if (newProject == null) {
+            _showSnackBar('Failed to create project');
+            return;
+          }
+          
           newProject.videoUrl = filePath;
-
           await ProjectStorage.saveProject(newProject);
           widget.onNewProject(newProject, videoFile);
         }
@@ -451,7 +484,7 @@ class _ProjectManagerScreenState extends State<ProjectManagerScreen> {
 
                     const SizedBox(height: 12),
 
-                    // Projects Grid or Empty State
+                    // Projects Grid or Empty State or Auth Required
                     if (_isLoading)
                       const Center(
                         child: Padding(
@@ -461,6 +494,8 @@ class _ProjectManagerScreenState extends State<ProjectManagerScreen> {
                           ),
                         ),
                       )
+                    else if (!_isAuthenticated)
+                      _buildAuthRequiredState()
                     else if (_projects.isEmpty)
                       _buildEmptyState()
                     else
@@ -471,6 +506,64 @@ class _ProjectManagerScreenState extends State<ProjectManagerScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAuthRequiredState() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      width: double.infinity,
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              Icons.login,
+              color: Colors.white.withOpacity(0.4),
+              size: 32,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Sign in required',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Sign in to save and sync your projects',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.5),
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () {
+              // Navigate to login - you may need to adjust this based on your routing
+              Navigator.of(context).pushNamed('/login');
+            },
+            icon: const Icon(Icons.login, size: 18),
+            label: const Text('Sign In'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

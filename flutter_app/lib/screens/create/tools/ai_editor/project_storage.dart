@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// Save status for UI feedback
+enum SaveStatus { idle, saving, saved, error }
 
 /// Editor Project model for AI Editor
 class EditorProject {
@@ -177,77 +181,159 @@ class SavedVideoClip {
 
 /// Project Storage Service
 class ProjectStorage {
-  static const String _storageKey = 'ai_editor_projects';
+  static final _supabase = Supabase.instance.client;
+  static const String _tableName = 'ai_editor_projects';
+  static const String _localStorageKey = 'ai_editor_projects';
   
+  // Track save status for UI
+  static SaveStatus _currentStatus = SaveStatus.idle;
+  static final ValueNotifier<SaveStatus> saveStatusNotifier = ValueNotifier(SaveStatus.idle);
+  
+  /// Check if user is authenticated
+  static bool get isAuthenticated => _supabase.auth.currentUser != null;
+  
+  /// Get current user ID
+  static String? get currentUserId => _supabase.auth.currentUser?.id;
+  
+  /// Get all projects from Supabase
   static Future<List<EditorProject>> getAllProjects() async {
+    if (!isAuthenticated) {
+      debugPrint('User not authenticated, returning empty list');
+      return [];
+    }
+    
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final data = prefs.getString(_storageKey);
-      if (data == null) return [];
+      final response = await _supabase
+          .from(_tableName)
+          .select()
+          .eq('user_id', currentUserId!)
+          .order('updated_at', ascending: false);
       
-      final List<dynamic> jsonList = json.decode(data);
-      final projects = jsonList
-          .map((p) => EditorProject.fromJson(p as Map<String, dynamic>))
-          .toList();
+      final projects = (response as List).map((data) {
+        final editorState = data['editor_state'] as Map<String, dynamic>? ?? {};
+        return EditorProject.fromJson({
+          ...editorState,
+          'id': data['id'],
+          'title': data['title'],
+          'thumbnail': data['thumbnail'],
+          'createdAt': data['created_at'],
+          'updatedAt': data['updated_at'],
+        });
+      }).toList();
       
-      // Sort by updatedAt descending
-      projects.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       return projects;
     } catch (e) {
-      debugPrint('Error loading projects: $e');
+      debugPrint('Error loading projects from Supabase: $e');
       return [];
     }
   }
 
+  /// Get a single project by ID
   static Future<EditorProject?> getProject(String id) async {
-    final projects = await getAllProjects();
-    return projects.where((p) => p.id == id).firstOrNull;
+    if (!isAuthenticated) return null;
+    
+    try {
+      final response = await _supabase
+          .from(_tableName)
+          .select()
+          .eq('id', id)
+          .maybeSingle();
+      
+      if (response == null) return null;
+      
+      final editorState = response['editor_state'] as Map<String, dynamic>? ?? {};
+      return EditorProject.fromJson({
+        ...editorState,
+        'id': response['id'],
+        'title': response['title'],
+        'thumbnail': response['thumbnail'],
+        'createdAt': response['created_at'],
+        'updatedAt': response['updated_at'],
+      });
+    } catch (e) {
+      debugPrint('Error getting project: $e');
+      return null;
+    }
   }
 
-  static Future<void> saveProject(EditorProject project) async {
+  /// Save project to Supabase
+  static Future<bool> saveProject(
+    EditorProject project, {
+    void Function(SaveStatus)? onStatusChange,
+  }) async {
+    if (!isAuthenticated) {
+      debugPrint('User not authenticated, cannot save');
+      onStatusChange?.call(SaveStatus.error);
+      return false;
+    }
+    
+    _currentStatus = SaveStatus.saving;
+    saveStatusNotifier.value = SaveStatus.saving;
+    onStatusChange?.call(SaveStatus.saving);
+    
     try {
       project.updatedAt = DateTime.now();
-      final projects = await getAllProjects();
-      final index = projects.indexWhere((p) => p.id == project.id);
       
-      if (index >= 0) {
-        projects[index] = project;
-      } else {
-        projects.add(project);
-      }
+      final editorState = {
+        'videoUrl': project.videoUrl,
+        'videoDuration': project.videoDuration,
+        'videoWidth': project.videoWidth,
+        'videoHeight': project.videoHeight,
+        'videoClips': project.videoClips.map((c) => c.toJson()).toList(),
+        'adjustments': project.adjustments,
+        'selectedAspectRatio': project.selectedAspectRatio,
+        'backgroundColor': project.backgroundColor,
+        'backgroundBlur': project.backgroundBlur,
+        'backgroundImage': project.backgroundImage,
+        'videoPositionX': project.videoPositionX,
+        'videoPositionY': project.videoPositionY,
+      };
       
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _storageKey,
-        json.encode(projects.map((p) => p.toJson()).toList()),
-      );
+      await _supabase.from(_tableName).upsert({
+        'id': project.id,
+        'user_id': currentUserId,
+        'title': project.title,
+        'thumbnail': project.thumbnail,
+        'editor_state': editorState,
+      });
+      
+      _currentStatus = SaveStatus.saved;
+      saveStatusNotifier.value = SaveStatus.saved;
+      onStatusChange?.call(SaveStatus.saved);
+      return true;
     } catch (e) {
       debugPrint('Error saving project: $e');
+      _currentStatus = SaveStatus.error;
+      saveStatusNotifier.value = SaveStatus.error;
+      onStatusChange?.call(SaveStatus.error);
+      return false;
     }
   }
 
-  static Future<void> deleteProject(String id) async {
+  /// Delete project from Supabase
+  static Future<bool> deleteProject(String id) async {
+    if (!isAuthenticated) return false;
+    
     try {
-      final projects = await getAllProjects();
-      projects.removeWhere((p) => p.id == id);
-      
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _storageKey,
-        json.encode(projects.map((p) => p.toJson()).toList()),
-      );
+      await _supabase.from(_tableName).delete().eq('id', id);
+      return true;
     } catch (e) {
       debugPrint('Error deleting project: $e');
+      return false;
     }
   }
 
+  /// Duplicate a project
   static Future<EditorProject?> duplicateProject(String id) async {
+    if (!isAuthenticated) return null;
+    
     try {
       final original = await getProject(id);
       if (original == null) return null;
       
+      final newId = DateTime.now().millisecondsSinceEpoch.toString();
       final duplicate = EditorProject(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: newId,
         title: '${original.title} (Copy)',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
@@ -266,23 +352,65 @@ class ProjectStorage {
         videoPositionY: original.videoPositionY,
       );
       
-      await saveProject(duplicate);
-      return duplicate;
+      final success = await saveProject(duplicate);
+      return success ? duplicate : null;
     } catch (e) {
       debugPrint('Error duplicating project: $e');
       return null;
     }
   }
 
-  static Future<void> renameProject(String id, String newTitle) async {
+  /// Rename a project
+  static Future<bool> renameProject(String id, String newTitle) async {
+    if (!isAuthenticated) return false;
+    
     try {
-      final project = await getProject(id);
-      if (project != null) {
-        project.title = newTitle;
-        await saveProject(project);
-      }
+      await _supabase
+          .from(_tableName)
+          .update({'title': newTitle})
+          .eq('id', id);
+      return true;
     } catch (e) {
       debugPrint('Error renaming project: $e');
+      return false;
+    }
+  }
+
+  /// Create a new project in Supabase
+  static Future<EditorProject?> createNewProject() async {
+    if (!isAuthenticated) return null;
+    
+    try {
+      final now = DateTime.now();
+      final newProject = EditorProject.createNew();
+      
+      final editorState = {
+        'videoUrl': newProject.videoUrl,
+        'videoDuration': newProject.videoDuration,
+        'videoWidth': newProject.videoWidth,
+        'videoHeight': newProject.videoHeight,
+        'videoClips': <Map<String, dynamic>>[],
+        'adjustments': newProject.adjustments,
+        'selectedAspectRatio': newProject.selectedAspectRatio,
+        'backgroundColor': newProject.backgroundColor,
+        'backgroundBlur': newProject.backgroundBlur,
+        'backgroundImage': newProject.backgroundImage,
+        'videoPositionX': newProject.videoPositionX,
+        'videoPositionY': newProject.videoPositionY,
+      };
+      
+      await _supabase.from(_tableName).insert({
+        'id': newProject.id,
+        'user_id': currentUserId,
+        'title': newProject.title,
+        'thumbnail': null,
+        'editor_state': editorState,
+      });
+      
+      return newProject;
+    } catch (e) {
+      debugPrint('Error creating project: $e');
+      return null;
     }
   }
 }

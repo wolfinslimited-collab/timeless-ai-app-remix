@@ -10,7 +10,8 @@ import {
   Trash2,
   FolderOpen,
   Clock,
-  Sparkles
+  Sparkles,
+  LogIn
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -31,14 +32,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { EditorProject } from './types';
 import { 
-  getAllProjects, 
-  deleteProject, 
-  duplicateProject, 
-  renameProject, 
-  createNewProject,
-  saveProject,
-  generateThumbnail
-} from './projectStorage';
+  getAllProjectsFromSupabase,
+  deleteProjectFromSupabase,
+  duplicateProjectFromSupabase,
+  renameProjectInSupabase,
+  createNewProjectInSupabase,
+  saveProjectToSupabase,
+  generateThumbnail,
+  isUserAuthenticated
+} from './supabaseProjectStorage';
 
 interface ProjectManagerProps {
   onBack: () => void;
@@ -49,6 +51,7 @@ interface ProjectManagerProps {
 export function ProjectManager({ onBack, onOpenProject, onNewProject }: ProjectManagerProps) {
   const [projects, setProjects] = useState<EditorProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameProjectId, setRenameProjectId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -57,13 +60,33 @@ export function ProjectManager({ onBack, onOpenProject, onNewProject }: ProjectM
   const { toast } = useToast();
 
   useEffect(() => {
-    loadProjects();
+    checkAuthAndLoadProjects();
   }, []);
 
-  const loadProjects = async () => {
+  const checkAuthAndLoadProjects = async () => {
     setIsLoading(true);
     try {
-      const allProjects = await getAllProjects();
+      const authenticated = await isUserAuthenticated();
+      setIsAuthenticated(authenticated);
+      
+      if (authenticated) {
+        const allProjects = await getAllProjectsFromSupabase();
+        setProjects(allProjects);
+      }
+    } catch (error) {
+      console.error('Failed to load projects:', error);
+      toast({ title: 'Failed to load projects', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadProjects = async () => {
+    if (!isAuthenticated) return;
+    
+    setIsLoading(true);
+    try {
+      const allProjects = await getAllProjectsFromSupabase();
       setProjects(allProjects);
     } catch (error) {
       console.error('Failed to load projects:', error);
@@ -73,14 +96,24 @@ export function ProjectManager({ onBack, onOpenProject, onNewProject }: ProjectM
     }
   };
 
-  const handleNewProject = () => {
+  const handleNewProject = async () => {
+    if (!isAuthenticated) {
+      toast({ title: 'Please sign in to create projects', variant: 'destructive' });
+      return;
+    }
+
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'video/*';
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
-        const newProject = createNewProject();
+        const newProject = await createNewProjectInSupabase();
+        if (!newProject) {
+          toast({ title: 'Failed to create project', variant: 'destructive' });
+          return;
+        }
+        
         const localUrl = URL.createObjectURL(file);
         newProject.videoUrl = localUrl;
         
@@ -90,7 +123,7 @@ export function ProjectManager({ onBack, onOpenProject, onNewProject }: ProjectM
           newProject.thumbnail = thumbnail;
         }
         
-        await saveProject(newProject);
+        await saveProjectToSupabase(newProject);
         onNewProject(newProject, file);
       }
     };
@@ -105,7 +138,7 @@ export function ProjectManager({ onBack, onOpenProject, onNewProject }: ProjectM
     if (!renameProjectId || !renameValue.trim()) return;
     
     try {
-      await renameProject(renameProjectId, renameValue.trim());
+      await renameProjectInSupabase(renameProjectId, renameValue.trim());
       await loadProjects();
       toast({ title: 'Project renamed' });
     } catch (error) {
@@ -119,7 +152,7 @@ export function ProjectManager({ onBack, onOpenProject, onNewProject }: ProjectM
 
   const handleDuplicate = async (id: string) => {
     try {
-      await duplicateProject(id);
+      await duplicateProjectFromSupabase(id);
       await loadProjects();
       toast({ title: 'Project duplicated' });
     } catch (error) {
@@ -131,7 +164,7 @@ export function ProjectManager({ onBack, onOpenProject, onNewProject }: ProjectM
     if (!deleteProjectId) return;
     
     try {
-      await deleteProject(deleteProjectId);
+      await deleteProjectFromSupabase(deleteProjectId);
       await loadProjects();
       toast({ title: 'Project deleted' });
     } catch (error) {
@@ -206,6 +239,22 @@ export function ProjectManager({ onBack, onOpenProject, onNewProject }: ProjectM
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            </div>
+          ) : !isAuthenticated ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-muted/30 flex items-center justify-center mb-4">
+                <LogIn className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <p className="text-foreground font-medium mb-1">Sign in required</p>
+              <p className="text-muted-foreground text-sm mb-4">Sign in to save and sync your projects</p>
+              <Button 
+                variant="outline" 
+                onClick={() => window.location.href = '/login'}
+                className="gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                Sign In
+              </Button>
             </div>
           ) : projects.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
