@@ -230,6 +230,7 @@ class VideoClip {
   ClipAnimation? animationIn; // Entry animation
   ClipAnimation? animationOut; // Exit animation
   bool aiEnhanced; // Whether AI auto-adjustments have been applied
+  bool hqUpscaled; // Whether AI HQ upscale has been applied
   
   VideoClip({
     required this.id,
@@ -244,6 +245,7 @@ class VideoClip {
     this.animationIn,
     this.animationOut,
     this.aiEnhanced = false,
+    this.hqUpscaled = false,
   }) : inPoint = inPoint ?? 0,
        outPoint = outPoint ?? duration;
   
@@ -864,6 +866,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   final TextEditingController _aiEditPromptController = TextEditingController();
   static const int _aiEditCreditCost = 5;
   
+  // AI Upscale state
+  bool _isAiUpscaleOpen = false;
+  bool _isAiUpscaleProcessing = false;
+  double _aiUpscaleProgress = 0;
+  String _aiUpscaleResolution = '1080p';
+  static const int _aiUpscaleCreditCost = 12;
+  Timer? _upscaleProgressTimer;
+  
   // Project persistence
   EditorProject? _currentProject;
   bool _autoSavePending = false;
@@ -872,7 +882,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   bool get _isAnyOverlayOpen => 
       _isEditMenuMode || _isAudioMenuMode || _isTextMenuMode || 
       _isEffectsMenuMode || _isOverlayMenuMode || _isCaptionsMenuMode || 
-      _isAspectMenuMode || _isBackgroundMenuMode || _showTextEditPanel || _isDrawMode || _isCropMode || _isAiEditOpen;
+      _isAspectMenuMode || _isBackgroundMenuMode || _showTextEditPanel || _isDrawMode || _isCropMode || _isAiEditOpen || _isAiUpscaleOpen;
   
   // Background color presets
   final List<Color> _backgroundColorPresets = [
@@ -4793,6 +4803,83 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         ),
                       ),
                     
+                    // AI Upscale Processing Overlay
+                    if (_isAiUpscaleProcessing)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black.withOpacity(0.8),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 80,
+                                height: 80,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 80,
+                                      height: 80,
+                                      child: CircularProgressIndicator(
+                                        value: _aiUpscaleProgress / 100,
+                                        strokeWidth: 3,
+                                        backgroundColor: AppTheme.primary.withOpacity(0.2),
+                                        valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                                      ),
+                                    ),
+                                    const Icon(Icons.zoom_in, color: AppTheme.primary, size: 28),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              // Progress bar
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 60),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: _aiUpscaleProgress / 100,
+                                    backgroundColor: Colors.white.withOpacity(0.1),
+                                    valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                                    minHeight: 4,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'High-Quality Enhancement',
+                                style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600, fontSize: 14),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _aiUpscaleProgress < 30 ? 'Analyzing video...' : _aiUpscaleProgress < 60 ? 'Enhancing resolution...' : _aiUpscaleProgress < 90 ? 'Applying Topaz AI...' : 'Finalizing...',
+                                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${_aiUpscaleProgress.round()}%',
+                                style: TextStyle(color: AppTheme.primary.withOpacity(0.8), fontSize: 12, fontFamily: 'monospace'),
+                              ),
+                              const SizedBox(height: 16),
+                              GestureDetector(
+                                onTap: () {
+                                  _upscaleProgressTimer?.cancel();
+                                  setState(() { _isAiUpscaleProcessing = false; _aiUpscaleProgress = 0; });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text('Cancel', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w500)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    
                     // Drag indicator when not original aspect ratio
                     if (_selectedAspectRatio != 'original' && !_isDraggingVideo)
                       Positioned.fill(
@@ -5126,6 +5213,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     final hasAnimationOut = clip.animationOut != null;
     final hasAnyAnimation = hasAnimationIn || hasAnimationOut;
     final hasAIEnhanced = clip.aiEnhanced;
+    final hasHQUpscale = clip.hqUpscaled;
     
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -5429,6 +5517,21 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             ),
             child: const Center(
               child: Icon(Icons.auto_fix_high, size: 8, color: Colors.white),
+            ),
+          ),
+
+        // HQ Upscale badge
+        if (hasHQUpscale)
+          Positioned(
+            top: 2,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: const Text('HQ', style: TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
             ),
           ),
       ],
@@ -6520,6 +6623,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               bottom: 0,
               child: _buildAiEditBottomSheet(),
             ),
+          // AI Upscale Bottom Sheet Overlay
+          if (_isAiUpscaleOpen)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _buildAiUpscaleBottomSheet(),
+            ),
         ],
       );
     }
@@ -6767,6 +6878,269 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       if (mounted) {
         setState(() => _isAiEditProcessing = false);
         _showSnackBar('AI Edit failed: ${e.toString()}');
+      }
+    }
+  }
+
+  /// Build AI Upscale bottom sheet
+  Widget _buildAiUpscaleBottomSheet() {
+    return Material(
+      color: const Color(0xFF0A0A0A),
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(16),
+        topRight: Radius.circular(16),
+      ),
+      child: Container(
+        height: 300,
+        decoration: BoxDecoration(
+          color: const Color(0xFF0A0A0A),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+          ),
+          border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+        ),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  GestureDetector(
+                    onTap: () => setState(() => _isAiUpscaleOpen = false),
+                    child: Container(
+                      width: 32, height: 32,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.keyboard_arrow_down, color: AppTheme.primary, size: 20),
+                    ),
+                  ),
+                  Row(
+                    children: const [
+                      Icon(Icons.zoom_in, color: AppTheme.primary, size: 16),
+                      SizedBox(width: 6),
+                      Text('AI Upscale', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                      SizedBox(width: 4),
+                      Icon(Icons.auto_awesome, color: Color(0xFFFBBF24), size: 12),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.auto_awesome, color: AppTheme.primary, size: 10),
+                        const SizedBox(width: 4),
+                        Text('$_aiUpscaleCreditCost credits', style: const TextStyle(color: AppTheme.primary, fontSize: 10, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Resolution options
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Select target resolution (Topaz AI)', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: ['1080p', '4k'].map((res) {
+                        final selected = _aiUpscaleResolution == res;
+                        return Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _aiUpscaleResolution = res),
+                            child: Container(
+                              margin: EdgeInsets.only(right: res == '1080p' ? 8 : 0, left: res == '4k' ? 8 : 0),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: selected ? AppTheme.primary : Colors.white.withOpacity(0.15)),
+                                borderRadius: BorderRadius.circular(12),
+                                color: selected ? AppTheme.primary.withOpacity(0.1) : Colors.transparent,
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(res.toUpperCase(), style: TextStyle(color: selected ? AppTheme.primary : Colors.white.withOpacity(0.7), fontSize: 14, fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 2),
+                                  Text(res == '1080p' ? '1920×1080' : '3840×2160', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    // Warning
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFBBF24).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFBBF24).withOpacity(0.2)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.schedule, color: const Color(0xFFFBBF24).withOpacity(0.8), size: 14),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'This process may take a few minutes. Your video will be enhanced using the Topaz AI model for maximum quality.',
+                              style: TextStyle(color: const Color(0xFFFBBF24).withOpacity(0.7), fontSize: 10, height: 1.4),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Submit button
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: GestureDetector(
+                onTap: _handleAiUpscaleSubmit,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.zoom_in, color: Colors.white, size: 16),
+                      const SizedBox(width: 6),
+                      Text('Upscale to ${_aiUpscaleResolution.toUpperCase()}', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Handle AI Upscale submission
+  Future<void> _handleAiUpscaleSubmit() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) {
+      _showSnackBar('Please sign in to use AI Upscale');
+      return;
+    }
+
+    final currentClip = _videoClips.firstWhere(
+      (c) => c.id == _editingClipId,
+      orElse: () => _videoClips.isNotEmpty ? _videoClips.first : throw Exception('No clip'),
+    );
+
+    try {
+      // Check credits
+      final profileResponse = await Supabase.instance.client
+          .from('profiles')
+          .select('credits, plan')
+          .eq('user_id', user.id)
+          .single();
+
+      final credits = profileResponse['credits'] as int? ?? 0;
+      final plan = profileResponse['plan'] as String? ?? 'free';
+      final hasSubscription = plan != 'free';
+
+      if (!hasSubscription && credits < _aiUpscaleCreditCost) {
+        if (mounted) {
+          showAddCreditsDialog(
+            context: context,
+            currentCredits: credits,
+            requiredCredits: _aiUpscaleCreditCost,
+          );
+        }
+        return;
+      }
+
+      setState(() {
+        _isAiUpscaleOpen = false;
+        _isAiUpscaleProcessing = true;
+        _aiUpscaleProgress = 0;
+      });
+
+      // Simulate progress
+      _upscaleProgressTimer = Timer.periodic(const Duration(milliseconds: 800), (timer) {
+        if (!mounted || !_isAiUpscaleProcessing) { timer.cancel(); return; }
+        setState(() {
+          if (_aiUpscaleProgress >= 90) { timer.cancel(); return; }
+          _aiUpscaleProgress += (math.Random().nextDouble() * 8);
+        });
+      });
+
+      final session = Supabase.instance.client.auth.currentSession;
+      final response = await Supabase.instance.client.functions.invoke(
+        'video-tools',
+        body: {
+          'tool': 'ai-upscale',
+          'videoUrl': currentClip.url,
+          'resolution': _aiUpscaleResolution,
+        },
+        headers: {
+          'Authorization': 'Bearer ${session?.accessToken ?? ''}',
+        },
+      );
+
+      _upscaleProgressTimer?.cancel();
+
+      if (response.status != 200) {
+        throw Exception('AI Upscale failed (${response.status})');
+      }
+
+      setState(() {
+        _aiUpscaleProgress = 100;
+      });
+
+      // Mark clip as HQ upscaled
+      _saveStateToHistory();
+      setState(() {
+        final idx = _videoClips.indexWhere((c) => c.id == currentClip.id);
+        if (idx >= 0) {
+          _videoClips[idx].hqUpscaled = true;
+          _videoClips[idx].aiEnhanced = true;
+        }
+      });
+
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (mounted) {
+        setState(() {
+          _isAiUpscaleProcessing = false;
+          _aiUpscaleProgress = 0;
+        });
+        _showSnackBar('AI Upscale Complete: ${_aiUpscaleResolution.toUpperCase()} with Topaz AI');
+      }
+    } catch (e) {
+      _upscaleProgressTimer?.cancel();
+      debugPrint('AI Upscale error: $e');
+      if (mounted) {
+        setState(() {
+          _isAiUpscaleProcessing = false;
+          _aiUpscaleProgress = 0;
+        });
+        _showSnackBar('AI Upscale failed: ${e.toString()}');
       }
     }
   }
@@ -9175,6 +9549,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       {'id': 'speed', 'name': 'Speed', 'icon': Icons.speed, 'action': () => setState(() => _editSubPanel = 'speed')},
       {'id': 'animations', 'name': 'Animations', 'icon': Icons.auto_awesome, 'action': _showAnimationsBottomSheet},
       {'id': 'crop', 'name': 'Crop', 'icon': Icons.crop, 'action': () => setState(() { _isEditMenuMode = false; _isCropMode = true; _cropBox = const Rect.fromLTWH(0.1, 0.1, 0.8, 0.8); })},
+      {'id': 'ai-upscale', 'name': 'AI Upscale', 'icon': Icons.zoom_in, 'isAI': true, 'action': () { setState(() { _isAiUpscaleOpen = true; _isEditMenuMode = false; }); }},
       {'id': 'replace', 'name': 'Replace', 'icon': Icons.swap_horiz, 'action': () { _pickAndLoadVideo(); }},
       {'id': 'delete', 'name': 'Delete', 'icon': Icons.delete_outline, 'action': handleDeleteClip, 'isDestructive': true},
     ];
@@ -9672,6 +10047,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       {'id': 'crop', 'name': 'Crop', 'icon': Icons.crop, 'action': _showCropBottomSheet},
       {'id': 'duplicate', 'name': 'Duplicate', 'icon': Icons.copy, 'action': () { if (_editingClipId != null && _editingLayerType != 'overlay') { _duplicateClipInline(_editingClipId!); } else { _showSnackBar('Duplicate for overlays coming soon'); } }},
       {'id': 'replace', 'name': 'Replace', 'icon': Icons.swap_horiz, 'action': () { setState(() => _isEditMenuMode = false); _pickAndLoadVideo(); }},
+      {'id': 'ai-upscale', 'name': 'AI Upscale', 'icon': Icons.zoom_in, 'isAI': true, 'action': () { setState(() { _isAiUpscaleOpen = true; _isEditMenuMode = false; }); }},
       {'id': 'overlay', 'name': 'Overlay', 'icon': Icons.layers_outlined, 'action': () { setState(() { _selectedTool = 'overlay'; _isEditMenuMode = false; }); }},
       {'id': 'adjust', 'name': 'Adjust', 'icon': Icons.tune, 'action': () { setState(() { _selectedTool = 'adjust'; _isEditMenuMode = false; }); }},
       {'id': 'filter', 'name': 'Filter', 'icon': Icons.auto_fix_high, 'action': () { setState(() { _selectedTool = 'filters'; _isEditMenuMode = false; }); }},
