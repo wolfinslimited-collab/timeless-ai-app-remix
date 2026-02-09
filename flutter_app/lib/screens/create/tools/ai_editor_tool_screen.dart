@@ -12116,7 +12116,7 @@ class _DrawingLayerPainter extends CustomPainter {
       
       final paint = Paint()
         ..color = stroke.tool == 'eraser' ? Colors.transparent : stroke.color
-        ..strokeWidth = stroke.size * (size.width / 350)
+        ..strokeWidth = stroke.size
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..style = PaintingStyle.stroke;
@@ -12163,11 +12163,11 @@ class _DrawingCanvasPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Draw existing strokes
     for (final stroke in strokes) {
-      if (stroke.points.length < 2) continue;
+      if (stroke.points.isEmpty || stroke.points.length < 2) continue;
       
       final paint = Paint()
         ..color = stroke.tool == 'eraser' ? Colors.grey.withOpacity(0.5) : stroke.color
-        ..strokeWidth = stroke.size * (size.width / 350)
+        ..strokeWidth = stroke.size
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..style = PaintingStyle.stroke;
@@ -12188,7 +12188,7 @@ class _DrawingCanvasPainter extends CustomPainter {
     if (currentPoints.length >= 2) {
       final paint = Paint()
         ..color = currentTool == 'eraser' ? Colors.grey.withOpacity(0.5) : currentColor
-        ..strokeWidth = currentSize * (size.width / 350)
+        ..strokeWidth = currentSize
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..style = PaintingStyle.stroke;
