@@ -102,6 +102,8 @@ import type { EditorProject } from "./ai-editor/types";
 import { saveProjectToSupabase, generateThumbnail, createNewProjectInSupabase } from "./ai-editor/supabaseProjectStorage";
 import { useAutoSave } from "./ai-editor/useAutoSave";
 import { SaveIndicator } from "./ai-editor/SaveIndicator";
+import { AIEditModal } from "./ai-editor/AIEditModal";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MobileAIEditorProps {
   onBack: () => void;
@@ -476,6 +478,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   const selectedEffectLayer = effectLayers.find(e => e.id === selectedEffectId);
 
+  // AI Edit modal state
+  const [showAIEditModal, setShowAIEditModal] = useState(false);
+  const [isAIEditProcessing, setIsAIEditProcessing] = useState(false);
+
   // Video overlay state (Picture-in-Picture)
   const [videoOverlays, setVideoOverlays] = useState<VideoOverlayData[]>([]);
   const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
@@ -668,6 +674,72 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     saveStateToHistory();
     setEffectLayers(prev => prev.filter(e => e.id !== id));
     if (selectedEffectId === id) setSelectedEffectId(null);
+  };
+
+  // AI Edit handler - calls edge function and creates AI effect layer
+  const handleAIEditSubmit = async (prompt: string) => {
+    if (!editingClipId) {
+      toast({ title: "No clip selected", description: "Please select a clip to edit", variant: "destructive" });
+      return;
+    }
+
+    const clip = videoClips.find(c => c.id === editingClipId);
+    if (!clip) {
+      toast({ title: "Clip not found", variant: "destructive" });
+      return;
+    }
+
+    setIsAIEditProcessing(true);
+    saveStateToHistory();
+
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-video-edit', {
+        body: {
+          prompt,
+          clipId: clip.id,
+          clipStartTime: clip.startTime,
+          clipEndTime: clip.startTime + getClipTrimmedDuration(clip),
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data?.success && data.effect) {
+        // Add the AI-generated effect as a new layer
+        const aiEffect: EffectLayerData = {
+          id: data.effect.id,
+          effectId: data.effect.effectId,
+          name: data.effect.name,
+          category: data.effect.category,
+          intensity: data.effect.intensity,
+          startTime: data.effect.startTime,
+          endTime: data.effect.endTime,
+        };
+
+        setEffectLayers(prev => [...prev, aiEffect]);
+        setSelectedEffectId(aiEffect.id);
+        
+        toast({ 
+          title: "AI Edit Applied", 
+          description: `"${prompt}" - Effect added to timeline`,
+        });
+      } else {
+        throw new Error(data?.error || "Failed to apply AI edit");
+      }
+    } catch (error) {
+      console.error("AI Edit error:", error);
+      toast({ 
+        title: "AI Edit Failed", 
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAIEditProcessing(false);
+      setShowAIEditModal(false);
+      setIsEditMenuMode(false);
+    }
   };
 
   // Audio layer state
@@ -2081,6 +2153,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     { id: 'split', name: 'Split', icon: SplitSquareHorizontal, action: handleSplitAtPlayhead },
     { id: 'volume', name: 'Volume', icon: Volume2, action: () => setEditSubPanel('volume') },
     { id: 'speed', name: 'Speed', icon: Gauge, action: () => setEditSubPanel('speed') },
+    { id: 'ai-edit', name: 'AI Edit', icon: Wand2, action: () => setShowAIEditModal(true), isAI: true },
     { id: 'animations', name: 'Animations', icon: Sparkles, action: () => { 
       // Initialize with current clip's animation if exists
       const clip = videoClips.find(c => c.id === editingClipId);
@@ -6481,13 +6554,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       {clipEditTools.map((tool) => {
                         const IconComponent = tool.icon;
                         const isDelete = tool.id === 'delete';
+                        const isAI = (tool as any).isAI;
                         return (
                           <button
                             key={tool.id}
                             onClick={() => {
                               tool.action();
                               // Only close for actions that don't open sub-panels
-                              if (!['volume', 'speed', 'animations', 'crop'].includes(tool.id)) {
+                              if (!['volume', 'speed', 'animations', 'crop', 'ai-edit'].includes(tool.id)) {
                                 if (tool.id !== 'replace') {
                                   // Keep menu open for replace (file picker)
                                 }
@@ -6497,16 +6571,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           >
                             <div className={cn(
                               "w-10 h-10 rounded-full flex items-center justify-center mb-1.5",
-                              isDelete ? "bg-destructive/20" : "bg-muted/30"
+                              isDelete ? "bg-destructive/20" : isAI ? "bg-gradient-to-br from-violet-500/30 to-purple-600/30 border border-violet-500/40" : "bg-muted/30"
                             )}>
                               <IconComponent className={cn(
                                 "w-5 h-5",
-                                isDelete ? "text-destructive" : "text-foreground"
+                                isDelete ? "text-destructive" : isAI ? "text-violet-400" : "text-foreground"
                               )} />
                             </div>
                             <span className={cn(
                               "text-[10px] font-medium",
-                              isDelete ? "text-destructive" : "text-foreground/60"
+                              isDelete ? "text-destructive" : isAI ? "text-violet-400" : "text-foreground/60"
                             )}>
                               {tool.name}
                             </span>
@@ -7911,6 +7985,22 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           </div>
         </div>
       )}
+
+      {/* AI Edit Modal */}
+      <AIEditModal
+        open={showAIEditModal}
+        onOpenChange={setShowAIEditModal}
+        onSubmit={handleAIEditSubmit}
+        isProcessing={isAIEditProcessing}
+        clipInfo={editingClipId ? (() => {
+          const clip = videoClips.find(c => c.id === editingClipId);
+          if (!clip) return null;
+          return {
+            duration: getClipTrimmedDuration(clip),
+            startTime: clip.startTime,
+          };
+        })() : null}
+      />
     </div>
   );
 }
