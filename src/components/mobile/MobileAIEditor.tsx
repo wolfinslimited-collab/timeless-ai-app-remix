@@ -703,6 +703,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
+    // Get actual display dimensions
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     // Render all strokes
@@ -717,7 +722,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       ctx.beginPath();
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.lineWidth = stroke.size * (canvas.width / 350);
+      ctx.lineWidth = stroke.size;
       
       if (stroke.tool === 'eraser') {
         ctx.globalCompositeOperation = 'destination-out';
@@ -3650,10 +3655,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 <canvas
                   key={`drawing-layer-${layer.id}`}
                   className="absolute inset-0 w-full h-full pointer-events-none"
-                  width={350}
-                  height={250}
                   ref={(el) => {
                     if (el) {
+                      // Set canvas resolution to match actual display size
+                      const rect = el.getBoundingClientRect();
+                      if (rect.width > 0 && rect.height > 0) {
+                        el.width = rect.width;
+                        el.height = rect.height;
+                      }
                       const ctx = el.getContext('2d');
                       if (ctx) {
                         ctx.clearRect(0, 0, el.width, el.height);
@@ -3662,7 +3671,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           ctx.beginPath();
                           ctx.lineCap = 'round';
                           ctx.lineJoin = 'round';
-                          ctx.lineWidth = stroke.size * (el.width / 350);
+                          ctx.lineWidth = stroke.size;
                           if (stroke.tool === 'eraser') {
                             ctx.globalCompositeOperation = 'destination-out';
                             ctx.strokeStyle = 'rgba(0,0,0,1)';
@@ -3689,8 +3698,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 <canvas
                   ref={canvasRef}
                   className="absolute inset-0 w-full h-full cursor-crosshair touch-none"
-                  width={350}
-                  height={250}
                   style={{ zIndex: 100 }}
                   onMouseDown={startDrawing}
                   onMouseMove={draw}
