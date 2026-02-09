@@ -1,5 +1,6 @@
 // AI Editor Supabase Project Storage
 import { supabase } from '@/integrations/supabase/client';
+import { supabase as primarySupabase } from '@/lib/supabase';
 import type { EditorProject } from './types';
 
 export interface SupabaseEditorProject {
@@ -19,9 +20,9 @@ let pendingSave: EditorProject | null = null;
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
-// Get current user ID
+// Get current user ID from primary auth project
 async function getCurrentUserId(): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await primarySupabase.auth.getUser();
   return user?.id || null;
 }
 
