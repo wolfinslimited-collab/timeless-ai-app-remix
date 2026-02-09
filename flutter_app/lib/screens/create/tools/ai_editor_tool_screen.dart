@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'dart:typed_data';
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
@@ -2627,18 +2629,36 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     setDialogState(() {});
     
     try {
-      final response = await Supabase.instance.client.functions.invoke(
-        'ai-video-edit',
-        body: {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session == null) {
+        throw Exception('Please sign in to use AI Edit');
+      }
+
+      const cloudUrl = 'https://hpuqeabtgwbwcnklxolt.supabase.co';
+      final uri = Uri.parse('$cloudUrl/functions/v1/ai-video-edit');
+      final httpResponse = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${session.accessToken}',
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwdXFlYWJ0Z3did2Nua2x4b2x0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwNDczMTgsImV4cCI6MjA4NDYyMzMxOH0.uBRcVNQcTdJNk9gstOCW6xRcQsZ8pnQwy5IGxbhZD6g',
+        },
+        body: jsonEncode({
           'prompt': prompt,
           'clipId': clip.id,
           'clipStartTime': clip.startTime,
           'clipEndTime': clip.startTime + (clip.outPoint - clip.inPoint),
-        },
+        }),
       );
+
+      final response = jsonDecode(httpResponse.body);
       
-      if (response.data != null && response.data['success'] == true) {
-        final effect = response.data['effect'];
+      if (httpResponse.statusCode != 200) {
+        throw Exception(response['error'] ?? 'Failed to apply AI edit');
+      }
+
+      if (response['success'] == true) {
+        final effect = response['effect'];
         
         // Add AI effect layer
         setState(() {
@@ -2657,7 +2677,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         Navigator.pop(context);
         _showSnackBar('AI Edit applied: "$prompt"');
       } else {
-        throw Exception(response.data?['error'] ?? 'Failed to apply AI edit');
+        throw Exception(response['error'] ?? 'Failed to apply AI edit');
       }
     } catch (e) {
       debugPrint('AI Edit error: $e');

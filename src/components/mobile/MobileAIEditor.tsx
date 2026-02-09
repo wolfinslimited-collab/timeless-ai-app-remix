@@ -103,7 +103,8 @@ import { saveProjectToSupabase, generateThumbnail, createNewProjectInSupabase } 
 import { useAutoSave } from "./ai-editor/useAutoSave";
 import { SaveIndicator } from "./ai-editor/SaveIndicator";
 import { AIEditModal } from "./ai-editor/AIEditModal";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as cloudSupabase } from "@/integrations/supabase/client";
+import { supabase as primarySupabase } from "@/lib/supabase";
 
 interface MobileAIEditorProps {
   onBack: () => void;
@@ -693,17 +694,32 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     saveStateToHistory();
 
     try {
-      const { data, error } = await supabase.functions.invoke('ai-video-edit', {
-        body: {
+      // Get auth token from primary project (where user is authenticated)
+      const { data: { session } } = await primarySupabase.auth.getSession();
+      const authToken = session?.access_token;
+      if (!authToken) {
+        throw new Error("Please sign in to use AI Edit");
+      }
+
+      const cloudUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${cloudUrl}/functions/v1/ai-video-edit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
           prompt,
           clipId: clip.id,
           clipStartTime: clip.startTime,
           clipEndTime: clip.startTime + getClipTrimmedDuration(clip),
-        },
+        }),
       });
 
-      if (error) {
-        throw new Error(error.message);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to apply AI edit");
       }
 
       if (data?.success && data.effect) {
