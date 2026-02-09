@@ -944,7 +944,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     EditorTool(id: 'captions', name: 'Captions', icon: Icons.subtitles_outlined),
     EditorTool(id: 'filters', name: 'Filters', icon: Icons.blur_circular),
     EditorTool(id: 'adjust', name: 'Adjust', icon: Icons.tune),
-    EditorTool(id: 'ai-edit', name: 'AI Edit', icon: Icons.auto_fix_high),
+    EditorTool(id: 'ai-edit', name: 'AI Edit', icon: Icons.auto_fix_high, isAI: true),
     EditorTool(id: 'aspect', name: 'Aspect', icon: Icons.aspect_ratio),
     EditorTool(id: 'background', name: 'Background', icon: Icons.format_paint_outlined),
   ];
@@ -6810,7 +6810,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                             child: CircularProgressIndicator(strokeWidth: 1.5, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
                           )
                         else
-                          const Icon(Icons.auto_fix_high, size: 12, color: Colors.white),
+                          ...[
+                            const Icon(Icons.auto_awesome, size: 10, color: Color(0xFFFBBF24)),
+                            const SizedBox(width: 2),
+                            const Icon(Icons.auto_fix_high, size: 12, color: Colors.white),
+                          ],
                         const SizedBox(width: 4),
                         Text(
                           _isAIEnhancing ? 'Analyzing...' : 'AI Enhance',
@@ -9625,9 +9629,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   /// Build the effects menu - horizontal scrollable menu with effects tools
   Widget _buildEffectsMenu() {
     final effectsTools = [
-      {'id': 'video-effects', 'name': 'Video effects', 'icon': Icons.videocam_outlined},
-      {'id': 'body-effects', 'name': 'Body effects', 'icon': Icons.star_outline},
-      {'id': 'photo-effects', 'name': 'Photo effects', 'icon': Icons.image_outlined},
+      {'id': 'video-effects', 'name': 'Video effects', 'icon': Icons.videocam_outlined, 'isAI': false},
+      {'id': 'body-effects', 'name': 'Body effects', 'icon': Icons.star_outline, 'isAI': true},
+      {'id': 'photo-effects', 'name': 'Photo effects', 'icon': Icons.image_outlined, 'isAI': false},
     ];
     
     return Column(
@@ -9689,10 +9693,28 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: effectsTools.map((tool) {
-                return _buildMenuToolButton(
-                  tool['name'] as String,
-                  tool['icon'] as IconData,
-                  () => _showSnackBar('${tool['name']} coming soon'),
+                final isAI = tool['isAI'] as bool;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildMenuToolButton(
+                      tool['name'] as String,
+                      tool['icon'] as IconData,
+                      () => _showSnackBar('${tool['name']} coming soon'),
+                    ),
+                    if (isAI)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.auto_awesome, size: 8, color: Color(0xFFFBBF24)),
+                            SizedBox(width: 2),
+                            Text('AI Credits', style: TextStyle(fontSize: 8, color: Color(0xFFFBBF24))),
+                          ],
+                        ),
+                      ),
+                  ],
                 );
               }).toList(),
             ),
@@ -11108,10 +11130,25 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    tool.icon,
-                    size: 24,
-                    color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(
+                        tool.icon,
+                        size: 24,
+                        color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
+                      ),
+                      if (tool.isAI)
+                        Positioned(
+                          top: -4,
+                          right: -6,
+                          child: Icon(
+                            Icons.auto_awesome,
+                            size: 10,
+                            color: const Color(0xFFFBBF24), // amber-400
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -13143,11 +13180,13 @@ class EditorTool {
   final String id;
   final String name;
   final IconData icon;
+  final bool isAI;
 
   const EditorTool({
     required this.id,
     required this.name,
     required this.icon,
+    this.isAI = false,
   });
 }
 

@@ -238,6 +238,13 @@ export function ProjectManager({ onBack, onOpenProject, onNewProject }: ProjectM
                         <Video className="w-8 h-8 text-muted-foreground/50" />
                       </div>
                     )}
+                    {/* AI badge - show if project has AI-generated layers */}
+                    {(project.effectLayers?.some(e => e.effectId === 'ai-generated') || project.videoClips?.some(c => c.aiEnhanced)) && (
+                      <div className="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm">
+                        <Sparkles className="w-3 h-3 text-amber-400" />
+                        <span className="text-[9px] font-semibold text-amber-400">AI</span>
+                      </div>
+                    )}
                     {/* Hover overlay */}
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">

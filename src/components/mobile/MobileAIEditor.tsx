@@ -113,6 +113,7 @@ interface EditorTool {
   id: string;
   name: string;
   icon: React.ComponentType<{ className?: string }>;
+  isAI?: boolean;
 }
 
 const EDITOR_TOOLS: EditorTool[] = [
@@ -2180,7 +2181,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       setEditSubPanel('animations'); 
     }},
     { id: 'crop', name: 'Crop', icon: Crop, action: () => { setIsEditMenuMode(false); setIsCropMode(true); setCropBox({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 }); } },
-    { id: 'magic-edit', name: 'AI Edit', icon: Wand2, action: () => { setIsMagicEditOpen(true); setMagicEditPrompt(''); setIsEditMenuMode(false); } },
+    { id: 'magic-edit', name: 'AI Edit', icon: Wand2, isAI: true, action: () => { setIsMagicEditOpen(true); setMagicEditPrompt(''); setIsEditMenuMode(false); } },
     { id: 'replace', name: 'Replace', icon: Replace, action: () => { handleDirectFilePick(); } },
     { id: 'delete', name: 'Delete', icon: Trash2, action: handleDeleteClip, isDestructive: true },
   ];
@@ -6249,14 +6250,20 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     <button
                       key={tool.id}
                       onClick={() => handleToolClick(tool)}
-                      className="flex flex-col items-center justify-center w-16 py-1"
+                      className="flex flex-col items-center justify-center w-16 py-1 relative"
+                      title={tool.isAI ? 'Uses AI Credits' : undefined}
                     >
-                      <Icon
-                        className={cn(
-                          "w-6 h-6 mb-1",
-                          isSelected ? "text-foreground" : "text-foreground/60"
+                      <div className="relative">
+                        <Icon
+                          className={cn(
+                            "w-6 h-6 mb-1",
+                            isSelected ? "text-foreground" : "text-foreground/60"
+                          )}
+                        />
+                        {tool.isAI && (
+                          <Sparkles className="w-2.5 h-2.5 text-amber-400 absolute -top-1 -right-1.5" />
                         )}
-                      />
+                      </div>
                       <span
                         className={cn(
                           "text-[11px]",
@@ -6719,13 +6726,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
                           >
                             <div className={cn(
-                              "w-10 h-10 rounded-full flex items-center justify-center mb-1.5",
+                              "w-10 h-10 rounded-full flex items-center justify-center mb-1.5 relative",
                               isDelete ? "bg-destructive/20" : "bg-muted/30"
                             )}>
                               <IconComponent className={cn(
                                 "w-5 h-5",
                                 isDelete ? "text-destructive" : "text-foreground"
                               )} />
+                              {tool.isAI && (
+                                <Sparkles className="w-2.5 h-2.5 text-amber-400 absolute -top-0.5 -right-0.5" />
+                              )}
                             </div>
                             <span className={cn(
                               "text-[10px] font-medium",
@@ -6733,6 +6743,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             )}>
                               {tool.name}
                             </span>
+                            {tool.isAI && (
+                              <span className="text-[8px] text-amber-400/70 mt-0.5">Uses AI Credits</span>
+                            )}
                           </button>
                         );
                       })}
@@ -6859,7 +6872,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   <div className="flex gap-2 min-w-max">
                     {[
                       { id: 'video-effects', name: 'Video effects', icon: Video, action: () => toast({ title: "Video effects coming soon" }) },
-                      { id: 'body-effects', name: 'Body effects', icon: Star, action: () => toast({ title: "Body effects coming soon" }) },
+                      { id: 'body-effects', name: 'Body effects', icon: Star, isAI: true, action: () => toast({ title: "Body effects coming soon" }) },
                       { id: 'photo-effects', name: 'Photo effects', icon: ImageIcon, action: () => toast({ title: "Photo effects coming soon" }) },
                     ].map((tool) => {
                       const IconComponent = tool.icon;
@@ -6869,12 +6882,18 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           onClick={tool.action}
                           className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
                         >
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-muted/30">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-muted/30 relative">
                             <IconComponent className="w-5 h-5 text-foreground" />
+                            {tool.isAI && (
+                              <Sparkles className="w-2.5 h-2.5 text-amber-400 absolute -top-0.5 -right-0.5" />
+                            )}
                           </div>
                           <span className="text-[10px] font-medium text-foreground/60">
                             {tool.name}
                           </span>
+                          {tool.isAI && (
+                            <span className="text-[8px] text-amber-400/70 mt-0.5">Uses AI Credits</span>
+                          )}
                         </button>
                       );
                     })}
@@ -7299,6 +7318,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           toast({ title: "AI Enhancement applied" });
                         }}
                         disabled={isAIEnhancing}
+                        title="Uses AI Credits"
                         className={cn(
                           "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all",
                           "bg-gradient-to-r from-violet-500 to-purple-500 text-white",
@@ -7312,6 +7332,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           </>
                         ) : (
                           <>
+                            <Sparkles className="w-3 h-3 text-amber-300" />
                             <Wand2 className="w-3 h-3" />
                             <span>AI Enhance</span>
                           </>
