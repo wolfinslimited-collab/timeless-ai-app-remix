@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 // Tool credit costs
@@ -129,26 +129,34 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
-    // Verify user
+    // Verify user via claims (signing-keys compatible)
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { data: claimsData, error: authError } = await supabase.auth.getClaims(token);
     
-    if (authError || !user) {
+    if (authError || !claimsData?.claims) {
       return new Response(
         JSON.stringify({ error: "Invalid authentication" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    const userId = claimsData.claims.sub as string;
+
+    // Service role client for DB writes
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
     // Check credits
     const creditCost = TOOL_CREDITS[tool] ?? 10;
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('credits, subscription_status')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single();
 
     if (profileError || !profile) {
@@ -355,15 +363,15 @@ serve(async (req) => {
 
     // Deduct credits
     if (!hasSubscription) {
-      await supabase
+      await supabaseAdmin
         .from('profiles')
         .update({ credits: profile.credits - creditCost })
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
     }
 
     // Log generation
     const generationData: Record<string, unknown> = {
-      user_id: user.id,
+      user_id: userId,
       type: 'video',
       model: tool,
       prompt: prompt || tool,
@@ -377,7 +385,7 @@ serve(async (req) => {
       generationData.provider_endpoint = providerEndpoint;
     }
 
-    const { data: genData, error: genError } = await supabase
+    const { data: genData, error: genError } = await supabaseAdmin
       .from('generations')
       .insert(generationData)
       .select('id')
