@@ -12112,7 +12112,7 @@ class _DrawingLayerPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     for (final stroke in strokes) {
-      if (stroke.points.length < 2) continue;
+      if (stroke.points.isEmpty || stroke.points.length < 2) continue;
       
       final paint = Paint()
         ..color = stroke.tool == 'eraser' ? Colors.transparent : stroke.color
