@@ -9,6 +9,7 @@ const corsHeaders = {
 // Tool credit costs
 const TOOL_CREDITS: Record<string, number> = {
   "video-upscale": 8,
+  "ai-upscale": 12,
   "lip-sync": 15,
   "extend": 12,
   "interpolate": 6,
@@ -19,6 +20,15 @@ const TOOL_CREDITS: Record<string, number> = {
   "mixed-media": 15,
   "edit-video": 10,
   "ugc-factory": 20,
+};
+
+// Kei AI / Topaz upscale config
+const KIE_BASE_URL = "https://api.kie.ai/api/v1";
+
+// AI Upscale resolution presets
+const AI_UPSCALE_RESOLUTIONS: Record<string, { width: number; height: number }> = {
+  "1080p": { width: 1920, height: 1080 },
+  "4k": { width: 3840, height: 2160 },
 };
 
 // Fal.ai endpoints for each tool
@@ -96,6 +106,7 @@ serve(async (req) => {
       duration,
       targetFps,
       upscaleFactor,
+      resolution,
     } = await req.json();
 
     console.log(`Video tool request: ${tool}`, { videoUrl, imageUrl, audioUrl, prompt, duration });
@@ -175,6 +186,45 @@ serve(async (req) => {
           upscale_factor: upscaleFactor || 2,
         }, FAL_API_KEY) as { video: { url: string } };
         outputUrl = result.video?.url;
+        break;
+      }
+
+      case "ai-upscale": {
+        // Topaz AI upscale via Kei AI integration
+        if (!videoUrl) throw new Error("Video URL required for AI upscaling");
+        const KIE_API_KEY = Deno.env.get("KIE_API_KEY");
+        if (!KIE_API_KEY) throw new Error("KIE_API_KEY not configured");
+
+        const targetRes = AI_UPSCALE_RESOLUTIONS[resolution || "1080p"] || AI_UPSCALE_RESOLUTIONS["1080p"];
+        
+        // Submit upscale task to Kei AI
+        const kieResponse = await fetch(`${KIE_BASE_URL}/jobs/createTask`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${KIE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "topaz",
+            input: {
+              video_url: videoUrl,
+              target_width: targetRes.width,
+              target_height: targetRes.height,
+              enhance_quality: true,
+            },
+          }),
+        });
+
+        if (!kieResponse.ok) {
+          const errText = await kieResponse.text();
+          console.error("Kei AI upscale error:", errText);
+          throw new Error(`AI Upscale failed: ${kieResponse.status}`);
+        }
+
+        const kieData = await kieResponse.json();
+        taskId = kieData.data?.task_id || kieData.task_id;
+        providerEndpoint = "kie-ai/topaz-upscale";
+        isAsync = true;
         break;
       }
 

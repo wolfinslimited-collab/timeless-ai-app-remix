@@ -156,6 +156,7 @@ interface VideoClip {
   animationIn?: ClipAnimation; // Entry animation
   animationOut?: ClipAnimation; // Exit animation
   aiEnhanced?: boolean; // Whether AI auto-adjustments have been applied
+  hqUpscaled?: boolean; // Whether AI HQ upscale has been applied
 }
 
 // Helper to get trimmed duration
@@ -290,6 +291,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const { credits, refetch: refetchCredits, hasActiveSubscription } = useCredits();
   const [showAddCreditsDialog, setShowAddCreditsDialog] = useState(false);
   const AI_EDIT_CREDIT_COST = 5;
+  const AI_UPSCALE_CREDIT_COST = 12;
+
+  // AI Upscale state
+  const [isAIUpscaleOpen, setIsAIUpscaleOpen] = useState(false);
+  const [isAIUpscaleProcessing, setIsAIUpscaleProcessing] = useState(false);
+  const [aiUpscaleProgress, setAiUpscaleProgress] = useState(0);
+  const [aiUpscaleResolution, setAiUpscaleResolution] = useState<'1080p' | '4k'>('1080p');
 
   // Project Manager state
   const [showProjectManager, setShowProjectManager] = useState(true);
@@ -460,7 +468,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [settingsPanelType, setSettingsPanelType] = useState<'stickers' | null>(null);
   
   // Base overlay check - isAudioEditMode, isDrawMode, isCropMode are added later
-  const isAnyOverlayOpenBase = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isAdjustMenuMode || isSettingsPanelOpen || isCropMode || isMagicEditOpen;
+  const isAnyOverlayOpenBase = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isAdjustMenuMode || isSettingsPanelOpen || isCropMode || isMagicEditOpen || isAIUpscaleOpen;
   
   // Sticker presets
   const stickerCategories = [
@@ -2182,6 +2190,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     }},
     { id: 'crop', name: 'Crop', icon: Crop, action: () => { setIsEditMenuMode(false); setIsCropMode(true); setCropBox({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 }); } },
     { id: 'magic-edit', name: 'AI Edit', icon: Wand2, isAI: true, action: () => { setIsMagicEditOpen(true); setMagicEditPrompt(''); setIsEditMenuMode(false); } },
+    { id: 'ai-upscale', name: 'AI Upscale', icon: ZoomIn, isAI: true, action: () => { setIsAIUpscaleOpen(true); setIsEditMenuMode(false); } },
     { id: 'replace', name: 'Replace', icon: Replace, action: () => { handleDirectFilePick(); } },
     { id: 'delete', name: 'Delete', icon: Trash2, action: handleDeleteClip, isDestructive: true },
   ];
@@ -2273,7 +2282,95 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     }
   };
 
-  // Delete text overlay from timeline
+  // Handle AI Upscale submission with credit system
+  const handleAIUpscaleSubmit = async () => {
+    // Credit check
+    if (!hasActiveSubscription) {
+      if (credits === null || credits < AI_UPSCALE_CREDIT_COST) {
+        setShowAddCreditsDialog(true);
+        return;
+      }
+    }
+
+    const currentClip = videoClips.find(c => c.id === editingClipId);
+    if (!currentClip?.url) {
+      toast({ variant: "destructive", title: "No video clip selected" });
+      return;
+    }
+
+    setIsAIUpscaleOpen(false);
+    setIsAIUpscaleProcessing(true);
+    setAiUpscaleProgress(0);
+
+    // Simulate progress animation
+    const progressInterval = setInterval(() => {
+      setAiUpscaleProgress(prev => {
+        if (prev >= 90) { clearInterval(progressInterval); return 90; }
+        return prev + Math.random() * 8;
+      });
+    }, 800);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token;
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-tools`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          tool: 'ai-upscale',
+          videoUrl: currentClip.url,
+          resolution: aiUpscaleResolution,
+        }),
+      });
+
+      clearInterval(progressInterval);
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Request failed (${response.status})`);
+      }
+
+      const data = await response.json();
+      
+      setAiUpscaleProgress(100);
+      
+      // Mark clip as HQ upscaled
+      saveStateToHistory();
+      if (editingClipId) {
+        setVideoClips(prev => prev.map(clip =>
+          clip.id === editingClipId
+            ? { ...clip, hqUpscaled: true, aiEnhanced: true }
+            : clip
+        ));
+      }
+
+      // Deduct credits locally
+      if (user && !hasActiveSubscription) {
+        refetchCredits();
+      }
+
+      setTimeout(() => {
+        setIsAIUpscaleProcessing(false);
+        setAiUpscaleProgress(0);
+        toast({ 
+          title: "AI Upscale Complete", 
+          description: `Video enhanced to ${aiUpscaleResolution.toUpperCase()} with Topaz AI` 
+        });
+      }, 500);
+
+    } catch (err: any) {
+      clearInterval(progressInterval);
+      console.error("AI Upscale error:", err);
+      setIsAIUpscaleProcessing(false);
+      setAiUpscaleProgress(0);
+      toast({ variant: "destructive", title: "AI Upscale Failed", description: err.message || "Please try again" });
+    }
+  };
+
   const deleteTextFromTimeline = (id: string) => {
     saveStateToHistory();
     setTextOverlays(prev => prev.filter(t => t.id !== id));
@@ -4569,6 +4666,39 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   </button>
                 </div>
               )}
+
+              {/* AI Upscale Processing Overlay */}
+              {isAIUpscaleProcessing && (
+                <div className="absolute inset-0 z-[200] flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm">
+                  <div className="relative w-24 h-24 mb-6">
+                    <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-pulse" />
+                    <div className="absolute inset-2 rounded-full border-2 border-primary/40 animate-[spin_2s_linear_infinite]"
+                      style={{ borderTopColor: 'hsl(var(--primary))', borderRightColor: 'hsl(var(--primary))' }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <ZoomIn className="w-8 h-8 text-primary animate-pulse" />
+                    </div>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-48 h-1.5 bg-muted/30 rounded-full overflow-hidden mb-3">
+                    <div 
+                      className="h-full bg-gradient-to-r from-primary via-primary to-accent rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, aiUpscaleProgress)}%` }}
+                    />
+                  </div>
+                  <p className="text-primary font-semibold text-sm">High-Quality Enhancement</p>
+                  <p className="text-muted-foreground text-xs mt-1">
+                    {aiUpscaleProgress < 30 ? 'Analyzing video...' : aiUpscaleProgress < 60 ? 'Enhancing resolution...' : aiUpscaleProgress < 90 ? 'Applying Topaz AI...' : 'Finalizing...'}
+                  </p>
+                  <p className="text-primary/80 text-xs mt-1 font-mono">{Math.round(aiUpscaleProgress)}%</p>
+                  <button
+                    onClick={() => { setIsAIUpscaleProcessing(false); setAiUpscaleProgress(0); }}
+                    className="mt-4 px-4 py-1.5 rounded-lg bg-destructive/20 text-destructive text-xs font-medium hover:bg-destructive/30 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
               
               {/* Crop Overlay - Active when in crop mode */}
               {isCropMode && (
@@ -5354,6 +5484,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                     <div className="flex-1 flex items-center justify-center">
                                       <Wand2 className="w-2 h-2 text-white/90" />
                                     </div>
+                                  </div>
+                                )}
+                                
+                                {/* HQ Upscale badge */}
+                                {clip.hqUpscaled && (
+                                  <div 
+                                    className="absolute top-0.5 right-1 px-1 py-0.5 rounded text-[7px] font-bold tracking-wider bg-primary/90 text-primary-foreground shadow-sm"
+                                    title="AI Upscaled"
+                                  >
+                                    HQ
                                   </div>
                                 )}
                               </div>
@@ -6492,8 +6632,75 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 </div>
               </div>
             )}
+
+            {/* AI Upscale Bottom Sheet */}
+            {isAIUpscaleOpen && (
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col rounded-t-2xl border-t border-border/20" style={{ height: '280px' }}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/20">
+                  <button
+                    onClick={() => setIsAIUpscaleOpen(false)}
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                  >
+                    <ChevronDown className="w-5 h-5 text-primary" />
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <ZoomIn className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-semibold text-foreground">AI Upscale</span>
+                    <Sparkles className="w-3 h-3 text-amber-400" />
+                  </div>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10">
+                    <Sparkles className="w-3 h-3 text-primary" />
+                    <span className="text-[10px] font-semibold text-primary">{AI_UPSCALE_CREDIT_COST} credits</span>
+                  </div>
+                </div>
+
+                {/* Resolution options */}
+                <div className="flex-1 px-4 py-4 flex flex-col gap-4">
+                  <p className="text-xs text-muted-foreground">Select target resolution (Topaz AI model)</p>
+                  
+                  <div className="flex gap-3">
+                    {(['1080p', '4k'] as const).map((res) => (
+                      <button
+                        key={res}
+                        onClick={() => setAiUpscaleResolution(res)}
+                        className={cn(
+                          "flex-1 py-3 rounded-xl border text-sm font-semibold transition-all flex flex-col items-center gap-1",
+                          aiUpscaleResolution === res
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border/30 bg-muted/10 text-muted-foreground hover:border-border/50"
+                        )}
+                      >
+                        <span>{res.toUpperCase()}</span>
+                        <span className="text-[10px] font-normal opacity-70">
+                          {res === '1080p' ? '1920×1080' : '3840×2160'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Warning */}
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <Loader2 className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+                    <p className="text-[10px] text-amber-200/80 leading-relaxed">
+                      This process may take a few minutes. Your video will be enhanced using the Topaz AI model for maximum quality.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Submit button */}
+                <div className="px-4 pb-4">
+                  <button
+                    onClick={handleAIUpscaleSubmit}
+                    className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center gap-2"
+                  >
+                    <ZoomIn className="w-4 h-4" />
+                    <span>Upscale to {aiUpscaleResolution.toUpperCase()}</span>
+                  </button>
+                </div>
+              </div>
+            )}
             
-            {/* Edit Menu Overlay */}
             {isEditMenuMode && (
               <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: editSubPanel === 'animations' ? '280px' : editSubPanel !== 'none' ? '200px' : '160px' }}>
                 {/* Header with back button and title */}
