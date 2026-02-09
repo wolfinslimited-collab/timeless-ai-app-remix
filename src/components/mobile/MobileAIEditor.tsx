@@ -127,6 +127,7 @@ interface EditorStateSnapshot {
   audioLayers: AudioLayerSnapshot[];
   captionLayers: CaptionLayerData[];
   effectLayers: EffectLayerData[];
+  drawingLayers: DrawingLayerData[];
   timestamp: number;
 }
 
@@ -467,6 +468,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     })),
     captionLayers: captionLayers.map(c => ({ ...c })),
     effectLayers: effectLayers.map(e => ({ ...e })),
+    drawingLayers: drawingLayers.map(d => ({
+      id: d.id,
+      strokes: d.strokes.map(s => ({ ...s, points: [...s.points] })),
+      startTime: d.startTime,
+      endTime: d.endTime,
+    })),
     timestamp: Date.now(),
   });
 
@@ -554,12 +561,19 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     // Restore effect layers
     setEffectLayers(snapshot.effectLayers.map(e => ({ ...e })));
 
+    // Restore drawing layers
+    setDrawingLayers((snapshot.drawingLayers || []).map(d => ({
+      ...d,
+      strokes: d.strokes.map(s => ({ ...s, points: [...s.points] })),
+    })));
+
     // Clear selections
     setSelectedClipId(null);
     setSelectedTextId(null);
     setSelectedAudioId(null);
     setSelectedCaptionId(null);
     setSelectedEffectId(null);
+    setSelectedDrawingId(null);
 
     setTimeout(() => {
       isRestoringRef.current = false;

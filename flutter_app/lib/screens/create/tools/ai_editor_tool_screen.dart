@@ -1623,6 +1623,62 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     });
   }
   
+  // ============================================
+  // DRAWING LAYER FUNCTIONS
+  // ============================================
+  
+  /// Save current drawing strokes as a layer
+  void _saveDrawingAsLayer() {
+    if (_currentStrokes.isEmpty) {
+      _showSnackBar('No drawing to save');
+      return;
+    }
+    
+    _saveStateToHistory();
+    final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+    
+    final newLayer = DrawingLayer(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      strokes: List.from(_currentStrokes.map((s) => DrawingStroke(
+        id: s.id,
+        points: List.from(s.points),
+        color: s.color,
+        size: s.size,
+        tool: s.tool,
+      ))),
+      startTime: 0,
+      endTime: duration,
+    );
+    
+    setState(() {
+      _drawingLayers.add(newLayer);
+      _currentStrokes.clear();
+      _isDrawMode = false;
+      _drawUndoStack.clear();
+      _drawRedoStack.clear();
+    });
+    
+    _showSnackBar('Drawing saved to timeline');
+  }
+  
+  /// Delete a drawing layer
+  void _deleteDrawingLayer(String id) {
+    _saveStateToHistory();
+    setState(() {
+      _drawingLayers.removeWhere((d) => d.id == id);
+      if (_selectedDrawingId == id) {
+        _selectedDrawingId = null;
+      }
+    });
+  }
+  
+  /// Select a drawing layer
+  void _selectDrawingLayer(String? id) {
+    setState(() {
+      _selectedDrawingId = id;
+    });
+  }
+  
   /// Select a caption layer
   void _selectCaptionLayer(String? id) {
     setState(() {
@@ -3975,6 +4031,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                           ..._buildTextOverlays(constraints),
                           // Caption overlays at bottom of video
                           ..._buildCaptionOverlays(constraints),
+                          // Drawing overlays (saved drawings)
+                          ..._buildDrawingOverlays(constraints),
+                          // Drawing canvas overlay (active when in draw mode)
+                          if (_isDrawMode) _buildDrawingCanvas(containerWidth, containerHeight),
                           // Crop overlay when in crop mode
                           if (_isCropMode) _buildCropOverlay(containerWidth, containerHeight),
                         ],
@@ -4142,6 +4202,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       
                       // Caption/Subtitle Track (Cyan layers)
                       _buildCaptionTrack(halfScreenPadding, trackWidth, duration),
+                      const SizedBox(height: 6),
+                      
+                      // Drawing Track (Pink/Magenta layers)
+                      _buildDrawingTrack(halfScreenPadding, trackWidth, duration),
                       const SizedBox(height: 6),
                       
                       // Effects Track (Amber/Gold layers)
@@ -6506,6 +6570,224 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
 
+  /// Build drawing track in timeline (Pink/Magenta themed)
+  Widget _buildDrawingTrack(double startPadding, double trackWidth, double duration) {
+    if (_drawingLayers.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 40,
+      child: Row(
+        children: [
+          SizedBox(width: startPadding),
+          SizedBox(
+            width: trackWidth,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: _drawingLayers.map((layer) {
+                final leftOffset = layer.startTime * _pixelsPerSecond;
+                final itemWidth = ((layer.endTime - layer.startTime) * _pixelsPerSecond).clamp(50.0, trackWidth);
+                final isSelected = layer.id == _selectedDrawingId;
+                return Positioned(
+                  left: leftOffset,
+                  child: GestureDetector(
+                    onTap: () => _selectDrawingLayer(layer.id),
+                    onHorizontalDragUpdate: (details) {
+                      final delta = details.primaryDelta ?? 0;
+                      final timeDelta = delta / _pixelsPerSecond;
+                      final layerDuration = layer.endTime - layer.startTime;
+                      setState(() {
+                        var newStart = (layer.startTime + timeDelta).clamp(0.0, duration - layerDuration);
+                        layer.startTime = newStart;
+                        layer.endTime = newStart + layerDuration;
+                      });
+                    },
+                    child: Container(
+                      width: itemWidth,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isSelected 
+                              ? [const Color(0xFFEC4899), const Color(0xFFD946EF)] 
+                              : [const Color(0xFFF472B6), const Color(0xFFE879F9)],
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                        border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
+                        boxShadow: isSelected 
+                            ? [BoxShadow(color: const Color(0xFFEC4899).withOpacity(0.3), blurRadius: 8)] 
+                            : null,
+                      ),
+                      child: Row(
+                        children: [
+                          // Left trim handle
+                          GestureDetector(
+                            onHorizontalDragUpdate: (details) {
+                              final delta = details.primaryDelta ?? 0;
+                              final timeDelta = delta / _pixelsPerSecond;
+                              setState(() {
+                                final newStart = (layer.startTime + timeDelta).clamp(0.0, layer.endTime - 0.5);
+                                layer.startTime = newStart;
+                              });
+                            },
+                            child: Container(
+                              width: 10,
+                              decoration: BoxDecoration(
+                                color: isSelected ? Colors.white.withOpacity(0.5) : Colors.white.withOpacity(0.3),
+                                borderRadius: const BorderRadius.horizontal(left: Radius.circular(6)),
+                              ),
+                              child: Center(
+                                child: Container(
+                                  width: 2,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.8),
+                                    borderRadius: BorderRadius.circular(1),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.edit, size: 12, color: Colors.white),
+                          const SizedBox(width: 4),
+                          Expanded(child: Text('Drawing', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                          // Delete button when selected
+                          if (isSelected)
+                            GestureDetector(
+                              onTap: () => _deleteDrawingLayer(layer.id),
+                              child: Container(
+                                width: 16,
+                                height: 16,
+                                margin: const EdgeInsets.only(right: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.9),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close, size: 10, color: Colors.white),
+                              ),
+                            ),
+                          // Right trim handle
+                          GestureDetector(
+                            onHorizontalDragUpdate: (details) {
+                              final delta = details.primaryDelta ?? 0;
+                              final timeDelta = delta / _pixelsPerSecond;
+                              setState(() {
+                                final newEnd = (layer.endTime + timeDelta).clamp(layer.startTime + 0.5, duration);
+                                layer.endTime = newEnd;
+                              });
+                            },
+                            child: Container(
+                              width: 10,
+                              decoration: BoxDecoration(
+                                color: isSelected ? Colors.white.withOpacity(0.5) : Colors.white.withOpacity(0.3),
+                                borderRadius: const BorderRadius.horizontal(right: Radius.circular(6)),
+                              ),
+                              child: Center(
+                                child: Container(
+                                  width: 2,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.8),
+                                    borderRadius: BorderRadius.circular(1),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          SizedBox(width: startPadding),
+        ],
+      ),
+    );
+  }
+  
+  /// Build drawing overlays that appear on video preview when within time range
+  List<Widget> _buildDrawingOverlays(BoxConstraints constraints) {
+    final currentPosition = _videoController?.value.position.inMilliseconds.toDouble() ?? 0;
+    final currentTime = currentPosition / 1000.0;
+    
+    return _drawingLayers
+        .where((layer) => currentTime >= layer.startTime && currentTime <= layer.endTime)
+        .map((layer) {
+      return Positioned.fill(
+        child: IgnorePointer(
+          child: CustomPaint(
+            painter: _DrawingLayerPainter(strokes: layer.strokes),
+          ),
+        ),
+      );
+    }).toList();
+  }
+  
+  /// Build drawing canvas overlay for active drawing mode
+  Widget _buildDrawingCanvas(double containerWidth, double containerHeight) {
+    return Positioned.fill(
+      child: GestureDetector(
+        onPanStart: (details) {
+          final box = context.findRenderObject() as RenderBox?;
+          if (box == null) return;
+          
+          // Save current strokes to undo stack
+          _drawUndoStack.add(List.from(_currentStrokes.map((s) => DrawingStroke(
+            id: s.id,
+            points: List.from(s.points),
+            color: s.color,
+            size: s.size,
+            tool: s.tool,
+          ))));
+          _drawRedoStack.clear();
+          
+          // Start a new stroke
+          final localPosition = details.localPosition;
+          final normalizedX = localPosition.dx / containerWidth;
+          final normalizedY = localPosition.dy / containerHeight;
+          
+          setState(() {
+            _currentDrawingPoints = [Offset(normalizedX, normalizedY)];
+          });
+        },
+        onPanUpdate: (details) {
+          final localPosition = details.localPosition;
+          final normalizedX = (localPosition.dx / containerWidth).clamp(0.0, 1.0);
+          final normalizedY = (localPosition.dy / containerHeight).clamp(0.0, 1.0);
+          
+          setState(() {
+            _currentDrawingPoints.add(Offset(normalizedX, normalizedY));
+          });
+        },
+        onPanEnd: (details) {
+          if (_currentDrawingPoints.length >= 2) {
+            setState(() {
+              _currentStrokes.add(DrawingStroke(
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                points: List.from(_currentDrawingPoints),
+                color: _drawColor,
+                size: _drawSize,
+                tool: _drawTool,
+              ));
+              _currentDrawingPoints.clear();
+            });
+          }
+        },
+        child: CustomPaint(
+          painter: _DrawingCanvasPainter(
+            strokes: _currentStrokes,
+            currentPoints: _currentDrawingPoints,
+            currentColor: _drawColor,
+            currentSize: _drawSize,
+            currentTool: _drawTool,
+          ),
+          size: Size(containerWidth, containerHeight),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomToolbar() {
     return Container(
       constraints: BoxConstraints(maxHeight: _showTextEditPanel ? 450 : 160),
@@ -6626,6 +6908,20 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               ),
             ),
           
+          // Draw Mode Menu Overlay
+          if (_isDrawMode)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 200,
+              child: Material(
+                color: const Color(0xFF0A0A0A),
+                elevation: 8,
+                child: _buildDrawMenu(),
+              ),
+            ),
+
           // Crop Mode Menu Overlay
           if (_isCropMode)
             Positioned(
@@ -8678,6 +8974,358 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   ],
                 ),
               ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+  
+  /// Build the draw menu - brush/eraser tools, colors, size controls
+  Widget _buildDrawMenu() {
+    return Column(
+      key: const ValueKey('draw_menu'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Header with undo/redo, back, and confirm buttons
+        Container(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+          ),
+          child: Row(
+            children: [
+              // Undo button
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: GestureDetector(
+                  onTap: () {
+                    if (_drawUndoStack.isNotEmpty) {
+                      _drawRedoStack.add(List.from(_currentStrokes.map((s) => DrawingStroke(
+                        id: s.id,
+                        points: List.from(s.points),
+                        color: s.color,
+                        size: s.size,
+                        tool: s.tool,
+                      ))));
+                      setState(() {
+                        _currentStrokes = _drawUndoStack.removeLast();
+                      });
+                    }
+                  },
+                  child: Container(
+                    width: 32,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: _drawUndoStack.isEmpty 
+                          ? Colors.white.withOpacity(0.05) 
+                          : Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.undo,
+                      size: 18,
+                      color: _drawUndoStack.isEmpty 
+                          ? Colors.white.withOpacity(0.3) 
+                          : Colors.white.withOpacity(0.8),
+                    ),
+                  ),
+                ),
+              ),
+              // Redo button
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: GestureDetector(
+                  onTap: () {
+                    if (_drawRedoStack.isNotEmpty) {
+                      _drawUndoStack.add(List.from(_currentStrokes.map((s) => DrawingStroke(
+                        id: s.id,
+                        points: List.from(s.points),
+                        color: s.color,
+                        size: s.size,
+                        tool: s.tool,
+                      ))));
+                      setState(() {
+                        _currentStrokes = _drawRedoStack.removeLast();
+                      });
+                    }
+                  },
+                  child: Container(
+                    width: 32,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: _drawRedoStack.isEmpty 
+                          ? Colors.white.withOpacity(0.05) 
+                          : Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.redo,
+                      size: 18,
+                      color: _drawRedoStack.isEmpty 
+                          ? Colors.white.withOpacity(0.3) 
+                          : Colors.white.withOpacity(0.8),
+                    ),
+                  ),
+                ),
+              ),
+              const Spacer(),
+              // Title
+              const Text(
+                'Draw',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              // Cancel button
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _currentStrokes.clear();
+                      _currentDrawingPoints.clear();
+                      _drawUndoStack.clear();
+                      _drawRedoStack.clear();
+                      _isDrawMode = false;
+                    });
+                  },
+                  child: Container(
+                    width: 32,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.close, size: 18, color: Colors.white),
+                  ),
+                ),
+              ),
+              // Confirm button
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: _saveDrawingAsLayer,
+                  child: Container(
+                    width: 32,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.check, size: 20, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Tools Row - Brush, Eraser, Clear
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Brush tool
+              GestureDetector(
+                onTap: () => setState(() => _drawTool = 'brush'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _drawTool == 'brush' 
+                        ? AppTheme.primary.withOpacity(0.2) 
+                        : Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _drawTool == 'brush' ? AppTheme.primary.withOpacity(0.4) : Colors.transparent,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: _drawTool == 'brush' ? AppTheme.primary.withOpacity(0.3) : Colors.white.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.brush,
+                          size: 18,
+                          color: _drawTool == 'brush' ? AppTheme.primary : Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Brush',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: _drawTool == 'brush' ? AppTheme.primary : Colors.white.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Eraser tool
+              GestureDetector(
+                onTap: () => setState(() => _drawTool = 'eraser'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _drawTool == 'eraser' 
+                        ? AppTheme.primary.withOpacity(0.2) 
+                        : Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _drawTool == 'eraser' ? AppTheme.primary.withOpacity(0.4) : Colors.transparent,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: _drawTool == 'eraser' ? AppTheme.primary.withOpacity(0.3) : Colors.white.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.auto_fix_normal,
+                          size: 18,
+                          color: _drawTool == 'eraser' ? AppTheme.primary : Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Eraser',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: _drawTool == 'eraser' ? AppTheme.primary : Colors.white.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Clear All
+              GestureDetector(
+                onTap: () {
+                  if (_currentStrokes.isNotEmpty) {
+                    _drawUndoStack.add(List.from(_currentStrokes.map((s) => DrawingStroke(
+                      id: s.id,
+                      points: List.from(s.points),
+                      color: s.color,
+                      size: s.size,
+                      tool: s.tool,
+                    ))));
+                    setState(() {
+                      _currentStrokes.clear();
+                    });
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Clear',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.red),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Color Picker Row
+        Container(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _drawColorPresets.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final color = _drawColorPresets[index];
+              final isSelected = _drawColor == color && _drawTool == 'brush';
+              return GestureDetector(
+                onTap: () => setState(() {
+                  _drawColor = color;
+                  _drawTool = 'brush';
+                }),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected ? Colors.white : Colors.transparent,
+                      width: 2,
+                    ),
+                    boxShadow: isSelected ? [
+                      BoxShadow(color: color.withOpacity(0.5), blurRadius: 8),
+                    ] : null,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        
+        // Size Slider
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Text('Size', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderThemeData(
+                    activeTrackColor: AppTheme.primary,
+                    inactiveTrackColor: Colors.white.withOpacity(0.2),
+                    thumbColor: Colors.white,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                    trackHeight: 3,
+                  ),
+                  child: Slider(
+                    value: _drawSize,
+                    min: 1,
+                    max: 30,
+                    onChanged: (v) => setState(() => _drawSize = v),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text('${_drawSize.round()}px', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
             ],
           ),
         ),
@@ -11449,4 +12097,111 @@ class _SpeedCurvePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _SpeedCurvePainter oldDelegate) => 
       oldDelegate.curveId != curveId || oldDelegate.isSelected != isSelected;
+}
+
+/// Custom painter for drawing layer overlay (saved drawings)
+class _DrawingLayerPainter extends CustomPainter {
+  final List<DrawingStroke> strokes;
+  
+  _DrawingLayerPainter({required this.strokes});
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final stroke in strokes) {
+      if (stroke.points.length < 2) continue;
+      
+      final paint = Paint()
+        ..color = stroke.tool == 'eraser' ? Colors.transparent : stroke.color
+        ..strokeWidth = stroke.size * (size.width / 350)
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke;
+      
+      if (stroke.tool == 'eraser') {
+        paint.blendMode = BlendMode.clear;
+      }
+      
+      final path = Path();
+      final firstPoint = stroke.points.first;
+      path.moveTo(firstPoint.dx * size.width, firstPoint.dy * size.height);
+      
+      for (int i = 1; i < stroke.points.length; i++) {
+        final point = stroke.points[i];
+        path.lineTo(point.dx * size.width, point.dy * size.height);
+      }
+      
+      canvas.drawPath(path, paint);
+    }
+  }
+  
+  @override
+  bool shouldRepaint(covariant _DrawingLayerPainter oldDelegate) => 
+      strokes != oldDelegate.strokes;
+}
+
+/// Custom painter for active drawing canvas
+class _DrawingCanvasPainter extends CustomPainter {
+  final List<DrawingStroke> strokes;
+  final List<Offset> currentPoints;
+  final Color currentColor;
+  final double currentSize;
+  final String currentTool;
+  
+  _DrawingCanvasPainter({
+    required this.strokes,
+    required this.currentPoints,
+    required this.currentColor,
+    required this.currentSize,
+    required this.currentTool,
+  });
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Draw existing strokes
+    for (final stroke in strokes) {
+      if (stroke.points.length < 2) continue;
+      
+      final paint = Paint()
+        ..color = stroke.tool == 'eraser' ? Colors.grey.withOpacity(0.5) : stroke.color
+        ..strokeWidth = stroke.size * (size.width / 350)
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke;
+      
+      final path = Path();
+      final firstPoint = stroke.points.first;
+      path.moveTo(firstPoint.dx * size.width, firstPoint.dy * size.height);
+      
+      for (int i = 1; i < stroke.points.length; i++) {
+        final point = stroke.points[i];
+        path.lineTo(point.dx * size.width, point.dy * size.height);
+      }
+      
+      canvas.drawPath(path, paint);
+    }
+    
+    // Draw current active stroke
+    if (currentPoints.length >= 2) {
+      final paint = Paint()
+        ..color = currentTool == 'eraser' ? Colors.grey.withOpacity(0.5) : currentColor
+        ..strokeWidth = currentSize * (size.width / 350)
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke;
+      
+      final path = Path();
+      final firstPoint = currentPoints.first;
+      path.moveTo(firstPoint.dx * size.width, firstPoint.dy * size.height);
+      
+      for (int i = 1; i < currentPoints.length; i++) {
+        final point = currentPoints[i];
+        path.lineTo(point.dx * size.width, point.dy * size.height);
+      }
+      
+      canvas.drawPath(path, paint);
+    }
+  }
+  
+  @override
+  bool shouldRepaint(covariant _DrawingCanvasPainter oldDelegate) => true;
 }
