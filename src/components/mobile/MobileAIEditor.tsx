@@ -99,7 +99,9 @@ import {
 import { TextEditPanel } from "./TextEditPanel";
 import { ProjectManager } from "./ai-editor/ProjectManager";
 import type { EditorProject } from "./ai-editor/types";
-import { saveProject, generateThumbnail, createNewProject } from "./ai-editor/projectStorage";
+import { saveProjectToSupabase, generateThumbnail, createNewProjectInSupabase } from "./ai-editor/supabaseProjectStorage";
+import { useAutoSave } from "./ai-editor/useAutoSave";
+import { SaveIndicator } from "./ai-editor/SaveIndicator";
 
 interface MobileAIEditorProps {
   onBack: () => void;
@@ -2903,65 +2905,145 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setShowProjectManager(false);
   };
 
-  // Auto-save project when state changes
+  // Build current project state for auto-save
+  const currentProjectState: EditorProject | null = currentProject && videoUrl ? {
+    ...currentProject,
+    videoUrl,
+    videoDuration: duration,
+    videoDimensions,
+    adjustments,
+    selectedAspectRatio,
+    backgroundColor,
+    backgroundBlur,
+    backgroundImage,
+    videoPosition,
+    videoClips: videoClips.map(clip => ({
+      id: clip.id,
+      url: clip.url,
+      duration: clip.duration,
+      startTime: clip.startTime,
+      inPoint: clip.inPoint,
+      outPoint: clip.outPoint,
+      volume: clip.volume,
+      speed: clip.speed,
+      aiEnhanced: clip.aiEnhanced,
+      animationIn: clip.animationIn ? {
+        id: clip.animationIn.id,
+        type: clip.animationIn.type,
+        duration: clip.animationIn.duration,
+      } : null,
+      animationOut: clip.animationOut ? {
+        id: clip.animationOut.id,
+        type: clip.animationOut.type,
+        duration: clip.animationOut.duration,
+      } : null,
+    })),
+    textOverlays: textOverlays.map(t => ({
+      id: t.id,
+      text: t.text,
+      position: t.position,
+      fontSize: t.fontSize,
+      textColor: t.textColor,
+      fontFamily: t.fontFamily,
+      alignment: t.alignment,
+      hasBackground: t.hasBackground,
+      backgroundColor: t.backgroundColor,
+      backgroundOpacity: t.backgroundOpacity,
+      startTime: t.startTime,
+      endTime: t.endTime,
+      opacity: t.opacity,
+      strokeEnabled: t.strokeEnabled,
+      strokeColor: t.strokeColor,
+      strokeWidth: t.strokeWidth,
+      glowEnabled: t.glowEnabled,
+      glowColor: t.glowColor,
+      glowIntensity: t.glowIntensity,
+      shadowEnabled: t.shadowEnabled,
+      shadowColor: t.shadowColor,
+      letterSpacing: t.letterSpacing,
+      curveAmount: t.curveAmount,
+      animation: t.animation,
+      bubbleStyle: t.bubbleStyle,
+      rotation: t.rotation,
+      scale: t.scale,
+      scaleX: t.scaleX,
+      scaleY: t.scaleY,
+    })),
+    audioLayers: audioLayers.map(a => ({
+      id: a.id,
+      name: a.name,
+      fileUrl: a.fileUrl,
+      volume: a.volume,
+      startTime: a.startTime,
+      endTime: a.endTime,
+      fadeIn: a.fadeIn,
+      fadeOut: a.fadeOut,
+      waveformData: a.waveformData,
+    })),
+    effectLayers: effectLayers.map(e => ({
+      id: e.id,
+      effectId: e.effectId,
+      name: e.name,
+      category: e.category,
+      intensity: e.intensity,
+      startTime: e.startTime,
+      endTime: e.endTime,
+    })),
+    captionLayers: captionLayers.map(c => ({
+      id: c.id,
+      text: c.text,
+      startTime: c.startTime,
+      endTime: c.endTime,
+    })),
+    drawingLayers: drawingLayers.map(d => ({
+      id: d.id,
+      strokes: d.strokes,
+      startTime: d.startTime,
+      endTime: d.endTime,
+    })),
+    videoOverlays: videoOverlays.map(v => ({
+      id: v.id,
+      url: v.url,
+      duration: v.duration,
+      position: v.position,
+      size: v.size,
+      scale: v.scale,
+      startTime: v.startTime,
+      endTime: v.endTime,
+      volume: v.volume,
+      opacity: v.opacity,
+    })),
+  } : null;
+
+  // Use auto-save hook - 30 second interval, 2 second debounce on changes
+  const { saveStatus, triggerSave } = useAutoSave({
+    project: currentProjectState,
+    intervalMs: 30000,
+    debounceMs: 2000,
+    enabled: !!currentProject && !!videoUrl,
+  });
+
+  // Update thumbnail when project changes significantly
   useEffect(() => {
     if (!currentProject || !videoUrl) return;
     
-    const saveTimer = setTimeout(async () => {
+    const updateThumbnail = async () => {
       try {
-        // Generate new thumbnail if we have video
         const thumbnail = await generateThumbnail(videoUrl);
-        
-        const updatedProject: EditorProject = {
-          ...currentProject,
-          videoUrl,
-          videoDuration: duration,
-          videoDimensions,
-          thumbnail: thumbnail || currentProject.thumbnail,
-          adjustments,
-          selectedAspectRatio,
-          backgroundColor,
-          backgroundBlur,
-          backgroundImage,
-          videoPosition,
-          videoClips: videoClips.map(clip => ({
-            id: clip.id,
-            url: clip.url,
-            duration: clip.duration,
-            startTime: clip.startTime,
-            inPoint: clip.inPoint,
-            outPoint: clip.outPoint,
-            volume: clip.volume,
-            speed: clip.speed,
-            aiEnhanced: clip.aiEnhanced,
-            animationIn: clip.animationIn ? {
-              id: clip.animationIn.id,
-              type: clip.animationIn.type,
-              duration: clip.animationIn.duration,
-            } : null,
-            animationOut: clip.animationOut ? {
-              id: clip.animationOut.id,
-              type: clip.animationOut.type,
-              duration: clip.animationOut.duration,
-            } : null,
-          })),
-          textOverlays: [],
-          audioLayers: [],
-          effectLayers: [],
-          captionLayers: [],
-          drawingLayers: [],
-          videoOverlays: [],
-        };
-        
-        await saveProject(updatedProject);
-        setCurrentProject(updatedProject);
+        if (thumbnail && currentProject.thumbnail !== thumbnail) {
+          const updatedProject = { ...currentProject, thumbnail };
+          setCurrentProject(updatedProject);
+        }
       } catch (error) {
-        console.error('Failed to auto-save project:', error);
+        console.error('Failed to generate thumbnail:', error);
       }
-    }, 2000); // Debounce 2 seconds
+    };
     
-    return () => clearTimeout(saveTimer);
-  }, [videoUrl, duration, adjustments, selectedAspectRatio, backgroundColor, backgroundBlur, backgroundImage, videoPosition, videoClips]);
+    // Only update thumbnail once when video is first loaded
+    if (!currentProject.thumbnail) {
+      updateThumbnail();
+    }
+  }, [videoUrl, currentProject?.id]);
 
   // Show Project Manager when no video is loaded
   if (showProjectManager) {
@@ -3412,15 +3494,20 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
       {/* Top Bar */}
       <div className="px-4 py-3 flex items-center justify-between">
-        <button
-          onClick={() => {
-            // Go back to project manager instead of leaving editor
-            setShowProjectManager(true);
-          }}
-          className="w-7 h-7 rounded-full bg-muted/30 flex items-center justify-center hover:bg-muted/50 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4 text-foreground" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              // Go back to project manager instead of leaving editor
+              setShowProjectManager(true);
+            }}
+            className="w-7 h-7 rounded-full bg-muted/30 flex items-center justify-center hover:bg-muted/50 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 text-foreground" />
+          </button>
+          
+          {/* Save Status Indicator */}
+          {videoUrl && <SaveIndicator status={saveStatus} />}
+        </div>
         
         {videoUrl && (
           <div className="flex items-center gap-2">
