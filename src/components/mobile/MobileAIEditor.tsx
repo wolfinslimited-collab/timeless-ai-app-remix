@@ -97,6 +97,9 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import { TextEditPanel } from "./TextEditPanel";
+import { ProjectManager } from "./ai-editor/ProjectManager";
+import type { EditorProject } from "./ai-editor/types";
+import { saveProject, generateThumbnail, createNewProject } from "./ai-editor/projectStorage";
 
 interface MobileAIEditorProps {
   onBack: () => void;
@@ -261,6 +264,10 @@ interface VideoOverlayData {
 const MAX_HISTORY_LENGTH = 50;
 
 export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
+  // Project Manager state
+  const [showProjectManager, setShowProjectManager] = useState(true);
+  const [currentProject, setCurrentProject] = useState<EditorProject | null>(null);
+  
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoClips, setVideoClips] = useState<VideoClip[]>([]); // Multi-clip support
   const [isUploading, setIsUploading] = useState(false);
@@ -2872,6 +2879,101 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setIsFullScreen(false);
   };
 
+  // Project Manager handlers
+  const handleOpenProject = async (project: EditorProject) => {
+    setCurrentProject(project);
+    if (project.videoUrl) {
+      setVideoUrl(project.videoUrl);
+      // Restore project state
+      setVideoPosition(project.videoPosition);
+      setSelectedAspectRatio(project.selectedAspectRatio);
+      setBackgroundColor(project.backgroundColor);
+      setBackgroundBlur(project.backgroundBlur);
+      setBackgroundImage(project.backgroundImage);
+      setAdjustments(project.adjustments);
+      // Restore layers would go here for full implementation
+    }
+    setShowProjectManager(false);
+  };
+
+  const handleNewProject = async (project: EditorProject, file: File) => {
+    setCurrentProject(project);
+    const localUrl = URL.createObjectURL(file);
+    setVideoUrl(localUrl);
+    setShowProjectManager(false);
+  };
+
+  // Auto-save project when state changes
+  useEffect(() => {
+    if (!currentProject || !videoUrl) return;
+    
+    const saveTimer = setTimeout(async () => {
+      try {
+        // Generate new thumbnail if we have video
+        const thumbnail = await generateThumbnail(videoUrl);
+        
+        const updatedProject: EditorProject = {
+          ...currentProject,
+          videoUrl,
+          videoDuration: duration,
+          videoDimensions,
+          thumbnail: thumbnail || currentProject.thumbnail,
+          adjustments,
+          selectedAspectRatio,
+          backgroundColor,
+          backgroundBlur,
+          backgroundImage,
+          videoPosition,
+          videoClips: videoClips.map(clip => ({
+            id: clip.id,
+            url: clip.url,
+            duration: clip.duration,
+            startTime: clip.startTime,
+            inPoint: clip.inPoint,
+            outPoint: clip.outPoint,
+            volume: clip.volume,
+            speed: clip.speed,
+            aiEnhanced: clip.aiEnhanced,
+            animationIn: clip.animationIn ? {
+              id: clip.animationIn.id,
+              type: clip.animationIn.type,
+              duration: clip.animationIn.duration,
+            } : null,
+            animationOut: clip.animationOut ? {
+              id: clip.animationOut.id,
+              type: clip.animationOut.type,
+              duration: clip.animationOut.duration,
+            } : null,
+          })),
+          textOverlays: [],
+          audioLayers: [],
+          effectLayers: [],
+          captionLayers: [],
+          drawingLayers: [],
+          videoOverlays: [],
+        };
+        
+        await saveProject(updatedProject);
+        setCurrentProject(updatedProject);
+      } catch (error) {
+        console.error('Failed to auto-save project:', error);
+      }
+    }, 2000); // Debounce 2 seconds
+    
+    return () => clearTimeout(saveTimer);
+  }, [videoUrl, duration, adjustments, selectedAspectRatio, backgroundColor, backgroundBlur, backgroundImage, videoPosition, videoClips]);
+
+  // Show Project Manager when no video is loaded
+  if (showProjectManager) {
+    return (
+      <ProjectManager
+        onBack={onBack}
+        onOpenProject={handleOpenProject}
+        onNewProject={handleNewProject}
+      />
+    );
+  }
+
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
       <input
@@ -3311,10 +3413,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       {/* Top Bar */}
       <div className="px-4 py-3 flex items-center justify-between">
         <button
-          onClick={onBack}
-          className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center"
+          onClick={() => {
+            // Go back to project manager instead of leaving editor
+            setShowProjectManager(true);
+          }}
+          className="w-7 h-7 rounded-full bg-muted/30 flex items-center justify-center hover:bg-muted/50 transition-colors"
         >
-          <ArrowLeft className="w-4 h-4 text-white" />
+          <ArrowLeft className="w-4 h-4 text-foreground" />
         </button>
         
         {videoUrl && (
