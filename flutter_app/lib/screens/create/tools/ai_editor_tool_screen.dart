@@ -2261,77 +2261,269 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   
   /// Show animations bottom sheet
   void _showAnimationsBottomSheet() {
-    final animationPresets = [
-      {'id': 'fade_in', 'name': 'Fade In', 'icon': '🌅'},
-      {'id': 'fade_out', 'name': 'Fade Out', 'icon': '🌆'},
-      {'id': 'zoom_in', 'name': 'Zoom In', 'icon': '🔍'},
-      {'id': 'zoom_out', 'name': 'Zoom Out', 'icon': '🔭'},
-      {'id': 'slide_left', 'name': 'Slide Left', 'icon': '⬅️'},
-      {'id': 'slide_right', 'name': 'Slide Right', 'icon': '➡️'},
-      {'id': 'rotate', 'name': 'Rotate', 'icon': '🔄'},
-      {'id': 'bounce', 'name': 'Bounce', 'icon': '⬆️'},
+    final animationPresetsIn = [
+      {'id': 'none', 'name': 'None', 'icon': Icons.block},
+      {'id': 'fade_in', 'name': 'Fade', 'icon': Icons.gradient},
+      {'id': 'slide_left', 'name': 'Slide Left', 'icon': Icons.arrow_back},
+      {'id': 'slide_right', 'name': 'Slide Right', 'icon': Icons.arrow_forward},
+      {'id': 'slide_up', 'name': 'Slide Up', 'icon': Icons.arrow_upward},
+      {'id': 'slide_down', 'name': 'Slide Down', 'icon': Icons.arrow_downward},
+      {'id': 'zoom_in', 'name': 'Zoom', 'icon': Icons.zoom_in},
+      {'id': 'spin_in', 'name': 'Spin', 'icon': Icons.rotate_right},
+      {'id': 'bounce_in', 'name': 'Bounce', 'icon': Icons.swap_vert},
+      {'id': 'flip_in', 'name': 'Flip', 'icon': Icons.flip},
     ];
+    
+    final animationPresetsOut = [
+      {'id': 'none', 'name': 'None', 'icon': Icons.block},
+      {'id': 'fade_out', 'name': 'Fade', 'icon': Icons.gradient},
+      {'id': 'slide_left_out', 'name': 'Slide Left', 'icon': Icons.arrow_back},
+      {'id': 'slide_right_out', 'name': 'Slide Right', 'icon': Icons.arrow_forward},
+      {'id': 'slide_up_out', 'name': 'Slide Up', 'icon': Icons.arrow_upward},
+      {'id': 'slide_down_out', 'name': 'Slide Down', 'icon': Icons.arrow_downward},
+      {'id': 'zoom_out', 'name': 'Zoom', 'icon': Icons.zoom_out},
+      {'id': 'spin_out', 'name': 'Spin', 'icon': Icons.rotate_left},
+      {'id': 'shrink', 'name': 'Shrink', 'icon': Icons.compress},
+      {'id': 'flip_out', 'name': 'Flip', 'icon': Icons.flip},
+    ];
+    
+    final animationPresetsCombo = [
+      {'id': 'none', 'name': 'None', 'icon': Icons.block},
+      {'id': 'rock', 'name': 'Rock', 'icon': Icons.show_chart},
+      {'id': 'swing', 'name': 'Swing', 'icon': Icons.vibration},
+      {'id': 'pulse', 'name': 'Pulse', 'icon': Icons.favorite},
+      {'id': 'shake', 'name': 'Shake', 'icon': Icons.vibration},
+      {'id': 'wobble', 'name': 'Wobble', 'icon': Icons.waves},
+      {'id': 'float', 'name': 'Float', 'icon': Icons.air},
+      {'id': 'breathe', 'name': 'Breathe', 'icon': Icons.air},
+      {'id': 'glitch', 'name': 'Glitch', 'icon': Icons.bolt},
+      {'id': 'flash', 'name': 'Flash', 'icon': Icons.flash_on},
+    ];
+    
+    int selectedTabIndex = 0;
+    String? selectedAnimation;
+    double animationDuration = 0.5;
     
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A1A),
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.only(top: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Animations',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: animationPresets.map((anim) => GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showSnackBar('${anim['name']} animation applied');
-                  },
-                  child: Container(
-                    width: 80,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final currentPresets = selectedTabIndex == 0 
+              ? animationPresetsIn 
+              : selectedTabIndex == 1 
+                  ? animationPresetsOut 
+                  : animationPresetsCombo;
+          
+          return Container(
+            padding: const EdgeInsets.only(top: 8),
+            height: 420,
+            child: Column(
+              children: [
+                // Handle bar
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Header
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
+                      ),
+                      const Text(
+                        'Animations',
+                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          if (selectedAnimation != null && selectedAnimation != 'none') {
+                            _showSnackBar('Animation applied');
+                          }
+                          Navigator.pop(context);
+                        },
+                        child: const Icon(Icons.check, color: Colors.white, size: 24),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Tab bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      for (int i = 0; i < 3; i++)
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              setModalState(() {
+                                selectedTabIndex = i;
+                                selectedAnimation = null;
+                              });
+                            },
+                            child: Container(
+                              margin: EdgeInsets.only(left: i > 0 ? 8 : 0),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: selectedTabIndex == i 
+                                    ? Theme.of(context).colorScheme.primary 
+                                    : Colors.white.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: selectedTabIndex == i 
+                                      ? Theme.of(context).colorScheme.primary 
+                                      : Colors.white.withOpacity(0.1),
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  ['In', 'Out', 'Combo'][i],
+                                  style: TextStyle(
+                                    color: selectedTabIndex == i ? Colors.white : Colors.white70,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Animation grid
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: GridView.builder(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 5,
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: 0.85,
+                      ),
+                      itemCount: currentPresets.length,
+                      itemBuilder: (context, index) {
+                        final anim = currentPresets[index];
+                        final isSelected = selectedAnimation == anim['id'];
+                        return GestureDetector(
+                          onTap: () {
+                            setModalState(() {
+                              selectedAnimation = anim['id'] as String;
+                            });
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isSelected 
+                                  ? Theme.of(context).colorScheme.primary.withOpacity(0.2) 
+                                  : Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected 
+                                    ? Theme.of(context).colorScheme.primary 
+                                    : Colors.white.withOpacity(0.1),
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  anim['icon'] as IconData,
+                                  color: Colors.white.withOpacity(0.8),
+                                  size: 20,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  anim['name'] as String,
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    color: Colors.white.withOpacity(0.8),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                    child: Column(
+                  ),
+                ),
+                
+                // Duration slider (only show when animation is selected)
+                if (selectedAnimation != null && selectedAnimation != 'none')
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
                       children: [
-                        Text(anim['icon']!, style: const TextStyle(fontSize: 24)),
-                        const SizedBox(height: 6),
                         Text(
-                          anim['name']!,
-                          style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.8)),
+                          'Duration',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.6),
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              trackHeight: 4,
+                              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                              activeTrackColor: Theme.of(context).colorScheme.primary,
+                              inactiveTrackColor: Colors.white.withOpacity(0.1),
+                              thumbColor: Colors.white,
+                            ),
+                            child: Slider(
+                              value: animationDuration,
+                              min: 0.1,
+                              max: 2.0,
+                              onChanged: (value) {
+                                setModalState(() {
+                                  animationDuration = value;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 40,
+                          child: Text(
+                            '${animationDuration.toStringAsFixed(1)}s',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textAlign: TextAlign.right,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                )).toList(),
-              ),
+                const SizedBox(height: 24),
+              ],
             ),
-            const SizedBox(height: 24),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

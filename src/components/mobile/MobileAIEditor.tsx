@@ -62,7 +62,27 @@ import {
   FlipHorizontal,
   Mic,
   Square,
-  FolderOpen
+  FolderOpen,
+  // Animation icons
+  Ban,
+  Blend,
+  ArrowLeftToLine,
+  ArrowRightToLine,
+  ArrowUpToLine,
+  ArrowDownToLine,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Move3d,
+  FlipVertical,
+  TrendingDown,
+  Vibrate,
+  Activity,
+  Heart,
+  Wind,
+  Zap,
+  Flame,
+  LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -1892,43 +1912,43 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [selectedAnimationPreset, setSelectedAnimationPreset] = useState<string | null>(null);
   const [animationDuration, setAnimationDuration] = useState(0.5);
   
-  // Animation presets
-  const animationPresets = {
+  // Animation presets with Lucide icons
+  const animationPresets: Record<'in' | 'out' | 'combo', Array<{ id: string; name: string; icon: LucideIcon }>> = {
     in: [
-      { id: 'none', name: 'None', icon: '⊘' },
-      { id: 'fade-in', name: 'Fade', icon: '🌅' },
-      { id: 'slide-left', name: 'Slide Left', icon: '⬅️' },
-      { id: 'slide-right', name: 'Slide Right', icon: '➡️' },
-      { id: 'slide-up', name: 'Slide Up', icon: '⬆️' },
-      { id: 'slide-down', name: 'Slide Down', icon: '⬇️' },
-      { id: 'zoom-in', name: 'Zoom', icon: '🔍' },
-      { id: 'spin-in', name: 'Spin', icon: '🔄' },
-      { id: 'bounce-in', name: 'Bounce', icon: '⚡' },
-      { id: 'flip-in', name: 'Flip', icon: '🔃' },
+      { id: 'none', name: 'None', icon: Ban },
+      { id: 'fade-in', name: 'Fade', icon: Blend },
+      { id: 'slide-left', name: 'Slide Left', icon: ArrowLeftToLine },
+      { id: 'slide-right', name: 'Slide Right', icon: ArrowRightToLine },
+      { id: 'slide-up', name: 'Slide Up', icon: ArrowUpToLine },
+      { id: 'slide-down', name: 'Slide Down', icon: ArrowDownToLine },
+      { id: 'zoom-in', name: 'Zoom', icon: ZoomIn },
+      { id: 'spin-in', name: 'Spin', icon: RotateCw },
+      { id: 'bounce-in', name: 'Bounce', icon: Move3d },
+      { id: 'flip-in', name: 'Flip', icon: FlipVertical },
     ],
     out: [
-      { id: 'none', name: 'None', icon: '⊘' },
-      { id: 'fade-out', name: 'Fade', icon: '🌄' },
-      { id: 'slide-left-out', name: 'Slide Left', icon: '⬅️' },
-      { id: 'slide-right-out', name: 'Slide Right', icon: '➡️' },
-      { id: 'slide-up-out', name: 'Slide Up', icon: '⬆️' },
-      { id: 'slide-down-out', name: 'Slide Down', icon: '⬇️' },
-      { id: 'zoom-out', name: 'Zoom', icon: '🔎' },
-      { id: 'spin-out', name: 'Spin', icon: '🔄' },
-      { id: 'shrink', name: 'Shrink', icon: '📉' },
-      { id: 'flip-out', name: 'Flip', icon: '🔃' },
+      { id: 'none', name: 'None', icon: Ban },
+      { id: 'fade-out', name: 'Fade', icon: Blend },
+      { id: 'slide-left-out', name: 'Slide Left', icon: ArrowLeftToLine },
+      { id: 'slide-right-out', name: 'Slide Right', icon: ArrowRightToLine },
+      { id: 'slide-up-out', name: 'Slide Up', icon: ArrowUpToLine },
+      { id: 'slide-down-out', name: 'Slide Down', icon: ArrowDownToLine },
+      { id: 'zoom-out', name: 'Zoom', icon: ZoomOut },
+      { id: 'spin-out', name: 'Spin', icon: RotateCcw },
+      { id: 'shrink', name: 'Shrink', icon: TrendingDown },
+      { id: 'flip-out', name: 'Flip', icon: FlipVertical },
     ],
     combo: [
-      { id: 'none', name: 'None', icon: '⊘' },
-      { id: 'rock', name: 'Rock', icon: '🎸' },
-      { id: 'swing', name: 'Swing', icon: '🎠' },
-      { id: 'pulse', name: 'Pulse', icon: '💓' },
-      { id: 'shake', name: 'Shake', icon: '📳' },
-      { id: 'wobble', name: 'Wobble', icon: '〰️' },
-      { id: 'float', name: 'Float', icon: '🎈' },
-      { id: 'breathe', name: 'Breathe', icon: '💨' },
-      { id: 'glitch', name: 'Glitch', icon: '⚡' },
-      { id: 'flash', name: 'Flash', icon: '💥' },
+      { id: 'none', name: 'None', icon: Ban },
+      { id: 'rock', name: 'Rock', icon: Activity },
+      { id: 'swing', name: 'Swing', icon: Vibrate },
+      { id: 'pulse', name: 'Pulse', icon: Heart },
+      { id: 'shake', name: 'Shake', icon: Vibrate },
+      { id: 'wobble', name: 'Wobble', icon: Waves },
+      { id: 'float', name: 'Float', icon: Wind },
+      { id: 'breathe', name: 'Breathe', icon: Wind },
+      { id: 'glitch', name: 'Glitch', icon: Zap },
+      { id: 'flash', name: 'Flash', icon: Flame },
     ],
   };
   
@@ -3162,7 +3182,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         : "bg-secondary border-border hover:bg-secondary/80"
                     )}
                   >
-                    <span className="text-xl">{anim.icon}</span>
+                    <anim.icon className="w-5 h-5 text-foreground/80" />
                     <span className="text-[9px] text-foreground/80 font-medium">{anim.name}</span>
                   </button>
                 ))}
@@ -6238,7 +6258,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 : "bg-muted/20 border-border/30 hover:bg-muted/40"
                             )}
                           >
-                            <span className="text-lg">{anim.icon}</span>
+                            <anim.icon className="w-4 h-4 text-foreground/80" />
                             <span className="text-[8px] text-foreground/80 font-medium text-center leading-tight">{anim.name}</span>
                           </button>
                         ))}
