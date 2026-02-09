@@ -3658,7 +3658,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       if (ctx) {
                         ctx.clearRect(0, 0, el.width, el.height);
                         layer.strokes.forEach(stroke => {
-                          if (stroke.points.length < 2) return;
+                          if (!stroke || !stroke.points || stroke.points.length < 2) return;
                           ctx.beginPath();
                           ctx.lineCap = 'round';
                           ctx.lineJoin = 'round';
