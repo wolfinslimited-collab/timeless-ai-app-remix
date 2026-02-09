@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -4359,76 +4360,159 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             containerHeight = containerWidth / targetAspectRatio;
           }
           
-          // Calculate video scale to cover the container for non-original ratios
-          final videoScale = _selectedAspectRatio == 'original' ? 1.0 : 1.2;
+          // Calculate video dimensions within container (Aspect Fit)
+          double videoWidthPercent = 100;
+          double videoHeightPercent = 100;
+          
+          if (_selectedAspectRatio != 'original') {
+            if (videoAspectRatio > targetAspectRatio) {
+              // Video is wider than container - fit by width
+              videoWidthPercent = 100;
+              videoHeightPercent = (targetAspectRatio / videoAspectRatio) * 100;
+            } else {
+              // Video is taller than container - fit by height
+              videoHeightPercent = 100;
+              videoWidthPercent = (videoAspectRatio / targetAspectRatio) * 100;
+            }
+          }
+          
+          // Build background decoration based on user selection
+          BoxDecoration getBackgroundDecoration() {
+            if (_selectedAspectRatio == 'original') {
+              return const BoxDecoration(color: Colors.black);
+            }
+            
+            if (_backgroundImage != null) {
+              return BoxDecoration(
+                image: DecorationImage(
+                  image: NetworkImage(_backgroundImage!),
+                  fit: BoxFit.cover,
+                ),
+              );
+            }
+            
+            return BoxDecoration(color: _backgroundColor);
+          }
           
           return Center(
-            child: GestureDetector(
-              onPanStart: _selectedAspectRatio == 'original' ? null : (details) {
-                setState(() {
-                  _isDraggingVideo = true;
-                  _dragStartPosition = details.localPosition;
-                  _dragStartVideoPosition = _videoPosition;
-                });
-              },
-              onPanUpdate: _selectedAspectRatio == 'original' ? null : (details) {
-                if (!_isDraggingVideo) return;
-                final delta = details.localPosition - _dragStartPosition;
-                setState(() {
-                  // Limit movement to reasonable bounds
-                  final newX = (_dragStartVideoPosition.dx + delta.dx * 0.5).clamp(-100.0, 100.0);
-                  final newY = (_dragStartVideoPosition.dy + delta.dy * 0.5).clamp(-100.0, 100.0);
-                  _videoPosition = Offset(newX, newY);
-                });
-              },
-              onPanEnd: _selectedAspectRatio == 'original' ? null : (_) {
-                setState(() => _isDraggingVideo = false);
-              },
-              child: ClipRect(
-                clipBehavior: Clip.hardEdge,
-                child: Container(
-                  width: containerWidth,
-                  height: containerHeight,
-                  decoration: const BoxDecoration(
-                    color: Colors.black,
-                  ),
-                  child: ClipRect(
-                    clipBehavior: Clip.hardEdge,
-                    child: ColorFiltered(
-                      colorFilter: _buildColorFilter(),
-                      child: Stack(
-                        clipBehavior: Clip.hardEdge,
-                        fit: StackFit.expand,
-                        children: [
-                          // Video player with position offset and scale
-                          Transform.translate(
-                            offset: _selectedAspectRatio == 'original' ? Offset.zero : _videoPosition,
-                            child: Transform.scale(
-                              scale: videoScale,
-                              child: Center(
-                                child: AspectRatio(
-                                  aspectRatio: videoAspectRatio,
-                                  child: VideoPlayer(_videoController!),
+            child: ClipRect(
+              clipBehavior: Clip.hardEdge,
+              child: Container(
+                width: containerWidth,
+                height: containerHeight,
+                decoration: getBackgroundDecoration(),
+                child: Stack(
+                  clipBehavior: Clip.hardEdge,
+                  children: [
+                    // Blurred video background layer
+                    if (_selectedAspectRatio != 'original' && _backgroundBlur > 0)
+                      Positioned.fill(
+                        child: Transform.scale(
+                          scale: 1.1, // Prevent blur edges from showing
+                          child: ImageFiltered(
+                            imageFilter: ImageFilter.blur(
+                              sigmaX: _backgroundBlur * 2,
+                              sigmaY: _backgroundBlur * 2,
+                            ),
+                            child: ColorFiltered(
+                              colorFilter: ColorFilter.mode(
+                                Colors.black.withOpacity(0.3),
+                                BlendMode.darken,
+                              ),
+                              child: VideoPlayer(_videoController!),
+                            ),
+                          ),
+                        ),
+                      ),
+                    
+                    // Main video layer - Aspect Fit with drag repositioning
+                    Center(
+                      child: GestureDetector(
+                        onPanStart: _selectedAspectRatio == 'original' ? null : (details) {
+                          setState(() {
+                            _isDraggingVideo = true;
+                            _dragStartPosition = details.localPosition;
+                            _dragStartVideoPosition = _videoPosition;
+                          });
+                        },
+                        onPanUpdate: _selectedAspectRatio == 'original' ? null : (details) {
+                          if (!_isDraggingVideo) return;
+                          final delta = details.localPosition - _dragStartPosition;
+                          setState(() {
+                            // Calculate max offset based on container size
+                            final maxOffset = containerWidth * 0.3;
+                            final newX = (_dragStartVideoPosition.dx + delta.dx).clamp(-maxOffset, maxOffset);
+                            final newY = (_dragStartVideoPosition.dy + delta.dy).clamp(-maxOffset, maxOffset);
+                            _videoPosition = Offset(newX, newY);
+                          });
+                        },
+                        onPanEnd: _selectedAspectRatio == 'original' ? null : (_) {
+                          setState(() => _isDraggingVideo = false);
+                        },
+                        child: Transform.translate(
+                          offset: _selectedAspectRatio == 'original' ? Offset.zero : _videoPosition,
+                          child: Container(
+                            width: containerWidth * videoWidthPercent / 100,
+                            height: containerHeight * videoHeightPercent / 100,
+                            decoration: BoxDecoration(
+                              boxShadow: _selectedAspectRatio != 'original' ? [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 10,
+                                  spreadRadius: 2,
+                                ),
+                              ] : null,
+                            ),
+                            child: ColorFiltered(
+                              colorFilter: _buildColorFilter(),
+                              child: AspectRatio(
+                                aspectRatio: videoAspectRatio,
+                                child: VideoPlayer(_videoController!),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    // Video overlays (picture-in-picture)
+                    ..._buildVideoOverlays(constraints),
+                    // Text overlays for editing
+                    ..._buildTextOverlays(constraints),
+                    // Caption overlays at bottom of video
+                    ..._buildCaptionOverlays(constraints),
+                    // Drawing overlays (saved drawings)
+                    ..._buildDrawingOverlays(constraints),
+                    // Drawing canvas overlay (active when in draw mode)
+                    if (_isDrawMode) _buildDrawingCanvas(containerWidth, containerHeight),
+                    // Crop overlay when in crop mode
+                    if (_isCropMode) _buildCropOverlay(containerWidth, containerHeight),
+                    
+                    // Drag indicator when not original aspect ratio
+                    if (_selectedAspectRatio != 'original' && !_isDraggingVideo)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: Center(
+                            child: AnimatedOpacity(
+                              opacity: 0.0,
+                              duration: const Duration(milliseconds: 200),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.5),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.open_with,
+                                  color: Colors.white.withOpacity(0.7),
+                                  size: 20,
                                 ),
                               ),
                             ),
                           ),
-                          // Video overlays (picture-in-picture)
-                          ..._buildVideoOverlays(constraints),
-                          // Text overlays for editing
-                          ..._buildTextOverlays(constraints),
-                          // Caption overlays at bottom of video
-                          ..._buildCaptionOverlays(constraints),
-                          // Drawing overlays (saved drawings)
-                          ..._buildDrawingOverlays(constraints),
-                          // Drawing canvas overlay (active when in draw mode)
-                          if (_isDrawMode) _buildDrawingCanvas(containerWidth, containerHeight),
-                          // Crop overlay when in crop mode
-                          if (_isCropMode) _buildCropOverlay(containerWidth, containerHeight),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
+                  ],
                 ),
               ),
             ),
