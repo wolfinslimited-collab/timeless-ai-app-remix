@@ -1635,7 +1635,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     }
     
     _saveStateToHistory();
-    final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+    final videoDuration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+    final defaultDuration = 5.0; // 5 second default duration
+    final currentPosition = _videoController?.value.position.inMilliseconds.toDouble() ?? 0;
+    final layerStart = currentPosition / 1000.0;
+    final layerEnd = (layerStart + defaultDuration).clamp(layerStart + 0.5, videoDuration);
     
     final newLayer = DrawingLayer(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -1646,8 +1650,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         size: s.size,
         tool: s.tool,
       ))),
-      startTime: 0,
-      endTime: duration,
+      startTime: layerStart,
+      endTime: layerEnd,
     );
     
     setState(() {
