@@ -2998,18 +2998,34 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Project Manager handlers
   const handleOpenProject = async (project: EditorProject) => {
     setCurrentProject(project);
-    if (project.videoUrl) {
-      setVideoUrl(project.videoUrl);
-      // Restore project state
-      setVideoPosition(project.videoPosition);
-      setSelectedAspectRatio(project.selectedAspectRatio);
-      setBackgroundColor(project.backgroundColor);
-      setBackgroundBlur(project.backgroundBlur);
-      setBackgroundImage(project.backgroundImage);
-      setAdjustments(project.adjustments);
-      // Restore layers would go here for full implementation
+    // Restore all project state except video URL
+    setVideoPosition(project.videoPosition);
+    setSelectedAspectRatio(project.selectedAspectRatio);
+    setBackgroundColor(project.backgroundColor);
+    setBackgroundBlur(project.backgroundBlur);
+    setBackgroundImage(project.backgroundImage);
+    setAdjustments(project.adjustments);
+
+    // Blob URLs don't persist across sessions — need to re-select video
+    const url = project.videoUrl;
+    const isStaleUrl = !url || url.startsWith('blob:');
+
+    if (isStaleUrl) {
+      // Show editor with a prompt to re-select the video file
+      setVideoUrl(null);
+      setShowProjectManager(false);
+      // Small delay then trigger file picker
+      setTimeout(() => {
+        toast({
+          title: 'Re-select your video',
+          description: 'The video file needs to be re-selected for this project.',
+        });
+        fileInputRef.current?.click();
+      }, 300);
+    } else {
+      setVideoUrl(url);
+      setShowProjectManager(false);
     }
-    setShowProjectManager(false);
   };
 
   const handleNewProject = async (project: EditorProject, file: File) => {
