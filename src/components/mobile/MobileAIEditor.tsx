@@ -4089,6 +4089,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       top: `${overlay.position.y * 100}%`,
                       transform: `translate(-50%, -50%) rotate(${overlay.rotation || 0}deg) scaleX(${overlay.scaleX || 1}) scaleY(${overlay.scaleY || 1})`,
                       cursor: draggingTextId === overlay.id ? 'grabbing' : 'grab',
+                      zIndex: 20,
                     }}
                     // Click to select - automatically show text edit panel
                     onClick={(e) => {
@@ -4316,6 +4317,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   )}
                   style={{
                     backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                    zIndex: 18,
                   }}
                   onClick={() => {
                     setSelectedCaptionId(caption.id);
@@ -4335,6 +4337,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 <canvas
                   key={`drawing-layer-${layer.id}`}
                   className="absolute inset-0 w-full h-full pointer-events-none"
+                  style={{ zIndex: 15 }}
                   ref={(el) => {
                     if (el) {
                       // Set canvas resolution to match actual display size
