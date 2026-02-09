@@ -585,8 +585,8 @@ class _ProjectManagerScreenState extends State<ProjectManagerScreen> {
                           )
                         : _buildPlaceholder(),
                   ),
-                  // AI badge if project has AI-enhanced clips
-                  if (project.videoClips.any((c) => c.aiEnhanced))
+                  // AI badge if project has AI-generated content
+                  if (project.hasAIContent)
                     Positioned(
                       top: 6,
                       left: 6,
