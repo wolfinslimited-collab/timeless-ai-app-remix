@@ -100,6 +100,10 @@ import { TextEditPanel } from "./TextEditPanel";
 import { ProjectManager } from "./ai-editor/ProjectManager";
 import type { EditorProject } from "./ai-editor/types";
 import { saveProject, generateThumbnail, createNewProject } from "./ai-editor/projectStorage";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useCredits } from "@/hooks/useCredits";
+import AddCreditsDialog from "@/components/AddCreditsDialog";
 
 interface MobileAIEditorProps {
   onBack: () => void;
@@ -280,6 +284,12 @@ interface VideoOverlayData {
 const MAX_HISTORY_LENGTH = 50;
 
 export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
+  // Auth & credits
+  const { user } = useAuth();
+  const { credits, refetch: refetchCredits, hasActiveSubscription } = useCredits();
+  const [showAddCreditsDialog, setShowAddCreditsDialog] = useState(false);
+  const AI_EDIT_CREDIT_COST = 5;
+
   // Project Manager state
   const [showProjectManager, setShowProjectManager] = useState(true);
   const [currentProject, setCurrentProject] = useState<EditorProject | null>(null);
@@ -449,7 +459,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [settingsPanelType, setSettingsPanelType] = useState<'stickers' | null>(null);
   
   // Base overlay check - isAudioEditMode, isDrawMode, isCropMode are added later
-  const isAnyOverlayOpenBase = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isAdjustMenuMode || isSettingsPanelOpen || isCropMode;
+  const isAnyOverlayOpenBase = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isAdjustMenuMode || isSettingsPanelOpen || isCropMode || isMagicEditOpen;
   
   // Sticker presets
   const stickerCategories = [
@@ -2170,25 +2180,40 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       setEditSubPanel('animations'); 
     }},
     { id: 'crop', name: 'Crop', icon: Crop, action: () => { setIsEditMenuMode(false); setIsCropMode(true); setCropBox({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 }); } },
-    { id: 'magic-edit', name: 'AI Edit', icon: Wand2, action: () => { setIsMagicEditOpen(true); setMagicEditPrompt(''); } },
+    { id: 'magic-edit', name: 'AI Edit', icon: Wand2, action: () => { setIsMagicEditOpen(true); setMagicEditPrompt(''); setIsEditMenuMode(false); } },
     { id: 'replace', name: 'Replace', icon: Replace, action: () => { handleDirectFilePick(); } },
     { id: 'delete', name: 'Delete', icon: Trash2, action: handleDeleteClip, isDestructive: true },
   ];
 
-  // Handle Magic Edit submission
+  // Handle Magic Edit submission with credit system
   const handleMagicEditSubmit = async () => {
     if (!magicEditPrompt.trim()) {
       toast({ variant: "destructive", title: "Please enter a prompt" });
       return;
     }
-    
+
+    // Credit check
+    if (!hasActiveSubscription) {
+      if (credits === null || credits < AI_EDIT_CREDIT_COST) {
+        setShowAddCreditsDialog(true);
+        return;
+      }
+    }
+
+    // Close bottom sheet, show loading overlay on video
+    setIsMagicEditOpen(false);
     setIsMagicEditProcessing(true);
+
     try {
+      // Get auth token for credit deduction
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token;
+
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-video-edit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({ prompt: magicEditPrompt }),
       });
@@ -2203,6 +2228,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
       const effect = data.effect;
       
+      // Deduct credits
+      if (user && !hasActiveSubscription) {
+        await supabase
+          .from('profiles')
+          .update({ credits: Math.max(0, (credits || 0) - AI_EDIT_CREDIT_COST) })
+          .eq('user_id', user.id);
+        refetchCredits();
+      }
+
       // Store AI adjustments and filterCSS on the effect layer (NOT globally)
       saveStateToHistory();
       const newEffect: EffectLayerData = {
@@ -2229,7 +2263,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         }
       }
 
-      setIsMagicEditOpen(false);
       setIsMagicEditProcessing(false);
       toast({ title: "AI Edit Applied", description: effect.description || effect.effectName });
     } catch (err: any) {
@@ -3207,89 +3240,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         </div>
       )}
 
-      {/* Magic Edit (AI Edit) Dialog */}
-      <Dialog open={isMagicEditOpen} onOpenChange={(open) => { if (!isMagicEditProcessing) setIsMagicEditOpen(open); }}>
-        <DialogContent className="max-w-[95vw] sm:max-w-md p-0 border-border/30 bg-background [&>button]:hidden rounded-2xl overflow-hidden">
-          <div className="flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border/20">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
-                  <Wand2 className="w-4 h-4 text-white" />
-                </div>
-                <span className="text-sm font-semibold text-foreground">AI Edit</span>
-              </div>
-              <button
-                onClick={() => { if (!isMagicEditProcessing) setIsMagicEditOpen(false); }}
-                className="w-8 h-8 rounded-full bg-muted/30 flex items-center justify-center hover:bg-muted/50 transition-colors"
-              >
-                <X className="w-4 h-4 text-foreground/70" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-4 space-y-4">
-              <p className="text-xs text-muted-foreground">
-                Describe the visual changes you want to apply to your video clip.
-              </p>
-
-              {/* Prompt Input */}
-              <textarea
-                value={magicEditPrompt}
-                onChange={(e) => setMagicEditPrompt(e.target.value)}
-                placeholder="Enter your prompt for AI video editing..."
-                disabled={isMagicEditProcessing}
-                className="w-full min-h-[80px] rounded-xl border border-border/30 bg-muted/20 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none disabled:opacity-50"
-                rows={3}
-              />
-
-              {/* Example prompts */}
-              <div className="space-y-1.5">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Examples</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    'Change the sky to a sunset',
-                    'Make the person glow green',
-                    'Add a futuristic city in the background',
-                    'Apply cinematic color grading',
-                    'Make it look like a vintage film',
-                  ].map((example) => (
-                    <button
-                      key={example}
-                      onClick={() => !isMagicEditProcessing && setMagicEditPrompt(example)}
-                      className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
-                      disabled={isMagicEditProcessing}
-                    >
-                      {example}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="px-4 pb-4">
-              <button
-                onClick={handleMagicEditSubmit}
-                disabled={isMagicEditProcessing || !magicEditPrompt.trim()}
-                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:from-violet-600 hover:to-fuchsia-600 flex items-center justify-center gap-2"
-              >
-                {isMagicEditProcessing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Generating AI Edit...</span>
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="w-4 h-4" />
-                    <span>Apply AI Edit</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Add Credits Dialog */}
+      <AddCreditsDialog open={showAddCreditsDialog} onOpenChange={setShowAddCreditsDialog} />
 
       {/* Fullscreen Video Dialog */}
       <Dialog open={isFullScreen} onOpenChange={setIsFullScreen}>
@@ -4470,6 +4422,43 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   onTouchMove={draw}
                   onTouchEnd={endDrawing}
                 />
+              )}
+              
+              {/* AI Processing Loading Overlay */}
+              {isMagicEditProcessing && (
+                <div className="absolute inset-0 z-[200] flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm">
+                  {/* Pulsing glow ring */}
+                  <div className="relative w-20 h-20 mb-4">
+                    <div className="absolute inset-0 rounded-full border-2 border-primary/30 animate-ping" />
+                    <div className="absolute inset-1 rounded-full border-2 border-primary/50 animate-pulse" />
+                    <div className="absolute inset-2 rounded-full border border-primary/40 animate-[spin_3s_linear_infinite]" 
+                      style={{ borderTopColor: 'hsl(var(--primary))' }} 
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Wand2 className="w-7 h-7 text-primary animate-pulse" />
+                    </div>
+                  </div>
+                  {/* Scanning line effect */}
+                  <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent opacity-60 animate-[scan_2s_ease-in-out_infinite]"
+                    style={{
+                      animation: 'scan 2s ease-in-out infinite',
+                    }}
+                  />
+                  <style>{`
+                    @keyframes scan {
+                      0%, 100% { top: 10%; opacity: 0; }
+                      50% { top: 90%; opacity: 0.8; }
+                    }
+                  `}</style>
+                  <p className="text-primary font-semibold text-sm">AI Processing...</p>
+                  <p className="text-muted-foreground text-xs mt-1">Applying your edit</p>
+                  <button
+                    onClick={() => setIsMagicEditProcessing(false)}
+                    className="mt-4 px-4 py-1.5 rounded-lg bg-destructive/20 text-destructive text-xs font-medium hover:bg-destructive/30 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
               )}
               
               {/* Crop Overlay - Active when in crop mode */}
@@ -6322,6 +6311,70 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   bubbleStyle={selectedTextOverlay.bubbleStyle}
                   onBubbleStyleChange={(bubbleStyle) => updateSelectedText({ bubbleStyle })}
                 />
+              </div>
+            )}
+            
+            {/* AI Prompt Edit Bottom Sheet */}
+            {isMagicEditOpen && (
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col rounded-t-2xl border-t border-border/20" style={{ height: '260px' }}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/20">
+                  <button
+                    onClick={() => setIsMagicEditOpen(false)}
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                  >
+                    <ChevronDown className="w-5 h-5 text-primary" />
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <Wand2 className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-semibold text-foreground">AI Prompt Edit</span>
+                  </div>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10">
+                    <Sparkles className="w-3 h-3 text-primary" />
+                    <span className="text-[10px] font-semibold text-primary">{AI_EDIT_CREDIT_COST} credits</span>
+                  </div>
+                </div>
+
+                {/* Prompt input */}
+                <div className="flex-1 px-4 py-3 flex flex-col gap-3 overflow-hidden">
+                  <textarea
+                    value={magicEditPrompt}
+                    onChange={(e) => setMagicEditPrompt(e.target.value)}
+                    placeholder="Describe the visual changes you want..."
+                    className="w-full flex-1 min-h-[60px] rounded-xl border border-border/30 bg-muted/20 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                    rows={2}
+                  />
+
+                  {/* Example prompt chips */}
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+                    {[
+                      'Cinematic color grading',
+                      'Vintage film look',
+                      'Sunset sky',
+                      'Neon glow',
+                    ].map((example) => (
+                      <button
+                        key={example}
+                        onClick={() => setMagicEditPrompt(example)}
+                        className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                      >
+                        {example}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Send button */}
+                <div className="px-4 pb-4">
+                  <button
+                    onClick={handleMagicEditSubmit}
+                    disabled={!magicEditPrompt.trim()}
+                    className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center gap-2"
+                  >
+                    <Wand2 className="w-4 h-4" />
+                    <span>Send</span>
+                  </button>
+                </div>
               </div>
             )}
             
