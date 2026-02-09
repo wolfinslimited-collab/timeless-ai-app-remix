@@ -6851,9 +6851,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             )}>
                               {tool.name}
                             </span>
-                            {tool.isAI && (
-                              <span className="text-[8px] text-amber-400/70 mt-0.5">Uses AI Credits</span>
-                            )}
                           </button>
                         );
                       })}
@@ -6999,9 +6996,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           <span className="text-[10px] font-medium text-foreground/60">
                             {tool.name}
                           </span>
-                          {tool.isAI && (
-                            <span className="text-[8px] text-amber-400/70 mt-0.5">Uses AI Credits</span>
-                          )}
                         </button>
                       );
                     })}

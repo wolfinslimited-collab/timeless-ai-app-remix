@@ -9891,18 +9891,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       tool['icon'] as IconData,
                       () => _showSnackBar('${tool['name']} coming soon'),
                     ),
-                    if (isAI)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 2),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.auto_awesome, size: 8, color: Color(0xFFFBBF24)),
-                            SizedBox(width: 2),
-                            Text('AI Credits', style: TextStyle(fontSize: 8, color: Color(0xFFFBBF24))),
-                          ],
-                        ),
-                      ),
                   ],
                 );
               }).toList(),
