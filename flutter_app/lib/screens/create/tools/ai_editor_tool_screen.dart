@@ -15,6 +15,8 @@ import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../core/theme.dart';
 import 'widgets/text_edit_panel.dart';
+import 'ai_editor/project_storage.dart';
+import 'ai_editor/project_manager.dart';
 
 class RecentVideo {
   final String url;
