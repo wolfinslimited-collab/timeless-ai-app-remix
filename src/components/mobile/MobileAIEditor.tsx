@@ -107,6 +107,13 @@ const EDITOR_TOOLS: EditorTool[] = [
 const PIXELS_PER_SECOND = 80.0; // Master time-to-pixel ratio
 const THUMBNAIL_HEIGHT = 80; // Increased for better quality
 
+// Animation preset data
+interface ClipAnimation {
+  id: string;
+  type: 'in' | 'out' | 'combo';
+  duration: number; // in seconds
+}
+
 // Video clip model for multi-clip timeline with trim support
 interface VideoClip {
   id: string;
@@ -118,6 +125,8 @@ interface VideoClip {
   thumbnails?: string[]; // Array of data URLs for frame thumbnails
   volume: number; // Clip volume (0-2, where 1=100%, 2=200%)
   speed: number; // Clip playback speed (0.25-4x)
+  animationIn?: ClipAnimation; // Entry animation
+  animationOut?: ClipAnimation; // Exit animation
 }
 
 // Helper to get trimmed duration
@@ -1857,18 +1866,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     }
   };
 
-  // Animation presets configuration
-  const animationPresets = [
-    { id: 'fade_in', name: 'Fade In', icon: '🌅' },
-    { id: 'fade_out', name: 'Fade Out', icon: '🌆' },
-    { id: 'zoom_in', name: 'Zoom In', icon: '🔍' },
-    { id: 'zoom_out', name: 'Zoom Out', icon: '🔭' },
-    { id: 'slide_left', name: 'Slide Left', icon: '⬅️' },
-    { id: 'slide_right', name: 'Slide Right', icon: '➡️' },
-    { id: 'rotate', name: 'Rotate', icon: '🔄' },
-    { id: 'bounce', name: 'Bounce', icon: '⬆️' },
-  ];
-
   // Beat sync presets configuration
   const beatPresets = [
     { id: 'auto_sync', name: 'Auto Sync', description: 'Sync cuts to beat' },
@@ -1888,7 +1885,79 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   ];
 
   // Edit menu sub-panel state
-  const [editSubPanel, setEditSubPanel] = useState<'none' | 'volume' | 'speed'>('none');
+  const [editSubPanel, setEditSubPanel] = useState<'none' | 'volume' | 'speed' | 'animations'>('none');
+  
+  // Animation state
+  const [animationTab, setAnimationTab] = useState<'in' | 'out' | 'combo'>('in');
+  const [selectedAnimationPreset, setSelectedAnimationPreset] = useState<string | null>(null);
+  const [animationDuration, setAnimationDuration] = useState(0.5);
+  
+  // Animation presets
+  const animationPresets = {
+    in: [
+      { id: 'none', name: 'None', icon: '⊘' },
+      { id: 'fade-in', name: 'Fade', icon: '🌅' },
+      { id: 'slide-left', name: 'Slide Left', icon: '⬅️' },
+      { id: 'slide-right', name: 'Slide Right', icon: '➡️' },
+      { id: 'slide-up', name: 'Slide Up', icon: '⬆️' },
+      { id: 'slide-down', name: 'Slide Down', icon: '⬇️' },
+      { id: 'zoom-in', name: 'Zoom', icon: '🔍' },
+      { id: 'spin-in', name: 'Spin', icon: '🔄' },
+      { id: 'bounce-in', name: 'Bounce', icon: '⚡' },
+      { id: 'flip-in', name: 'Flip', icon: '🔃' },
+    ],
+    out: [
+      { id: 'none', name: 'None', icon: '⊘' },
+      { id: 'fade-out', name: 'Fade', icon: '🌄' },
+      { id: 'slide-left-out', name: 'Slide Left', icon: '⬅️' },
+      { id: 'slide-right-out', name: 'Slide Right', icon: '➡️' },
+      { id: 'slide-up-out', name: 'Slide Up', icon: '⬆️' },
+      { id: 'slide-down-out', name: 'Slide Down', icon: '⬇️' },
+      { id: 'zoom-out', name: 'Zoom', icon: '🔎' },
+      { id: 'spin-out', name: 'Spin', icon: '🔄' },
+      { id: 'shrink', name: 'Shrink', icon: '📉' },
+      { id: 'flip-out', name: 'Flip', icon: '🔃' },
+    ],
+    combo: [
+      { id: 'none', name: 'None', icon: '⊘' },
+      { id: 'rock', name: 'Rock', icon: '🎸' },
+      { id: 'swing', name: 'Swing', icon: '🎠' },
+      { id: 'pulse', name: 'Pulse', icon: '💓' },
+      { id: 'shake', name: 'Shake', icon: '📳' },
+      { id: 'wobble', name: 'Wobble', icon: '〰️' },
+      { id: 'float', name: 'Float', icon: '🎈' },
+      { id: 'breathe', name: 'Breathe', icon: '💨' },
+      { id: 'glitch', name: 'Glitch', icon: '⚡' },
+      { id: 'flash', name: 'Flash', icon: '💥' },
+    ],
+  };
+  
+  // Apply animation to clip
+  const applyAnimationToClip = () => {
+    if (!editingClipId || !selectedAnimationPreset) return;
+    
+    setVideoClips(prev => prev.map(clip => {
+      if (clip.id !== editingClipId) return clip;
+      
+      const animation: ClipAnimation | undefined = selectedAnimationPreset === 'none' ? undefined : {
+        id: selectedAnimationPreset,
+        type: animationTab,
+        duration: animationDuration,
+      };
+      
+      if (animationTab === 'in') {
+        return { ...clip, animationIn: animation };
+      } else if (animationTab === 'out') {
+        return { ...clip, animationOut: animation };
+      } else {
+        // Combo applies to both
+        return { ...clip, animationIn: animation, animationOut: animation };
+      }
+    }));
+    
+    toast({ title: selectedAnimationPreset === 'none' ? 'Animation removed' : `${selectedAnimationPreset} animation applied` });
+    setEditSubPanel('none');
+  };
   
   // Speed mode: 'normal' for linear slider, 'curve' for presets
   const [speedMode, setSpeedMode] = useState<'normal' | 'curve'>('normal');
@@ -1978,7 +2047,23 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     { id: 'split', name: 'Split', icon: SplitSquareHorizontal, action: handleSplitAtPlayhead },
     { id: 'volume', name: 'Volume', icon: Volume2, action: () => setEditSubPanel('volume') },
     { id: 'speed', name: 'Speed', icon: Gauge, action: () => setEditSubPanel('speed') },
-    { id: 'animations', name: 'Animations', icon: Sparkles, action: () => { setShowClipEditPanel(false); setShowAnimationsPanel(true); } },
+    { id: 'animations', name: 'Animations', icon: Sparkles, action: () => { 
+      // Initialize with current clip's animation if exists
+      const clip = videoClips.find(c => c.id === editingClipId);
+      if (clip?.animationIn) {
+        setAnimationTab('in');
+        setSelectedAnimationPreset(clip.animationIn.id);
+        setAnimationDuration(clip.animationIn.duration);
+      } else if (clip?.animationOut) {
+        setAnimationTab('out');
+        setSelectedAnimationPreset(clip.animationOut.id);
+        setAnimationDuration(clip.animationOut.duration);
+      } else {
+        setSelectedAnimationPreset(null);
+        setAnimationDuration(0.5);
+      }
+      setEditSubPanel('animations'); 
+    }},
     { id: 'crop', name: 'Crop', icon: Crop, action: () => { setIsEditMenuMode(false); setIsCropMode(true); setCropBox({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 }); } },
     { id: 'replace', name: 'Replace', icon: Replace, action: () => { handleDirectFilePick(); } },
     { id: 'delete', name: 'Delete', icon: Trash2, action: handleDeleteClip, isDestructive: true },
@@ -3036,9 +3121,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         </SheetContent>
       </Sheet>
 
-      {/* Animations Panel Sheet */}
+      {/* Animations Panel Sheet - Legacy, now uses Edit sub-panel */}
       <Sheet open={showAnimationsPanel} onOpenChange={setShowAnimationsPanel}>
-        <SheetContent side="bottom" className="bg-card border-t border-border rounded-t-3xl p-0 max-h-[50vh]">
+        <SheetContent side="bottom" className="bg-card border-t border-border rounded-t-3xl p-0 max-h-[60vh]">
           <div className="flex flex-col">
             <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mt-3" />
             <SheetHeader className="px-5 pt-4 pb-3">
@@ -3046,22 +3131,76 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 Animations
               </SheetTitle>
             </SheetHeader>
-            <div className="px-4 pb-6">
-              <div className="grid grid-cols-4 gap-3">
-                {animationPresets.map((anim) => (
+            {/* Tabs */}
+            <div className="flex gap-2 px-4 mb-3">
+              {(['in', 'out', 'combo'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setAnimationTab(tab)}
+                  className={cn(
+                    "flex-1 py-2 rounded-xl text-sm font-medium transition-all border",
+                    animationTab === tab
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted/20 text-foreground/70 border-border/30 hover:bg-muted/40"
+                  )}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
+            </div>
+            {/* Grid of animations */}
+            <div className="px-4 pb-4">
+              <div className="grid grid-cols-5 gap-2">
+                {animationPresets[animationTab].map((anim) => (
                   <button
                     key={anim.id}
-                    onClick={() => {
-                      toast({ title: anim.name, description: "Animation applied to clip" });
-                      setShowAnimationsPanel(false);
-                    }}
-                    className="flex flex-col items-center gap-2 p-3 bg-secondary rounded-xl border border-border hover:bg-secondary/80 transition-all"
+                    onClick={() => setSelectedAnimationPreset(anim.id)}
+                    className={cn(
+                      "flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all",
+                      selectedAnimationPreset === anim.id
+                        ? "bg-primary/20 border-primary"
+                        : "bg-secondary border-border hover:bg-secondary/80"
+                    )}
                   >
-                    <span className="text-2xl">{anim.icon}</span>
-                    <span className="text-[10px] text-foreground/80 font-medium">{anim.name}</span>
+                    <span className="text-xl">{anim.icon}</span>
+                    <span className="text-[9px] text-foreground/80 font-medium">{anim.name}</span>
                   </button>
                 ))}
               </div>
+            </div>
+            {/* Duration slider */}
+            {selectedAnimationPreset && selectedAnimationPreset !== 'none' && (
+              <div className="px-4 pb-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">Duration</span>
+                  <div className="flex-1 relative h-1.5">
+                    <div className="absolute inset-0 bg-muted/30 rounded-full" />
+                    <div className="absolute left-0 top-0 h-full bg-primary rounded-full" style={{ width: `${(animationDuration / 2) * 100}%` }} />
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="2"
+                      step="0.1"
+                      value={animationDuration}
+                      onChange={(e) => setAnimationDuration(parseFloat(e.target.value))}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-primary w-10 text-right">{animationDuration.toFixed(1)}s</span>
+                </div>
+              </div>
+            )}
+            {/* Apply button */}
+            <div className="px-4 pb-6">
+              <button
+                onClick={() => {
+                  applyAnimationToClip();
+                  setShowAnimationsPanel(false);
+                }}
+                className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-medium"
+              >
+                Apply Animation
+              </button>
             </div>
           </div>
         </SheetContent>
@@ -4559,20 +4698,24 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             return (
                               <div 
                                 key={clip.id}
-                                className="relative h-[32px] overflow-hidden cursor-pointer transition-all"
-                                style={{ 
-                                  width: clipWidth,
-                                  backgroundColor: '#1a1a1a',
-                                  border: isSelected ? '2px solid white' : 'none',
-                                  borderRadius: isSelected ? '4px' : '0',
-                                }}
-                                onClick={() => {
-                                  setSelectedClipId(clip.id);
-                                  // Open edit menu when clicking on video clip
-                                  setIsEditMenuMode(true);
-                                  setEditSubPanel('none');
-                                }}
+                                className="relative flex flex-col"
+                                style={{ width: clipWidth }}
                               >
+                                {/* Main clip container */}
+                                <div 
+                                  className="relative h-[32px] overflow-hidden cursor-pointer transition-all"
+                                  style={{ 
+                                    backgroundColor: '#1a1a1a',
+                                    border: isSelected ? '2px solid white' : 'none',
+                                    borderRadius: isSelected ? '4px' : '0',
+                                  }}
+                                  onClick={() => {
+                                    setSelectedClipId(clip.id);
+                                    // Open edit menu when clicking on video clip
+                                    setIsEditMenuMode(true);
+                                    setEditSubPanel('none');
+                                  }}
+                                >
                                 <div className="flex h-full">
                                   {/* Left trim handle - white box with black line when selected */}
                                   <div 
@@ -4713,6 +4856,41 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                     {isSelected && <div className="w-[2px] h-3 bg-black rounded-full" />}
                                   </div>
                                 </div>
+                                </div>
+                                
+                                {/* Animation indicators below the clip */}
+                                {(clip.animationIn || clip.animationOut) && (
+                                  <div className="flex h-[6px] mt-0.5 rounded overflow-hidden">
+                                    {/* In animation indicator */}
+                                    {clip.animationIn && (
+                                      <div 
+                                        className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 rounded-l flex items-center justify-center"
+                                        style={{ 
+                                          width: Math.max(16, (clip.animationIn.duration / getClipTrimmedDuration(clip)) * clipWidth),
+                                        }}
+                                        title={`In: ${animationPresets.in.find(a => a.id === clip.animationIn?.id)?.name || clip.animationIn.id} (${clip.animationIn.duration.toFixed(1)}s)`}
+                                      >
+                                        <Sparkles className="w-2.5 h-2.5 text-white/80" />
+                                      </div>
+                                    )}
+                                    {/* Spacer between indicators */}
+                                    {clip.animationIn && clip.animationOut && (
+                                      <div className="flex-1" />
+                                    )}
+                                    {/* Out animation indicator */}
+                                    {clip.animationOut && (
+                                      <div 
+                                        className="h-full bg-gradient-to-r from-orange-400 to-orange-500 rounded-r flex items-center justify-center ml-auto"
+                                        style={{ 
+                                          width: Math.max(16, (clip.animationOut.duration / getClipTrimmedDuration(clip)) * clipWidth),
+                                        }}
+                                        title={`Out: ${animationPresets.out.find(a => a.id === clip.animationOut?.id)?.name || clip.animationOut.id} (${clip.animationOut.duration.toFixed(1)}s)`}
+                                      >
+                                        <Sparkles className="w-2.5 h-2.5 text-white/80" />
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
@@ -5778,7 +5956,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Edit Menu Overlay */}
             {isEditMenuMode && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: editSubPanel !== 'none' ? '200px' : '160px' }}>
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: editSubPanel === 'animations' ? '280px' : editSubPanel !== 'none' ? '200px' : '160px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
                   <button
@@ -5799,7 +5977,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     )}
                   </button>
                   <span className="flex-1 text-sm font-medium text-foreground text-center">
-                    {editSubPanel === 'volume' ? 'Volume' : editSubPanel === 'speed' ? 'Speed' : (editingLayerType === 'overlay' ? 'Edit Overlay' : 'Edit')}
+                    {editSubPanel === 'volume' ? 'Volume' : editSubPanel === 'speed' ? 'Speed' : editSubPanel === 'animations' ? 'Animations' : (editingLayerType === 'overlay' ? 'Edit Overlay' : 'Edit')}
                   </span>
                   {editSubPanel !== 'none' && (
                     <button
@@ -5808,6 +5986,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           applyClipVolume();
                         } else if (editSubPanel === 'speed') {
                           applyClipSpeed();
+                        } else if (editSubPanel === 'animations') {
+                          applyAnimationToClip();
                         }
                         setEditSubPanel('none');
                       }}
@@ -6009,6 +6189,89 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         </div>
                       </div>
                     </div>
+                  </div>
+                ) : editSubPanel === 'animations' ? (
+                  /* Animations Sub-panel with In/Out/Combo tabs */
+                  <div className="flex-1 flex flex-col px-4 py-2 overflow-hidden">
+                    {/* Tab Buttons */}
+                    <div className="flex gap-2 mb-3">
+                      {(['in', 'out', 'combo'] as const).map((tab) => (
+                        <button
+                          key={tab}
+                          onClick={() => {
+                            setAnimationTab(tab);
+                            // Check if clip has animation for this tab
+                            const clip = videoClips.find(c => c.id === editingClipId);
+                            if (tab === 'in' && clip?.animationIn) {
+                              setSelectedAnimationPreset(clip.animationIn.id);
+                              setAnimationDuration(clip.animationIn.duration);
+                            } else if (tab === 'out' && clip?.animationOut) {
+                              setSelectedAnimationPreset(clip.animationOut.id);
+                              setAnimationDuration(clip.animationOut.duration);
+                            } else {
+                              setSelectedAnimationPreset(null);
+                            }
+                          }}
+                          className={cn(
+                            "flex-1 py-2 rounded-xl text-sm font-medium transition-all border",
+                            animationTab === tab
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-muted/20 text-foreground/70 border-border/30 hover:bg-muted/40"
+                          )}
+                        >
+                          {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                    
+                    {/* Animation Grid */}
+                    <div className="flex-1 overflow-x-auto">
+                      <div className="flex gap-2 min-w-max pb-2">
+                        {animationPresets[animationTab].map((anim) => (
+                          <button
+                            key={anim.id}
+                            onClick={() => setSelectedAnimationPreset(anim.id)}
+                            className={cn(
+                              "flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all w-14 shrink-0",
+                              selectedAnimationPreset === anim.id
+                                ? "bg-primary/20 border-primary"
+                                : "bg-muted/20 border-border/30 hover:bg-muted/40"
+                            )}
+                          >
+                            <span className="text-lg">{anim.icon}</span>
+                            <span className="text-[8px] text-foreground/80 font-medium text-center leading-tight">{anim.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Duration Slider - only show when an animation is selected */}
+                    {selectedAnimationPreset && selectedAnimationPreset !== 'none' && (
+                      <div className="flex items-center gap-3 pt-2 border-t border-border/20 mt-2">
+                        <span className="text-xs text-muted-foreground shrink-0">Duration</span>
+                        <div className="flex-1 relative h-1.5">
+                          <div className="absolute inset-0 bg-muted/30 rounded-full" />
+                          <div 
+                            className="absolute left-0 top-0 h-full bg-primary rounded-full transition-all" 
+                            style={{ width: `${(animationDuration / 2) * 100}%` }} 
+                          />
+                          <div 
+                            className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md border border-primary transition-all"
+                            style={{ left: `calc(${(animationDuration / 2) * 100}% - 6px)` }}
+                          />
+                          <input
+                            type="range"
+                            min="0.1"
+                            max="2"
+                            step="0.1"
+                            value={animationDuration}
+                            onChange={(e) => setAnimationDuration(parseFloat(e.target.value))}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                        </div>
+                        <span className="text-xs font-medium text-primary w-10 text-right shrink-0">{animationDuration.toFixed(1)}s</span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   /* Main Edit Tools - Horizontal Scroll */

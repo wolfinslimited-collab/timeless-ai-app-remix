@@ -197,6 +197,19 @@ class CaptionLayer {
   });
 }
 
+/// Clip animation data model
+class ClipAnimation {
+  String id;
+  String type; // 'in', 'out', or 'combo'
+  double duration;
+  
+  ClipAnimation({
+    required this.id,
+    required this.type,
+    this.duration = 0.5,
+  });
+}
+
 /// Video clip data model for multi-clip timeline
 class VideoClip {
   String id;
@@ -208,6 +221,8 @@ class VideoClip {
   List<Uint8List>? thumbnails; // Array of thumbnail image bytes
   double volume; // Clip volume (0-2, where 1=100%, 2=200%)
   double speed; // Clip playback speed (0.25-4x)
+  ClipAnimation? animationIn; // Entry animation
+  ClipAnimation? animationOut; // Exit animation
   
   VideoClip({
     required this.id,
@@ -219,6 +234,8 @@ class VideoClip {
     this.thumbnails,
     this.volume = 1.0,
     this.speed = 1.0,
+    this.animationIn,
+    this.animationOut,
   }) : inPoint = inPoint ?? 0,
        outPoint = outPoint ?? duration;
   
