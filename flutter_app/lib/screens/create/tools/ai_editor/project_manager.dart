@@ -570,18 +570,43 @@ class _ProjectManagerScreenState extends State<ProjectManagerScreen> {
           children: [
             // Thumbnail
             Expanded(
-              child: Container(
-                width: double.infinity,
-                color: Colors.white.withOpacity(0.05),
-                child: project.thumbnail != null
-                    ? Image.memory(
-                        Uri.parse('data:image/jpeg;base64,${project.thumbnail}')
-                            .data
-                            ?.contentAsBytes() ?? [],
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildPlaceholder(),
-                      )
-                    : _buildPlaceholder(),
+              child: Stack(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    color: Colors.white.withOpacity(0.05),
+                    child: project.thumbnail != null
+                        ? Image.memory(
+                            Uri.parse('data:image/jpeg;base64,${project.thumbnail}')
+                                .data
+                                ?.contentAsBytes() ?? [],
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                          )
+                        : _buildPlaceholder(),
+                  ),
+                  // AI badge if project has AI-enhanced clips
+                  if (project.videoClips.any((c) => c.aiEnhanced))
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.auto_awesome, size: 10, color: Color(0xFFFBBF24)),
+                            SizedBox(width: 3),
+                            Text('AI', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFFFBBF24))),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             // Info
