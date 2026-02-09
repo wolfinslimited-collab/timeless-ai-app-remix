@@ -4007,6 +4007,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       overflow: 'hidden',
                       ...getBackgroundStyle(),
                     }}
+                    onClick={() => {
+                      if (selectedTextId) {
+                        setSelectedTextId(null);
+                        setShowTextEditPanel(false);
+                      }
+                    }}
                   >
                     {/* Blurred video background layer */}
                     {selectedAspectRatio !== 'original' && backgroundBlur > 0 && (
