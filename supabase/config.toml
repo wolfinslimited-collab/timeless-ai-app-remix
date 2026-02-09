@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.music-tools]
 verify_jwt = false
+
+[functions.ai-video-edit]
+verify_jwt = false
