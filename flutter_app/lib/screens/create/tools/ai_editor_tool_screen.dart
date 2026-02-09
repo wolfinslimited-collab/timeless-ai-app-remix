@@ -4663,7 +4663,16 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 width: containerWidth,
                 height: containerHeight,
                 decoration: getBackgroundDecoration(),
-                child: Stack(
+                child: GestureDetector(
+                  onTap: () {
+                    if (_selectedTextId != null) {
+                      setState(() {
+                        _selectedTextId = null;
+                        _showTextEditPanel = false;
+                      });
+                    }
+                  },
+                  child: Stack(
                   clipBehavior: Clip.hardEdge,
                   children: [
                     // Blurred video background layer
@@ -4905,6 +4914,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         ),
                       ),
                   ],
+                ),
                 ),
               ),
             ),
