@@ -11,7 +11,8 @@ import {
   FolderOpen,
   Clock,
   Sparkles,
-  LogIn
+  LogIn,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -51,6 +52,7 @@ interface ProjectManagerProps {
 export function ProjectManager({ onBack, onOpenProject, onNewProject }: ProjectManagerProps) {
   const [projects, setProjects] = useState<EditorProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameProjectId, setRenameProjectId] = useState<string | null>(null);
@@ -108,23 +110,29 @@ export function ProjectManager({ onBack, onOpenProject, onNewProject }: ProjectM
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
-        const newProject = await createNewProjectInSupabase();
-        if (!newProject) {
+        setIsCreating(true);
+        try {
+          const newProject = await createNewProjectInSupabase();
+          if (!newProject) {
+            toast({ title: 'Failed to create project', variant: 'destructive' });
+            return;
+          }
+          
+          const localUrl = URL.createObjectURL(file);
+          newProject.videoUrl = localUrl;
+          
+          const thumbnail = await generateThumbnail(localUrl);
+          if (thumbnail) {
+            newProject.thumbnail = thumbnail;
+          }
+          
+          await saveProjectToSupabase(newProject);
+          onNewProject(newProject, file);
+        } catch (error) {
           toast({ title: 'Failed to create project', variant: 'destructive' });
-          return;
+        } finally {
+          setIsCreating(false);
         }
-        
-        const localUrl = URL.createObjectURL(file);
-        newProject.videoUrl = localUrl;
-        
-        // Generate thumbnail
-        const thumbnail = await generateThumbnail(localUrl);
-        if (thumbnail) {
-          newProject.thumbnail = thumbnail;
-        }
-        
-        await saveProjectToSupabase(newProject);
-        onNewProject(newProject, file);
       }
     };
     input.click();
@@ -216,16 +224,31 @@ export function ProjectManager({ onBack, onOpenProject, onNewProject }: ProjectM
         {/* New Project Button */}
         <button
           onClick={handleNewProject}
-          className="w-full flex items-center justify-center gap-3 py-4 px-6 mb-6 bg-gradient-to-r from-primary via-primary/90 to-primary rounded-2xl shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all group"
+          disabled={isCreating}
+          className="w-full flex items-center justify-center gap-3 py-4 px-6 mb-6 bg-gradient-to-r from-primary via-primary/90 to-primary rounded-2xl shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all group disabled:opacity-70"
         >
-          <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center group-hover:scale-105 transition-transform">
-            <Plus className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <div className="text-left">
-            <p className="text-primary-foreground font-semibold text-base">New Project</p>
-            <p className="text-primary-foreground/70 text-sm">Select a video to start editing</p>
-          </div>
-          <Sparkles className="w-5 h-5 text-primary-foreground/60 ml-auto" />
+          {isCreating ? (
+            <>
+              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                <Loader2 className="w-6 h-6 text-primary-foreground animate-spin" />
+              </div>
+              <div className="text-left">
+                <p className="text-primary-foreground font-semibold text-base">Creating Project...</p>
+                <p className="text-primary-foreground/70 text-sm">Setting up your workspace</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Plus className="w-6 h-6 text-primary-foreground" />
+              </div>
+              <div className="text-left">
+                <p className="text-primary-foreground font-semibold text-base">New Project</p>
+                <p className="text-primary-foreground/70 text-sm">Select a video to start editing</p>
+              </div>
+              <Sparkles className="w-5 h-5 text-primary-foreground/60 ml-auto" />
+            </>
+          )}
         </button>
 
         {/* Recent Projects Section */}
