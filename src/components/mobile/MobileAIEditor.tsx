@@ -4614,7 +4614,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         </div>
                       </div>
                       
-                      {/* Video Overlay Track - Purple/Pink themed */}
+                      {/* Video Overlay Track - Purple/Pink themed - only show when overlays exist */}
+                      {videoOverlays.length > 0 && (
                       <div 
                         className="relative h-10 cursor-pointer group"
                         style={{ width: trackWidth }}
@@ -4622,17 +4623,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           setIsOverlayMenuMode(true);
                         }}
                       >
-                        {/* Show "Add overlay" placeholder when no overlays */}
-                        {videoOverlays.length === 0 && (
-                          <div className="h-[34px] mt-[3px] rounded bg-[#2A2A2A] border border-border/30 hover:border-border/50 transition-all flex items-center gap-2 px-2" style={{ maxWidth: 180 }}>
-                            <div className="flex items-center gap-2">
-                              <div className="w-4 h-4 rounded bg-[#3A3A3A] flex items-center justify-center">
-                                <Layers className="w-2.5 h-2.5 text-foreground" />
-                              </div>
-                              <span className="text-[11px] text-foreground font-semibold">Add overlay</span>
-                            </div>
-                          </div>
-                        )}
                         {/* Render overlay video layers */}
                         {videoOverlays.map(overlay => {
                           const isSelected = overlay.id === selectedOverlayId;
@@ -4765,6 +4755,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           );
                         })}
                       </div>
+                      )}
                       
                       {/* + Add text row - only show placeholder when no text overlays */}
                       <div 
