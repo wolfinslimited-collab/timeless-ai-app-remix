@@ -6168,13 +6168,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   // Dynamic bottom area that switches between timeline and settings panel
   Widget _buildDynamicBottomArea() {
-    // Check if a settings panel should be shown (overlays timeline)
-    final bool showSettingsPanel = _selectedTool == 'adjust' || _selectedTool == 'stickers' || _selectedTool == 'aspect' || _selectedTool == 'background';
+    // Check if a settings panel should be shown (overlays timeline) - adjust now uses inline overlay
+    final bool showSettingsPanel = _selectedTool == 'stickers' || _selectedTool == 'aspect' || _selectedTool == 'background';
     
     if (showSettingsPanel) {
       return _buildContextualSettingsPanel();
     } else {
-      // Show normal timeline + toolbar - wrapped in Stack for edit menu overlay
+      // Show normal timeline + toolbar - wrapped in Stack for edit menu overlay and adjust overlay
       return Stack(
         children: [
           Column(
@@ -6197,17 +6197,407 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 child: _buildEditMenu(),
               ),
             ),
+          // Adjust Menu Overlay - inline overlay like edit menu
+          if (_selectedTool == 'adjust')
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 280,
+              child: Material(
+                color: const Color(0xFF0A0A0A),
+                elevation: 8,
+                child: _buildAdjustMenuOverlay(),
+              ),
+            ),
         ],
       );
     }
   }
+  
+  /// Build adjust menu as inline overlay (like edit menu)
+  Widget _buildAdjustMenuOverlay() {
+    final selectedTool = _adjustmentTools.firstWhere(
+      (t) => t.id == _selectedAdjustmentId,
+      orElse: () => _adjustmentTools.first,
+    );
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Header with back button, title and confirm
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+          ),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => setState(() => _selectedTool = 'edit'),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.keyboard_arrow_down, size: 20, color: AppTheme.primary),
+                ),
+              ),
+              const Expanded(
+                child: Text(
+                  'Adjust',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  setState(() => _selectedTool = 'edit');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Adjustments applied'), duration: Duration(seconds: 1)),
+                  );
+                },
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check, size: 16, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Top Tabs: Filters / Adjust
+        Container(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _adjustPanelTab = 'filters'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Filters',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: _adjustPanelTab == 'filters' ? Colors.white : Colors.white.withOpacity(0.5),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          height: 2,
+                          width: 40,
+                          decoration: BoxDecoration(
+                            color: _adjustPanelTab == 'filters' ? AppTheme.primary : Colors.transparent,
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _adjustPanelTab = 'adjust'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Adjust',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: _adjustPanelTab == 'adjust' ? Colors.white : Colors.white.withOpacity(0.5),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          height: 2,
+                          width: 40,
+                          decoration: BoxDecoration(
+                            color: _adjustPanelTab == 'adjust' ? AppTheme.primary : Colors.transparent,
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        if (_adjustPanelTab == 'adjust') ...[
+          // Sub-menu: Smart / Customize + AI Enhance Button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => setState(() => _adjustSubTab = 'smart'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _adjustSubTab == 'smart' ? AppTheme.primary.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: _adjustSubTab == 'smart' ? AppTheme.primary.withOpacity(0.4) : Colors.transparent,
+                      ),
+                    ),
+                    child: Text(
+                      'Smart',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: _adjustSubTab == 'smart' ? AppTheme.primary : Colors.white.withOpacity(0.6),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => setState(() => _adjustSubTab = 'customize'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _adjustSubTab == 'customize' ? AppTheme.primary.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: _adjustSubTab == 'customize' ? AppTheme.primary.withOpacity(0.4) : Colors.transparent,
+                      ),
+                    ),
+                    child: Text(
+                      'Customize',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: _adjustSubTab == 'customize' ? AppTheme.primary : Colors.white.withOpacity(0.6),
+                      ),
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                // AI Enhance Button
+                GestureDetector(
+                  onTap: _isAIEnhancing ? null : () async {
+                    setState(() => _isAIEnhancing = true);
+                    await Future.delayed(const Duration(milliseconds: 1500));
+                    for (var tool in _adjustmentTools) {
+                      switch (tool.id) {
+                        case 'brightness': tool.onChanged(0.08); break;
+                        case 'contrast': tool.onChanged(0.12); break;
+                        case 'saturation': tool.onChanged(0.15); break;
+                        case 'exposure': tool.onChanged(0.05); break;
+                        case 'sharpen': tool.onChanged(0.18); break;
+                        case 'highlight': tool.onChanged(-0.1); break;
+                        case 'shadow': tool.onChanged(0.12); break;
+                        case 'temp': tool.onChanged(0.02); break;
+                        case 'hue': tool.onChanged(0.0); break;
+                      }
+                    }
+                    if (_selectedClipId != null) {
+                      final clipIndex = _videoClips.indexWhere((c) => c.id == _selectedClipId);
+                      if (clipIndex >= 0) {
+                        setState(() => _videoClips[clipIndex].aiEnhanced = true);
+                      }
+                    }
+                    setState(() => _isAIEnhancing = false);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('AI Enhancement applied'), duration: Duration(seconds: 2)),
+                      );
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFFA855F7)]),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_isAIEnhancing)
+                          const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(strokeWidth: 1.5, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                          )
+                        else
+                          const Icon(Icons.auto_fix_high, size: 12, color: Colors.white),
+                        const SizedBox(width: 4),
+                        Text(
+                          _isAIEnhancing ? 'Analyzing...' : 'AI Enhance',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Horizontal Scrollable Adjustment Icons
+          SizedBox(
+            height: 70,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              itemCount: _adjustmentTools.length,
+              itemBuilder: (context, index) {
+                final tool = _adjustmentTools[index];
+                final isSelected = tool.id == _selectedAdjustmentId;
+                final hasValue = tool.value != 0;
+                
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedAdjustmentId = tool.id),
+                  child: Container(
+                    width: 56,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppTheme.primary.withOpacity(0.15) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppTheme.primary : hasValue ? Colors.white.withOpacity(0.15) : Colors.white.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            tool.icon,
+                            size: 16,
+                            color: isSelected ? Colors.white : hasValue ? AppTheme.primary : Colors.white.withOpacity(0.7),
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          tool.name,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w500,
+                            color: isSelected ? AppTheme.primary : hasValue ? Colors.white : Colors.white.withOpacity(0.6),
+                          ),
+                        ),
+                        if (hasValue)
+                          Text(
+                            '${tool.value >= 0 ? '+' : ''}${(tool.value * 100).round()}',
+                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: AppTheme.primary),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          
+          // Slider for Selected Adjustment
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(selectedTool.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: selectedTool.value != 0 ? AppTheme.primary.withOpacity(0.15) : Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${selectedTool.value >= 0 ? '+' : ''}${(selectedTool.value * 100).round()}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'monospace',
+                          color: selectedTool.value != 0 ? AppTheme.primary : Colors.white.withOpacity(0.6),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 4,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                    activeTrackColor: AppTheme.primary,
+                    inactiveTrackColor: Colors.white.withOpacity(0.1),
+                    thumbColor: Colors.white,
+                  ),
+                  child: Slider(value: selectedTool.value, min: -1.0, max: 1.0, onChanged: selectedTool.onChanged),
+                ),
+              ],
+            ),
+          ),
+          
+          // Reset Button
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: _resetAllAdjustments,
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
+                  child: Icon(Icons.refresh, size: 14, color: Colors.white.withOpacity(0.7)),
+                ),
+              ),
+            ),
+          ),
+        ],
+        
+        if (_adjustPanelTab == 'filters')
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.circle_outlined, size: 32, color: Colors.white.withOpacity(0.3)),
+                  const SizedBox(height: 8),
+                  Text('Filter presets coming soon', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 
-  // Contextual settings panel that overlays the timeline area
+  // Contextual settings panel that overlays the timeline area (stickers, aspect, background only)
   Widget _buildContextualSettingsPanel() {
     String panelTitle = 'Editor';
-    if (_selectedTool == 'adjust') {
-      panelTitle = 'Adjust';
-    } else if (_selectedTool == 'stickers') {
+    if (_selectedTool == 'stickers') {
       panelTitle = 'Stickers';
     } else if (_selectedTool == 'aspect') {
       panelTitle = 'Aspect Ratio';
@@ -6270,10 +6660,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             ),
           ),
           
-          // Content based on selected tool
-          if (_selectedTool == 'adjust')
-            _buildAdjustSettingsContent()
-          else if (_selectedTool == 'stickers')
+          // Content based on selected tool (adjust removed - now uses inline overlay)
+          if (_selectedTool == 'stickers')
             _buildStickersSettingsContent()
           else if (_selectedTool == 'aspect')
             _buildAspectRatioSettingsContent()

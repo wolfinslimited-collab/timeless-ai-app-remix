@@ -397,6 +397,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Background menu mode state - activated by clicking "Background" tool
   const [isBackgroundMenuMode, setIsBackgroundMenuMode] = useState(false);
   
+  // Adjust menu mode state - activated by clicking "Adjust" tool
+  const [isAdjustMenuMode, setIsAdjustMenuMode] = useState(false);
+  
   // Draw mode state - activated by clicking "Draw" in Text menu
   const [isDrawMode, setIsDrawMode] = useState(false);
   const [drawTool, setDrawTool] = useState<'brush' | 'eraser'>('brush');
@@ -413,12 +416,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [drawUndoStack, setDrawUndoStack] = useState<DrawingStroke[][]>([]);
   const [drawRedoStack, setDrawRedoStack] = useState<DrawingStroke[][]>([]);
   
-  // Settings panel overlay state - for adjust, stickers panels
+  // Settings panel overlay state - for stickers panel only
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-  const [settingsPanelType, setSettingsPanelType] = useState<'adjust' | 'stickers' | null>(null);
+  const [settingsPanelType, setSettingsPanelType] = useState<'stickers' | null>(null);
   
   // Base overlay check - isAudioEditMode, isDrawMode, isCropMode are added later
-  const isAnyOverlayOpenBase = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isSettingsPanelOpen || isCropMode;
+  const isAnyOverlayOpenBase = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isAdjustMenuMode || isSettingsPanelOpen || isCropMode;
   
   // Sticker presets
   const stickerCategories = [
@@ -2350,9 +2353,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       return;
     }
     
-    // Settings panel tools - open as overlay
-    if (['adjust', 'stickers'].includes(tool.id)) {
-      setSettingsPanelType(tool.id as 'adjust' | 'stickers');
+    // Adjust tool opens the adjust menu overlay
+    if (tool.id === 'adjust') {
+      setIsAdjustMenuMode(true);
+      setSelectedTool('adjust');
+      return;
+    }
+    
+    // Settings panel tools - open as overlay (stickers only now)
+    if (tool.id === 'stickers') {
+      setSettingsPanelType('stickers');
       setIsSettingsPanelOpen(true);
       return;
     }
@@ -4492,199 +4502,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 
                 {/* Settings Content - scrollable */}
                 <div className="overflow-y-auto max-h-[calc(70vh-60px)]">
-                  {settingsPanelType === 'adjust' && (
-                    <div className="flex flex-col">
-                      {/* Top Tabs: Filters / Adjust */}
-                      <div className="flex border-b border-border/20">
-                        {(['filters', 'adjust'] as const).map((tab) => (
-                          <button
-                            key={tab}
-                            onClick={() => setAdjustPanelTab(tab)}
-                            className={cn(
-                              "flex-1 py-3 text-sm font-medium capitalize relative transition-colors",
-                              adjustPanelTab === tab ? "text-foreground" : "text-foreground/50"
-                            )}
-                          >
-                            {tab}
-                            {adjustPanelTab === tab && (
-                              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-primary rounded-full" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                      
-                      {adjustPanelTab === 'adjust' && (
-                        <>
-                          {/* Sub-menu: Smart / Customize + AI Enhance Button */}
-                          <div className="flex items-center gap-3 px-4 py-3">
-                            {(['smart', 'customize'] as const).map((subTab) => (
-                              <button
-                                key={subTab}
-                                onClick={() => setAdjustSubTab(subTab)}
-                                className={cn(
-                                  "px-4 py-1.5 rounded-full text-xs font-medium capitalize transition-all",
-                                  adjustSubTab === subTab 
-                                    ? "bg-primary/20 text-primary border border-primary/40" 
-                                    : "bg-white/5 text-foreground/60 border border-transparent"
-                                )}
-                              >
-                                {subTab}
-                              </button>
-                            ))}
-                            <div className="flex-1" />
-                            {/* AI Enhance Button */}
-                            <button
-                              onClick={async () => {
-                                setIsAIEnhancing(true);
-                                // Simulate AI analysis (in production, this would call an AI service)
-                                await new Promise(resolve => setTimeout(resolve, 1500));
-                                // Apply AI-suggested adjustments
-                                setAdjustments({
-                                  brightness: 0.08,
-                                  contrast: 0.12,
-                                  saturation: 0.15,
-                                  exposure: 0.05,
-                                  sharpen: 0.18,
-                                  highlight: -0.1,
-                                  shadow: 0.12,
-                                  temp: 0.02,
-                                  hue: 0,
-                                });
-                                // Mark selected clip as AI enhanced
-                                if (selectedClipId) {
-                                  setVideoClips(prev => prev.map(clip => 
-                                    clip.id === selectedClipId 
-                                      ? { ...clip, aiEnhanced: true }
-                                      : clip
-                                  ));
-                                }
-                                setIsAIEnhancing(false);
-                                toast({ title: "AI Enhancement applied", description: "Adjustments optimized for best visual quality" });
-                              }}
-                              disabled={isAIEnhancing}
-                              className={cn(
-                                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
-                                "bg-gradient-to-r from-violet-500 to-purple-500 text-white",
-                                "hover:from-violet-600 hover:to-purple-600",
-                                "disabled:opacity-60 disabled:cursor-not-allowed"
-                              )}
-                            >
-                              {isAIEnhancing ? (
-                                <>
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  <span>Analyzing...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Wand2 className="w-3.5 h-3.5" />
-                                  <span>AI Enhance</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                          
-                          {/* Horizontal Scrollable Adjustment Icons */}
-                          <div className="overflow-x-auto px-2 pb-3">
-                            <div className="flex gap-1 min-w-max">
-                              {adjustmentTools.map((tool) => {
-                                const isSelected = selectedAdjustmentId === tool.id;
-                                const value = adjustments[tool.id];
-                                const IconComponent = tool.icon;
-                                return (
-                                  <button
-                                    key={tool.id}
-                                    onClick={() => setSelectedAdjustmentId(tool.id)}
-                                    className={cn(
-                                      "flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all",
-                                      isSelected ? "bg-primary/15" : "bg-transparent"
-                                    )}
-                                  >
-                                    <div className={cn(
-                                      "w-11 h-11 rounded-full flex items-center justify-center mb-1 transition-all",
-                                      isSelected 
-                                        ? "bg-primary text-primary-foreground" 
-                                        : value !== 0 
-                                          ? "bg-white/15 text-primary" 
-                                          : "bg-white/10 text-foreground/70"
-                                    )}>
-                                      <IconComponent className="w-5 h-5" />
-                                    </div>
-                                    <span className={cn(
-                                      "text-[10px] font-medium",
-                                      isSelected ? "text-primary" : value !== 0 ? "text-foreground" : "text-foreground/60"
-                                    )}>
-                                      {tool.name}
-                                    </span>
-                                    {value !== 0 && (
-                                      <span className="text-[9px] text-primary font-semibold">
-                                        {value >= 0 ? '+' : ''}{Math.round(value * 100)}
-                                      </span>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                          
-                          {/* Single Slider for Selected Adjustment */}
-                          <div className="px-4 pb-4">
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="text-sm font-medium text-foreground">
-                                {adjustmentTools.find(t => t.id === selectedAdjustmentId)?.name}
-                              </span>
-                              <span className={cn(
-                                "text-sm font-mono px-2 py-0.5 rounded",
-                                adjustments[selectedAdjustmentId] !== 0 
-                                  ? "bg-primary/15 text-primary" 
-                                  : "bg-white/10 text-foreground/60"
-                              )}>
-                                {adjustments[selectedAdjustmentId] >= 0 ? '+' : ''}
-                                {Math.round(adjustments[selectedAdjustmentId] * 100)}
-                              </span>
-                            </div>
-                            <input
-                              type="range"
-                              min="-100"
-                              max="100"
-                              value={adjustments[selectedAdjustmentId] * 100}
-                              onChange={(e) => setAdjustments(prev => ({
-                                ...prev,
-                                [selectedAdjustmentId]: Number(e.target.value) / 100
-                              }))}
-                              className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
-                              style={{
-                                background: `linear-gradient(to right, 
-                                  hsl(var(--primary)) 0%, 
-                                  hsl(var(--primary)) ${((adjustments[selectedAdjustmentId] + 1) / 2) * 100}%, 
-                                  rgba(255,255,255,0.1) ${((adjustments[selectedAdjustmentId] + 1) / 2) * 100}%, 
-                                  rgba(255,255,255,0.1) 100%)`
-                              }}
-                            />
-                          </div>
-                          
-                          {/* Reset Button - Bottom Left */}
-                          <div className="flex justify-start px-4 pb-6">
-                            <button
-                              onClick={resetAdjustments}
-                              className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
-                            >
-                              <svg className="w-5 h-5 text-foreground/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
-                              </svg>
-                            </button>
-                          </div>
-                        </>
-                      )}
-                      
-                      {adjustPanelTab === 'filters' && (
-                        <div className="px-4 py-6 flex flex-col items-center justify-center">
-                          <Circle className="w-10 h-10 text-foreground/30 mb-2" />
-                          <p className="text-foreground/50 text-sm">Filter presets coming soon</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
                   {settingsPanelType === 'stickers' && (
                     <div className="flex flex-col">
                       {/* Category tabs */}
@@ -6974,6 +6791,209 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+            
+            {/* Adjust Menu Overlay */}
+            {isAdjustMenuMode && (
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '280px' }}>
+                {/* Header with back button, title and confirm */}
+                <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
+                  <button
+                    onClick={() => setIsAdjustMenuMode(false)}
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                  >
+                    <ChevronDown className="w-5 h-5 text-primary" />
+                  </button>
+                  <span className="flex-1 text-sm font-medium text-foreground text-center">
+                    Adjust
+                  </span>
+                  <button
+                    onClick={() => {
+                      setIsAdjustMenuMode(false);
+                      toast({ title: "Adjustments applied" });
+                    }}
+                    className="w-8 h-8 rounded-full bg-primary flex items-center justify-center"
+                  >
+                    <Check className="w-4 h-4 text-primary-foreground" />
+                  </button>
+                </div>
+                
+                {/* Top Tabs: Filters / Adjust */}
+                <div className="flex border-b border-border/20">
+                  {(['filters', 'adjust'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setAdjustPanelTab(tab)}
+                      className={cn(
+                        "flex-1 py-2.5 text-sm font-medium capitalize relative transition-colors",
+                        adjustPanelTab === tab ? "text-foreground" : "text-foreground/50"
+                      )}
+                    >
+                      {tab}
+                      {adjustPanelTab === tab && (
+                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-primary rounded-full" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+                
+                {adjustPanelTab === 'adjust' && (
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    {/* Sub-menu: Smart / Customize + AI Enhance Button */}
+                    <div className="flex items-center gap-2 px-3 py-2">
+                      {(['smart', 'customize'] as const).map((subTab) => (
+                        <button
+                          key={subTab}
+                          onClick={() => setAdjustSubTab(subTab)}
+                          className={cn(
+                            "px-3 py-1 rounded-full text-xs font-medium capitalize transition-all",
+                            adjustSubTab === subTab 
+                              ? "bg-primary/20 text-primary border border-primary/40" 
+                              : "bg-muted/30 text-foreground/60 border border-transparent"
+                          )}
+                        >
+                          {subTab}
+                        </button>
+                      ))}
+                      <div className="flex-1" />
+                      {/* AI Enhance Button */}
+                      <button
+                        onClick={async () => {
+                          setIsAIEnhancing(true);
+                          await new Promise(resolve => setTimeout(resolve, 1500));
+                          setAdjustments({
+                            brightness: 0.08,
+                            contrast: 0.12,
+                            saturation: 0.15,
+                            exposure: 0.05,
+                            sharpen: 0.18,
+                            highlight: -0.1,
+                            shadow: 0.12,
+                            temp: 0.02,
+                            hue: 0,
+                          });
+                          if (selectedClipId) {
+                            setVideoClips(prev => prev.map(clip => 
+                              clip.id === selectedClipId 
+                                ? { ...clip, aiEnhanced: true }
+                                : clip
+                            ));
+                          }
+                          setIsAIEnhancing(false);
+                          toast({ title: "AI Enhancement applied" });
+                        }}
+                        disabled={isAIEnhancing}
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all",
+                          "bg-gradient-to-r from-violet-500 to-purple-500 text-white",
+                          "disabled:opacity-60"
+                        )}
+                      >
+                        {isAIEnhancing ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>Analyzing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="w-3 h-3" />
+                            <span>AI Enhance</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    
+                    {/* Horizontal Scrollable Adjustment Icons */}
+                    <div className="overflow-x-auto px-2 pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+                      <div className="flex gap-1 min-w-max">
+                        {adjustmentTools.map((tool) => {
+                          const isSelected = selectedAdjustmentId === tool.id;
+                          const value = adjustments[tool.id];
+                          const IconComponent = tool.icon;
+                          return (
+                            <button
+                              key={tool.id}
+                              onClick={() => setSelectedAdjustmentId(tool.id)}
+                              className={cn(
+                                "flex flex-col items-center justify-center w-14 py-1.5 rounded-xl transition-all",
+                                isSelected ? "bg-primary/15" : "bg-transparent"
+                              )}
+                            >
+                              <div className={cn(
+                                "w-10 h-10 rounded-full flex items-center justify-center mb-1 transition-all",
+                                isSelected 
+                                  ? "bg-primary text-primary-foreground" 
+                                  : value !== 0 
+                                    ? "bg-muted/50 text-primary" 
+                                    : "bg-muted/30 text-foreground/70"
+                              )}>
+                                <IconComponent className="w-4 h-4" />
+                              </div>
+                              <span className={cn(
+                                "text-[9px] font-medium",
+                                isSelected ? "text-primary" : value !== 0 ? "text-foreground" : "text-foreground/60"
+                              )}>
+                                {tool.name}
+                              </span>
+                              {value !== 0 && (
+                                <span className="text-[8px] text-primary font-semibold">
+                                  {value >= 0 ? '+' : ''}{Math.round(value * 100)}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    
+                    {/* Single Slider for Selected Adjustment */}
+                    <div className="px-4 pb-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-foreground">
+                          {adjustmentTools.find(t => t.id === selectedAdjustmentId)?.name}
+                        </span>
+                        <span className={cn(
+                          "text-xs font-mono px-2 py-0.5 rounded",
+                          adjustments[selectedAdjustmentId] !== 0 
+                            ? "bg-primary/15 text-primary" 
+                            : "bg-muted/30 text-foreground/60"
+                        )}>
+                          {adjustments[selectedAdjustmentId] >= 0 ? '+' : ''}
+                          {Math.round(adjustments[selectedAdjustmentId] * 100)}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-100"
+                        max="100"
+                        value={adjustments[selectedAdjustmentId] * 100}
+                        onChange={(e) => setAdjustments(prev => ({
+                          ...prev,
+                          [selectedAdjustmentId]: Number(e.target.value) / 100
+                        }))}
+                        className="w-full h-1.5 bg-muted/30 rounded-lg appearance-none cursor-pointer accent-primary"
+                      />
+                    </div>
+                    
+                    {/* Reset Button */}
+                    <div className="flex justify-start px-4 pb-2">
+                      <button
+                        onClick={resetAdjustments}
+                        className="w-8 h-8 rounded-full bg-muted/30 flex items-center justify-center hover:bg-muted/50 transition-colors"
+                      >
+                        <RotateCcw className="w-4 h-4 text-foreground/70" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {adjustPanelTab === 'filters' && (
+                  <div className="flex-1 flex flex-col items-center justify-center">
+                    <Circle className="w-8 h-8 text-foreground/30 mb-2" />
+                    <p className="text-foreground/50 text-xs">Filter presets coming soon</p>
+                  </div>
+                )}
               </div>
             )}
             
