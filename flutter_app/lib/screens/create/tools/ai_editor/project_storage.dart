@@ -181,11 +181,7 @@ class SavedVideoClip {
 
 /// Project Storage Service
 class ProjectStorage {
-  static final _primarySupabase = Supabase.instance.client;
-  static final _cloudSupabase = SupabaseClient(
-    'https://hpuqeabtgwbwcnklxolt.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwdXFlYWJ0Z3did2Nua2x4b2x0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwNDczMTgsImV4cCI6MjA4NDYyMzMxOH0.uBRcVNQcTdJNk9gstOCW6xRcQsZ8pnQwy5IGxbhZD6g',
-  );
+  static final _supabase = Supabase.instance.client;
   static const String _tableName = 'ai_editor_projects';
   static const String _localStorageKey = 'ai_editor_projects';
   
@@ -193,11 +189,11 @@ class ProjectStorage {
   static SaveStatus _currentStatus = SaveStatus.idle;
   static final ValueNotifier<SaveStatus> saveStatusNotifier = ValueNotifier(SaveStatus.idle);
   
-  /// Check if user is authenticated (against primary project)
-  static bool get isAuthenticated => _primarySupabase.auth.currentUser != null;
+  /// Check if user is authenticated
+  static bool get isAuthenticated => _supabase.auth.currentUser != null;
   
-  /// Get current user ID (from primary project)
-  static String? get currentUserId => _primarySupabase.auth.currentUser?.id;
+  /// Get current user ID
+  static String? get currentUserId => _supabase.auth.currentUser?.id;
   
   /// Get all projects from Supabase
   static Future<List<EditorProject>> getAllProjects() async {
@@ -207,7 +203,7 @@ class ProjectStorage {
     }
     
     try {
-      final response = await _cloudSupabase
+      final response = await _supabase
           .from(_tableName)
           .select()
           .eq('user_id', currentUserId!)
@@ -237,7 +233,7 @@ class ProjectStorage {
     if (!isAuthenticated) return null;
     
     try {
-      final response = await _cloudSupabase
+      final response = await _supabase
           .from(_tableName)
           .select()
           .eq('id', id)
@@ -293,7 +289,7 @@ class ProjectStorage {
         'videoPositionY': project.videoPositionY,
       };
       
-      await _cloudSupabase.from(_tableName).upsert({
+      await _supabase.from(_tableName).upsert({
         'id': project.id,
         'user_id': currentUserId,
         'title': project.title,
@@ -319,7 +315,7 @@ class ProjectStorage {
     if (!isAuthenticated) return false;
     
     try {
-      await _cloudSupabase.from(_tableName).delete().eq('id', id);
+      await _supabase.from(_tableName).delete().eq('id', id);
       return true;
     } catch (e) {
       debugPrint('Error deleting project: $e');
@@ -369,7 +365,7 @@ class ProjectStorage {
     if (!isAuthenticated) return false;
     
     try {
-      await _cloudSupabase
+      await _supabase
           .from(_tableName)
           .update({'title': newTitle})
           .eq('id', id);
@@ -403,7 +399,7 @@ class ProjectStorage {
         'videoPositionY': newProject.videoPositionY,
       };
       
-      await _cloudSupabase.from(_tableName).insert({
+      await _supabase.from(_tableName).insert({
         'id': newProject.id,
         'user_id': currentUserId,
         'title': newProject.title,
