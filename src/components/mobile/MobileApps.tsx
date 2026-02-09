@@ -171,17 +171,9 @@ export function MobileApps({ onBack, onNavigate, hasPremiumPlusAccess = false, o
           </button>
         )}
 
-        {/* Hero Section */}
-        <div className="mb-5">
-          <span className="px-3 py-1.5 bg-primary/10 text-primary text-xs font-semibold rounded-full">
-            AI-Powered Apps
-          </span>
-          <h1 className="text-foreground text-[32px] font-bold leading-tight mt-3">
-            Discover Our{"\n"}AI Apps
-          </h1>
-          <p className="text-muted-foreground text-sm mt-2">
-            Explore our suite of AI-powered applications
-          </p>
+        {/* Header */}
+        <div className="mb-4">
+          <h1 className="text-foreground text-[22px] font-bold">Apps</h1>
         </div>
 
         {/* Category Filter */}
