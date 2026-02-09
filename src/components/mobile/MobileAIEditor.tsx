@@ -389,6 +389,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Edit menu mode state - activated by clicking "Edit" tool
   const [isEditMenuMode, setIsEditMenuMode] = useState(false);
   
+  // Magic Edit (AI Edit) state
+  const [isMagicEditOpen, setIsMagicEditOpen] = useState(false);
+  const [magicEditPrompt, setMagicEditPrompt] = useState('');
+  const [isMagicEditProcessing, setIsMagicEditProcessing] = useState(false);
+  
   // Effects menu mode state - activated by clicking "Effects" tool
   const [isEffectsMenuMode, setIsEffectsMenuMode] = useState(false);
   
@@ -2097,9 +2102,89 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       setEditSubPanel('animations'); 
     }},
     { id: 'crop', name: 'Crop', icon: Crop, action: () => { setIsEditMenuMode(false); setIsCropMode(true); setCropBox({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 }); } },
+    { id: 'magic-edit', name: 'AI Edit', icon: Wand2, action: () => { setIsMagicEditOpen(true); setMagicEditPrompt(''); } },
     { id: 'replace', name: 'Replace', icon: Replace, action: () => { handleDirectFilePick(); } },
     { id: 'delete', name: 'Delete', icon: Trash2, action: handleDeleteClip, isDestructive: true },
   ];
+
+  // Handle Magic Edit submission
+  const handleMagicEditSubmit = async () => {
+    if (!magicEditPrompt.trim()) {
+      toast({ variant: "destructive", title: "Please enter a prompt" });
+      return;
+    }
+    
+    setIsMagicEditProcessing(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-video-edit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ prompt: magicEditPrompt }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Request failed (${response.status})`);
+      }
+
+      const data = await response.json();
+      if (!data.success || !data.effect) throw new Error("Invalid AI response");
+
+      const effect = data.effect;
+      
+      // Apply adjustments if provided
+      if (effect.adjustments) {
+        const adj = effect.adjustments;
+        setAdjustments(prev => ({
+          ...prev,
+          brightness: adj.brightness !== undefined ? adj.brightness : prev.brightness,
+          contrast: adj.contrast !== undefined ? adj.contrast : prev.contrast,
+          saturation: adj.saturation !== undefined ? adj.saturation : prev.saturation,
+          hue: adj.hue !== undefined ? adj.hue : prev.hue,
+          exposure: adj.exposure !== undefined ? adj.exposure : prev.exposure,
+          temp: adj.temp !== undefined ? adj.temp : prev.temp,
+          sharpen: adj.sharpen !== undefined ? adj.sharpen : prev.sharpen,
+          shadow: adj.shadow !== undefined ? adj.shadow : prev.shadow,
+          highlight: adj.highlight !== undefined ? adj.highlight : prev.highlight,
+        }));
+      }
+
+      // Add as AI Generated Effect layer on the timeline
+      saveStateToHistory();
+      const newEffect = {
+        id: `ai-effect-${Date.now()}`,
+        effectId: 'ai-generated',
+        name: effect.effectName || 'AI Generated Effect',
+        category: effect.category || 'ai',
+        intensity: effect.intensity || 0.7,
+        startTime: currentTime,
+        endTime: Math.min(currentTime + 5, duration || 10),
+      };
+      setEffectLayers(prev => [...prev, newEffect]);
+      setSelectedEffectId(newEffect.id);
+
+      // Mark clip as AI enhanced
+      if (editingClipId) {
+        const clipIdx = videoClips.findIndex(c => c.id === editingClipId);
+        if (clipIdx >= 0) {
+          const updated = [...videoClips];
+          updated[clipIdx] = { ...updated[clipIdx], aiEnhanced: true };
+          setVideoClips(updated);
+        }
+      }
+
+      setIsMagicEditOpen(false);
+      setIsMagicEditProcessing(false);
+      toast({ title: "AI Edit Applied", description: effect.description || effect.effectName });
+    } catch (err: any) {
+      console.error("Magic Edit error:", err);
+      setIsMagicEditProcessing(false);
+      toast({ variant: "destructive", title: "AI Edit Failed", description: err.message || "Please try again" });
+    }
+  };
 
   // Delete text overlay from timeline
   const deleteTextFromTimeline = (id: string) => {
@@ -3052,6 +3137,90 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           </div>
         </div>
       )}
+
+      {/* Magic Edit (AI Edit) Dialog */}
+      <Dialog open={isMagicEditOpen} onOpenChange={(open) => { if (!isMagicEditProcessing) setIsMagicEditOpen(open); }}>
+        <DialogContent className="max-w-[95vw] sm:max-w-md p-0 border-border/30 bg-background [&>button]:hidden rounded-2xl overflow-hidden">
+          <div className="flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/20">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                  <Wand2 className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-sm font-semibold text-foreground">AI Edit</span>
+              </div>
+              <button
+                onClick={() => { if (!isMagicEditProcessing) setIsMagicEditOpen(false); }}
+                className="w-8 h-8 rounded-full bg-muted/30 flex items-center justify-center hover:bg-muted/50 transition-colors"
+              >
+                <X className="w-4 h-4 text-foreground/70" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Describe the visual changes you want to apply to your video clip.
+              </p>
+
+              {/* Prompt Input */}
+              <textarea
+                value={magicEditPrompt}
+                onChange={(e) => setMagicEditPrompt(e.target.value)}
+                placeholder="Enter your prompt for AI video editing..."
+                disabled={isMagicEditProcessing}
+                className="w-full min-h-[80px] rounded-xl border border-border/30 bg-muted/20 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none disabled:opacity-50"
+                rows={3}
+              />
+
+              {/* Example prompts */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Examples</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    'Change the sky to a sunset',
+                    'Make the person glow green',
+                    'Add a futuristic city in the background',
+                    'Apply cinematic color grading',
+                    'Make it look like a vintage film',
+                  ].map((example) => (
+                    <button
+                      key={example}
+                      onClick={() => !isMagicEditProcessing && setMagicEditPrompt(example)}
+                      className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                      disabled={isMagicEditProcessing}
+                    >
+                      {example}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 pb-4">
+              <button
+                onClick={handleMagicEditSubmit}
+                disabled={isMagicEditProcessing || !magicEditPrompt.trim()}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:from-violet-600 hover:to-fuchsia-600 flex items-center justify-center gap-2"
+              >
+                {isMagicEditProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Generating AI Edit...</span>
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="w-4 h-4" />
+                    <span>Apply AI Edit</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Fullscreen Video Dialog */}
       <Dialog open={isFullScreen} onOpenChange={setIsFullScreen}>
@@ -5491,9 +5660,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             key={effect.id}
                             className={cn(
                               "absolute h-[34px] rounded-md flex items-center cursor-grab transition-all active:cursor-grabbing",
-                              isSelected 
-                                ? "bg-gradient-to-r from-amber-500 to-orange-500 ring-2 ring-white shadow-lg shadow-amber-500/30"
-                                : "bg-gradient-to-r from-amber-600 to-orange-600 shadow-md shadow-amber-600/30",
+                              effect.effectId === 'ai-generated'
+                                ? isSelected 
+                                  ? "bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 ring-2 ring-white shadow-lg shadow-violet-500/30"
+                                  : "bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-600 shadow-md shadow-violet-600/30"
+                                : isSelected 
+                                  ? "bg-gradient-to-r from-amber-500 to-orange-500 ring-2 ring-white shadow-lg shadow-amber-500/30"
+                                  : "bg-gradient-to-r from-amber-600 to-orange-600 shadow-md shadow-amber-600/30",
                               draggingLayerId === effect.id && "opacity-90 scale-[1.02] z-10"
                             )}
                             style={{ left: leftOffset, width: itemWidth, top: 3 }}
@@ -5582,7 +5755,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 setSelectedTool('effects');
                               }}
                             >
-                              <Star className="w-3 h-3 text-white/90 shrink-0" />
+                              {effect.effectId === 'ai-generated' ? (
+                                <Wand2 className="w-3 h-3 text-white/90 shrink-0" />
+                              ) : (
+                                <Star className="w-3 h-3 text-white/90 shrink-0" />
+                              )}
                               <span className="text-[10px] text-white font-semibold truncate flex-1">
                                 {effect.name}
                               </span>
