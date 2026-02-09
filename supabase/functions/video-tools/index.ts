@@ -128,17 +128,20 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    // Use primary Timeless Supabase project for auth validation
+    // (users authenticate against the primary project, not Lovable Cloud)
+    const primarySupabaseUrl = "https://ifesxveahsbjhmrhkhhy.supabase.co";
+    const primaryAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmZXN4dmVhaHNiamhtcmhraGh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4ODc4OTQsImV4cCI6MjA4NDQ2Mzg5NH0.uBRcVNQcTdJNk9gstOCW6xRcQsZ8pnQwy5IGxbhZD6g";
+    const supabase = createClient(primarySupabaseUrl, primaryAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Verify user via claims (signing-keys compatible)
+    // Verify user via claims against primary project
     const token = authHeader.replace('Bearer ', '');
     const { data: claimsData, error: authError } = await supabase.auth.getClaims(token);
     
     if (authError || !claimsData?.claims) {
+      console.error("Auth validation failed:", authError?.message);
       return new Response(
         JSON.stringify({ error: "Invalid authentication" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -147,9 +150,9 @@ serve(async (req) => {
 
     const userId = claimsData.claims.sub as string;
 
-    // Service role client for DB writes
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    // Use primary project client (with user auth) for DB operations
+    // The supabase client already has the user's auth header for RLS
+    const supabaseAdmin = supabase;
 
     // Check credits
     const creditCost = TOOL_CREDITS[tool] ?? 10;

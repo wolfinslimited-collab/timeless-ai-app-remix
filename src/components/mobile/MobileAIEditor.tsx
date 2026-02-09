@@ -101,6 +101,7 @@ import { ProjectManager } from "./ai-editor/ProjectManager";
 import type { EditorProject } from "./ai-editor/types";
 import { saveProject, generateThumbnail, createNewProject } from "./ai-editor/projectStorage";
 import { supabase } from "@/integrations/supabase/client";
+import { supabase as timelessSupabase, TIMELESS_SUPABASE_URL } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import AddCreditsDialog from "@/components/AddCreditsDialog";
@@ -2311,7 +2312,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     }, 800);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await timelessSupabase.auth.getSession();
       const authToken = session?.access_token;
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-tools`, {
