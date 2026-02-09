@@ -211,6 +211,8 @@ interface TextOverlayData {
   scale: number;
   scaleX: number;
   scaleY: number;
+  // Layer order (higher = on top)
+  layerOrder: number;
 }
 
 // Drawing layer interface for canvas drawings
@@ -1396,6 +1398,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   const addTextOverlay = () => {
     saveStateToHistory();
+    const maxOrder = textOverlays.reduce((max, t) => Math.max(max, t.layerOrder || 0), 0);
     const newText: TextOverlayData = {
       id: Date.now().toString(),
       text: 'Sample Text',
@@ -1407,8 +1410,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       hasBackground: false,
       backgroundColor: '#000000',
       backgroundOpacity: 0.5,
-      startTime: 0,
-      endTime: Math.min(5, duration || 10),
+      startTime: currentTime,
+      endTime: Math.min(currentTime + 5, duration || 10),
       // Extended defaults
       opacity: 1,
       strokeEnabled: false,
@@ -1428,12 +1431,31 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       scale: 1,
       scaleX: 1,
       scaleY: 1,
+      layerOrder: maxOrder + 1,
     };
     setTextOverlays(prev => [...prev, newText]);
     setSelectedTextId(newText.id);
     setTextInput(newText.text);
     setSelectedTool('text');
-    setShowTextEditPanel(true); // Open text edit panel
+    setShowTextEditPanel(true);
+  };
+
+  const duplicateTextOverlay = (id: string) => {
+    const original = textOverlays.find(t => t.id === id);
+    if (!original) return;
+    saveStateToHistory();
+    const maxOrder = textOverlays.reduce((max, t) => Math.max(max, t.layerOrder || 0), 0);
+    const duplicate: TextOverlayData = {
+      ...original,
+      id: Date.now().toString(),
+      position: { x: Math.min(0.9, original.position.x + 0.05), y: Math.min(0.9, original.position.y + 0.05) },
+      layerOrder: maxOrder + 1,
+    };
+    setTextOverlays(prev => [...prev, duplicate]);
+    setSelectedTextId(duplicate.id);
+    setTextInput(duplicate.text);
+    setShowTextEditPanel(true);
+    toast({ title: "Text duplicated" });
   };
 
   const updateSelectedText = (updates: Partial<TextOverlayData>) => {
@@ -4122,8 +4144,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 );
               })}
               
-              {/* Text Overlays - with dragging support */}
-              {textOverlays.filter(overlay => 
+              {/* Text Overlays - with dragging support, sorted by layerOrder */}
+              {[...textOverlays].sort((a, b) => (a.layerOrder || 0) - (b.layerOrder || 0)).filter(overlay => 
                 currentTime >= overlay.startTime && currentTime <= overlay.endTime
               ).map(overlay => {
                 const isSelected = overlay.id === selectedTextId;
@@ -4136,19 +4158,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       top: `${overlay.position.y * 100}%`,
                       transform: `translate(-50%, -50%) rotate(${overlay.rotation || 0}deg) scaleX(${overlay.scaleX || 1}) scaleY(${overlay.scaleY || 1})`,
                       cursor: draggingTextId === overlay.id ? 'grabbing' : 'grab',
-                      zIndex: 20,
+                      zIndex: 20 + (overlay.layerOrder || 0),
                     }}
                     // Click to select - automatically show text edit panel
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (isSelected) {
-                        setShowTextEditPanel(true);
-                        setSelectedTool('text');
-                      } else {
-                        setSelectedTextId(overlay.id);
-                        setTextInput(overlay.text);
-                        setShowTextEditPanel(true);
-                      }
+                      setSelectedTextId(overlay.id);
+                      setTextInput(overlay.text);
+                      setShowTextEditPanel(true);
+                      setSelectedTool('text');
                     }}
                     onDoubleClick={(e) => {
                       e.stopPropagation();
@@ -4234,6 +4252,21 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           style={{ pointerEvents: 'auto' }}
                         >
                           <X className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        
+                        {/* Duplicate button - top right corner */}
+                        <div
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            duplicateTextOverlay(overlay.id);
+                          }}
+                          className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-black/80 border border-white/50 flex items-center justify-center cursor-pointer z-50 touch-manipulation backdrop-blur-sm"
+                          style={{ pointerEvents: 'auto' }}
+                        >
+                          <Copy className="w-3 h-3 text-white" />
                         </div>
                         
                         {/* Free-form Resize handle - bottom right corner */}
@@ -4883,6 +4916,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                   bubbleStyle: 'none',
                                   startTime: currentTime,
                                   endTime: Math.min(currentTime + 3, duration),
+                                  layerOrder: textOverlays.reduce((max, t) => Math.max(max, t.layerOrder || 0), 0) + 1,
                                 };
                                 setTextOverlays(prev => [...prev, newSticker]);
                                 setSelectedTextId(newSticker.id);
@@ -5440,8 +5474,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               className={cn(
                                 "absolute h-[34px] rounded flex items-center cursor-grab transition-all active:cursor-grabbing group",
                                 isSelected 
-                                  ? "border border-white/90"
-                                  : "",
+                                  ? "border border-white/90 bg-purple-600"
+                                  : "bg-purple-700/80",
                                 draggingLayerId === overlay.id && "opacity-90 scale-[1.02] z-10"
                               )}
                               style={{ left: leftOffset, width: itemWidth, top: 3 }}
@@ -5449,7 +5483,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedTextId(overlay.id);
+                                setTextInput(overlay.text);
                                 setSelectedTool('text');
+                                setShowTextEditPanel(true);
                               }}
                             >
                               {/* Left trim handle - minimal styling */}
@@ -5489,12 +5525,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               {/* Content - just text label */}
                               <div 
                                 className="flex-1 flex items-center gap-1.5 px-1 overflow-hidden cursor-grab"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedTextId(overlay.id);
-                                  setTextInput(overlay.text);
-                                  setSelectedTool('text');
-                                }}
                               >
                                 <Type className="w-3 h-3 text-white/70 shrink-0" />
                                 <span className="text-[10px] text-white/90 font-medium truncate flex-1">
