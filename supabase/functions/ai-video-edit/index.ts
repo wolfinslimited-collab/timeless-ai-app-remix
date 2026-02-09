@@ -79,15 +79,17 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Use the primary Timeless AI Supabase project for auth verification
+    const primaryUrl = Deno.env.get("SUPABASE_URL") || "https://ifesxveahsbjhmrhkhhy.supabase.co";
+    const primaryServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(primaryUrl, primaryServiceKey);
 
-    // Verify user
+    // Verify user against primary project
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
+      console.log("Auth error:", authError?.message);
       return new Response(
         JSON.stringify({ error: "Invalid authentication" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
