@@ -1722,6 +1722,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const originalVideoFileRef = useRef<File | null>(null);
   
   const { toast } = useToast();
 
@@ -1798,6 +1799,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         });
       } else {
         // First video - set as primary
+        originalVideoFileRef.current = file;
         setVideoUrl(localUrl);
         setUploadProgress(100);
         toast({
@@ -2766,8 +2768,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           // Retry strategy: for blob URLs, try recreating a fresh blob URL
           if (isBlobUrl) {
             try {
-              const blob = await fetch(sourceUrl).then(r => r.blob());
-              const freshUrl = URL.createObjectURL(blob);
+              // Try to recreate blob URL from original File object first
+              let freshUrl: string;
+              if (originalVideoFileRef.current) {
+                freshUrl = URL.createObjectURL(originalVideoFileRef.current);
+              } else {
+                // Fallback: try fetching the blob URL (may also fail)
+                const blob = await fetch(sourceUrl).then(r => r.blob());
+                freshUrl = URL.createObjectURL(blob);
+              }
               exportVideo!.dataset.tmpObjectUrl = freshUrl;
               exportVideo!.src = freshUrl;
               await new Promise<void>((resolve, reject) => {
@@ -2795,7 +2804,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 exportVideo!.addEventListener('error', onError, { once: true });
                 exportVideo!.load();
               });
-              // Note: we'll revoke this fresh URL in the finally cleanup
               return;
             } catch {
               // Fall through to original error
@@ -3217,6 +3225,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   const handleNewProject = async (project: EditorProject, file: File) => {
     setCurrentProject(project);
+    originalVideoFileRef.current = file;
     const localUrl = URL.createObjectURL(file);
     setVideoUrl(localUrl);
     setShowProjectManager(false);
