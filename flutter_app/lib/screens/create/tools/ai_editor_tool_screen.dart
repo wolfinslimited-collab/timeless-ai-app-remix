@@ -17,6 +17,7 @@ import '../../../core/theme.dart';
 import 'widgets/text_edit_panel.dart';
 import 'ai_editor/project_storage.dart';
 import 'ai_editor/project_manager.dart';
+import '../../../widgets/add_credits_dialog.dart';
 
 class RecentVideo {
   final String url;
@@ -46,6 +47,7 @@ class TextOverlay {
   double endTime; // in seconds
   double scale;
   int trackIndex; // Z-index/track order for layer stacking
+  int layerOrder; // Z-index for rendering order (higher = on top)
   // Extended text styling properties
   double opacity;
   bool strokeEnabled;
@@ -80,6 +82,7 @@ class TextOverlay {
     this.endTime = 5,
     this.scale = 1.0,
     this.trackIndex = 0,
+    this.layerOrder = 0,
     // Extended defaults
     this.opacity = 1.0,
     this.strokeEnabled = false,
@@ -853,11 +856,17 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     {'id': '3:4', 'label': '3:4'},
   ];
   
+  // AI Prompt Edit state
+  bool _isAiEditOpen = false;
+  bool _isAiEditProcessing = false;
+  final TextEditingController _aiEditPromptController = TextEditingController();
+  static const int _aiEditCreditCost = 5;
+  
   // Computed: check if any overlay menu is currently open (to hide main toolbar)
   bool get _isAnyOverlayOpen => 
       _isEditMenuMode || _isAudioMenuMode || _isTextMenuMode || 
       _isEffectsMenuMode || _isOverlayMenuMode || _isCaptionsMenuMode || 
-      _isAspectMenuMode || _isBackgroundMenuMode || _showTextEditPanel || _isDrawMode || _isCropMode;
+      _isAspectMenuMode || _isBackgroundMenuMode || _showTextEditPanel || _isDrawMode || _isCropMode || _isAiEditOpen;
   
   // Background color presets
   final List<Color> _backgroundColorPresets = [
@@ -935,6 +944,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     EditorTool(id: 'captions', name: 'Captions', icon: Icons.subtitles_outlined),
     EditorTool(id: 'filters', name: 'Filters', icon: Icons.blur_circular),
     EditorTool(id: 'adjust', name: 'Adjust', icon: Icons.tune),
+    EditorTool(id: 'ai-edit', name: 'AI Edit', icon: Icons.auto_fix_high),
     EditorTool(id: 'aspect', name: 'Aspect', icon: Icons.aspect_ratio),
     EditorTool(id: 'background', name: 'Background', icon: Icons.format_paint_outlined),
   ];
@@ -1686,11 +1696,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   void _addTextOverlay() {
     _saveStateToHistory();
     final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+    final currentTime = _currentTimelinePosition;
+    final maxLayerOrder = _textOverlays.isEmpty ? 0 : _textOverlays.map((t) => t.layerOrder).reduce(math.max) + 1;
     final newText = TextOverlay(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       text: 'Sample Text',
-      startTime: 0,
-      endTime: math.min(5.0, duration),
+      startTime: currentTime,
+      endTime: math.min(currentTime + 5.0, duration),
+      layerOrder: maxLayerOrder,
     );
     setState(() {
       _textOverlays.add(newText);
@@ -1698,6 +1711,51 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       _textInputController.text = newText.text;
       _showTextEditPanel = true; // Open text edit panel
     });
+  }
+
+  void _duplicateTextOverlay(String id) {
+    final source = _textOverlays.firstWhere((t) => t.id == id, orElse: () => _textOverlays.first);
+    _saveStateToHistory();
+    final maxLayerOrder = _textOverlays.isEmpty ? 0 : _textOverlays.map((t) => t.layerOrder).reduce(math.max) + 1;
+    final copy = TextOverlay(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      text: source.text,
+      position: Offset(math.min(source.position.dx + 0.05, 0.95), math.min(source.position.dy + 0.05, 0.95)),
+      fontSize: source.fontSize,
+      textColor: source.textColor,
+      fontFamily: source.fontFamily,
+      alignment: source.alignment,
+      hasBackground: source.hasBackground,
+      backgroundColor: source.backgroundColor,
+      backgroundOpacity: source.backgroundOpacity,
+      startTime: source.startTime,
+      endTime: source.endTime,
+      scale: source.scale,
+      layerOrder: maxLayerOrder,
+      opacity: source.opacity,
+      strokeEnabled: source.strokeEnabled,
+      strokeColor: source.strokeColor,
+      strokeWidth: source.strokeWidth,
+      glowEnabled: source.glowEnabled,
+      glowColor: source.glowColor,
+      glowIntensity: source.glowIntensity,
+      shadowEnabled: source.shadowEnabled,
+      shadowColor: source.shadowColor,
+      letterSpacing: source.letterSpacing,
+      curveAmount: source.curveAmount,
+      animation: source.animation,
+      bubbleStyle: source.bubbleStyle,
+      rotation: source.rotation,
+      scaleX: source.scaleX,
+      scaleY: source.scaleY,
+    );
+    setState(() {
+      _textOverlays.add(copy);
+      _selectedTextId = copy.id;
+      _textInputController.text = copy.text;
+      _showTextEditPanel = true;
+    });
+    _showSnackBar('Text duplicated');
   }
 
   void _updateSelectedText(void Function(TextOverlay) updater) {
@@ -4493,6 +4551,59 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     // Crop overlay when in crop mode
                     if (_isCropMode) _buildCropOverlay(containerWidth, containerHeight),
                     
+                    // AI Processing Loading Overlay
+                    if (_isAiEditProcessing)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black.withOpacity(0.7),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 64,
+                                height: 64,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 64,
+                                      height: 64,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary.withOpacity(0.6)),
+                                      ),
+                                    ),
+                                    const Icon(Icons.auto_fix_high, color: AppTheme.primary, size: 24),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'AI Processing...',
+                                style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600, fontSize: 14),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Applying your edit',
+                                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                              ),
+                              const SizedBox(height: 16),
+                              GestureDetector(
+                                onTap: () => setState(() => _isAiEditProcessing = false),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text('Cancel', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w500)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    
                     // Drag indicator when not original aspect ratio
                     if (_selectedAspectRatio != 'original' && !_isDraggingVideo)
                       Positioned.fill(
@@ -5538,7 +5649,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         isDragging: isDragging,
                         trackWidth: trackWidth,
                         duration: duration,
-                        color: isSelected ? const Color(0xFFF59E0B) : const Color(0xFF8B5CF6),
+                        color: isSelected ? Colors.white : const Color(0xFF7C3AED),
                         icon: Icons.text_fields,
                         label: overlay.text,
                       ),
@@ -5571,7 +5682,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       width: itemWidth,
       height: 34,
       decoration: BoxDecoration(
-        // Only show border when selected, no background box
+        color: color.withOpacity(isSelected ? 0.9 : 0.7),
         border: isSelected ? Border.all(color: Colors.white, width: 1.5) : null,
         borderRadius: BorderRadius.circular(4),
       ),
@@ -6212,11 +6323,265 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 child: _buildAdjustMenuOverlay(),
               ),
             ),
+          // AI Edit Bottom Sheet Overlay
+          if (_isAiEditOpen)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _buildAiEditBottomSheet(),
+            ),
         ],
       );
     }
   }
   
+  /// Build AI Edit bottom sheet
+  Widget _buildAiEditBottomSheet() {
+    final examplePrompts = ['Cinematic color grading', 'Vintage film look', 'Sunset sky', 'Neon glow'];
+    
+    return Material(
+      color: const Color(0xFF0A0A0A),
+      elevation: 8,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      child: Container(
+        height: 260,
+        decoration: BoxDecoration(
+          color: const Color(0xFF0A0A0A),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+        ),
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => setState(() => _isAiEditOpen = false),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.keyboard_arrow_down, color: AppTheme.primary, size: 20),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.auto_fix_high, color: AppTheme.primary, size: 16),
+                  const SizedBox(width: 6),
+                  const Text('AI Prompt Edit', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.auto_awesome, color: AppTheme.primary, size: 12),
+                        const SizedBox(width: 4),
+                        Text('$_aiEditCreditCost credits', style: const TextStyle(color: AppTheme.primary, fontSize: 10, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: Colors.white.withOpacity(0.1)),
+            // Prompt input
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _aiEditPromptController,
+                        maxLines: null,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Describe the visual changes you want...',
+                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 14),
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.05),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: AppTheme.primary, width: 1),
+                          ),
+                          contentPadding: const EdgeInsets.all(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Example prompt chips
+                    SizedBox(
+                      height: 28,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: examplePrompts.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 6),
+                        itemBuilder: (context, index) {
+                          return GestureDetector(
+                            onTap: () => _aiEditPromptController.text = examplePrompts[index],
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Text(
+                                examplePrompts[index],
+                                style: const TextStyle(color: AppTheme.primary, fontSize: 10, fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Send button
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: GestureDetector(
+                onTap: _handleAiEditSubmit,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.auto_fix_high, color: Colors.white, size: 16),
+                      SizedBox(width: 8),
+                      Text('Send', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Handle AI Edit prompt submission with credit check
+  Future<void> _handleAiEditSubmit() async {
+    final prompt = _aiEditPromptController.text.trim();
+    if (prompt.isEmpty) {
+      _showSnackBar('Please enter a prompt');
+      return;
+    }
+
+    // Credit check
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        _showSnackBar('Please sign in to use AI Edit');
+        return;
+      }
+
+      final profileRes = await Supabase.instance.client
+          .from('profiles')
+          .select('credits, plan')
+          .eq('user_id', user.id)
+          .single();
+
+      final credits = (profileRes['credits'] as num?)?.toInt() ?? 0;
+      final plan = profileRes['plan'] as String? ?? 'free';
+      final hasSubscription = plan != 'free';
+
+      if (!hasSubscription && credits < _aiEditCreditCost) {
+        if (mounted) {
+          showAddCreditsDialog(
+            context: context,
+            currentCredits: credits,
+            requiredCredits: _aiEditCreditCost,
+          );
+        }
+        return;
+      }
+
+      // Close bottom sheet, show loading overlay
+      setState(() {
+        _isAiEditOpen = false;
+        _isAiEditProcessing = true;
+      });
+
+      // Call the edge function
+      final session = Supabase.instance.client.auth.currentSession;
+      final url = '${const String.fromEnvironment('SUPABASE_URL', defaultValue: 'https://hpuqeabtgwbwcnklxolt.supabase.co')}/functions/v1/ai-video-edit';
+      
+      final response = await Supabase.instance.client.functions.invoke(
+        'ai-video-edit',
+        body: {'prompt': prompt},
+      );
+
+      if (response.status != 200) {
+        throw Exception('AI Edit failed (${response.status})');
+      }
+
+      final data = response.data;
+      if (data == null || data['success'] != true || data['effect'] == null) {
+        throw Exception('Invalid AI response');
+      }
+
+      // Deduct credits
+      if (!hasSubscription) {
+        await Supabase.instance.client
+            .from('profiles')
+            .update({'credits': math.max(0, credits - _aiEditCreditCost)})
+            .eq('user_id', user.id);
+      }
+
+      final effect = data['effect'];
+      
+      // Add effect layer
+      _saveStateToHistory();
+      final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+      setState(() {
+        _effectLayers.add(EffectLayer(
+          id: 'ai-effect-${DateTime.now().millisecondsSinceEpoch}',
+          effectId: 'ai-generated',
+          name: effect['effectName'] ?? 'AI Effect',
+          category: effect['category'] ?? 'ai',
+          intensity: (effect['intensity'] as num?)?.toDouble() ?? 0.7,
+          startTime: _currentTimelinePosition,
+          endTime: math.min(_currentTimelinePosition + 5, duration),
+        ));
+        _isAiEditProcessing = false;
+      });
+
+      _showSnackBar('AI Edit Applied: ${effect['effectName'] ?? 'Effect'}');
+    } catch (e) {
+      debugPrint('AI Edit error: $e');
+      if (mounted) {
+        setState(() => _isAiEditProcessing = false);
+        _showSnackBar('AI Edit failed: ${e.toString()}');
+      }
+    }
+  }
+
   /// Build adjust menu as inline overlay (like edit menu)
   Widget _buildAdjustMenuOverlay() {
     final selectedTool = _adjustmentTools.firstWhere(
@@ -10684,6 +11049,16 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 return;
               }
               
+              // AI Edit tool opens the AI prompt bottom sheet
+              if (tool.id == 'ai-edit') {
+                setState(() {
+                  _isAiEditOpen = true;
+                  _aiEditPromptController.clear();
+                  _selectedTool = 'ai-edit';
+                });
+                return;
+              }
+              
               setState(() => _selectedTool = tool.id);
               
               // Edit tool opens the edit menu (same style as audio)
@@ -12232,10 +12607,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     // Use unified timeline position for layer visibility
     final currentTime = _currentTimelinePosition;
     
-    return _textOverlays.where((overlay) {
-      // Only show text if current time is within the overlay's time range
+    // Sort by layerOrder for correct z-index stacking
+    final visibleOverlays = _textOverlays.where((overlay) {
       return currentTime >= overlay.startTime && currentTime <= overlay.endTime;
-    }).map((overlay) {
+    }).toList()
+      ..sort((a, b) => a.layerOrder.compareTo(b.layerOrder));
+    
+    return visibleOverlays.map((overlay) {
       final isSelected = overlay.id == _selectedTextId;
       
       return Positioned(
@@ -12245,10 +12623,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           // Single tap: Select and show text edit panel
           onTap: () {
             if (isSelected) {
-              // Already selected - ensure edit panel is open
               setState(() => _showTextEditPanel = true);
             } else {
-              // Select the text overlay - will auto-open edit panel
               _selectTextOverlay(overlay.id);
             }
           },
@@ -12258,7 +12634,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           onPanUpdate: (details) {
             if (!_isTextEditorInline) {
               setState(() {
-                // Boundary constraints: keep text within 2%-98% of video area
                 final newX = (overlay.position.dx + details.delta.dx / constraints.maxWidth).clamp(0.02, 0.98);
                 final newY = (overlay.position.dy + details.delta.dy / constraints.maxHeight).clamp(0.02, 0.98);
                 overlay.position = Offset(newX, newY);
@@ -12266,7 +12641,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             }
           },
           child: Transform.rotate(
-            angle: (overlay.rotation * math.pi / 180), // Convert degrees to radians
+            angle: (overlay.rotation * math.pi / 180),
             child: Stack(
               clipBehavior: Clip.none,
               children: [
@@ -12282,7 +12657,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         ? overlay.backgroundColor.withOpacity(overlay.backgroundOpacity)
                         : null,
                     borderRadius: BorderRadius.circular(4),
-                    // Thin white border when selected - crisp and visible
                     border: isSelected 
                         ? Border.all(color: Colors.white.withOpacity(0.9), width: 1)
                         : null,
@@ -12301,7 +12675,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     ),
                   ),
                 ),
-                // Transform handles - X in top-left, Free-form Resize in bottom-right
+                // Transform handles when selected
                 if (isSelected) ...[
                   // X Delete button - top left corner
                   Positioned(
@@ -12332,34 +12706,46 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       ),
                     ),
                   ),
-                  // Free-form Resize handle - bottom right corner (independent width/height)
+                  // Duplicate button - top right corner
+                  Positioned(
+                    top: -14,
+                    right: -14,
+                    child: GestureDetector(
+                      onTap: () => _duplicateTextOverlay(overlay.id),
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.8),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white.withOpacity(0.5), width: 1),
+                        ),
+                        child: const Icon(Icons.copy, color: Colors.white, size: 14),
+                      ),
+                    ),
+                  ),
+                  // Free-form Resize handle - bottom right corner
                   Positioned(
                     bottom: -14,
                     right: -14,
                     child: GestureDetector(
                       onPanUpdate: (details) {
                         setState(() {
-                          // Independent width/height scaling
                           final deltaX = details.delta.dx * 0.01;
                           final deltaY = details.delta.dy * 0.01;
-                          
-                          // Calculate new scales with boundary constraints
                           var newScaleX = (overlay.scaleX + deltaX).clamp(0.3, 3.0);
                           var newScaleY = (overlay.scaleY + deltaY).clamp(0.3, 3.0);
-                          
-                          // Boundary constraints: prevent text from exceeding video area
                           final textWidth = 100 * newScaleX;
                           final textHeight = 30 * newScaleY;
                           final posX = overlay.position.dx * constraints.maxWidth;
                           final posY = overlay.position.dy * constraints.maxHeight;
-                          
                           if (posX + textWidth / 2 > constraints.maxWidth) {
                             newScaleX = ((constraints.maxWidth - posX) * 2 / 100).clamp(0.3, 3.0);
                           }
                           if (posY + textHeight / 2 > constraints.maxHeight) {
                             newScaleY = ((constraints.maxHeight - posY) * 2 / 30).clamp(0.3, 3.0);
                           }
-                          
                           overlay.scaleX = newScaleX;
                           overlay.scaleY = newScaleY;
                         });
@@ -12373,7 +12759,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white.withOpacity(0.5), width: 1),
                         ),
-                        // 4-way diagonal resize arrow icon
                         child: CustomPaint(
                           size: const Size(16, 16),
                           painter: _FourWayResizeIconPainter(),
