@@ -781,11 +781,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     }
     
     saveStateToHistory();
+    const videoDuration = duration || 10;
+    const defaultDuration = 5; // 5 second default duration
+    const layerStart = currentTime;
+    const layerEnd = Math.min(layerStart + defaultDuration, videoDuration);
+    
     const newLayer: DrawingLayerData = {
       id: Date.now().toString(),
       strokes: [...currentStrokes],
-      startTime: 0,
-      endTime: duration || 10,
+      startTime: layerStart,
+      endTime: layerEnd,
     };
     setDrawingLayers(prev => [...prev, newLayer]);
     setCurrentStrokes([]);
