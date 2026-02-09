@@ -99,12 +99,7 @@ import {
 import { TextEditPanel } from "./TextEditPanel";
 import { ProjectManager } from "./ai-editor/ProjectManager";
 import type { EditorProject } from "./ai-editor/types";
-import { saveProjectToSupabase, generateThumbnail, createNewProjectInSupabase } from "./ai-editor/supabaseProjectStorage";
-import { useAutoSave } from "./ai-editor/useAutoSave";
-import { SaveIndicator } from "./ai-editor/SaveIndicator";
-import { AIEditModal } from "./ai-editor/AIEditModal";
-import { supabase as cloudSupabase } from "@/integrations/supabase/client";
-import { supabase as primarySupabase } from "@/lib/supabase";
+import { saveProject, generateThumbnail, createNewProject } from "./ai-editor/projectStorage";
 
 interface MobileAIEditorProps {
   onBack: () => void;
@@ -479,10 +474,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   const selectedEffectLayer = effectLayers.find(e => e.id === selectedEffectId);
 
-  // AI Edit modal state
-  const [showAIEditModal, setShowAIEditModal] = useState(false);
-  const [isAIEditProcessing, setIsAIEditProcessing] = useState(false);
-
   // Video overlay state (Picture-in-Picture)
   const [videoOverlays, setVideoOverlays] = useState<VideoOverlayData[]>([]);
   const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
@@ -675,87 +666,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     saveStateToHistory();
     setEffectLayers(prev => prev.filter(e => e.id !== id));
     if (selectedEffectId === id) setSelectedEffectId(null);
-  };
-
-  // AI Edit handler - calls edge function and creates AI effect layer
-  const handleAIEditSubmit = async (prompt: string) => {
-    if (!editingClipId) {
-      toast({ title: "No clip selected", description: "Please select a clip to edit", variant: "destructive" });
-      return;
-    }
-
-    const clip = videoClips.find(c => c.id === editingClipId);
-    if (!clip) {
-      toast({ title: "Clip not found", variant: "destructive" });
-      return;
-    }
-
-    setIsAIEditProcessing(true);
-    saveStateToHistory();
-
-    try {
-      // Get auth token from primary project (where user is authenticated)
-      const { data: { session } } = await primarySupabase.auth.getSession();
-      const authToken = session?.access_token;
-      if (!authToken) {
-        throw new Error("Please sign in to use AI Edit");
-      }
-
-      const cloudUrl = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(`${cloudUrl}/functions/v1/ai-video-edit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({
-          prompt,
-          clipId: clip.id,
-          clipStartTime: clip.startTime,
-          clipEndTime: clip.startTime + getClipTrimmedDuration(clip),
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.error || "Failed to apply AI edit");
-      }
-
-      if (data?.success && data.effect) {
-        // Add the AI-generated effect as a new layer
-        const aiEffect: EffectLayerData = {
-          id: data.effect.id,
-          effectId: data.effect.effectId,
-          name: data.effect.name,
-          category: data.effect.category,
-          intensity: data.effect.intensity,
-          startTime: data.effect.startTime,
-          endTime: data.effect.endTime,
-        };
-
-        setEffectLayers(prev => [...prev, aiEffect]);
-        setSelectedEffectId(aiEffect.id);
-        
-        toast({ 
-          title: "AI Edit Applied", 
-          description: `"${prompt}" - Effect added to timeline`,
-        });
-      } else {
-        throw new Error(data?.error || "Failed to apply AI edit");
-      }
-    } catch (error) {
-      console.error("AI Edit error:", error);
-      toast({ 
-        title: "AI Edit Failed", 
-        description: error instanceof Error ? error.message : "An error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setIsAIEditProcessing(false);
-      setShowAIEditModal(false);
-      setIsEditMenuMode(false);
-    }
   };
 
   // Audio layer state
@@ -2169,7 +2079,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     { id: 'split', name: 'Split', icon: SplitSquareHorizontal, action: handleSplitAtPlayhead },
     { id: 'volume', name: 'Volume', icon: Volume2, action: () => setEditSubPanel('volume') },
     { id: 'speed', name: 'Speed', icon: Gauge, action: () => setEditSubPanel('speed') },
-    { id: 'ai-edit', name: 'AI Edit', icon: Wand2, action: () => setShowAIEditModal(true), isAI: true },
     { id: 'animations', name: 'Animations', icon: Sparkles, action: () => { 
       // Initialize with current clip's animation if exists
       const clip = videoClips.find(c => c.id === editingClipId);
@@ -2994,145 +2903,65 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setShowProjectManager(false);
   };
 
-  // Build current project state for auto-save
-  const currentProjectState: EditorProject | null = currentProject && videoUrl ? {
-    ...currentProject,
-    videoUrl,
-    videoDuration: duration,
-    videoDimensions,
-    adjustments,
-    selectedAspectRatio,
-    backgroundColor,
-    backgroundBlur,
-    backgroundImage,
-    videoPosition,
-    videoClips: videoClips.map(clip => ({
-      id: clip.id,
-      url: clip.url,
-      duration: clip.duration,
-      startTime: clip.startTime,
-      inPoint: clip.inPoint,
-      outPoint: clip.outPoint,
-      volume: clip.volume,
-      speed: clip.speed,
-      aiEnhanced: clip.aiEnhanced,
-      animationIn: clip.animationIn ? {
-        id: clip.animationIn.id,
-        type: clip.animationIn.type,
-        duration: clip.animationIn.duration,
-      } : null,
-      animationOut: clip.animationOut ? {
-        id: clip.animationOut.id,
-        type: clip.animationOut.type,
-        duration: clip.animationOut.duration,
-      } : null,
-    })),
-    textOverlays: textOverlays.map(t => ({
-      id: t.id,
-      text: t.text,
-      position: t.position,
-      fontSize: t.fontSize,
-      textColor: t.textColor,
-      fontFamily: t.fontFamily,
-      alignment: t.alignment,
-      hasBackground: t.hasBackground,
-      backgroundColor: t.backgroundColor,
-      backgroundOpacity: t.backgroundOpacity,
-      startTime: t.startTime,
-      endTime: t.endTime,
-      opacity: t.opacity,
-      strokeEnabled: t.strokeEnabled,
-      strokeColor: t.strokeColor,
-      strokeWidth: t.strokeWidth,
-      glowEnabled: t.glowEnabled,
-      glowColor: t.glowColor,
-      glowIntensity: t.glowIntensity,
-      shadowEnabled: t.shadowEnabled,
-      shadowColor: t.shadowColor,
-      letterSpacing: t.letterSpacing,
-      curveAmount: t.curveAmount,
-      animation: t.animation,
-      bubbleStyle: t.bubbleStyle,
-      rotation: t.rotation,
-      scale: t.scale,
-      scaleX: t.scaleX,
-      scaleY: t.scaleY,
-    })),
-    audioLayers: audioLayers.map(a => ({
-      id: a.id,
-      name: a.name,
-      fileUrl: a.fileUrl,
-      volume: a.volume,
-      startTime: a.startTime,
-      endTime: a.endTime,
-      fadeIn: a.fadeIn,
-      fadeOut: a.fadeOut,
-      waveformData: a.waveformData,
-    })),
-    effectLayers: effectLayers.map(e => ({
-      id: e.id,
-      effectId: e.effectId,
-      name: e.name,
-      category: e.category,
-      intensity: e.intensity,
-      startTime: e.startTime,
-      endTime: e.endTime,
-    })),
-    captionLayers: captionLayers.map(c => ({
-      id: c.id,
-      text: c.text,
-      startTime: c.startTime,
-      endTime: c.endTime,
-    })),
-    drawingLayers: drawingLayers.map(d => ({
-      id: d.id,
-      strokes: d.strokes,
-      startTime: d.startTime,
-      endTime: d.endTime,
-    })),
-    videoOverlays: videoOverlays.map(v => ({
-      id: v.id,
-      url: v.url,
-      duration: v.duration,
-      position: v.position,
-      size: v.size,
-      scale: v.scale,
-      startTime: v.startTime,
-      endTime: v.endTime,
-      volume: v.volume,
-      opacity: v.opacity,
-    })),
-  } : null;
-
-  // Use auto-save hook - 30 second interval, 2 second debounce on changes
-  const { saveStatus, triggerSave } = useAutoSave({
-    project: currentProjectState,
-    intervalMs: 30000,
-    debounceMs: 2000,
-    enabled: !!currentProject && !!videoUrl,
-  });
-
-  // Update thumbnail when project changes significantly
+  // Auto-save project when state changes
   useEffect(() => {
     if (!currentProject || !videoUrl) return;
     
-    const updateThumbnail = async () => {
+    const saveTimer = setTimeout(async () => {
       try {
+        // Generate new thumbnail if we have video
         const thumbnail = await generateThumbnail(videoUrl);
-        if (thumbnail && currentProject.thumbnail !== thumbnail) {
-          const updatedProject = { ...currentProject, thumbnail };
-          setCurrentProject(updatedProject);
-        }
+        
+        const updatedProject: EditorProject = {
+          ...currentProject,
+          videoUrl,
+          videoDuration: duration,
+          videoDimensions,
+          thumbnail: thumbnail || currentProject.thumbnail,
+          adjustments,
+          selectedAspectRatio,
+          backgroundColor,
+          backgroundBlur,
+          backgroundImage,
+          videoPosition,
+          videoClips: videoClips.map(clip => ({
+            id: clip.id,
+            url: clip.url,
+            duration: clip.duration,
+            startTime: clip.startTime,
+            inPoint: clip.inPoint,
+            outPoint: clip.outPoint,
+            volume: clip.volume,
+            speed: clip.speed,
+            aiEnhanced: clip.aiEnhanced,
+            animationIn: clip.animationIn ? {
+              id: clip.animationIn.id,
+              type: clip.animationIn.type,
+              duration: clip.animationIn.duration,
+            } : null,
+            animationOut: clip.animationOut ? {
+              id: clip.animationOut.id,
+              type: clip.animationOut.type,
+              duration: clip.animationOut.duration,
+            } : null,
+          })),
+          textOverlays: [],
+          audioLayers: [],
+          effectLayers: [],
+          captionLayers: [],
+          drawingLayers: [],
+          videoOverlays: [],
+        };
+        
+        await saveProject(updatedProject);
+        setCurrentProject(updatedProject);
       } catch (error) {
-        console.error('Failed to generate thumbnail:', error);
+        console.error('Failed to auto-save project:', error);
       }
-    };
+    }, 2000); // Debounce 2 seconds
     
-    // Only update thumbnail once when video is first loaded
-    if (!currentProject.thumbnail) {
-      updateThumbnail();
-    }
-  }, [videoUrl, currentProject?.id]);
+    return () => clearTimeout(saveTimer);
+  }, [videoUrl, duration, adjustments, selectedAspectRatio, backgroundColor, backgroundBlur, backgroundImage, videoPosition, videoClips]);
 
   // Show Project Manager when no video is loaded
   if (showProjectManager) {
@@ -3583,20 +3412,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
       {/* Top Bar */}
       <div className="px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              // Go back to project manager instead of leaving editor
-              setShowProjectManager(true);
-            }}
-            className="w-7 h-7 rounded-full bg-muted/30 flex items-center justify-center hover:bg-muted/50 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 text-foreground" />
-          </button>
-          
-          {/* Save Status Indicator */}
-          {videoUrl && <SaveIndicator status={saveStatus} />}
-        </div>
+        <button
+          onClick={() => {
+            // Go back to project manager instead of leaving editor
+            setShowProjectManager(true);
+          }}
+          className="w-7 h-7 rounded-full bg-muted/30 flex items-center justify-center hover:bg-muted/50 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4 text-foreground" />
+        </button>
         
         {videoUrl && (
           <div className="flex items-center gap-2">
@@ -6570,14 +6394,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       {clipEditTools.map((tool) => {
                         const IconComponent = tool.icon;
                         const isDelete = tool.id === 'delete';
-                        const isAI = (tool as any).isAI;
                         return (
                           <button
                             key={tool.id}
                             onClick={() => {
                               tool.action();
                               // Only close for actions that don't open sub-panels
-                              if (!['volume', 'speed', 'animations', 'crop', 'ai-edit'].includes(tool.id)) {
+                              if (!['volume', 'speed', 'animations', 'crop'].includes(tool.id)) {
                                 if (tool.id !== 'replace') {
                                   // Keep menu open for replace (file picker)
                                 }
@@ -6587,16 +6410,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           >
                             <div className={cn(
                               "w-10 h-10 rounded-full flex items-center justify-center mb-1.5",
-                              isDelete ? "bg-destructive/20" : isAI ? "bg-gradient-to-br from-violet-500/30 to-purple-600/30 border border-violet-500/40" : "bg-muted/30"
+                              isDelete ? "bg-destructive/20" : "bg-muted/30"
                             )}>
                               <IconComponent className={cn(
                                 "w-5 h-5",
-                                isDelete ? "text-destructive" : isAI ? "text-violet-400" : "text-foreground"
+                                isDelete ? "text-destructive" : "text-foreground"
                               )} />
                             </div>
                             <span className={cn(
                               "text-[10px] font-medium",
-                              isDelete ? "text-destructive" : isAI ? "text-violet-400" : "text-foreground/60"
+                              isDelete ? "text-destructive" : "text-foreground/60"
                             )}>
                               {tool.name}
                             </span>
@@ -8001,22 +7824,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           </div>
         </div>
       )}
-
-      {/* AI Edit Modal */}
-      <AIEditModal
-        open={showAIEditModal}
-        onOpenChange={setShowAIEditModal}
-        onSubmit={handleAIEditSubmit}
-        isProcessing={isAIEditProcessing}
-        clipInfo={editingClipId ? (() => {
-          const clip = videoClips.find(c => c.id === editingClipId);
-          if (!clip) return null;
-          return {
-            duration: getClipTrimmedDuration(clip),
-            startTime: clip.startTime,
-          };
-        })() : null}
-      />
     </div>
   );
 }

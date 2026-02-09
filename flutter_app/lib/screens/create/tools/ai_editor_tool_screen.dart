@@ -1,7 +1,5 @@
 import 'dart:io';
 import 'dart:async';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'dart:typed_data';
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
@@ -755,11 +753,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   
   // Edit menu mode state - activated by clicking "Edit" tool
   bool _isEditMenuMode = false;
-  
-  // AI Edit modal state
-  bool _showAIEditModal = false;
-  bool _isAIEditProcessing = false;
-  final TextEditingController _aiEditPromptController = TextEditingController();
   
   // Edit sub-panel state for volume/speed controls
   String _editSubPanel = 'none'; // 'none', 'volume', 'speed'
@@ -2272,422 +2265,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     }
   }
   
-  /// Show AI Edit modal dialog
-  void _showAIEditModalDialog() {
-    _aiEditPromptController.clear();
-    
-    final examplePrompts = [
-      "Change the sky to a sunset",
-      "Make the person glow green",
-      "Add a futuristic city in the background",
-      "Apply a cinematic color grade",
-      "Add floating particles around the subject",
-      "Make it look like it's raining",
-      "Add neon lighting effects",
-      "Transform the scene to night time",
-    ];
-    
-    showDialog(
-      context: context,
-      barrierDismissible: !_isAIEditProcessing,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return Dialog(
-            backgroundColor: const Color(0xFF0A0A0A),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Container(
-              constraints: const BoxConstraints(maxHeight: 500),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
-                            ),
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: const Icon(Icons.auto_fix_high, color: Colors.white, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'AI Magic Edit',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const Spacer(),
-                        if (!_isAIEditProcessing)
-                          GestureDetector(
-                            onTap: () => Navigator.pop(context),
-                            child: Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.close, color: Colors.white, size: 18),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  
-                  // Content
-                  Flexible(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: _isAIEditProcessing
-                          ? _buildAIEditProcessingState()
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Enter your prompt for AI video editing',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                
-                                // Prompt input
-                                TextField(
-                                  controller: _aiEditPromptController,
-                                  maxLines: 3,
-                                  style: const TextStyle(color: Colors.white),
-                                  decoration: InputDecoration(
-                                    hintText: 'Describe how you want to edit this video...',
-                                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-                                    filled: true,
-                                    fillColor: Colors.white.withOpacity(0.05),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(color: Color(0xFF8B5CF6)),
-                                    ),
-                                  ),
-                                  onChanged: (_) => setDialogState(() {}),
-                                ),
-                                
-                                const SizedBox(height: 16),
-                                
-                                // Example prompts
-                                Text(
-                                  'TRY THESE EXAMPLES',
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: examplePrompts.map((example) {
-                                    final isSelected = _aiEditPromptController.text == example;
-                                    return GestureDetector(
-                                      onTap: () {
-                                        _aiEditPromptController.text = example;
-                                        setDialogState(() {});
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: isSelected 
-                                              ? const Color(0xFF8B5CF6).withOpacity(0.2)
-                                              : Colors.white.withOpacity(0.05),
-                                          borderRadius: BorderRadius.circular(20),
-                                          border: Border.all(
-                                            color: isSelected 
-                                                ? const Color(0xFF8B5CF6) 
-                                                : Colors.white.withOpacity(0.1),
-                                          ),
-                                        ),
-                                        child: Text(
-                                          example,
-                                          style: TextStyle(
-                                            color: isSelected 
-                                                ? const Color(0xFFA78BFA)
-                                                : Colors.white.withOpacity(0.6),
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                                
-                                const SizedBox(height: 16),
-                                
-                                // Info box
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        const Color(0xFF8B5CF6).withOpacity(0.1),
-                                        const Color(0xFF7C3AED).withOpacity(0.1),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.2)),
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Icon(Icons.auto_awesome, color: Color(0xFFA78BFA), size: 20),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text(
-                                              'AI-Powered Editing',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'Describe your desired changes in natural language. The AI will interpret your prompt and apply visual effects to your video clip.',
-                                              style: TextStyle(
-                                                color: Colors.white.withOpacity(0.6),
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                    ),
-                  ),
-                  
-                  // Footer
-                  if (!_isAIEditProcessing)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => Navigator.pop(context),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: BorderSide(color: Colors.white.withOpacity(0.3)),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: const Text('Cancel'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _aiEditPromptController.text.trim().isNotEmpty
-                                  ? () => _submitAIEdit(setDialogState)
-                                  : null,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF8B5CF6),
-                                foregroundColor: Colors.white,
-                                disabledBackgroundColor: Colors.white.withOpacity(0.1),
-                                disabledForegroundColor: Colors.white.withOpacity(0.3),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.auto_fix_high, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Apply AI Edit'),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-  
-  Widget _buildAIEditProcessingState() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Column(
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF8B5CF6).withOpacity(0.2),
-                  const Color(0xFF7C3AED).withOpacity(0.2),
-                ],
-              ),
-              shape: BoxShape.circle,
-            ),
-            child: const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFF8B5CF6),
-                strokeWidth: 3,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Generating AI Edit...',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'This may take a moment',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '"${_aiEditPromptController.text}"',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Future<void> _submitAIEdit(void Function(void Function()) setDialogState) async {
-    if (_editingClipId == null) {
-      _showSnackBar('No clip selected');
-      return;
-    }
-    
-    final clip = _videoClips.firstWhere((c) => c.id == _editingClipId, orElse: () => throw Exception('Clip not found'));
-    final prompt = _aiEditPromptController.text.trim();
-    
-    setState(() => _isAIEditProcessing = true);
-    setDialogState(() {});
-    
-    try {
-      final session = Supabase.instance.client.auth.currentSession;
-      if (session == null) {
-        throw Exception('Please sign in to use AI Edit');
-      }
-
-      const cloudUrl = 'https://hpuqeabtgwbwcnklxolt.supabase.co';
-      final uri = Uri.parse('$cloudUrl/functions/v1/ai-video-edit');
-      final httpResponse = await http.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${session.accessToken}',
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwdXFlYWJ0Z3did2Nua2x4b2x0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwNDczMTgsImV4cCI6MjA4NDYyMzMxOH0.uBRcVNQcTdJNk9gstOCW6xRcQsZ8pnQwy5IGxbhZD6g',
-        },
-        body: jsonEncode({
-          'prompt': prompt,
-          'clipId': clip.id,
-          'clipStartTime': clip.startTime,
-          'clipEndTime': clip.startTime + (clip.outPoint - clip.inPoint),
-        }),
-      );
-
-      final response = jsonDecode(httpResponse.body);
-      
-      if (httpResponse.statusCode != 200) {
-        throw Exception(response['error'] ?? 'Failed to apply AI edit');
-      }
-
-      if (response['success'] == true) {
-        final effect = response['effect'];
-        
-        // Add AI effect layer
-        setState(() {
-          _effectLayers.add(EffectLayer(
-            id: effect['id'],
-            effectId: effect['effectId'],
-            name: effect['name'],
-            category: effect['category'],
-            intensity: (effect['intensity'] as num).toDouble(),
-            startTime: (effect['startTime'] as num).toDouble(),
-            endTime: (effect['endTime'] as num).toDouble(),
-          ));
-          _selectedEffectId = effect['id'];
-        });
-        
-        Navigator.pop(context);
-        _showSnackBar('AI Edit applied: "$prompt"');
-      } else {
-        throw Exception(response['error'] ?? 'Failed to apply AI edit');
-      }
-    } catch (e) {
-      debugPrint('AI Edit error: $e');
-      _showSnackBar('AI Edit failed: $e');
-    } finally {
-      setState(() => _isAIEditProcessing = false);
-      setDialogState(() {});
-    }
-  }
-
   /// Show animations bottom sheet
   void _showAnimationsBottomSheet() {
     final animationPresetsIn = [
@@ -9516,8 +9093,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         }
       }},
       {'id': 'volume', 'name': 'Volume', 'icon': Icons.volume_up, 'action': () => setState(() => _editSubPanel = 'volume')},
-      {'id': 'speed', 'name': 'Speed', 'icon': Icons.speed, 'action': () => setState(() => _editSubPanel = 'speed')},
-      {'id': 'ai-edit', 'name': 'AI Edit', 'icon': Icons.auto_fix_high, 'isAI': true, 'action': () => _showAIEditModalDialog()},
       {'id': 'animations', 'name': 'Animations', 'icon': Icons.auto_awesome, 'action': _showAnimationsBottomSheet},
       {'id': 'effects', 'name': 'Effects', 'icon': Icons.star_outline, 'action': () { setState(() { _selectedTool = 'effects'; _isEditMenuMode = false; }); }},
       {'id': 'delete', 'name': 'Delete', 'icon': Icons.delete_outline, 'action': () {
@@ -9534,6 +9109,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           _editingLayerType = 'clip';
         });
       }},
+      {'id': 'speed', 'name': 'Speed', 'icon': Icons.speed, 'action': () => setState(() => _editSubPanel = 'speed')},
       {'id': 'beats', 'name': 'Beats', 'icon': Icons.waves, 'action': _showBeatsBottomSheet},
       {'id': 'crop', 'name': 'Crop', 'icon': Icons.crop, 'action': _showCropBottomSheet},
       {'id': 'duplicate', 'name': 'Duplicate', 'icon': Icons.copy, 'action': () { if (_editingClipId != null && _editingLayerType != 'overlay') { _duplicateClipInline(_editingClipId!); } else { _showSnackBar('Duplicate for overlays coming soon'); } }},
@@ -9623,12 +9199,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   child: Row(
                     children: editTools.map((tool) {
                       final isDelete = tool['id'] == 'delete';
-                      final isAI = tool['isAI'] == true;
                       return GestureDetector(
                         onTap: () {
                           (tool['action'] as VoidCallback)();
                           // Don't close for tools that need to stay open
-                          if (!['volume', 'speed', 'animations', 'beats', 'crop', 'ai-edit'].contains(tool['id'])) {
+                          if (!['volume', 'speed', 'animations', 'beats', 'crop'].contains(tool['id'])) {
                             setState(() => _isEditMenuMode = false);
                           }
                         },
@@ -9642,23 +9217,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                                 width: 44,
                                 height: 44,
                                 decoration: BoxDecoration(
-                                  gradient: isAI 
-                                      ? const LinearGradient(
-                                          colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        )
-                                      : null,
                                   color: isDelete 
                                       ? Colors.red.withOpacity(0.2) 
-                                      : isAI ? null : Colors.white.withOpacity(0.1),
+                                      : Colors.white.withOpacity(0.1),
                                   shape: BoxShape.circle,
-                                  border: isAI ? Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.5)) : null,
                                 ),
                                 child: Icon(
                                   tool['icon'] as IconData,
                                   size: 20,
-                                  color: isDelete ? Colors.red : isAI ? Colors.white : Colors.white,
+                                  color: isDelete ? Colors.red : Colors.white,
                                 ),
                               ),
                               const SizedBox(height: 6),
@@ -9669,9 +9236,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                                   fontWeight: FontWeight.w500,
                                   color: isDelete 
                                       ? Colors.red 
-                                      : isAI 
-                                          ? const Color(0xFFA78BFA) 
-                                          : Colors.white.withOpacity(0.6),
+                                      : Colors.white.withOpacity(0.6),
                                 ),
                                 textAlign: TextAlign.center,
                                 maxLines: 1,

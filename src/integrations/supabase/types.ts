@@ -14,36 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      ai_editor_projects: {
-        Row: {
-          created_at: string
-          editor_state: Json
-          id: string
-          thumbnail: string | null
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          editor_state?: Json
-          id?: string
-          thumbnail?: string | null
-          title?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          editor_state?: Json
-          id?: string
-          thumbnail?: string | null
-          title?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       chat_folders: {
         Row: {
           color: string | null
