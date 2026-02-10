@@ -234,6 +234,10 @@ class SavedTextOverlay {
   final int textColor;
   final String fontFamily;
   final String alignment;
+  final bool bold;
+  final bool italic;
+  final bool underline;
+  final double lineHeight;
   final bool hasBackground;
   final int backgroundColor;
   final double backgroundOpacity;
@@ -244,6 +248,19 @@ class SavedTextOverlay {
   final double rotation;
   final double scaleX;
   final double scaleY;
+  // Extended styling
+  final bool strokeEnabled;
+  final int strokeColor;
+  final double strokeWidth;
+  final bool glowEnabled;
+  final int glowColor;
+  final double glowIntensity;
+  final bool shadowEnabled;
+  final int shadowColor;
+  final double letterSpacing;
+  final double curveAmount;
+  final String animation;
+  final String bubbleStyle;
 
   SavedTextOverlay({
     required this.id,
@@ -254,6 +271,10 @@ class SavedTextOverlay {
     this.textColor = 0xFFFFFFFF,
     this.fontFamily = 'Roboto',
     this.alignment = 'center',
+    this.bold = false,
+    this.italic = false,
+    this.underline = false,
+    this.lineHeight = 1.4,
     this.hasBackground = false,
     this.backgroundColor = 0xFF000000,
     this.backgroundOpacity = 0.5,
@@ -264,6 +285,18 @@ class SavedTextOverlay {
     this.rotation = 0,
     this.scaleX = 1.0,
     this.scaleY = 1.0,
+    this.strokeEnabled = false,
+    this.strokeColor = 0xFF000000,
+    this.strokeWidth = 2.0,
+    this.glowEnabled = false,
+    this.glowColor = 0xFFFFFFFF,
+    this.glowIntensity = 10.0,
+    this.shadowEnabled = false,
+    this.shadowColor = 0xFF000000,
+    this.letterSpacing = 0.0,
+    this.curveAmount = 0.0,
+    this.animation = 'none',
+    this.bubbleStyle = 'none',
   });
 
   Map<String, dynamic> toJson() => {
@@ -271,12 +304,21 @@ class SavedTextOverlay {
     'positionX': positionX, 'positionY': positionY,
     'fontSize': fontSize, 'textColor': textColor,
     'fontFamily': fontFamily, 'alignment': alignment,
+    'bold': bold, 'italic': italic, 'underline': underline,
+    'lineHeight': lineHeight,
     'hasBackground': hasBackground,
     'backgroundColor': backgroundColor,
     'backgroundOpacity': backgroundOpacity,
     'startTime': startTime, 'endTime': endTime,
     'opacity': opacity, 'layerOrder': layerOrder,
     'rotation': rotation, 'scaleX': scaleX, 'scaleY': scaleY,
+    'strokeEnabled': strokeEnabled, 'strokeColor': strokeColor,
+    'strokeWidth': strokeWidth,
+    'glowEnabled': glowEnabled, 'glowColor': glowColor,
+    'glowIntensity': glowIntensity,
+    'shadowEnabled': shadowEnabled, 'shadowColor': shadowColor,
+    'letterSpacing': letterSpacing, 'curveAmount': curveAmount,
+    'animation': animation, 'bubbleStyle': bubbleStyle,
   };
 
   factory SavedTextOverlay.fromJson(Map<String, dynamic> json) => SavedTextOverlay(
@@ -288,6 +330,10 @@ class SavedTextOverlay {
     textColor: json['textColor'] as int? ?? 0xFFFFFFFF,
     fontFamily: json['fontFamily'] as String? ?? 'Roboto',
     alignment: json['alignment'] as String? ?? 'center',
+    bold: json['bold'] as bool? ?? false,
+    italic: json['italic'] as bool? ?? false,
+    underline: json['underline'] as bool? ?? false,
+    lineHeight: (json['lineHeight'] as num?)?.toDouble() ?? 1.4,
     hasBackground: json['hasBackground'] as bool? ?? false,
     backgroundColor: json['backgroundColor'] as int? ?? 0xFF000000,
     backgroundOpacity: (json['backgroundOpacity'] as num?)?.toDouble() ?? 0.5,
@@ -298,6 +344,18 @@ class SavedTextOverlay {
     rotation: (json['rotation'] as num?)?.toDouble() ?? 0,
     scaleX: (json['scaleX'] as num?)?.toDouble() ?? 1.0,
     scaleY: (json['scaleY'] as num?)?.toDouble() ?? 1.0,
+    strokeEnabled: json['strokeEnabled'] as bool? ?? false,
+    strokeColor: json['strokeColor'] as int? ?? 0xFF000000,
+    strokeWidth: (json['strokeWidth'] as num?)?.toDouble() ?? 2.0,
+    glowEnabled: json['glowEnabled'] as bool? ?? false,
+    glowColor: json['glowColor'] as int? ?? 0xFFFFFFFF,
+    glowIntensity: (json['glowIntensity'] as num?)?.toDouble() ?? 10.0,
+    shadowEnabled: json['shadowEnabled'] as bool? ?? false,
+    shadowColor: json['shadowColor'] as int? ?? 0xFF000000,
+    letterSpacing: (json['letterSpacing'] as num?)?.toDouble() ?? 0.0,
+    curveAmount: (json['curveAmount'] as num?)?.toDouble() ?? 0.0,
+    animation: json['animation'] as String? ?? 'none',
+    bubbleStyle: json['bubbleStyle'] as String? ?? 'none',
   );
 }
 
