@@ -5742,23 +5742,24 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       return const SizedBox.shrink();
     }
     
-    return SizedBox(
-      height: 40,
-      child: Row(
-        children: [
-          SizedBox(width: startPadding),
-          
-          SizedBox(
-            width: trackWidth,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: _videoOverlays.map((overlay) {
-                final leftOffset = overlay.startTime * _pixelsPerSecond;
-                final itemWidth = ((overlay.endTime - overlay.startTime) * _pixelsPerSecond).clamp(60.0, trackWidth);
-                final isSelected = overlay.id == _selectedOverlayId;
-                final isDragging = overlay.id == _draggingOverlayId;
-                
-                return Positioned(
+    return Column(
+      children: _videoOverlays.map((overlay) {
+        final leftOffset = overlay.startTime * _pixelsPerSecond;
+        final itemWidth = ((overlay.endTime - overlay.startTime) * _pixelsPerSecond).clamp(60.0, trackWidth);
+        final isSelected = overlay.id == _selectedOverlayId;
+        final isDragging = overlay.id == _draggingOverlayId;
+        
+        return SizedBox(
+          height: 40,
+          child: Row(
+            children: [
+              SizedBox(width: startPadding),
+              SizedBox(
+                width: trackWidth,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
                   left: leftOffset,
                   child: GestureDetector(
                     onTap: () {
@@ -5936,13 +5937,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     ),
                   ),
                 );
-              }).toList(),
-            ),
+                );
+                  ],
+                ),
+              ),
+              SizedBox(width: startPadding),
+            ],
           ),
-          
-          SizedBox(width: startPadding),
-        ],
-      ),
+        );
+      }).toList(),
     );
   }
 
@@ -5951,26 +5954,26 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       return const SizedBox.shrink();
     }
     
-    return SizedBox(
-      height: 40,
-      child: Row(
-        children: [
-          SizedBox(width: startPadding),
-          
-          SizedBox(
-            width: trackWidth,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: _textOverlays.map((overlay) {
-                // Use pixelsPerSecond for consistent positioning
-                final leftOffset = overlay.startTime * _pixelsPerSecond;
-                final itemWidth = ((overlay.endTime - overlay.startTime) * _pixelsPerSecond).clamp(50.0, trackWidth);
-                final isSelected = overlay.id == _selectedTextId;
-                final isDragging = overlay.id == _draggingLayerId;
-                
-                return Positioned(
-                  left: leftOffset,
-                    child: GestureDetector(
+    return Column(
+      children: _textOverlays.map((overlay) {
+        final leftOffset = overlay.startTime * _pixelsPerSecond;
+        final itemWidth = ((overlay.endTime - overlay.startTime) * _pixelsPerSecond).clamp(50.0, trackWidth);
+        final isSelected = overlay.id == _selectedTextId;
+        final isDragging = overlay.id == _draggingLayerId;
+        
+        return SizedBox(
+          height: 40,
+          child: Row(
+            children: [
+              SizedBox(width: startPadding),
+              SizedBox(
+                width: trackWidth,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      left: leftOffset,
+                      child: GestureDetector(
                     onTap: () {
                       setState(() {
                         _selectedTextId = overlay.id;
@@ -6110,13 +6113,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     ),
                   ),
                 );
-              }).toList(),
-            ),
+                );
+                  ],
+                ),
+              ),
+              SizedBox(width: startPadding),
+            ],
           ),
-          
-          SizedBox(width: startPadding),
-        ],
-      ),
+        );
+      }).toList(),
     );
   }
 
@@ -6376,26 +6381,26 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       return const SizedBox.shrink();
     }
     
-    return SizedBox(
-      height: 44,
-      child: Row(
-        children: [
-          SizedBox(width: startPadding),
-          
-          SizedBox(
-            width: trackWidth,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: _audioLayers.map((audio) {
-                // Use pixelsPerSecond for consistent positioning
-                final leftOffset = audio.startTime * _pixelsPerSecond;
-                final itemWidth = ((audio.endTime - audio.startTime) * _pixelsPerSecond).clamp(60.0, trackWidth);
-                final isSelected = audio.id == _selectedAudioId;
-                final isDragging = audio.id == _draggingLayerId;
-                
-                return Positioned(
-                  left: leftOffset,
-                  child: GestureDetector(
+    return Column(
+      children: _audioLayers.map((audio) {
+        final leftOffset = audio.startTime * _pixelsPerSecond;
+        final itemWidth = ((audio.endTime - audio.startTime) * _pixelsPerSecond).clamp(60.0, trackWidth);
+        final isSelected = audio.id == _selectedAudioId;
+        final isDragging = audio.id == _draggingLayerId;
+        
+        return SizedBox(
+          height: 44,
+          child: Row(
+            children: [
+              SizedBox(width: startPadding),
+              SizedBox(
+                width: trackWidth,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      left: leftOffset,
+                      child: GestureDetector(
                     onTap: () => _selectAudioLayer(audio.id),
                     onLongPressStart: (details) {
                       setState(() {
@@ -6650,6 +6655,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         ],
       ),
     );
+              ],
+            ),
+          ),
+          SizedBox(width: startPadding),
+        ],
+      ),
+    );
+  }).toList(),
+  );
   }
   
   Widget _buildTimeRuler(double startPadding) {
