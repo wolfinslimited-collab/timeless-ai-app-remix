@@ -1802,6 +1802,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         originalVideoFileRef.current = file;
         setVideoUrl(localUrl);
         setUploadProgress(100);
+        // Cache file in IndexedDB for the current project
+        if (currentProject) {
+          import('./ai-editor/projectStorage').then(({ saveVideoFile }) => {
+            saveVideoFile(currentProject.id, file);
+          });
+        }
         toast({
           title: "Video loaded",
           description: "Your video is ready for editing (local)",
@@ -3201,15 +3207,19 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       })));
     }
 
-    // Blob URLs don't persist across sessions — need to re-select video
-    const url = project.videoUrl;
-    const isStaleUrl = !url || url.startsWith('blob:');
-
-    if (isStaleUrl) {
-      // Show editor with a prompt to re-select the video file
+    // Try to get cached video file from IndexedDB
+    const { getVideoFile } = await import('./ai-editor/projectStorage');
+    const cachedFile = await getVideoFile(project.id);
+    
+    if (cachedFile) {
+      originalVideoFileRef.current = cachedFile;
+      const freshUrl = URL.createObjectURL(cachedFile);
+      setVideoUrl(freshUrl);
+      setShowProjectManager(false);
+    } else {
+      // No cached file — prompt to re-select
       setVideoUrl(null);
       setShowProjectManager(false);
-      // Small delay then trigger file picker
       setTimeout(() => {
         toast({
           title: 'Re-select your video',
@@ -3217,9 +3227,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         });
         fileInputRef.current?.click();
       }, 300);
-    } else {
-      setVideoUrl(url);
-      setShowProjectManager(false);
     }
   };
 

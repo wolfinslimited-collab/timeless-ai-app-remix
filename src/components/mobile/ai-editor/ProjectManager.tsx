@@ -37,7 +37,10 @@ import {
   renameProject, 
   createNewProject,
   saveProject,
-  generateThumbnail
+  generateThumbnail,
+  saveVideoFile,
+  getVideoFile,
+  deleteVideoFile,
 } from './projectStorage';
 
 interface ProjectManagerProps {
@@ -91,14 +94,25 @@ export function ProjectManager({ onBack, onOpenProject, onNewProject }: ProjectM
         }
         
         await saveProject(newProject);
+        // Cache the video file in IndexedDB for future sessions
+        await saveVideoFile(newProject.id, file);
         onNewProject(newProject, file);
       }
     };
     input.click();
   };
 
-  const handleOpenProject = (project: EditorProject) => {
-    onOpenProject(project);
+  const handleOpenProject = async (project: EditorProject) => {
+    // Try to retrieve the cached video file from IndexedDB
+    const cachedFile = await getVideoFile(project.id);
+    if (cachedFile) {
+      const freshUrl = URL.createObjectURL(cachedFile);
+      project.videoUrl = freshUrl;
+      onNewProject(project, cachedFile);
+    } else {
+      // No cached file — fall back to existing behavior
+      onOpenProject(project);
+    }
   };
 
   const handleRename = async () => {
@@ -131,6 +145,7 @@ export function ProjectManager({ onBack, onOpenProject, onNewProject }: ProjectM
     if (!deleteProjectId) return;
     
     try {
+      await deleteVideoFile(deleteProjectId);
       await deleteProject(deleteProjectId);
       await loadProjects();
       toast({ title: 'Project deleted' });
