@@ -6679,7 +6679,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           </div>
 
           {/* Bottom Toolbar - Fixed height, always pinned to bottom */}
-          <div className="shrink-0 bg-background border-t border-border/10 pb-safe relative" style={{ maxHeight: showTextEditPanel ? '400px' : '200px' }}>
+          <div className="shrink-0 bg-background border-t border-border/10 pb-safe relative" style={{ maxHeight: showTextEditPanel ? '55vh' : '200px', minHeight: showTextEditPanel ? '340px' : undefined }}>
             {/* Main toolbar - always rendered, fades out when overlay is open */}
             <div 
               className={cn(
