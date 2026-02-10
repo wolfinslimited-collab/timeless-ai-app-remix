@@ -5601,22 +5601,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         </div>
                       </div>
                       
-                      {/* Video Overlay Track - Purple/Pink themed - only show when overlays exist */}
-                      {videoOverlays.length > 0 && (
-                      <div 
-                        className="relative h-10 cursor-pointer group"
-                        style={{ width: trackWidth }}
-                        onClick={() => {
-                          setIsOverlayMenuMode(true);
-                        }}
-                      >
-                        {/* Render overlay video layers */}
-                        {videoOverlays.map(overlay => {
+                      {/* Video Overlay Tracks - each overlay gets its own row */}
+                      {videoOverlays.map(overlay => {
                           const isSelected = overlay.id === selectedOverlayId;
                           const leftOffset = overlay.startTime * PIXELS_PER_SECOND;
                           const itemWidth = Math.max(50, (overlay.endTime - overlay.startTime) * PIXELS_PER_SECOND);
                           
                           return (
+                        <div key={overlay.id} className="relative h-10" style={{ width: trackWidth }}>
                             <div
                               key={overlay.id}
                               className={cn(
@@ -5739,12 +5731,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 <div className="w-0.5 h-3 bg-white/60 rounded-full" />
                               </div>
                             </div>
+                        </div>
                           );
                         })}
-                      </div>
-                      )}
                       
                       {/* + Add text row - only show placeholder when no text overlays */}
+                      {textOverlays.length === 0 && (
                       <div 
                         className="relative h-10 cursor-pointer group"
                         style={{ width: trackWidth }}
@@ -5753,8 +5745,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           setTextMenuTab('add-text');
                         }}
                       >
-                        {/* Only show "Add text" placeholder when there are no text overlays */}
-                        {textOverlays.length === 0 && (
                           <div className="h-[34px] mt-[3px] rounded bg-[#2A2A2A] border border-border/30 hover:border-border/50 transition-all flex items-center gap-2 px-2" style={{ maxWidth: 180 }}>
                             <div className="flex items-center gap-2">
                               <div className="w-4 h-4 rounded bg-[#3A3A3A] flex items-center justify-center">
@@ -5763,14 +5753,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               <span className="text-[11px] text-foreground font-semibold">Add text</span>
                             </div>
                           </div>
-                        )}
-                        {/* Render actual text layers on top */}
-                        {textOverlays.map(overlay => {
+                      </div>
+                      )}
+                      {/* Render each text layer as its own separate track row */}
+                      {textOverlays.map(overlay => {
                           const isSelected = overlay.id === selectedTextId;
                           const leftOffset = overlay.startTime * PIXELS_PER_SECOND;
                           const itemWidth = Math.max(50, (overlay.endTime - overlay.startTime) * PIXELS_PER_SECOND);
                           
                           return (
+                        <div key={overlay.id} className="relative h-10" style={{ width: trackWidth }}>
                             <div
                               key={overlay.id}
                               className={cn(
@@ -5990,9 +5982,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 <div className="w-0.5 h-3 bg-white/60 rounded-full" />
                               </div>
                             </div>
+                        </div>
                           );
                         })}
-                      </div>
                       
                       {/* Caption/Subtitle Track - Cyan themed */}
                       {captionLayers.length > 0 && (
@@ -6320,18 +6312,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </div>
                   )}
                   
-                  {/* Audio Track - Green themed */}
+                  {/* Audio Tracks - each audio layer gets its own row */}
+                  {audioLayers.length === 0 && (
                   <div 
                     className="relative h-10 cursor-pointer group"
                     style={{ width: trackWidth }}
-                    onClick={() => {
-                      if (audioLayers.length === 0) {
-                        setIsAudioMenuMode(true);
-                      }
-                    }}
+                    onClick={() => setIsAudioMenuMode(true)}
                   >
-                    {/* Show "Add audio" placeholder when no audio layers */}
-                    {audioLayers.length === 0 && (
                       <div className="h-[34px] mt-[3px] rounded bg-[#2A2A2A] border border-border/30 hover:border-border/50 transition-all flex items-center gap-2 px-2" style={{ maxWidth: 180 }}>
                         <div className="flex items-center gap-2">
                           <div className="w-4 h-4 rounded bg-[#3A3A3A] flex items-center justify-center">
@@ -6340,14 +6327,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           <span className="text-[11px] text-foreground font-semibold">Add audio</span>
                         </div>
                       </div>
-                    )}
-                    {/* Render actual audio layers on top */}
-                    {audioLayers.map(audio => {
+                  </div>
+                  )}
+                  {audioLayers.map(audio => {
                       const isSelected = audio.id === selectedAudioId;
                       const leftOffset = audio.startTime * PIXELS_PER_SECOND;
                       const itemWidth = Math.max(50, (audio.endTime - audio.startTime) * PIXELS_PER_SECOND);
                       
                       return (
+                    <div key={audio.id} className="relative h-10" style={{ width: trackWidth }}>
                         <div
                           key={audio.id}
                           className={cn(
@@ -6506,9 +6494,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             <div className="w-0.5 h-4 bg-white/80 rounded-full" />
                           </div>
                         </div>
+                    </div>
                       );
                     })}
-                  </div>
                   
                   {/* Drawing Track - Pink/Magenta themed */}
                   {drawingLayers.length > 0 && (
