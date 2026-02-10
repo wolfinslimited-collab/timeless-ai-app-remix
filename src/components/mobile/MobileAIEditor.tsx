@@ -5796,7 +5796,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 setSelectedTextId(overlay.id);
                                 setTextInput(overlay.text);
                                 setSelectedTool('text');
-                                setShowTextEditPanel(true);
                               }}
                             >
                               {/* Left trim handle - minimal styling */}
