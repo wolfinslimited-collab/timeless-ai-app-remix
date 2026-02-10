@@ -631,6 +631,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   static const double _snapThreshold = 10.0; // pixels
   double? _snapLinePosition;
   
+  // Drag tooltip state for text layer repositioning
+  double? _dragTooltipTime;
+  Offset? _dragTooltipPosition;
+  
   // Text overlay state
   List<TextOverlay> _textOverlays = [];
   String? _selectedTextId;
@@ -5146,6 +5150,24 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               ),
             ),
           
+          // Drag tooltip for text layer repositioning
+          if (_dragTooltipTime != null && _dragTooltipPosition != null)
+            Positioned(
+              left: (_dragTooltipPosition!.dx - 40).clamp(8.0, MediaQuery.of(context).size.width - 88),
+              top: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'Starts at ${_dragTooltipTime!.floor() ~/ 60}:${(_dragTooltipTime! % 60).toStringAsFixed(1).padLeft(4, '0')}',
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ),
+          
           // Fixed Add Video Button - Sticky on right side
           if (_videoUrl != null)
             Positioned(
@@ -5897,6 +5919,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         _dragOffsetY = 0;
                       });
                     },
+                    onHorizontalDragStart: (_) {
+                      HapticFeedback.lightImpact();
+                      setState(() {
+                        _draggingLayerId = overlay.id;
+                        _draggingLayerType = LayerType.text;
+                      });
+                    },
                     onHorizontalDragUpdate: (details) {
                       final delta = details.primaryDelta ?? 0;
                       // Convert pixel delta to time using pixelsPerSecond
@@ -5909,38 +5938,80 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         // Snapping logic using pixelsPerSecond
                         final playheadTime = _videoController?.value.position.inSeconds.toDouble() ?? 0;
                         final snapTimeThreshold = _snapThreshold / _pixelsPerSecond;
+                        bool snapped = false;
                         
-                        // Snap to playhead (now at left edge with 16px offset)
+                        // Snap to playhead
                         const playheadScreenOffset = 16.0;
                         if ((newStart - playheadTime).abs() < snapTimeThreshold) {
                           newStart = playheadTime;
                           _snapLinePosition = playheadScreenOffset;
+                          snapped = true;
                         } else if ((newStart + itemDuration - playheadTime).abs() < snapTimeThreshold) {
                           newStart = playheadTime - itemDuration;
                           _snapLinePosition = playheadScreenOffset;
+                          snapped = true;
+                        }
+                        
+                        // Snap to video clip edges
+                        if (!snapped) {
+                          for (final clip in _videoClips) {
+                            final clipEnd = clip.startTime + clip.trimmedDuration;
+                            if ((newStart - clip.startTime).abs() < snapTimeThreshold) {
+                              newStart = clip.startTime; snapped = true; break;
+                            }
+                            if ((newStart - clipEnd).abs() < snapTimeThreshold) {
+                              newStart = clipEnd; snapped = true; break;
+                            }
+                            if ((newStart + itemDuration - clip.startTime).abs() < snapTimeThreshold) {
+                              newStart = clip.startTime - itemDuration; snapped = true; break;
+                            }
+                            if ((newStart + itemDuration - clipEnd).abs() < snapTimeThreshold) {
+                              newStart = clipEnd - itemDuration; snapped = true; break;
+                            }
+                          }
+                        }
+                        
+                        // Snap to other text layers
+                        if (!snapped) {
+                          for (final other in _textOverlays) {
+                            if (other.id == overlay.id) continue;
+                            if ((newStart - other.endTime).abs() < snapTimeThreshold) {
+                              newStart = other.endTime; snapped = true; break;
+                            }
+                            if ((newStart + itemDuration - other.startTime).abs() < snapTimeThreshold) {
+                              newStart = other.startTime - itemDuration; snapped = true; break;
+                            }
+                            if ((newStart - other.startTime).abs() < snapTimeThreshold) {
+                              newStart = other.startTime; snapped = true; break;
+                            }
+                          }
+                        }
+                        
+                        if (snapped) {
+                          if (_snapLinePosition == null) {
+                            _snapLinePosition = playheadScreenOffset;
+                          }
+                          HapticFeedback.selectionClick();
                         } else {
                           _snapLinePosition = null;
                         }
                         
-                        // Snap to other clips
-                        for (final other in _textOverlays) {
-                          if (other.id == overlay.id) continue;
-                          if ((newStart - other.endTime).abs() < snapTimeThreshold) {
-                            newStart = other.endTime;
-                            break;
-                          }
-                          if ((newStart + itemDuration - other.startTime).abs() < snapTimeThreshold) {
-                            newStart = other.startTime - itemDuration;
-                            break;
-                          }
-                        }
+                        // Update drag tooltip
+                        _dragTooltipTime = newStart;
+                        _dragTooltipPosition = details.globalPosition;
                         
                         overlay.startTime = newStart;
                         overlay.endTime = newStart + itemDuration;
                       });
                     },
                     onHorizontalDragEnd: (_) {
-                      setState(() => _snapLinePosition = null);
+                      setState(() {
+                        _snapLinePosition = null;
+                        _draggingLayerId = null;
+                        _draggingLayerType = null;
+                        _dragTooltipTime = null;
+                        _dragTooltipPosition = null;
+                      });
                     },
                     child: Transform.translate(
                       offset: isDragging ? Offset(0, _dragOffsetY) : Offset.zero,
