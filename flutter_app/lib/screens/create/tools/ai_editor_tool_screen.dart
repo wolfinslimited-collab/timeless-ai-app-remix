@@ -5947,8 +5947,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 
                 return Positioned(
                   left: leftOffset,
-                  child: GestureDetector(
-                    onTap: () => _selectTextOverlay(overlay.id),
+                    child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedTextId = overlay.id;
+                        _textInputController.text = overlay.text;
+                        // Don't open text edit panel from timeline tap
+                      });
+                    },
                     onLongPressStart: (details) {
                       setState(() {
                         _draggingLayerId = overlay.id;
