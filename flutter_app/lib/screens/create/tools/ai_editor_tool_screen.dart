@@ -40,6 +40,10 @@ class TextOverlay {
   Color textColor;
   String fontFamily;
   TextAlign alignment;
+  bool bold;
+  bool italic;
+  bool underline;
+  double lineHeight;
   bool hasBackground;
   Color backgroundColor;
   double backgroundOpacity;
@@ -75,6 +79,10 @@ class TextOverlay {
     this.textColor = Colors.white,
     this.fontFamily = 'Roboto',
     this.alignment = TextAlign.center,
+    this.bold = false,
+    this.italic = false,
+    this.underline = false,
+    this.lineHeight = 1.4,
     this.hasBackground = false,
     this.backgroundColor = Colors.black,
     this.backgroundOpacity = 0.5,
@@ -408,6 +416,10 @@ class TextOverlaySnapshot {
   final Color textColor;
   final String fontFamily;
   final TextAlign alignment;
+  final bool bold;
+  final bool italic;
+  final bool underline;
+  final double lineHeight;
   final bool hasBackground;
   final Color backgroundColor;
   final double backgroundOpacity;
@@ -424,6 +436,10 @@ class TextOverlaySnapshot {
     required this.textColor,
     required this.fontFamily,
     required this.alignment,
+    required this.bold,
+    required this.italic,
+    required this.underline,
+    required this.lineHeight,
     required this.hasBackground,
     required this.backgroundColor,
     required this.backgroundOpacity,
@@ -441,6 +457,10 @@ class TextOverlaySnapshot {
     textColor: overlay.textColor,
     fontFamily: overlay.fontFamily,
     alignment: overlay.alignment,
+    bold: overlay.bold,
+    italic: overlay.italic,
+    underline: overlay.underline,
+    lineHeight: overlay.lineHeight,
     hasBackground: overlay.hasBackground,
     backgroundColor: overlay.backgroundColor,
     backgroundOpacity: overlay.backgroundOpacity,
@@ -458,6 +478,10 @@ class TextOverlaySnapshot {
     textColor: textColor,
     fontFamily: fontFamily,
     alignment: alignment,
+    bold: bold,
+    italic: italic,
+    underline: underline,
+    lineHeight: lineHeight,
     hasBackground: hasBackground,
     backgroundColor: backgroundColor,
     backgroundOpacity: backgroundOpacity,
@@ -9373,6 +9397,16 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       onAnimationChange: (anim) => _updateSelectedText((t) => t.animation = anim),
       bubbleStyle: overlay.bubbleStyle,
       onBubbleStyleChange: (style) => _updateSelectedText((t) => t.bubbleStyle = style),
+      bold: overlay.bold,
+      onBoldChange: (v) => _updateSelectedText((t) => t.bold = v),
+      italic: overlay.italic,
+      onItalicChange: (v) => _updateSelectedText((t) => t.italic = v),
+      underline: overlay.underline,
+      onUnderlineChange: (v) => _updateSelectedText((t) => t.underline = v),
+      lineHeight: overlay.lineHeight,
+      onLineHeightChange: (v) => _updateSelectedText((t) => t.lineHeight = v),
+      alignment: overlay.alignment,
+      onAlignmentChange: (v) => _updateSelectedText((t) => t.alignment = v),
     );
   }
   
@@ -13339,9 +13373,16 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       style: TextStyle(
                         color: overlay.textColor,
                         fontSize: overlay.fontSize,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: overlay.bold ? FontWeight.bold : FontWeight.normal,
+                        fontStyle: overlay.italic ? FontStyle.italic : FontStyle.normal,
+                        decoration: overlay.underline ? TextDecoration.underline : TextDecoration.none,
+                        height: overlay.lineHeight,
                         fontFamily: overlay.fontFamily,
+                        letterSpacing: overlay.letterSpacing != 0 ? overlay.letterSpacing : null,
                       ),
+                      textAlign: overlay.alignment,
+                    ),
+                  ),
                       textAlign: overlay.alignment,
                     ),
                   ),
