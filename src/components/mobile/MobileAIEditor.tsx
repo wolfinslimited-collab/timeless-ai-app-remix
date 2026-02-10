@@ -443,6 +443,17 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [magicEditPrompt, setMagicEditPrompt] = useState('');
   const [isMagicEditProcessing, setIsMagicEditProcessing] = useState(false);
   
+  // AI Video Analyzer state
+  const [isAIAnalyzerOpen, setIsAIAnalyzerOpen] = useState(false);
+  const [isAnalyzerScanning, setIsAnalyzerScanning] = useState(false);
+  const [analyzerSummary, setAnalyzerSummary] = useState<string | null>(null);
+  const [analyzerSuggestions, setAnalyzerSuggestions] = useState<string[]>([]);
+  const [analyzerPrompt, setAnalyzerPrompt] = useState('');
+  const [isAnalyzerGenerating, setIsAnalyzerGenerating] = useState(false);
+  const [analyzerGenerateProgress, setAnalyzerGenerateProgress] = useState(0);
+  const AI_ANALYZER_CREDIT_COST = 5;
+  const AI_ANALYZER_GENERATE_CREDIT_COST = 15;
+  
   // Effects menu mode state - activated by clicking "Effects" tool
   const [isEffectsMenuMode, setIsEffectsMenuMode] = useState(false);
   
@@ -482,7 +493,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [settingsPanelType, setSettingsPanelType] = useState<'stickers' | null>(null);
   
   // Base overlay check - isAudioEditMode, isDrawMode, isCropMode are added later
-  const isAnyOverlayOpenBase = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isAdjustMenuMode || isSettingsPanelOpen || isCropMode || isMagicEditOpen || isAIUpscaleOpen;
+  const isAnyOverlayOpenBase = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isAdjustMenuMode || isSettingsPanelOpen || isCropMode || isMagicEditOpen || isAIUpscaleOpen || isAIAnalyzerOpen;
   
   // Sticker presets
   const stickerCategories = [
@@ -2237,6 +2248,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     { id: 'crop', name: 'Crop', icon: Crop, action: () => { setIsEditMenuMode(false); setIsCropMode(true); setCropBox({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 }); } },
     { id: 'magic-edit', name: 'AI Edit', icon: Wand2, isAI: true, action: () => { setIsMagicEditOpen(true); setMagicEditPrompt(''); setIsEditMenuMode(false); } },
     { id: 'ai-upscale', name: 'AI Upscale', icon: ZoomIn, isAI: true, action: () => { setIsAIUpscaleOpen(true); setIsEditMenuMode(false); } },
+    { id: 'ai-analyzer', name: 'AI Analyzer', icon: FileText, isAI: true, action: () => { setIsAIAnalyzerOpen(true); setAnalyzerSummary(null); setAnalyzerSuggestions([]); setAnalyzerPrompt(''); setIsEditMenuMode(false); } },
     { id: 'replace', name: 'Replace', icon: Replace, action: () => { handleDirectFilePick(); } },
     { id: 'delete', name: 'Delete', icon: Trash2, action: handleDeleteClip, isDestructive: true },
   ];
@@ -2328,7 +2340,213 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     }
   };
 
-  // Handle AI Upscale submission with credit system
+  // Handle AI Video Analyzer - Scan
+  const handleAnalyzerScan = async () => {
+    if (!hasActiveSubscription) {
+      if (credits === null || credits < AI_ANALYZER_CREDIT_COST) {
+        setShowAddCreditsDialog(true);
+        return;
+      }
+    }
+
+    setIsAnalyzerScanning(true);
+    setAnalyzerSummary(null);
+    setAnalyzerSuggestions([]);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token;
+
+      // Build video description from metadata
+      const clipInfo = videoClips.length > 0 
+        ? `Video with ${videoClips.length} clip(s), total duration ${duration?.toFixed(1)}s` 
+        : `Video duration: ${duration?.toFixed(1)}s`;
+      const dims = videoDimensions ? `, resolution: ${videoDimensions.width}x${videoDimensions.height}` : '';
+      const videoDescription = `${clipInfo}${dims}. Current playhead at ${currentTime.toFixed(1)}s.`;
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-video-analyzer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ action: 'analyze', videoDescription }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Request failed (${response.status})`);
+      }
+
+      const data = await response.json();
+      if (!data.success || !data.analysis) throw new Error("Invalid AI response");
+
+      // Deduct credits
+      if (user && !hasActiveSubscription) {
+        await supabase
+          .from('profiles')
+          .update({ credits: Math.max(0, (credits || 0) - AI_ANALYZER_CREDIT_COST) })
+          .eq('user_id', user.id);
+        refetchCredits();
+      }
+
+      setAnalyzerSummary(data.analysis.summary || 'Video content analyzed.');
+      setAnalyzerSuggestions(data.analysis.suggestions || []);
+    } catch (err: any) {
+      console.error("AI Analyzer error:", err);
+      toast({ variant: "destructive", title: "Analysis Failed", description: err.message || "Please try again" });
+    } finally {
+      setIsAnalyzerScanning(false);
+    }
+  };
+
+  // Handle AI Video Analyzer - Generate & Insert
+  const handleAnalyzerGenerate = async () => {
+    if (!analyzerPrompt.trim()) {
+      toast({ variant: "destructive", title: "Please enter a prompt" });
+      return;
+    }
+
+    if (!hasActiveSubscription) {
+      if (credits === null || credits < AI_ANALYZER_GENERATE_CREDIT_COST) {
+        setShowAddCreditsDialog(true);
+        return;
+      }
+    }
+
+    setIsAIAnalyzerOpen(false);
+    setIsAnalyzerGenerating(true);
+    setAnalyzerGenerateProgress(0);
+
+    // Simulate progress
+    const progressInterval = setInterval(() => {
+      setAnalyzerGenerateProgress(prev => Math.min(prev + 2, 90));
+    }, 500);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token;
+
+      // Step 1: Enhance the prompt
+      const promptRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-video-analyzer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ action: 'generate-prompt', suggestionPrompt: analyzerPrompt }),
+      });
+
+      if (!promptRes.ok) {
+        const errData = await promptRes.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to enhance prompt');
+      }
+
+      const promptData = await promptRes.json();
+      const enhancedPrompt = promptData.enhancedPrompt || analyzerPrompt;
+
+      setAnalyzerGenerateProgress(30);
+
+      // Step 2: Generate video via the generate edge function
+      const genRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          type: 'video',
+          model: 'wan-2.6',
+          prompt: enhancedPrompt,
+          aspectRatio: '16:9',
+          duration: 5,
+          quality: '720p',
+        }),
+      });
+
+      if (!genRes.ok) {
+        const errData = await genRes.json().catch(() => ({}));
+        throw new Error(errData.error || 'Video generation failed');
+      }
+
+      const genData = await genRes.json();
+      setAnalyzerGenerateProgress(60);
+
+      // Poll for completion if we got a generationId
+      if (genData.generationId) {
+        let attempts = 0;
+        const maxAttempts = 120;
+        let videoUrl: string | null = null;
+
+        while (attempts < maxAttempts && !videoUrl) {
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          attempts++;
+          setAnalyzerGenerateProgress(Math.min(60 + (attempts / maxAttempts) * 35, 95));
+
+          const checkRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-generation`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({ generationId: genData.generationId }),
+          });
+
+          if (checkRes.ok) {
+            const checkData = await checkRes.json();
+            if (checkData.status === 'completed' && checkData.output_url) {
+              videoUrl = checkData.output_url;
+            } else if (checkData.status === 'failed') {
+              throw new Error('Video generation failed');
+            }
+          }
+        }
+
+        if (!videoUrl) throw new Error('Video generation timed out');
+
+        // Insert as new clip at playhead position
+        setAnalyzerGenerateProgress(100);
+        clearInterval(progressInterval);
+
+        saveStateToHistory();
+        const newClip: VideoClip = {
+          id: `clip-${Date.now()}`,
+          url: videoUrl,
+          duration: 5,
+          startTime: currentTime,
+          inPoint: 0,
+          outPoint: 5,
+          volume: 1,
+          speed: 1,
+          aiEnhanced: true,
+        };
+
+        setVideoClips(prev => {
+          const updated = [...prev, newClip];
+          // Recalculate start times
+          let pos = 0;
+          return updated.sort((a, b) => a.startTime - b.startTime).map(c => {
+            const clip = { ...c, startTime: pos };
+            pos += getClipTrimmedDuration(clip);
+            return clip;
+          });
+        });
+
+        toast({ title: "AI Clip Inserted", description: "New AI-generated clip added to timeline at playhead position." });
+      } else {
+        throw new Error('No generation ID returned');
+      }
+    } catch (err: any) {
+      console.error("AI Analyzer generate error:", err);
+      toast({ variant: "destructive", title: "Generation Failed", description: err.message || "Please try again" });
+    } finally {
+      clearInterval(progressInterval);
+      setIsAnalyzerGenerating(false);
+      setAnalyzerGenerateProgress(0);
+    }
+  };
+
+
   const handleAIUpscaleSubmit = async () => {
     // Credit check
     if (!hasActiveSubscription) {
@@ -4748,8 +4966,70 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   </button>
                 </div>
               )}
-              
-              {/* Crop Overlay - Active when in crop mode */}
+
+              {/* AI Video Analyzer - Scanning Overlay */}
+              {isAnalyzerScanning && (
+                <div className="absolute inset-0 z-[200] flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm">
+                  <div className="relative w-20 h-20 mb-4">
+                    <div className="absolute inset-0 rounded-full border-2 border-primary/30 animate-ping" />
+                    <div className="absolute inset-1 rounded-full border-2 border-primary/50 animate-pulse" />
+                    <div className="absolute inset-2 rounded-full border border-primary/40 animate-[spin_3s_linear_infinite]" 
+                      style={{ borderTopColor: 'hsl(var(--primary))' }} 
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <FileText className="w-7 h-7 text-primary animate-pulse" />
+                    </div>
+                  </div>
+                  <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent opacity-60"
+                    style={{ animation: 'scan 2s ease-in-out infinite' }}
+                  />
+                  <p className="text-primary font-semibold text-sm flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    Scanning Video...
+                  </p>
+                  <p className="text-muted-foreground text-xs mt-1">AI is analyzing your content</p>
+                  <button
+                    onClick={() => setIsAnalyzerScanning(false)}
+                    className="mt-4 px-4 py-1.5 rounded-lg bg-destructive/20 text-destructive text-xs font-medium hover:bg-destructive/30 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              {/* AI Video Analyzer - Generating Overlay */}
+              {isAnalyzerGenerating && (
+                <div className="absolute inset-0 z-[200] flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm">
+                  <div className="relative w-24 h-24 mb-6">
+                    <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-pulse" />
+                    <div className="absolute inset-2 rounded-full border-2 border-primary/40 animate-[spin_2s_linear_infinite]"
+                      style={{ borderTopColor: 'hsl(var(--primary))', borderRightColor: 'hsl(var(--primary))' }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Video className="w-8 h-8 text-primary animate-pulse" />
+                    </div>
+                  </div>
+                  <p className="text-primary font-semibold text-sm flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    Generating New Clip...
+                  </p>
+                  {/* Progress bar */}
+                  <div className="w-48 h-2 bg-muted/30 rounded-full mt-3 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full transition-all duration-500"
+                      style={{ width: `${analyzerGenerateProgress}%` }}
+                    />
+                  </div>
+                  <p className="text-primary/80 text-xs mt-1 font-mono">{Math.round(analyzerGenerateProgress)}%</p>
+                  <button
+                    onClick={() => { setIsAnalyzerGenerating(false); setAnalyzerGenerateProgress(0); }}
+                    className="mt-4 px-4 py-1.5 rounded-lg bg-destructive/20 text-destructive text-xs font-medium hover:bg-destructive/30 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
               {isCropMode && (
                 <>
                   {/* Dim overlay outside crop box */}
@@ -6864,7 +7144,106 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               </div>
             )}
 
-            {/* AI Upscale Bottom Sheet */}
+            {/* AI Video Analyzer Bottom Sheet */}
+            {isAIAnalyzerOpen && (
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col rounded-t-2xl border-t border-border/20" style={{ height: analyzerSummary ? '380px' : '200px' }}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/20">
+                  <button
+                    onClick={() => setIsAIAnalyzerOpen(false)}
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                  >
+                    <ChevronDown className="w-5 h-5 text-primary" />
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-semibold text-foreground">AI Video Analyzer</span>
+                    <Sparkles className="w-3 h-3 text-amber-400" />
+                  </div>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10">
+                    <Sparkles className="w-3 h-3 text-primary" />
+                    <span className="text-[10px] font-semibold text-primary">{AI_ANALYZER_CREDIT_COST} cr</span>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3">
+                  {/* Scan button - if not yet analyzed */}
+                  {!analyzerSummary && !isAnalyzerScanning && (
+                    <div className="flex flex-col items-center gap-3 py-4">
+                      <p className="text-xs text-muted-foreground text-center">Tap below to let AI analyze your video content</p>
+                      <button
+                        onClick={handleAnalyzerScan}
+                        className="px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-violet-500 to-purple-500 text-white flex items-center gap-2 hover:opacity-90 transition-opacity"
+                      >
+                        <Sparkles className="w-4 h-4 text-amber-300" />
+                        Scan Video
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Analysis Result */}
+                  {analyzerSummary && (
+                    <>
+                      {/* Summary */}
+                      <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <FileText className="w-3.5 h-3.5 text-primary" />
+                          <span className="text-xs font-semibold text-primary">Analysis</span>
+                        </div>
+                        <p className="text-xs text-foreground/80 leading-relaxed">{analyzerSummary}</p>
+                      </div>
+
+                      {/* AI Suggestions */}
+                      {analyzerSuggestions.length > 0 && (
+                        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+                          {analyzerSuggestions.map((suggestion, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setAnalyzerPrompt(suggestion)}
+                              className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                            >
+                              {suggestion}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* AI Suggestion Input */}
+                      <div className="p-3 rounded-xl bg-muted/10 border border-border/20">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                          <span className="text-xs font-semibold text-foreground">AI Suggestion</span>
+                        </div>
+                        <textarea
+                          value={analyzerPrompt}
+                          onChange={(e) => setAnalyzerPrompt(e.target.value)}
+                          placeholder="e.g., Add a 3-second clip of a golden retriever running towards the person"
+                          className="w-full min-h-[50px] rounded-lg border border-border/30 bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                          rows={2}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Generate & Insert button */}
+                {analyzerSummary && (
+                  <div className="px-4 pb-4">
+                    <button
+                      onClick={handleAnalyzerGenerate}
+                      disabled={!analyzerPrompt.trim()}
+                      className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 bg-gradient-to-r from-violet-500 to-purple-500 text-white hover:opacity-90 flex items-center justify-center gap-2"
+                    >
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span>Generate & Insert</span>
+                      <span className="text-[10px] opacity-70">({AI_ANALYZER_GENERATE_CREDIT_COST} credits)</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+
             {isAIUpscaleOpen && (
               <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col rounded-t-2xl border-t border-border/20" style={{ height: '280px' }}>
                 {/* Header */}

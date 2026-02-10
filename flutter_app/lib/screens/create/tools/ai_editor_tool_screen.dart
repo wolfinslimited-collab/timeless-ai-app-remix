@@ -902,6 +902,18 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   static const int _aiUpscaleCreditCost = 12;
   Timer? _upscaleProgressTimer;
   
+  // AI Video Analyzer state
+  bool _isAiAnalyzerOpen = false;
+  bool _isAnalyzerScanning = false;
+  String? _analyzerSummary;
+  List<String> _analyzerSuggestions = [];
+  final TextEditingController _analyzerPromptController = TextEditingController();
+  bool _isAnalyzerGenerating = false;
+  double _analyzerGenerateProgress = 0;
+  Timer? _analyzerProgressTimer;
+  static const int _aiAnalyzerCreditCost = 5;
+  static const int _aiAnalyzerGenerateCreditCost = 15;
+  
   // Project persistence
   EditorProject? _currentProject;
   bool _autoSavePending = false;
@@ -911,7 +923,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   bool get _isAnyOverlayOpen => 
       _isEditMenuMode || _isAudioMenuMode || _isTextMenuMode || 
       _isEffectsMenuMode || _isOverlayMenuMode || _isCaptionsMenuMode || 
-      _isAspectMenuMode || _isBackgroundMenuMode || _showTextEditPanel || _isDrawMode || _isCropMode || _isAiEditOpen || _isAiUpscaleOpen;
+      _isAspectMenuMode || _isBackgroundMenuMode || _showTextEditPanel || _isDrawMode || _isCropMode || _isAiEditOpen || _isAiUpscaleOpen || _isAiAnalyzerOpen;
   
   // Background color presets
   final List<Color> _backgroundColorPresets = [
@@ -990,6 +1002,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     EditorTool(id: 'filters', name: 'Filters', icon: Icons.blur_circular),
     EditorTool(id: 'adjust', name: 'Adjust', icon: Icons.tune),
     EditorTool(id: 'ai-edit', name: 'AI Edit', icon: Icons.auto_fix_high, isAI: true),
+    EditorTool(id: 'ai-analyzer', name: 'AI Analyzer', icon: Icons.document_scanner, isAI: true),
     EditorTool(id: 'aspect', name: 'Aspect', icon: Icons.aspect_ratio),
     EditorTool(id: 'background', name: 'Background', icon: Icons.format_paint_outlined),
   ];
@@ -6809,6 +6822,24 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               bottom: 0,
               child: _buildAiUpscaleBottomSheet(),
             ),
+          // AI Analyzer Bottom Sheet Overlay
+          if (_isAiAnalyzerOpen)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _buildAiAnalyzerBottomSheet(),
+            ),
+          // AI Analyzer Scanning Overlay
+          if (_isAnalyzerScanning)
+            Positioned.fill(
+              child: _buildAnalyzerScanningOverlay(),
+            ),
+          // AI Analyzer Generating Overlay
+          if (_isAnalyzerGenerating)
+            Positioned.fill(
+              child: _buildAnalyzerGeneratingOverlay(),
+            ),
         ],
       );
     }
@@ -7060,7 +7091,549 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     }
   }
 
-  /// Build AI Upscale bottom sheet
+  /// Build AI Video Analyzer bottom sheet
+  Widget _buildAiAnalyzerBottomSheet() {
+    final hasAnalysis = _analyzerSummary != null;
+    return Material(
+      color: const Color(0xFF0A0A0A),
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(16),
+        topRight: Radius.circular(16),
+      ),
+      child: Container(
+        height: hasAnalysis ? 380 : 200,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          children: [
+            // Header
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: () => setState(() => _isAiAnalyzerOpen = false),
+                  child: Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 20),
+                  ),
+                ),
+                const Spacer(),
+                const Row(
+                  children: [
+                    Icon(Icons.document_scanner, color: Colors.white, size: 16),
+                    SizedBox(width: 6),
+                    Text('AI Video Analyzer', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                    SizedBox(width: 4),
+                    Icon(Icons.auto_awesome, color: Colors.amber, size: 14),
+                  ],
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_awesome, color: Colors.white70, size: 12),
+                      const SizedBox(width: 4),
+                      Text('$_aiAnalyzerCreditCost cr', style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Content
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    if (!hasAnalysis) ...[
+                      const SizedBox(height: 16),
+                      Text('Tap below to let AI analyze your video content',
+                        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      GestureDetector(
+                        onTap: _handleAnalyzerScan,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.auto_awesome, color: Colors.amber, size: 16),
+                              SizedBox(width: 8),
+                              Text('Scan Video', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (hasAnalysis) ...[
+                      // Summary box
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white.withOpacity(0.1)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.document_scanner, color: Colors.white.withOpacity(0.7), size: 14),
+                                const SizedBox(width: 6),
+                                Text('Analysis', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(_analyzerSummary!, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12, height: 1.5)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Suggestion chips
+                      if (_analyzerSuggestions.isNotEmpty)
+                        SizedBox(
+                          height: 28,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _analyzerSuggestions.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 6),
+                            itemBuilder: (context, idx) => GestureDetector(
+                              onTap: () => setState(() => _analyzerPromptController.text = _analyzerSuggestions[idx]),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Text(_analyzerSuggestions[idx],
+                                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 10, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+                      // Prompt input
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.03),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white.withOpacity(0.08)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.auto_awesome, color: Colors.amber, size: 14),
+                                const SizedBox(width: 6),
+                                Text('AI Suggestion', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _analyzerPromptController,
+                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                              maxLines: 2,
+                              decoration: InputDecoration(
+                                hintText: 'e.g., Add a 3-second clip of a golden retriever running...',
+                                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                                ),
+                                contentPadding: const EdgeInsets.all(10),
+                                filled: true,
+                                fillColor: Colors.white.withOpacity(0.03),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            // Generate button
+            if (hasAnalysis) ...[
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: _handleAnalyzerGenerate,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.auto_awesome, color: Colors.amber, size: 16),
+                      const SizedBox(width: 8),
+                      const Text('Generate & Insert', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 6),
+                      Text('($_aiAnalyzerGenerateCreditCost credits)', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 10)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build scanning overlay for AI Analyzer
+  Widget _buildAnalyzerScanningOverlay() {
+    return Container(
+      color: Colors.black.withOpacity(0.7),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 80, height: 80,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(Colors.white.withOpacity(0.3)),
+                    ),
+                  ),
+                  const Center(child: Icon(Icons.document_scanner, color: Colors.white, size: 28)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.auto_awesome, color: Colors.amber, size: 16),
+                SizedBox(width: 8),
+                Text('Scanning Video...', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text('AI is analyzing your content', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () => setState(() => _isAnalyzerScanning = false),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text('Cancel', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w500)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build generating overlay for AI Analyzer
+  Widget _buildAnalyzerGeneratingOverlay() {
+    return Container(
+      color: Colors.black.withOpacity(0.8),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 96, height: 96,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      value: _analyzerGenerateProgress / 100,
+                      valueColor: const AlwaysStoppedAnimation(Colors.white),
+                      backgroundColor: Colors.white.withOpacity(0.1),
+                    ),
+                  ),
+                  const Center(child: Icon(Icons.videocam, color: Colors.white, size: 32)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.auto_awesome, color: Colors.amber, size: 16),
+                SizedBox(width: 8),
+                Text('Generating New Clip...', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Progress bar
+            Container(
+              width: 192,
+              height: 6,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: _analyzerGenerateProgress / 100,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text('${_analyzerGenerateProgress.round()}%', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12, fontFamily: 'monospace')),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () {
+                _analyzerProgressTimer?.cancel();
+                setState(() { _isAnalyzerGenerating = false; _analyzerGenerateProgress = 0; });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text('Cancel', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w500)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Handle AI Analyzer scan
+  Future<void> _handleAnalyzerScan() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        _showSnackBar('Please sign in to use AI Analyzer');
+        return;
+      }
+
+      final profileRes = await Supabase.instance.client
+          .from('profiles')
+          .select('credits, plan')
+          .eq('user_id', user.id)
+          .single();
+
+      final credits = (profileRes['credits'] as num?)?.toInt() ?? 0;
+      final plan = profileRes['plan'] as String? ?? 'free';
+      final hasSubscription = plan != 'free';
+
+      if (!hasSubscription && credits < _aiAnalyzerCreditCost) {
+        if (mounted) {
+          showAddCreditsDialog(context: context, currentCredits: credits, requiredCredits: _aiAnalyzerCreditCost);
+        }
+        return;
+      }
+
+      setState(() {
+        _isAnalyzerScanning = true;
+        _analyzerSummary = null;
+        _analyzerSuggestions = [];
+      });
+
+      final clipCount = _videoClips.length;
+      final dur = _videoController?.value.duration.inSeconds.toDouble() ?? 0;
+      final videoDescription = 'Video with $clipCount clip(s), total duration ${dur.toStringAsFixed(1)}s. Current playhead at ${_currentTimelinePosition.toStringAsFixed(1)}s.';
+
+      final response = await Supabase.instance.client.functions.invoke(
+        'ai-video-analyzer',
+        body: {'action': 'analyze', 'videoDescription': videoDescription},
+      );
+
+      if (response.status != 200) throw Exception('Analysis failed (${response.status})');
+      final data = response.data;
+      if (data == null || data['success'] != true || data['analysis'] == null) throw Exception('Invalid response');
+
+      // Deduct credits
+      if (!hasSubscription) {
+        await Supabase.instance.client
+            .from('profiles')
+            .update({'credits': math.max(0, credits - _aiAnalyzerCreditCost)})
+            .eq('user_id', user.id);
+      }
+
+      if (mounted) {
+        setState(() {
+          _analyzerSummary = data['analysis']['summary'] ?? 'Video content analyzed.';
+          _analyzerSuggestions = List<String>.from(data['analysis']['suggestions'] ?? []);
+          _isAnalyzerScanning = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('AI Analyzer scan error: $e');
+      if (mounted) {
+        setState(() => _isAnalyzerScanning = false);
+        _showSnackBar('Analysis failed: ${e.toString()}');
+      }
+    }
+  }
+
+  /// Handle AI Analyzer generate & insert
+  Future<void> _handleAnalyzerGenerate() async {
+    final prompt = _analyzerPromptController.text.trim();
+    if (prompt.isEmpty) {
+      _showSnackBar('Please enter a prompt');
+      return;
+    }
+
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        _showSnackBar('Please sign in');
+        return;
+      }
+
+      final profileRes = await Supabase.instance.client
+          .from('profiles')
+          .select('credits, plan')
+          .eq('user_id', user.id)
+          .single();
+
+      final credits = (profileRes['credits'] as num?)?.toInt() ?? 0;
+      final plan = profileRes['plan'] as String? ?? 'free';
+      final hasSubscription = plan != 'free';
+
+      if (!hasSubscription && credits < _aiAnalyzerGenerateCreditCost) {
+        if (mounted) {
+          showAddCreditsDialog(context: context, currentCredits: credits, requiredCredits: _aiAnalyzerGenerateCreditCost);
+        }
+        return;
+      }
+
+      setState(() {
+        _isAiAnalyzerOpen = false;
+        _isAnalyzerGenerating = true;
+        _analyzerGenerateProgress = 0;
+      });
+
+      _analyzerProgressTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+        if (_analyzerGenerateProgress < 90) {
+          setState(() => _analyzerGenerateProgress += 2);
+        }
+      });
+
+      // Step 1: Enhance prompt
+      final promptRes = await Supabase.instance.client.functions.invoke(
+        'ai-video-analyzer',
+        body: {'action': 'generate-prompt', 'suggestionPrompt': prompt},
+      );
+
+      final enhancedPrompt = promptRes.data?['enhancedPrompt'] ?? prompt;
+      setState(() => _analyzerGenerateProgress = 30);
+
+      // Step 2: Generate video
+      final genRes = await Supabase.instance.client.functions.invoke(
+        'generate',
+        body: {
+          'type': 'video',
+          'model': 'wan-2.6',
+          'prompt': enhancedPrompt,
+          'aspectRatio': '16:9',
+          'duration': 5,
+          'quality': '720p',
+        },
+      );
+
+      if (genRes.status != 200) throw Exception('Video generation failed');
+      final genData = genRes.data;
+      setState(() => _analyzerGenerateProgress = 60);
+
+      if (genData?['generationId'] != null) {
+        final genId = genData!['generationId'];
+        String? videoUrl;
+        int attempts = 0;
+
+        while (attempts < 120 && videoUrl == null) {
+          await Future.delayed(const Duration(seconds: 3));
+          attempts++;
+          if (mounted) setState(() => _analyzerGenerateProgress = math.min(60 + (attempts / 120) * 35, 95));
+
+          final checkRes = await Supabase.instance.client.functions.invoke(
+            'check-generation',
+            body: {'generationId': genId},
+          );
+
+          if (checkRes.data?['status'] == 'completed' && checkRes.data?['output_url'] != null) {
+            videoUrl = checkRes.data!['output_url'];
+          } else if (checkRes.data?['status'] == 'failed') {
+            throw Exception('Video generation failed');
+          }
+        }
+
+        if (videoUrl == null) throw Exception('Video generation timed out');
+
+        _analyzerProgressTimer?.cancel();
+        setState(() => _analyzerGenerateProgress = 100);
+
+        // Insert clip at playhead
+        _saveStateToHistory();
+        setState(() {
+          _videoClips.add(VideoClip(
+            id: 'clip-${DateTime.now().millisecondsSinceEpoch}',
+            url: videoUrl!,
+            duration: 5,
+            startTime: _currentTimelinePosition,
+            volume: 1.0,
+            speed: 1.0,
+            aiEnhanced: true,
+          ));
+          _isAnalyzerGenerating = false;
+          _analyzerGenerateProgress = 0;
+        });
+
+        _showSnackBar('AI Clip inserted at timeline!');
+      } else {
+        throw Exception('No generation ID returned');
+      }
+    } catch (e) {
+      debugPrint('AI Analyzer generate error: $e');
+      _analyzerProgressTimer?.cancel();
+      if (mounted) {
+        setState(() { _isAnalyzerGenerating = false; _analyzerGenerateProgress = 0; });
+        _showSnackBar('Generation failed: ${e.toString()}');
+      }
+    }
+  }
+
+
   Widget _buildAiUpscaleBottomSheet() {
     return Material(
       color: const Color(0xFF0A0A0A),
@@ -11827,6 +12400,17 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   _selectedTool = 'ai-edit';
                 });
                 return;
+              }
+              
+              // AI Analyzer tool opens the analyzer bottom sheet
+              if (tool.id == 'ai-analyzer') {
+                setState(() {
+                  _isAiAnalyzerOpen = true;
+                  _analyzerSummary = null;
+                  _analyzerSuggestions = [];
+                  _analyzerPromptController.clear();
+                  _selectedTool = 'ai-analyzer';
+                });
               }
               
               setState(() => _selectedTool = tool.id);
