@@ -194,6 +194,10 @@ interface TextOverlayData {
   textColor: string;
   fontFamily: string;
   alignment: 'left' | 'center' | 'right';
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  lineHeight: number;
   hasBackground: boolean;
   backgroundColor: string;
   backgroundOpacity: number;
@@ -1434,6 +1438,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       textColor: '#ffffff',
       fontFamily: 'Roboto',
       alignment: 'center',
+      bold: false,
+      italic: false,
+      underline: false,
+      lineHeight: 1.4,
       hasBackground: false,
       backgroundColor: '#000000',
       backgroundOpacity: 0.5,
@@ -3301,6 +3309,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             textColor: t.textColor,
             fontFamily: t.fontFamily,
             alignment: t.alignment,
+            bold: t.bold,
+            italic: t.italic,
+            underline: t.underline,
+            lineHeight: t.lineHeight,
             hasBackground: t.hasBackground,
             backgroundColor: t.backgroundColor,
             backgroundOpacity: t.backgroundOpacity,
@@ -4423,7 +4435,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           color: overlay.textColor,
                           fontSize: overlay.fontSize,
                           fontFamily: overlay.fontFamily,
-                          fontWeight: 'bold',
+                          fontWeight: overlay.bold ? 'bold' : 'normal',
+                          fontStyle: overlay.italic ? 'italic' : 'normal',
+                          textDecoration: overlay.underline ? 'underline' : 'none',
+                          lineHeight: overlay.lineHeight,
+                          textAlign: overlay.alignment,
+                          letterSpacing: overlay.letterSpacing ? `${overlay.letterSpacing}px` : undefined,
                         }}
                       >
                         {overlay.text}
@@ -5158,6 +5175,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                   textColor: '#FFFFFF',
                                   fontFamily: 'Inter',
                                   alignment: 'center',
+                                  bold: false,
+                                  italic: false,
+                                  underline: false,
+                                  lineHeight: 1.4,
                                   hasBackground: false,
                                   backgroundColor: '#000000',
                                   backgroundOpacity: 0.5,
@@ -6750,6 +6771,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   onAnimationChange={(animation) => updateSelectedText({ animation })}
                   bubbleStyle={selectedTextOverlay.bubbleStyle}
                   onBubbleStyleChange={(bubbleStyle) => updateSelectedText({ bubbleStyle })}
+                  bold={selectedTextOverlay.bold}
+                  onBoldChange={(bold) => updateSelectedText({ bold })}
+                  italic={selectedTextOverlay.italic}
+                  onItalicChange={(italic) => updateSelectedText({ italic })}
+                  underline={selectedTextOverlay.underline}
+                  onUnderlineChange={(underline) => updateSelectedText({ underline })}
+                  lineHeight={selectedTextOverlay.lineHeight}
+                  onLineHeightChange={(lineHeight) => updateSelectedText({ lineHeight })}
+                  alignment={selectedTextOverlay.alignment}
+                  onAlignmentChange={(alignment) => updateSelectedText({ alignment: alignment as 'left' | 'center' | 'right' })}
                   hasBackground={selectedTextOverlay.hasBackground}
                   onHasBackgroundChange={(hasBackground) => updateSelectedText({ hasBackground })}
                   backgroundColor={selectedTextOverlay.backgroundColor}
@@ -6762,6 +6793,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   onBackgroundRadiusChange={(backgroundRadius) => updateSelectedText({ backgroundRadius })}
                   onReset={() => updateSelectedText({
                     fontSize: 24, textColor: '#ffffff', fontFamily: 'Roboto', opacity: 1,
+                    bold: false, italic: false, underline: false, lineHeight: 1.4, alignment: 'center',
                     strokeEnabled: false, strokeColor: '#000000', strokeWidth: 2,
                     glowEnabled: false, glowColor: '#ffffff', glowIntensity: 10,
                     shadowEnabled: false, shadowColor: '#000000', shadowBlur: 4, shadowOffsetX: 2, shadowOffsetY: 2, shadowOpacity: 0.5,
