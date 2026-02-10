@@ -76,6 +76,8 @@ class _ProjectManagerScreenState extends State<ProjectManagerScreen> {
           newProject.videoUrl = filePath;
 
           await ProjectStorage.saveProject(newProject);
+          // Cache the video file in app documents for future sessions
+          await ProjectStorage.saveVideoFile(newProject.id, videoFile);
           widget.onNewProject(newProject, videoFile);
         }
       }
@@ -86,28 +88,40 @@ class _ProjectManagerScreenState extends State<ProjectManagerScreen> {
   }
 
   Future<void> _handleOpenProject(EditorProject project) async {
-    // Check if the video file still exists before opening
+    // First try the cached video file
+    final cachedFile = await ProjectStorage.getVideoFile(project.id);
+    if (cachedFile != null && await cachedFile.exists()) {
+      project.videoUrl = cachedFile.path;
+      widget.onNewProject(project, cachedFile);
+      return;
+    }
+
+    // Then check if the original video file still exists
     if (project.videoUrl != null && project.videoUrl!.isNotEmpty) {
       final file = File(project.videoUrl!);
-      if (!await file.exists()) {
-        // Video file no longer exists — ask user to re-select
-        final result = await FilePicker.platform.pickFiles(
-          type: FileType.video,
-          allowMultiple: false,
-        );
-
-        if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
-          final newFile = File(result.files.first.path!);
-          project.videoUrl = result.files.first.path;
-          await ProjectStorage.saveProject(project);
-          widget.onNewProject(project, newFile);
-        } else {
-          _showSnackBar('Please select a video file to open this project');
-        }
+      if (await file.exists()) {
+        // Cache it for next time
+        await ProjectStorage.saveVideoFile(project.id, file);
+        widget.onOpenProject(project);
         return;
       }
     }
-    widget.onOpenProject(project);
+
+    // Video file no longer exists — ask user to re-select
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.video,
+      allowMultiple: false,
+    );
+
+    if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
+      final newFile = File(result.files.first.path!);
+      project.videoUrl = result.files.first.path;
+      await ProjectStorage.saveProject(project);
+      await ProjectStorage.saveVideoFile(project.id, newFile);
+      widget.onNewProject(project, newFile);
+    } else {
+      _showSnackBar('Please select a video file to open this project');
+    }
   }
 
   Future<void> _handleRename() async {
