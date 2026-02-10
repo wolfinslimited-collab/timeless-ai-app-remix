@@ -337,7 +337,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [exportStage, setExportStage] = useState<string>('');
   const exportCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const isUserScrollingRef = useRef(false);
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
+  const isAutoScrollingRef = useRef(false);
   const timelineRef = useRef<HTMLDivElement>(null);
   const [adjustments, setAdjustments] = useState({
     brightness: 0,
@@ -1767,12 +1769,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       setCurrentTime(video.currentTime);
       
       // Auto-scroll timeline when video is playing (not user scrolling)
-      if (!isUserScrolling && !isAutoScrolling && timelineRef.current) {
-        const halfScreen = window.innerWidth / 2;
+      if (!isUserScrollingRef.current && !isAutoScrollingRef.current && timelineRef.current) {
         const targetScroll = video.currentTime * PIXELS_PER_SECOND;
+        isAutoScrollingRef.current = true;
         setIsAutoScrolling(true);
         timelineRef.current.scrollLeft = targetScroll;
-        setTimeout(() => setIsAutoScrolling(false), 50);
+        setTimeout(() => { isAutoScrollingRef.current = false; setIsAutoScrolling(false); }, 50);
       }
     };
     const handleLoadedMetadata = () => {
@@ -5251,26 +5253,41 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 className="h-full overflow-x-auto scrollbar-hide"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 onScroll={(e) => {
-                  if (!isUserScrolling || isAutoScrolling) return;
+                  if (!isUserScrollingRef.current || isAutoScrollingRef.current) return;
                   const scrollLeft = e.currentTarget.scrollLeft;
-                  // Convert scroll to time using pixelsPerSecond
                   const timeUnderPlayhead = scrollLeft / PIXELS_PER_SECOND;
                   const clampedTime = Math.max(0, Math.min(totalTimelineDuration, timeUnderPlayhead));
                   
-                  // Update both the video element and the React state
-                  setCurrentTime(clampedTime);
-                  
-                  if (videoRef.current) {
-                    videoRef.current.pause();
-                    videoRef.current.currentTime = clampedTime;
+                  // Pause playback and seek all layers to scrubbed position
+                  if (isPlaying) {
+                    // Pause all layers
+                    if (videoRef.current) videoRef.current.pause();
+                    audioLayers.forEach(audio => {
+                      const audioEl = audioRefs.current.get(audio.id);
+                      if (audioEl) audioEl.pause();
+                    });
+                    videoOverlays.forEach(overlay => {
+                      const overlayEl = overlayVideoRefs.current[overlay.id];
+                      if (overlayEl) overlayEl.pause();
+                    });
                     setIsPlaying(false);
                   }
+                  
+                  setCurrentTime(clampedTime);
+                  
+                  // Directly seek the video element for immediate visual feedback
+                  if (videoRef.current) {
+                    const activeResult = getActiveClipAtTime(clampedTime);
+                    if (activeResult) {
+                      videoRef.current.currentTime = activeResult.localTime;
+                    }
+                  }
                 }}
-                onMouseDown={() => setIsUserScrolling(true)}
-                onMouseUp={() => setIsUserScrolling(false)}
-                onMouseLeave={() => setIsUserScrolling(false)}
-                onTouchStart={() => setIsUserScrolling(true)}
-                onTouchEnd={() => setIsUserScrolling(false)}
+                onMouseDown={() => { isUserScrollingRef.current = true; setIsUserScrolling(true); }}
+                onMouseUp={() => { isUserScrollingRef.current = false; setIsUserScrolling(false); }}
+                onMouseLeave={() => { isUserScrollingRef.current = false; setIsUserScrolling(false); }}
+                onTouchStart={() => { isUserScrollingRef.current = true; setIsUserScrolling(true); }}
+                onTouchEnd={() => { isUserScrollingRef.current = false; setIsUserScrolling(false); }}
               >
                 {/* Calculate dimensions using pixelsPerSecond - use totalTimelineDuration for multi-clip support */}
                 {(() => {
