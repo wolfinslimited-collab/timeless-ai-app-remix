@@ -905,6 +905,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Project persistence
   EditorProject? _currentProject;
   bool _autoSavePending = false;
+  Timer? _autoSaveTimer;
   
   // Computed: check if any overlay menu is currently open (to hide main toolbar)
   bool get _isAnyOverlayOpen => 
@@ -1013,6 +1014,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     } catch (_) {
       return null;
     }
+  }
+
+  @override
+  void setState(VoidCallback fn) {
+    super.setState(fn);
+    _scheduleAutoSave();
   }
 
   @override
@@ -1128,16 +1135,19 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     }
   }
   
-  /// Auto-save current editor state to project storage
-  Future<void> _autoSaveProject() async {
+  /// Schedule auto-save with debounce timer
+  void _scheduleAutoSave() {
     if (_currentProject == null || _videoUrl == null) return;
-    if (_autoSavePending) return;
-    _autoSavePending = true;
-    
-    // Debounce 2 seconds
-    await Future.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
-    _autoSavePending = false;
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      _performAutoSave();
+    });
+  }
+
+  /// Auto-save current editor state to project storage
+  Future<void> _performAutoSave() async {
+    if (_currentProject == null || _videoUrl == null) return;
     
     try {
       final project = _currentProject!;
@@ -1277,7 +1287,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     _redoStack.clear();
     
     // Trigger auto-save
-    _autoSaveProject();
+    _scheduleAutoSave();
   }
   
   /// Check if undo is available
@@ -1481,6 +1491,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   @override
   void dispose() {
+    // Save one final time before closing
+    _autoSaveTimer?.cancel();
+    _performAutoSave();
     _timelineScrollController.removeListener(_onTimelineScroll);
     _timelineScrollController.dispose();
     _videoController?.removeListener(_onVideoPositionChanged);
