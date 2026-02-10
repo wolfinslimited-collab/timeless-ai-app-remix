@@ -346,6 +346,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [trimmingLayerId, setTrimmingLayerId] = useState<string | null>(null);
   const [isTrimmingStart, setIsTrimmingStart] = useState(false);
   const [snapLinePosition, setSnapLinePosition] = useState<number | null>(null);
+  const [dragTooltip, setDragTooltip] = useState<{ time: number; x: number; y: number } | null>(null);
   
   // Video clip selection and trimming state
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
@@ -5204,6 +5205,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 />
               )}
               
+              {/* Drag tooltip for text layer repositioning */}
+              {dragTooltip !== null && (
+                <div 
+                  className="fixed z-50 px-2 py-1 rounded bg-black/80 text-white text-[10px] font-medium pointer-events-none whitespace-nowrap"
+                  style={{ left: dragTooltip.x, top: dragTooltip.y - 32 }}
+                >
+                  Starts at {Math.floor(dragTooltip.time / 60).toString().padStart(2, '0')}:{(dragTooltip.time % 60).toFixed(1).padStart(4, '0')}
+                </div>
+              )}
+              
               {/* Scrollable Timeline Content using pixelsPerSecond */}
               <div 
                 ref={timelineRef}
@@ -5783,9 +5794,134 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 <div className="w-0.5 h-3 bg-white/60 rounded-full" />
                               </div>
                               
-                              {/* Content - just text label */}
+                              {/* Content - Draggable center area */}
                               <div 
-                                className="flex-1 flex items-center gap-1.5 px-1 overflow-hidden cursor-grab"
+                                className="flex-1 flex items-center gap-1.5 px-1 overflow-hidden cursor-grab active:cursor-grabbing"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  setDraggingLayerId(overlay.id);
+                                  setSelectedTextId(overlay.id);
+                                  setTextInput(overlay.text);
+                                  
+                                  // Haptic feedback on drag start
+                                  if (navigator.vibrate) navigator.vibrate(10);
+                                  
+                                  const startX = e.clientX;
+                                  const origStart = overlay.startTime;
+                                  const layerDuration = overlay.endTime - overlay.startTime;
+                                  const snapThreshold = 10 / PIXELS_PER_SECOND;
+                                  
+                                  const getSnapTargets = () => {
+                                    const targets: number[] = [currentTime]; // playhead
+                                    videoClips.forEach(c => { targets.push(c.startTime, c.startTime + getClipTrimmedDuration(c)); });
+                                    textOverlays.filter(t => t.id !== overlay.id).forEach(t => { targets.push(t.startTime, t.endTime); });
+                                    return targets;
+                                  };
+                                  
+                                  const handleMove = (moveE: MouseEvent) => {
+                                    const deltaX = moveE.clientX - startX;
+                                    const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                    let newStart = Math.max(0, Math.min(totalTimelineDuration - layerDuration, origStart + timeDelta));
+                                    
+                                    // Magnetic snapping
+                                    let snapped = false;
+                                    const targets = getSnapTargets();
+                                    for (const t of targets) {
+                                      if (Math.abs(newStart - t) < snapThreshold) {
+                                        newStart = t; snapped = true; break;
+                                      }
+                                      if (Math.abs(newStart + layerDuration - t) < snapThreshold) {
+                                        newStart = t - layerDuration; snapped = true; break;
+                                      }
+                                    }
+                                    
+                                    if (snapped) {
+                                      setSnapLinePosition(window.innerWidth / 2);
+                                      if (navigator.vibrate) navigator.vibrate(5);
+                                    } else {
+                                      setSnapLinePosition(null);
+                                    }
+                                    
+                                    setDragTooltip({ time: newStart, x: moveE.clientX, y: moveE.clientY });
+                                    setTextOverlays(prev => prev.map(t => 
+                                      t.id === overlay.id ? { ...t, startTime: newStart, endTime: newStart + layerDuration } : t
+                                    ));
+                                  };
+                                  
+                                  const handleUp = () => {
+                                    setDraggingLayerId(null);
+                                    setSnapLinePosition(null);
+                                    setDragTooltip(null);
+                                    document.removeEventListener('mousemove', handleMove);
+                                    document.removeEventListener('mouseup', handleUp);
+                                  };
+                                  
+                                  document.addEventListener('mousemove', handleMove);
+                                  document.addEventListener('mouseup', handleUp);
+                                }}
+                                onTouchStart={(e) => {
+                                  e.stopPropagation();
+                                  const touch = e.touches[0];
+                                  setDraggingLayerId(overlay.id);
+                                  setSelectedTextId(overlay.id);
+                                  setTextInput(overlay.text);
+                                  
+                                  if (navigator.vibrate) navigator.vibrate(10);
+                                  
+                                  const startX = touch.clientX;
+                                  const origStart = overlay.startTime;
+                                  const layerDuration = overlay.endTime - overlay.startTime;
+                                  const snapThreshold = 10 / PIXELS_PER_SECOND;
+                                  
+                                  const getSnapTargets = () => {
+                                    const targets: number[] = [currentTime];
+                                    videoClips.forEach(c => { targets.push(c.startTime, c.startTime + getClipTrimmedDuration(c)); });
+                                    textOverlays.filter(t => t.id !== overlay.id).forEach(t => { targets.push(t.startTime, t.endTime); });
+                                    return targets;
+                                  };
+                                  
+                                  const handleTouchMove = (moveE: TouchEvent) => {
+                                    moveE.preventDefault();
+                                    const t = moveE.touches[0];
+                                    const deltaX = t.clientX - startX;
+                                    const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                    let newStart = Math.max(0, Math.min(totalTimelineDuration - layerDuration, origStart + timeDelta));
+                                    
+                                    let snapped = false;
+                                    const targets = getSnapTargets();
+                                    for (const st of targets) {
+                                      if (Math.abs(newStart - st) < snapThreshold) {
+                                        newStart = st; snapped = true; break;
+                                      }
+                                      if (Math.abs(newStart + layerDuration - st) < snapThreshold) {
+                                        newStart = st - layerDuration; snapped = true; break;
+                                      }
+                                    }
+                                    
+                                    if (snapped) {
+                                      setSnapLinePosition(window.innerWidth / 2);
+                                      if (navigator.vibrate) navigator.vibrate(5);
+                                    } else {
+                                      setSnapLinePosition(null);
+                                    }
+                                    
+                                    setDragTooltip({ time: newStart, x: t.clientX, y: t.clientY });
+                                    setTextOverlays(prev => prev.map(tx => 
+                                      tx.id === overlay.id ? { ...tx, startTime: newStart, endTime: newStart + layerDuration } : tx
+                                    ));
+                                  };
+                                  
+                                  const handleTouchEnd = () => {
+                                    setDraggingLayerId(null);
+                                    setSnapLinePosition(null);
+                                    setDragTooltip(null);
+                                    document.removeEventListener('touchmove', handleTouchMove);
+                                    document.removeEventListener('touchend', handleTouchEnd);
+                                  };
+                                  
+                                  document.addEventListener('touchmove', handleTouchMove, { passive: false });
+                                  document.addEventListener('touchend', handleTouchEnd);
+                                }}
                               >
                                 <Type className="w-3 h-3 text-white/70 shrink-0" />
                                 <span className="text-[10px] text-white/90 font-medium truncate flex-1">
