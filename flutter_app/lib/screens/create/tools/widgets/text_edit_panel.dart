@@ -93,6 +93,17 @@ class TextEditPanel extends StatefulWidget {
   final ValueChanged<Color> onTextColorChange;
   final String fontFamily;
   final ValueChanged<String> onFontFamilyChange;
+  // Text formatting
+  final bool bold;
+  final ValueChanged<bool>? onBoldChange;
+  final bool italic;
+  final ValueChanged<bool>? onItalicChange;
+  final bool underline;
+  final ValueChanged<bool>? onUnderlineChange;
+  final double lineHeight;
+  final ValueChanged<double>? onLineHeightChange;
+  final TextAlign alignment;
+  final ValueChanged<TextAlign>? onAlignmentChange;
   final double opacity;
   final ValueChanged<double> onOpacityChange;
   // Extended properties
@@ -132,6 +143,16 @@ class TextEditPanel extends StatefulWidget {
     required this.onTextColorChange,
     required this.fontFamily,
     required this.onFontFamilyChange,
+    this.bold = false,
+    this.onBoldChange,
+    this.italic = false,
+    this.onItalicChange,
+    this.underline = false,
+    this.onUnderlineChange,
+    this.lineHeight = 1.4,
+    this.onLineHeightChange,
+    this.alignment = TextAlign.center,
+    this.onAlignmentChange,
     required this.opacity,
     required this.onOpacityChange,
     this.strokeEnabled = false,
@@ -236,6 +257,9 @@ class _TextEditPanelState extends State<TextEditPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Font Size slider at top of Fonts tab
+          _buildSliderRow('Font Size', widget.fontSize, 12, 120, widget.onFontSizeChange, suffix: 'px'),
+          const SizedBox(height: 16),
           Text('Select Font', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
           const SizedBox(height: 12),
           ...kFontOptions.map((font) {
@@ -271,6 +295,38 @@ class _TextEditPanelState extends State<TextEditPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Alignment
+          Text('Alignment', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildToggleButton('Left', Icons.format_align_left, widget.alignment == TextAlign.left, () => widget.onAlignmentChange?.call(TextAlign.left)),
+              const SizedBox(width: 8),
+              _buildToggleButton('Center', Icons.format_align_center, widget.alignment == TextAlign.center, () => widget.onAlignmentChange?.call(TextAlign.center)),
+              const SizedBox(width: 8),
+              _buildToggleButton('Right', Icons.format_align_right, widget.alignment == TextAlign.right, () => widget.onAlignmentChange?.call(TextAlign.right)),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Bold / Italic / Underline
+          Text('Formatting', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildToggleButton('Bold', Icons.format_bold, widget.bold, () => widget.onBoldChange?.call(!widget.bold)),
+              const SizedBox(width: 8),
+              _buildToggleButton('Italic', Icons.format_italic, widget.italic, () => widget.onItalicChange?.call(!widget.italic)),
+              const SizedBox(width: 8),
+              _buildToggleButton('Underline', Icons.format_underlined, widget.underline, () => widget.onUnderlineChange?.call(!widget.underline)),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Line Height
+          _buildSliderRow('Line Height', widget.lineHeight, 0.8, 3.0, (v) => widget.onLineHeightChange?.call(v), suffix: 'x'),
+          const SizedBox(height: 16),
+
           // Style Presets Row
           Text('Style Presets', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
           const SizedBox(height: 8),
@@ -393,7 +449,30 @@ class _TextEditPanelState extends State<TextEditPanel> {
     );
   }
 
-  Widget _buildPropertyButton(String label, IconData icon, bool isActive, VoidCallback onTap, {Color? colorIndicator}) {
+  Widget _buildToggleButton(String label, IconData icon, bool isActive, VoidCallback onTap) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isActive ? AppTheme.primary.withOpacity(0.15) : AppTheme.secondary.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: isActive ? AppTheme.primary : AppTheme.border.withOpacity(0.3)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: isActive ? AppTheme.primary : Colors.white.withOpacity(0.7)),
+              const SizedBox(width: 4),
+              Text(label, style: TextStyle(fontSize: 10, color: isActive ? AppTheme.primary : AppTheme.muted)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -557,7 +636,7 @@ class _TextEditPanelState extends State<TextEditPanel> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label, style: TextStyle(fontSize: 11, color: AppTheme.muted)),
-            Text('${value.toStringAsFixed(0)}$suffix', style: const TextStyle(fontSize: 11, color: Colors.white)),
+            Text('${suffix == 'x' ? value.toStringAsFixed(1) : value.toStringAsFixed(0)}$suffix', style: const TextStyle(fontSize: 11, color: Colors.white)),
           ],
         ),
         const SizedBox(height: 8),
