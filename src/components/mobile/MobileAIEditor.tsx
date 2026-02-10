@@ -1410,7 +1410,18 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         }
       });
       
-      // Audio layers will be started by the sync function
+      // Explicitly start audio layers within user gesture context
+      audioLayers.forEach(audio => {
+        const audioEl = audioRefs.current.get(audio.id);
+        if (!audioEl) return;
+        if (currentTime >= audio.startTime && currentTime <= audio.endTime) {
+          const audioTime = currentTime - audio.startTime;
+          audioEl.currentTime = audioTime;
+          audioEl.volume = audio.volume;
+          audioEl.play().catch(() => {});
+        }
+      });
+      
       setIsPlaying(true);
     }
   };
@@ -3514,17 +3525,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   className="w-full h-full object-contain"
                   playsInline
                   muted={isMuted}
-                  onClick={() => {
-                    if (videoRef.current) {
-                      if (videoRef.current.paused) {
-                        videoRef.current.play();
-                        setIsPlaying(true);
-                      } else {
-                        videoRef.current.pause();
-                        setIsPlaying(false);
-                      }
-                    }
-                  }}
+                  onClick={() => unifiedPlayPause()}
                 />
               )}
             </div>
@@ -3570,17 +3571,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 
                 {/* Large central play/pause button */}
                 <button
-                  onClick={() => {
-                    if (videoRef.current) {
-                      if (videoRef.current.paused) {
-                        videoRef.current.play();
-                        setIsPlaying(true);
-                      } else {
-                        videoRef.current.pause();
-                        setIsPlaying(false);
-                      }
-                    }
-                  }}
+                  onClick={() => unifiedPlayPause()}
                   className="w-14 h-14 rounded-full bg-white/15 border-2 border-white/30 flex items-center justify-center hover:bg-white/25 transition-colors"
                 >
                   {isPlaying ? (
