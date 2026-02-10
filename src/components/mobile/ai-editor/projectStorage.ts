@@ -3,8 +3,9 @@ import type { EditorProject } from './types';
 
 const STORAGE_KEY = 'ai_editor_projects';
 const DB_NAME = 'AIEditorDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'projects';
+const VIDEO_STORE_NAME = 'video_files';
 
 // IndexedDB helpers
 let db: IDBDatabase | null = null;
@@ -26,8 +27,65 @@ async function openDB(): Promise<IDBDatabase> {
       if (!database.objectStoreNames.contains(STORE_NAME)) {
         database.createObjectStore(STORE_NAME, { keyPath: 'id' });
       }
+      if (!database.objectStoreNames.contains(VIDEO_STORE_NAME)) {
+        database.createObjectStore(VIDEO_STORE_NAME, { keyPath: 'projectId' });
+      }
     };
   });
+}
+
+// Video file storage
+export async function saveVideoFile(projectId: string, file: File): Promise<void> {
+  if (!isIndexedDBAvailable()) return;
+  try {
+    const database = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction([VIDEO_STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(VIDEO_STORE_NAME);
+      const request = store.put({ projectId, file, name: file.name, type: file.type });
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (e) {
+    console.error('Failed to save video file to IndexedDB:', e);
+  }
+}
+
+export async function getVideoFile(projectId: string): Promise<File | null> {
+  if (!isIndexedDBAvailable()) return null;
+  try {
+    const database = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction([VIDEO_STORE_NAME], 'readonly');
+      const store = transaction.objectStore(VIDEO_STORE_NAME);
+      const request = store.get(projectId);
+      request.onsuccess = () => {
+        const result = request.result;
+        if (result?.file) {
+          resolve(result.file instanceof File ? result.file : new File([result.file], result.name || 'video.mp4', { type: result.type || 'video/mp4' }));
+        } else {
+          resolve(null);
+        }
+      };
+      request.onerror = () => reject(request.error);
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteVideoFile(projectId: string): Promise<void> {
+  if (!isIndexedDBAvailable()) return;
+  try {
+    const database = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction([VIDEO_STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(VIDEO_STORE_NAME);
+      const request = store.delete(projectId);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch { /* ignore */ }
 }
 
 // Check if IndexedDB is available
