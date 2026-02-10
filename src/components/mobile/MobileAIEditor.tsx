@@ -197,6 +197,8 @@ interface TextOverlayData {
   hasBackground: boolean;
   backgroundColor: string;
   backgroundOpacity: number;
+  backgroundPadding: number;
+  backgroundRadius: number;
   startTime: number;
   endTime: number;
   // Extended text styling properties
@@ -209,6 +211,10 @@ interface TextOverlayData {
   glowIntensity: number;
   shadowEnabled: boolean;
   shadowColor: string;
+  shadowBlur: number;
+  shadowOffsetX: number;
+  shadowOffsetY: number;
+  shadowOpacity: number;
   letterSpacing: number;
   curveAmount: number;
   animation: string;
@@ -1431,6 +1437,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       hasBackground: false,
       backgroundColor: '#000000',
       backgroundOpacity: 0.5,
+      backgroundPadding: 8,
+      backgroundRadius: 4,
       startTime: currentTime,
       endTime: Math.min(currentTime + 5, duration || 10),
       // Extended defaults
@@ -1443,6 +1451,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       glowIntensity: 10,
       shadowEnabled: false,
       shadowColor: '#000000',
+      shadowBlur: 4,
+      shadowOffsetX: 2,
+      shadowOffsetY: 2,
+      shadowOpacity: 0.5,
       letterSpacing: 0,
       curveAmount: 0,
       animation: 'none',
@@ -5149,6 +5161,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                   hasBackground: false,
                                   backgroundColor: '#000000',
                                   backgroundOpacity: 0.5,
+                                  backgroundPadding: 8,
+                                  backgroundRadius: 4,
                                   opacity: 1,
                                   rotation: 0,
                                   scale: 1,
@@ -5162,6 +5176,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                   glowIntensity: 10,
                                   shadowEnabled: false,
                                   shadowColor: '#000000',
+                                  shadowBlur: 4,
+                                  shadowOffsetX: 2,
+                                  shadowOffsetY: 2,
+                                  shadowOpacity: 0.5,
                                   letterSpacing: 0,
                                   curveAmount: 0,
                                   animation: 'none',
@@ -6716,6 +6734,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   onShadowEnabledChange={(shadowEnabled) => updateSelectedText({ shadowEnabled })}
                   shadowColor={selectedTextOverlay.shadowColor}
                   onShadowColorChange={(shadowColor) => updateSelectedText({ shadowColor })}
+                  shadowBlur={selectedTextOverlay.shadowBlur}
+                  onShadowBlurChange={(shadowBlur) => updateSelectedText({ shadowBlur })}
+                  shadowOffsetX={selectedTextOverlay.shadowOffsetX}
+                  onShadowOffsetXChange={(shadowOffsetX) => updateSelectedText({ shadowOffsetX })}
+                  shadowOffsetY={selectedTextOverlay.shadowOffsetY}
+                  onShadowOffsetYChange={(shadowOffsetY) => updateSelectedText({ shadowOffsetY })}
+                  shadowOpacity={selectedTextOverlay.shadowOpacity}
+                  onShadowOpacityChange={(shadowOpacity) => updateSelectedText({ shadowOpacity })}
                   letterSpacing={selectedTextOverlay.letterSpacing}
                   onLetterSpacingChange={(letterSpacing) => updateSelectedText({ letterSpacing })}
                   curveAmount={selectedTextOverlay.curveAmount}
@@ -6724,6 +6750,24 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   onAnimationChange={(animation) => updateSelectedText({ animation })}
                   bubbleStyle={selectedTextOverlay.bubbleStyle}
                   onBubbleStyleChange={(bubbleStyle) => updateSelectedText({ bubbleStyle })}
+                  hasBackground={selectedTextOverlay.hasBackground}
+                  onHasBackgroundChange={(hasBackground) => updateSelectedText({ hasBackground })}
+                  backgroundColor={selectedTextOverlay.backgroundColor}
+                  onBackgroundColorChange={(backgroundColor) => updateSelectedText({ backgroundColor })}
+                  backgroundOpacity={selectedTextOverlay.backgroundOpacity}
+                  onBackgroundOpacityChange={(backgroundOpacity) => updateSelectedText({ backgroundOpacity })}
+                  backgroundPadding={selectedTextOverlay.backgroundPadding}
+                  onBackgroundPaddingChange={(backgroundPadding) => updateSelectedText({ backgroundPadding })}
+                  backgroundRadius={selectedTextOverlay.backgroundRadius}
+                  onBackgroundRadiusChange={(backgroundRadius) => updateSelectedText({ backgroundRadius })}
+                  onReset={() => updateSelectedText({
+                    fontSize: 24, textColor: '#ffffff', fontFamily: 'Roboto', opacity: 1,
+                    strokeEnabled: false, strokeColor: '#000000', strokeWidth: 2,
+                    glowEnabled: false, glowColor: '#ffffff', glowIntensity: 10,
+                    shadowEnabled: false, shadowColor: '#000000', shadowBlur: 4, shadowOffsetX: 2, shadowOffsetY: 2, shadowOpacity: 0.5,
+                    letterSpacing: 0, curveAmount: 0, animation: 'none', bubbleStyle: 'none',
+                    hasBackground: false, backgroundColor: '#000000', backgroundOpacity: 0.5, backgroundPadding: 8, backgroundRadius: 4,
+                  })}
                 />
               </div>
             )}
