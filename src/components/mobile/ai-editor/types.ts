@@ -66,6 +66,10 @@ export interface SavedTextOverlay {
   textColor: string;
   fontFamily: string;
   alignment: string;
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  lineHeight: number;
   hasBackground: boolean;
   backgroundColor: string;
   backgroundOpacity: number;

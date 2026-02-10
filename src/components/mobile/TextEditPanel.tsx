@@ -4,6 +4,12 @@ import {
   Type,
   Check,
   RotateCcw,
+  Bold,
+  Italic,
+  Underline,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
@@ -50,6 +56,17 @@ interface TextEditPanelProps {
   onTextColorChange: (color: string) => void;
   fontFamily: string;
   onFontFamilyChange: (font: string) => void;
+  // Text formatting
+  bold?: boolean;
+  onBoldChange?: (bold: boolean) => void;
+  italic?: boolean;
+  onItalicChange?: (italic: boolean) => void;
+  underline?: boolean;
+  onUnderlineChange?: (underline: boolean) => void;
+  lineHeight?: number;
+  onLineHeightChange?: (lineHeight: number) => void;
+  alignment?: string;
+  onAlignmentChange?: (alignment: string) => void;
   opacity: number;
   onOpacityChange: (opacity: number) => void;
   // Stroke
@@ -123,6 +140,16 @@ export function TextEditPanel({
   onTextColorChange,
   fontFamily,
   onFontFamilyChange,
+  bold = false,
+  onBoldChange,
+  italic = false,
+  onItalicChange,
+  underline = false,
+  onUnderlineChange,
+  lineHeight = 1.4,
+  onLineHeightChange,
+  alignment = 'center',
+  onAlignmentChange,
   opacity,
   onOpacityChange,
   strokeEnabled = false,
@@ -228,6 +255,58 @@ export function TextEditPanel({
       case 'style':
         return (
           <div className="px-3 py-3 space-y-4">
+            {/* Text Alignment */}
+            <div>
+              <div className="text-xs text-muted-foreground mb-2">Alignment</div>
+              <div className="flex gap-2">
+                {[
+                  { value: 'left', icon: AlignLeft, label: 'Left' },
+                  { value: 'center', icon: AlignCenter, label: 'Center' },
+                  { value: 'right', icon: AlignRight, label: 'Right' },
+                ].map(({ value, icon: Icon, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => onAlignmentChange?.(value)}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border transition-all",
+                      alignment === value
+                        ? "border-primary bg-primary/15 text-primary"
+                        : "border-border/30 bg-secondary/30 text-muted-foreground hover:bg-secondary/50"
+                    )}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="text-[10px]">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Bold / Italic / Underline */}
+            <div>
+              <div className="text-xs text-muted-foreground mb-2">Formatting</div>
+              <div className="flex gap-2">
+                {[
+                  { active: bold, toggle: () => onBoldChange?.(!bold), icon: Bold, label: 'Bold' },
+                  { active: italic, toggle: () => onItalicChange?.(!italic), icon: Italic, label: 'Italic' },
+                  { active: underline, toggle: () => onUnderlineChange?.(!underline), icon: Underline, label: 'Underline' },
+                ].map(({ active, toggle, icon: Icon, label }) => (
+                  <button
+                    key={label}
+                    onClick={toggle}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border transition-all",
+                      active
+                        ? "border-primary bg-primary/15 text-primary"
+                        : "border-border/30 bg-secondary/30 text-muted-foreground hover:bg-secondary/50"
+                    )}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="text-[10px]">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Font Size */}
             <div>
               <div className="flex justify-between items-center mb-2">
@@ -240,6 +319,22 @@ export function TextEditPanel({
                 min={12}
                 max={120}
                 step={2}
+                className="w-full"
+              />
+            </div>
+
+            {/* Line Height */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs text-muted-foreground">Line Height</span>
+                <span className="text-xs text-foreground">{lineHeight.toFixed(1)}</span>
+              </div>
+              <Slider
+                value={[lineHeight * 10]}
+                onValueChange={([v]) => onLineHeightChange?.(v / 10)}
+                min={8}
+                max={30}
+                step={1}
                 className="w-full"
               />
             </div>
