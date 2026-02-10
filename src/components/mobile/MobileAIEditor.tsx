@@ -6791,15 +6791,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   onBackgroundPaddingChange={(backgroundPadding) => updateSelectedText({ backgroundPadding })}
                   backgroundRadius={selectedTextOverlay.backgroundRadius}
                   onBackgroundRadiusChange={(backgroundRadius) => updateSelectedText({ backgroundRadius })}
-                  onReset={() => updateSelectedText({
-                    fontSize: 24, textColor: '#ffffff', fontFamily: 'Roboto', opacity: 1,
-                    bold: false, italic: false, underline: false, lineHeight: 1.4, alignment: 'center',
-                    strokeEnabled: false, strokeColor: '#000000', strokeWidth: 2,
-                    glowEnabled: false, glowColor: '#ffffff', glowIntensity: 10,
-                    shadowEnabled: false, shadowColor: '#000000', shadowBlur: 4, shadowOffsetX: 2, shadowOffsetY: 2, shadowOpacity: 0.5,
-                    letterSpacing: 0, curveAmount: 0, animation: 'none', bubbleStyle: 'none',
-                    hasBackground: false, backgroundColor: '#000000', backgroundOpacity: 0.5, backgroundPadding: 8, backgroundRadius: 4,
-                  })}
+                  onDelete={() => {
+                    const id = selectedTextId;
+                    if (!id) return;
+                    setTextOverlays(prev => prev.filter(t => t.id !== id));
+                    setSelectedTextId(null);
+                    setShowTextEditPanel(false);
+                  }}
                 />
               </div>
             )}

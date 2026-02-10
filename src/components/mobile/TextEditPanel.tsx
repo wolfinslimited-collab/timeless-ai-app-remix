@@ -3,7 +3,7 @@ import {
   ChevronLeft,
   Type,
   Check,
-  RotateCcw,
+  Trash2,
   Bold,
   Italic,
   Underline,
@@ -117,8 +117,8 @@ interface TextEditPanelProps {
   onBackgroundPaddingChange?: (padding: number) => void;
   backgroundRadius?: number;
   onBackgroundRadiusChange?: (radius: number) => void;
-  // Reset
-  onReset?: () => void;
+  // Delete
+  onDelete?: () => void;
 }
 
 type TabId = 'font' | 'style' | 'stroke-shadow' | 'background';
@@ -194,7 +194,7 @@ export function TextEditPanel({
   onBackgroundPaddingChange,
   backgroundRadius = 4,
   onBackgroundRadiusChange,
-  onReset,
+  onDelete,
 }: TextEditPanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>('font');
   const [showColorPicker, setShowColorPicker] = useState<'text' | 'stroke' | 'glow' | 'shadow' | 'bg' | null>(null);
@@ -617,14 +617,14 @@ export function TextEditPanel({
           <span className="ml-3 text-sm font-medium text-foreground">Edit Text</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Reset Button */}
-          {onReset && (
+          {/* Delete Button */}
+          {onDelete && (
             <button
-              onClick={onReset}
+              onClick={onDelete}
               className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 transition-colors border border-destructive/20"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-destructive" />
-              <span className="text-[10px] font-medium text-destructive">Reset</span>
+              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+              <span className="text-[10px] font-medium text-destructive">Delete</span>
             </button>
           )}
           <button

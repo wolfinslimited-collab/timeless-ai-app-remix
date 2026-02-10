@@ -9363,6 +9363,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     
     return TextEditPanel(
       onBack: () => setState(() => _showTextEditPanel = false),
+      onDelete: () {
+        setState(() {
+          _textOverlays.removeWhere((t) => t.id == overlay.id);
+          if (_selectedTextId == overlay.id) _selectedTextId = null;
+          _showTextEditPanel = false;
+        });
+      },
       text: overlay.text,
       onTextChange: (text) => _updateSelectedText((t) => t.text = text),
       fontSize: overlay.fontSize,
