@@ -1571,12 +1571,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           // This creates a pseudo-random but reproducible waveform pattern
           final waveformData = _generateWaveformFromSeed(file.name.hashCode, 100);
           
+          final currentPlayhead = _currentTimelinePosition;
           final newAudio = AudioLayer(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             name: file.name,
             filePath: filePath,
-            startTime: 0,
-            endTime: math.min(audioSeconds, videoDuration),
+            startTime: currentPlayhead,
+            endTime: math.min(currentPlayhead + audioSeconds, videoDuration),
             player: player,
             duration: audioDuration,
             waveformData: waveformData,
@@ -2262,12 +2263,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           // Get the main video duration for default end time
           final mainDuration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
           
+          final currentPlayhead = _currentTimelinePosition;
           final newOverlay = VideoOverlay(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             url: fileUrl,
             duration: overlayDuration,
-            startTime: 0,
-            endTime: math.min(overlayDuration, mainDuration),
+            startTime: currentPlayhead,
+            endTime: math.min(currentPlayhead + overlayDuration, mainDuration),
             position: const Offset(0.65, 0.25),
             width: 0.35,
             height: 0.35,
