@@ -1862,9 +1862,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   void _unifiedPlay() {
     if (_videoController == null || !_isVideoInitialized) return;
     
-    // Sync all layers to current timeline position (playhead)
-    _syncAllLayersToTime(_currentTimelinePosition);
-    
     // Seek video to current playhead position before playing
     final activeResult = _getActiveClipAtTime(_currentTimelinePosition);
     if (activeResult != null) {
@@ -1875,7 +1872,19 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     // Start video playback
     _videoController!.play();
     
-    // Audio layers will start via the sync listener
+    // Explicitly start audio layers that should be active at current time
+    for (final audio in _audioLayers) {
+      if (audio.player == null) continue;
+      if (_currentTimelinePosition >= audio.startTime && _currentTimelinePosition <= audio.endTime) {
+        final audioTime = _currentTimelinePosition - audio.startTime;
+        audio.player!.seek(Duration(milliseconds: (audioTime * 1000).round()));
+        audio.player!.setVolume(audio.volume);
+        audio.player!.resume();
+      }
+    }
+    
+    // Sync video overlays
+    _syncAllLayersToTime(_currentTimelinePosition);
   }
   
   /// Unified pause function - pauses all layers
@@ -4503,6 +4512,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         videoController: _videoController!,
         onClose: () => Navigator.of(context).pop(),
         totalDuration: totalDuration,
+        onTogglePlayPause: _unifiedTogglePlayPause,
       ),
     );
   }
@@ -13923,12 +13933,14 @@ class EditorTool {
 class _FullScreenVideoDialog extends StatefulWidget {
   final VideoPlayerController videoController;
   final VoidCallback onClose;
-  final Duration totalDuration; // Total timeline duration for multi-clip support
+  final Duration totalDuration;
+  final VoidCallback? onTogglePlayPause;
 
   const _FullScreenVideoDialog({
     required this.videoController,
     required this.onClose,
     required this.totalDuration,
+    this.onTogglePlayPause,
   });
 
   @override
@@ -13961,10 +13973,16 @@ class _FullScreenVideoDialogState extends State<_FullScreenVideoDialog> {
   }
 
   void _togglePlayPause() {
-    if (widget.videoController.value.isPlaying) {
-      widget.videoController.pause();
+    if (widget.onTogglePlayPause != null) {
+      widget.onTogglePlayPause!();
     } else {
-      widget.videoController.play();
+      if (widget.videoController.value.isPlaying) {
+        widget.videoController.pause();
+      } else {
+        widget.videoController.play();
+      }
+    }
+    if (widget.videoController.value.isPlaying) {
       _scheduleHideControls();
     }
     setState(() {});
