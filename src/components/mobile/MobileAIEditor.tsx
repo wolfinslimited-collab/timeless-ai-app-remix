@@ -6726,7 +6726,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Overlay menus - absolute positioned, slide up with fade */}
             {showTextEditPanel && selectedTextOverlay && (
-              <div className="absolute inset-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-10">
+              <div className="fixed left-0 right-0 bottom-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-50 flex flex-col" style={{ height: '55vh', maxHeight: '420px', minHeight: '320px' }}>
                 <TextEditPanel
                   onBack={() => setShowTextEditPanel(false)}
                   text={selectedTextOverlay.text}

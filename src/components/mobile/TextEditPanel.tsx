@@ -224,8 +224,24 @@ export function TextEditPanel({
       // ---- FONT TAB ----
       case 'font':
         return (
-          <div className="px-3 py-3">
-            <div className="text-xs text-muted-foreground mb-3">Select Font</div>
+          <div className="px-3 py-3 space-y-4">
+            {/* Font Size */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs text-muted-foreground">Font Size</span>
+                <span className="text-xs text-foreground">{fontSize}px</span>
+              </div>
+              <Slider
+                value={[fontSize]}
+                onValueChange={([v]) => onFontSizeChange(v)}
+                min={12}
+                max={120}
+                step={2}
+                className="w-full"
+              />
+            </div>
+
+            <div className="text-xs text-muted-foreground">Select Font</div>
             <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide">
               {FONT_OPTIONS.map((font) => (
                 <button
