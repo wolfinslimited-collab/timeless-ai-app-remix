@@ -566,6 +566,9 @@ class ProjectStorage {
 
   static Future<void> deleteProject(String id) async {
     try {
+      // Also delete cached video file
+      await deleteVideoFile(id);
+      
       final projects = await getAllProjects();
       projects.removeWhere((p) => p.id == id);
       
@@ -610,6 +613,9 @@ class ProjectStorage {
         videoPositionY: original.videoPositionY,
       );
       
+      // Also copy the cached video file for the duplicate
+      await copyVideoFile(id, duplicate.id);
+      
       await saveProject(duplicate);
       return duplicate;
     } catch (e) {
@@ -627,6 +633,71 @@ class ProjectStorage {
       }
     } catch (e) {
       debugPrint('Error renaming project: $e');
+    }
+  }
+
+  /// Cache a video file to the app's documents directory for a given project.
+  static Future<String?> saveVideoFile(String projectId, File videoFile) async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final videoDir = Directory('${dir.path}/ai_editor_videos');
+      if (!await videoDir.exists()) {
+        await videoDir.create(recursive: true);
+      }
+      final ext = videoFile.path.split('.').last;
+      final cachedPath = '${videoDir.path}/$projectId.$ext';
+      await videoFile.copy(cachedPath);
+      return cachedPath;
+    } catch (e) {
+      debugPrint('Error caching video file: $e');
+      return null;
+    }
+  }
+
+  /// Retrieve the cached video file for a project, or null if not found.
+  static Future<File?> getVideoFile(String projectId) async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final videoDir = Directory('${dir.path}/ai_editor_videos');
+      if (!await videoDir.exists()) return null;
+      
+      final files = await videoDir.list().toList();
+      for (final entity in files) {
+        if (entity is File && entity.path.contains('/$projectId.')) {
+          if (await entity.exists()) return entity;
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error getting cached video file: $e');
+      return null;
+    }
+  }
+
+  /// Delete the cached video file for a project.
+  static Future<void> deleteVideoFile(String projectId) async {
+    try {
+      final file = await getVideoFile(projectId);
+      if (file != null && await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      debugPrint('Error deleting cached video file: $e');
+    }
+  }
+
+  /// Copy cached video from one project to another (for duplication).
+  static Future<void> copyVideoFile(String fromId, String toId) async {
+    try {
+      final source = await getVideoFile(fromId);
+      if (source != null && await source.exists()) {
+        final ext = source.path.split('.').last;
+        final dir = await getApplicationDocumentsDirectory();
+        final destPath = '${dir.path}/ai_editor_videos/$toId.$ext';
+        await source.copy(destPath);
+      }
+    } catch (e) {
+      debugPrint('Error copying cached video file: $e');
     }
   }
 }
