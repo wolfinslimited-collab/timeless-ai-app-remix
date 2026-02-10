@@ -1766,11 +1766,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     if (!video) return;
 
     const handleTimeUpdate = () => {
-      setCurrentTime(video.currentTime);
+      // Do NOT set currentTime from video.currentTime here.
+      // The playbackLoop (requestAnimationFrame) manages currentTime during playback,
+      // and manual scroll sets it during scrubbing. Using video.currentTime directly
+      // causes desync because it reflects the raw video element time, not the timeline time.
       
       // Auto-scroll timeline when video is playing (not user scrolling)
-      if (!isUserScrollingRef.current && !isAutoScrollingRef.current && timelineRef.current) {
-        const targetScroll = video.currentTime * PIXELS_PER_SECOND;
+      if (isPlaying && !isUserScrollingRef.current && !isAutoScrollingRef.current && timelineRef.current) {
+        const targetScroll = currentTime * PIXELS_PER_SECOND;
         isAutoScrollingRef.current = true;
         setIsAutoScrolling(true);
         timelineRef.current.scrollLeft = targetScroll;
@@ -1792,7 +1795,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       video.removeEventListener("loadedmetadata", handleLoadedMetadata);
       video.removeEventListener("ended", handleEnded);
     };
-  }, [videoUrl, isUserScrolling, isAutoScrolling]);
+  }, [videoUrl, isPlaying, currentTime]);
 
   // Direct local file picking - no server upload
   const handleLocalFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
