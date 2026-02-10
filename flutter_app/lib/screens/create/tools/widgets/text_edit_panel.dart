@@ -85,6 +85,7 @@ enum TextEditTab { templates, fonts, styles, effects, animations, bubbles }
 
 class TextEditPanel extends StatefulWidget {
   final VoidCallback onBack;
+  final VoidCallback? onDelete;
   final String text;
   final ValueChanged<String> onTextChange;
   final double fontSize;
@@ -135,6 +136,7 @@ class TextEditPanel extends StatefulWidget {
   const TextEditPanel({
     super.key,
     required this.onBack,
+    this.onDelete,
     required this.text,
     required this.onTextChange,
     required this.fontSize,
@@ -700,17 +702,43 @@ class _TextEditPanelState extends State<TextEditPanel> {
                     const Text('Edit Text', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white)),
                   ],
                 ),
-                GestureDetector(
-                  onTap: widget.onBack,
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary,
-                      shape: BoxShape.circle,
+                Row(
+                  children: [
+                    // Delete Button
+                    if (widget.onDelete != null)
+                      GestureDetector(
+                        onTap: widget.onDelete,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.withOpacity(0.2)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                              const SizedBox(width: 4),
+                              Text('Delete', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.red)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: widget.onBack,
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.check, size: 18, color: Colors.white),
+                      ),
                     ),
-                    child: const Icon(Icons.check, size: 18, color: Colors.white),
-                  ),
+                  ],
                 ),
               ],
             ),
