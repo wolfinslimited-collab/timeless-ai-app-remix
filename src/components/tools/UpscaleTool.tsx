@@ -15,7 +15,7 @@ const UpscaleTool = ({ onBack }: UpscaleToolProps) => {
       showScale
       showPrompt
       promptLabel="Enhancement hints"
-      promptPlaceholder="e.g., sharp details, high quality photograph..."
+      promptPlaceholder="Optional: e.g., sharp details, high quality photograph..."
     />
   );
 };

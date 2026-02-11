@@ -15,7 +15,7 @@ class UpscaleToolScreen extends StatelessWidget {
       showScale: true,
       showPrompt: true,
       promptLabel: 'Enhancement hints',
-      promptPlaceholder: 'e.g., sharp details, high quality photograph...',
+      promptPlaceholder: 'Optional: e.g., sharp details, high quality photograph...',
     );
   }
 }

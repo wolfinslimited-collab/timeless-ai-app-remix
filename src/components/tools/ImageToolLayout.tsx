@@ -257,7 +257,7 @@ const ImageToolLayout = ({
               <div className="mt-6 space-y-4">
                 {showPrompt && (
                   <div>
-                    <Label className="mb-2 block">{promptLabel}</Label>
+                    <Label className="mb-2 block">{promptLabel} <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
                     <Textarea
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}

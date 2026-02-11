@@ -806,12 +806,25 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
 
           // Prompt input
           if (widget.showPrompt) ...[
-            Text(
-              widget.promptLabel ?? 'Prompt',
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 14,
-              ),
+            Row(
+              children: [
+                Text(
+                  widget.promptLabel ?? 'Prompt',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '(optional)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w400,
+                    fontSize: 12,
+                    color: AppTheme.muted.withOpacity(0.7),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             TextField(
