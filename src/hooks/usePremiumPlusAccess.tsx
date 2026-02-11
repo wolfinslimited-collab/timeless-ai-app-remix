@@ -40,7 +40,7 @@ export const usePremiumPlusAccess = () => {
     fetchPlan();
   }, [user]);
 
-  const hasPremiumPlusAccess = plan === PREMIUM_PLUS_PLAN;
+  const hasPremiumPlusAccess = plan?.startsWith(PREMIUM_PLUS_PLAN) ?? false;
 
   return {
     plan,
