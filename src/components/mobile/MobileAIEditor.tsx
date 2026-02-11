@@ -3248,34 +3248,27 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
         ctx.drawImage(exportVideo, videoX, videoY, videoWidth, videoHeight);
 
-        // Apply adjustments as filter
+        // Apply adjustments as CSS filter (matching preview buildVideoFilter logic)
         if (Object.values(adjustments).some(v => v !== 0)) {
-          const imageData = ctx.getImageData(0, 0, width, height);
-          const data = imageData.data;
+          const brightness = 1 + adjustments.brightness * 0.5;
+          const contrast = 1 + adjustments.contrast;
+          const saturation = 1 + adjustments.saturation;
+          const exposure = 1 + adjustments.exposure * 0.5;
+          const hueRotate = adjustments.hue * 180;
+          const combinedBrightness = brightness * exposure;
+          const sepia = adjustments.temp > 0 ? adjustments.temp * 0.3 : 0;
           
-          const brightness = 1 + adjustments.brightness / 100;
-          const contrast = 1 + adjustments.contrast / 100;
-          const saturation = 1 + adjustments.saturation / 100;
+          // Use a temporary canvas to apply CSS filters (same as preview)
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = width;
+          tempCanvas.height = height;
+          const tempCtx = tempCanvas.getContext('2d')!;
+          tempCtx.filter = `brightness(${combinedBrightness}) contrast(${contrast}) saturate(${saturation}) hue-rotate(${hueRotate}deg) sepia(${sepia})`;
+          tempCtx.drawImage(canvas, 0, 0);
           
-          for (let i = 0; i < data.length; i += 4) {
-            // Apply brightness
-            data[i] = Math.min(255, Math.max(0, data[i] * brightness));
-            data[i + 1] = Math.min(255, Math.max(0, data[i + 1] * brightness));
-            data[i + 2] = Math.min(255, Math.max(0, data[i + 2] * brightness));
-            
-            // Apply contrast
-            data[i] = Math.min(255, Math.max(0, (data[i] - 128) * contrast + 128));
-            data[i + 1] = Math.min(255, Math.max(0, (data[i + 1] - 128) * contrast + 128));
-            data[i + 2] = Math.min(255, Math.max(0, (data[i + 2] - 128) * contrast + 128));
-            
-            // Apply saturation
-            const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-            data[i] = Math.min(255, Math.max(0, gray + (data[i] - gray) * saturation));
-            data[i + 1] = Math.min(255, Math.max(0, gray + (data[i + 1] - gray) * saturation));
-            data[i + 2] = Math.min(255, Math.max(0, gray + (data[i + 2] - gray) * saturation));
-          }
-          
-          ctx.putImageData(imageData, 0, 0);
+          // Draw the filtered result back
+          ctx.clearRect(0, 0, width, height);
+          ctx.drawImage(tempCanvas, 0, 0);
         }
 
         // Draw text overlays that are visible at current time
