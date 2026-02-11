@@ -392,6 +392,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [undoStack, setUndoStack] = useState<EditorStateSnapshot[]>([]);
   const [redoStack, setRedoStack] = useState<EditorStateSnapshot[]>([]);
   const isRestoringRef = useRef(false);
+  const isRestoringProjectRef = useRef(false); // Guards auto-save during project load
 
   // Text overlay state (using top-level interface)
   const [textOverlays, setTextOverlays] = useState<TextOverlayData[]>([]);
@@ -3415,6 +3416,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   // Project Manager handlers
   const handleOpenProject = async (project: EditorProject) => {
+    isRestoringProjectRef.current = true;
     setCurrentProject(project);
     // Restore all project state including overlays
     setVideoPosition(project.videoPosition);
@@ -3478,6 +3480,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         fileInputRef.current?.click();
       }, 300);
     }
+
+    // Allow auto-save after state restoration settles
+    setTimeout(() => {
+      isRestoringProjectRef.current = false;
+    }, 3000);
   };
 
   const handleNewProject = async (project: EditorProject, file: File) => {
@@ -3490,7 +3497,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   // Auto-save project when state changes
   useEffect(() => {
-    if (!currentProject || !videoUrl) return;
+    if (!currentProject || !videoUrl || isRestoringProjectRef.current) return;
     
     const saveTimer = setTimeout(async () => {
       try {

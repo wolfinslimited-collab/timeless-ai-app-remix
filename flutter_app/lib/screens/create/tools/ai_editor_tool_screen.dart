@@ -915,6 +915,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   EditorProject? _currentProject;
   bool _autoSavePending = false;
   Timer? _autoSaveTimer;
+  bool _isRestoringProject = false; // Guards auto-save during project load
   
   // Computed: check if any overlay menu is currently open (to hide main toolbar)
   bool get _isAnyOverlayOpen => 
@@ -1040,8 +1041,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     
     // Restore project state if opening an existing project
     if (widget.initialProject != null) {
+      _isRestoringProject = true;
       _currentProject = widget.initialProject;
       _restoreProjectState(widget.initialProject!);
+      // Allow auto-save after state restoration settles
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) _isRestoringProject = false;
+      });
     }
   }
   
@@ -1147,7 +1153,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   
   /// Schedule auto-save with debounce timer
   void _scheduleAutoSave() {
-    if (_currentProject == null || _videoUrl == null) return;
+    if (_currentProject == null || _videoUrl == null || _isRestoringProject) return;
     _autoSaveTimer?.cancel();
     _autoSaveTimer = Timer(const Duration(seconds: 2), () {
       if (!mounted) return;
