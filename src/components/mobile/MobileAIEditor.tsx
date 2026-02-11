@@ -443,16 +443,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [magicEditPrompt, setMagicEditPrompt] = useState('');
   const [isMagicEditProcessing, setIsMagicEditProcessing] = useState(false);
   
-  // AI Video Analyzer state
-  const [isAIAnalyzerOpen, setIsAIAnalyzerOpen] = useState(false);
-  const [isAnalyzerScanning, setIsAnalyzerScanning] = useState(false);
-  const [analyzerSummary, setAnalyzerSummary] = useState<string | null>(null);
-  const [analyzerSuggestions, setAnalyzerSuggestions] = useState<string[]>([]);
-  const [analyzerPrompt, setAnalyzerPrompt] = useState('');
-  const [isAnalyzerGenerating, setIsAnalyzerGenerating] = useState(false);
-  const [analyzerGenerateProgress, setAnalyzerGenerateProgress] = useState(0);
-  const AI_ANALYZER_CREDIT_COST = 5;
-  const AI_ANALYZER_GENERATE_CREDIT_COST = 15;
+  // AI Video Expansion state
+  const [isAIExpansionOpen, setIsAIExpansionOpen] = useState(false);
+  const [expansionPrompt, setExpansionPrompt] = useState('');
+  const [isExpansionGenerating, setIsExpansionGenerating] = useState(false);
+  const [expansionGenerateProgress, setExpansionGenerateProgress] = useState(0);
+  const [lastFrameDataUrl, setLastFrameDataUrl] = useState<string | null>(null);
+  const AI_EXPANSION_CREDIT_COST = 15;
   
   // Effects menu mode state - activated by clicking "Effects" tool
   const [isEffectsMenuMode, setIsEffectsMenuMode] = useState(false);
@@ -493,7 +490,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [settingsPanelType, setSettingsPanelType] = useState<'stickers' | null>(null);
   
   // Base overlay check - isAudioEditMode, isDrawMode, isCropMode are added later
-  const isAnyOverlayOpenBase = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isAdjustMenuMode || isSettingsPanelOpen || isCropMode || isMagicEditOpen || isAIUpscaleOpen || isAIAnalyzerOpen;
+  const isAnyOverlayOpenBase = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isAdjustMenuMode || isSettingsPanelOpen || isCropMode || isMagicEditOpen || isAIUpscaleOpen || isAIExpansionOpen;
   
   // Sticker presets
   const stickerCategories = [
@@ -2255,7 +2252,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     { id: 'crop', name: 'Crop', icon: Crop, action: () => { setIsEditMenuMode(false); setIsCropMode(true); setCropBox({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 }); } },
     { id: 'magic-edit', name: 'AI Edit', icon: Wand2, isAI: true, action: () => { setIsMagicEditOpen(true); setMagicEditPrompt(''); setIsEditMenuMode(false); } },
     { id: 'ai-upscale', name: 'AI Upscale', icon: ZoomIn, isAI: true, action: () => { setIsAIUpscaleOpen(true); setIsEditMenuMode(false); } },
-    { id: 'ai-analyzer', name: 'AI Analyzer', icon: FileText, isAI: true, action: () => { setIsAIAnalyzerOpen(true); setAnalyzerSummary(null); setAnalyzerSuggestions([]); setAnalyzerPrompt(''); setIsEditMenuMode(false); } },
+    { id: 'ai-expansion', name: 'AI Expand', icon: Maximize, isAI: true, action: () => { handleOpenAIExpansion(); setIsEditMenuMode(false); } },
     { id: 'replace', name: 'Replace', icon: Replace, action: () => { handleDirectFilePick(); } },
     { id: 'delete', name: 'Delete', icon: Trash2, action: handleDeleteClip, isDestructive: true },
   ];
@@ -2347,101 +2344,75 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     }
   };
 
-  // Handle AI Video Analyzer - Scan
-  const handleAnalyzerScan = async () => {
-    if (!hasActiveSubscription) {
-      if (credits === null || credits < AI_ANALYZER_CREDIT_COST) {
-        setShowAddCreditsDialog(true);
-        return;
-      }
-    }
-
-    setIsAnalyzerScanning(true);
-    setAnalyzerSummary(null);
-    setAnalyzerSuggestions([]);
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const authToken = session?.access_token;
-
-      // Build video description from metadata
-      const clipInfo = videoClips.length > 0 
-        ? `Video with ${videoClips.length} clip(s), total duration ${duration?.toFixed(1)}s` 
-        : `Video duration: ${duration?.toFixed(1)}s`;
-      const dims = videoDimensions ? `, resolution: ${videoDimensions.width}x${videoDimensions.height}` : '';
-      const videoDescription = `${clipInfo}${dims}. Current playhead at ${currentTime.toFixed(1)}s.`;
-
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-video-analyzer`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ action: 'analyze', videoDescription }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || `Request failed (${response.status})`);
-      }
-
-      const data = await response.json();
-      if (!data.success || !data.analysis) throw new Error("Invalid AI response");
-
-      // Deduct credits
-      if (user && !hasActiveSubscription) {
-        await supabase
-          .from('profiles')
-          .update({ credits: Math.max(0, (credits || 0) - AI_ANALYZER_CREDIT_COST) })
-          .eq('user_id', user.id);
-        refetchCredits();
-      }
-
-      setAnalyzerSummary(data.analysis.summary || 'Video content analyzed.');
-      setAnalyzerSuggestions(data.analysis.suggestions || []);
-    } catch (err: any) {
-      console.error("AI Analyzer error:", err);
-      toast({ variant: "destructive", title: "Analysis Failed", description: err.message || "Please try again" });
-    } finally {
-      setIsAnalyzerScanning(false);
-    }
+  // Capture last frame of video as data URL for AI expansion reference
+  const captureLastFrame = (): string | null => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) return null;
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.85);
   };
 
-  // Handle AI Video Analyzer - Generate & Insert
-  const handleAnalyzerGenerate = async () => {
-    if (!analyzerPrompt.trim()) {
-      toast({ variant: "destructive", title: "Please enter a prompt" });
+  // Open AI Expansion - seek to end and capture last frame
+  const handleOpenAIExpansion = async () => {
+    // Seek video to the last frame
+    const video = videoRef.current;
+    if (video && duration) {
+      video.currentTime = duration - 0.05;
+      // Wait for seek to complete
+      await new Promise<void>(resolve => {
+        const onSeeked = () => { video.removeEventListener('seeked', onSeeked); resolve(); };
+        video.addEventListener('seeked', onSeeked);
+      });
+    }
+    
+    const frameData = captureLastFrame();
+    setLastFrameDataUrl(frameData);
+    setExpansionPrompt('');
+    setIsAIExpansionOpen(true);
+  };
+
+  // Handle AI Video Expansion - Generate & Append
+  const handleExpansionGenerate = async () => {
+    if (!expansionPrompt.trim()) {
+      toast({ variant: "destructive", title: "Please describe how to expand the video" });
       return;
     }
 
     if (!hasActiveSubscription) {
-      if (credits === null || credits < AI_ANALYZER_GENERATE_CREDIT_COST) {
+      if (credits === null || credits < AI_EXPANSION_CREDIT_COST) {
         setShowAddCreditsDialog(true);
         return;
       }
     }
 
-    setIsAIAnalyzerOpen(false);
-    setIsAnalyzerGenerating(true);
-    setAnalyzerGenerateProgress(0);
+    setIsAIExpansionOpen(false);
+    setIsExpansionGenerating(true);
+    setExpansionGenerateProgress(0);
 
     // Simulate progress
     const progressInterval = setInterval(() => {
-      setAnalyzerGenerateProgress(prev => Math.min(prev + 2, 90));
+      setExpansionGenerateProgress(prev => Math.min(prev + 2, 90));
     }, 500);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const authToken = session?.access_token;
 
-      // Step 1: Enhance the prompt
+      // Step 1: Enhance the prompt via AI
       const promptRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-video-analyzer`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ action: 'generate-prompt', suggestionPrompt: analyzerPrompt }),
+        body: JSON.stringify({ action: 'generate-prompt', suggestionPrompt: expansionPrompt }),
       });
 
       if (!promptRes.ok) {
@@ -2450,11 +2421,35 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       }
 
       const promptData = await promptRes.json();
-      const enhancedPrompt = promptData.enhancedPrompt || analyzerPrompt;
+      const enhancedPrompt = promptData.enhancedPrompt || expansionPrompt;
 
-      setAnalyzerGenerateProgress(30);
+      setExpansionGenerateProgress(30);
 
-      // Step 2: Generate video via the generate edge function
+      // Step 2: Upload last frame to storage if available
+      let imageUrl: string | null = null;
+      if (lastFrameDataUrl) {
+        try {
+          // Convert data URL to blob
+          const res = await fetch(lastFrameDataUrl);
+          const blob = await res.blob();
+          const fileName = `expansion-ref-${Date.now()}.jpg`;
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('generation-inputs')
+            .upload(fileName, blob, { contentType: 'image/jpeg' });
+          
+          if (!uploadError && uploadData) {
+            const { data: urlData } = supabase.storage
+              .from('generation-inputs')
+              .getPublicUrl(uploadData.path);
+            imageUrl = urlData.publicUrl;
+          }
+        } catch (uploadErr) {
+          console.warn('Failed to upload reference frame, proceeding with T2V:', uploadErr);
+        }
+      }
+
+      // Step 3: Generate video (I2V if we have the last frame, T2V otherwise)
       const genRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate`, {
         method: 'POST',
         headers: {
@@ -2464,10 +2459,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         body: JSON.stringify({
           type: 'video',
           model: 'wan-2.6',
-          prompt: enhancedPrompt,
-          aspectRatio: '16:9',
+          prompt: `Continue this video seamlessly: ${enhancedPrompt}`,
+          aspectRatio: videoDimensions ? (videoDimensions.width > videoDimensions.height ? '16:9' : '9:16') : '16:9',
           duration: 5,
           quality: '720p',
+          ...(imageUrl ? { imageUrl } : {}),
         }),
       });
 
@@ -2477,9 +2473,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       }
 
       const genData = await genRes.json();
-      setAnalyzerGenerateProgress(60);
+      setExpansionGenerateProgress(60);
 
-      // Poll for completion if we got a generationId
+      // Poll for completion
       if (genData.generationId) {
         let attempts = 0;
         const maxAttempts = 120;
@@ -2488,7 +2484,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         while (attempts < maxAttempts && !videoUrl) {
           await new Promise(resolve => setTimeout(resolve, 3000));
           attempts++;
-          setAnalyzerGenerateProgress(Math.min(60 + (attempts / maxAttempts) * 35, 95));
+          setExpansionGenerateProgress(Math.min(60 + (attempts / maxAttempts) * 35, 95));
 
           const checkRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-generation`, {
             method: 'POST',
@@ -2511,8 +2507,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
         if (!videoUrl) throw new Error('Video generation timed out');
 
-        // Insert as new clip at playhead position
-        setAnalyzerGenerateProgress(100);
+        // Append as new clip at the end of the timeline
+        setExpansionGenerateProgress(100);
         clearInterval(progressInterval);
 
         saveStateToHistory();
@@ -2520,7 +2516,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           id: `clip-${Date.now()}`,
           url: videoUrl,
           duration: 5,
-          startTime: currentTime,
+          startTime: totalTimelineDuration,
           inPoint: 0,
           outPoint: 5,
           volume: 1,
@@ -2530,7 +2526,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
         setVideoClips(prev => {
           const updated = [...prev, newClip];
-          // Recalculate start times
           let pos = 0;
           return updated.sort((a, b) => a.startTime - b.startTime).map(c => {
             const clip = { ...c, startTime: pos };
@@ -2539,17 +2534,17 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           });
         });
 
-        toast({ title: "AI Clip Inserted", description: "New AI-generated clip added to timeline at playhead position." });
+        toast({ title: "Video Expanded", description: "AI-generated extension appended to the end of your video." });
       } else {
         throw new Error('No generation ID returned');
       }
     } catch (err: any) {
-      console.error("AI Analyzer generate error:", err);
-      toast({ variant: "destructive", title: "Generation Failed", description: err.message || "Please try again" });
+      console.error("AI Expansion error:", err);
+      toast({ variant: "destructive", title: "Expansion Failed", description: err.message || "Please try again" });
     } finally {
       clearInterval(progressInterval);
-      setIsAnalyzerGenerating(false);
-      setAnalyzerGenerateProgress(0);
+      setIsExpansionGenerating(false);
+      setExpansionGenerateProgress(0);
     }
   };
 
@@ -4967,38 +4962,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 </div>
               )}
 
-              {/* AI Video Analyzer - Scanning Overlay */}
-              {isAnalyzerScanning && (
-                <div className="absolute inset-0 z-[200] flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm">
-                  <div className="relative w-20 h-20 mb-4">
-                    <div className="absolute inset-0 rounded-full border-2 border-primary/30 animate-ping" />
-                    <div className="absolute inset-1 rounded-full border-2 border-primary/50 animate-pulse" />
-                    <div className="absolute inset-2 rounded-full border border-primary/40 animate-[spin_3s_linear_infinite]" 
-                      style={{ borderTopColor: 'hsl(var(--primary))' }} 
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <FileText className="w-7 h-7 text-primary animate-pulse" />
-                    </div>
-                  </div>
-                  <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent opacity-60"
-                    style={{ animation: 'scan 2s ease-in-out infinite' }}
-                  />
-                  <p className="text-primary font-semibold text-sm flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-400" />
-                    Scanning Video...
-                  </p>
-                  <p className="text-muted-foreground text-xs mt-1">AI is analyzing your content</p>
-                  <button
-                    onClick={() => setIsAnalyzerScanning(false)}
-                    className="mt-4 px-4 py-1.5 rounded-lg bg-destructive/20 text-destructive text-xs font-medium hover:bg-destructive/30 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
-
-              {/* AI Video Analyzer - Generating Overlay */}
-              {isAnalyzerGenerating && (
+              {/* AI Video Expansion - Generating Overlay */}
+              {isExpansionGenerating && (
                 <div className="absolute inset-0 z-[200] flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm">
                   <div className="relative w-24 h-24 mb-6">
                     <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-pulse" />
@@ -5006,23 +4971,23 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       style={{ borderTopColor: 'hsl(var(--primary))', borderRightColor: 'hsl(var(--primary))' }}
                     />
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <Video className="w-8 h-8 text-primary animate-pulse" />
+                      <Maximize className="w-8 h-8 text-primary animate-pulse" />
                     </div>
                   </div>
                   <p className="text-primary font-semibold text-sm flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-amber-400" />
-                    Generating New Clip...
+                    Expanding Video...
                   </p>
                   {/* Progress bar */}
                   <div className="w-48 h-2 bg-muted/30 rounded-full mt-3 overflow-hidden">
                     <div 
                       className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full transition-all duration-500"
-                      style={{ width: `${analyzerGenerateProgress}%` }}
+                      style={{ width: `${expansionGenerateProgress}%` }}
                     />
                   </div>
-                  <p className="text-primary/80 text-xs mt-1 font-mono">{Math.round(analyzerGenerateProgress)}%</p>
+                  <p className="text-primary/80 text-xs mt-1 font-mono">{Math.round(expansionGenerateProgress)}%</p>
                   <button
-                    onClick={() => { setIsAnalyzerGenerating(false); setAnalyzerGenerateProgress(0); }}
+                    onClick={() => { setIsExpansionGenerating(false); setExpansionGenerateProgress(0); }}
                     className="mt-4 px-4 py-1.5 rounded-lg bg-destructive/20 text-destructive text-xs font-medium hover:bg-destructive/30 transition-colors"
                   >
                     Cancel
@@ -7144,102 +7109,73 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               </div>
             )}
 
-            {/* AI Video Analyzer Bottom Sheet */}
-            {isAIAnalyzerOpen && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col rounded-t-2xl border-t border-border/20" style={{ height: analyzerSummary ? '380px' : '200px' }}>
+            {/* AI Video Expansion Bottom Sheet */}
+            {isAIExpansionOpen && (
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col rounded-t-2xl border-t border-border/20" style={{ height: '320px' }}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/20">
                   <button
-                    onClick={() => setIsAIAnalyzerOpen(false)}
+                    onClick={() => setIsAIExpansionOpen(false)}
                     className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
                   >
                     <ChevronDown className="w-5 h-5 text-primary" />
                   </button>
                   <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-semibold text-foreground">AI Video Analyzer</span>
+                    <Maximize className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-semibold text-foreground">AI Expand</span>
                     <Sparkles className="w-3 h-3 text-amber-400" />
                   </div>
                   <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10">
                     <Sparkles className="w-3 h-3 text-primary" />
-                    <span className="text-[10px] font-semibold text-primary">{AI_ANALYZER_CREDIT_COST} cr</span>
+                    <span className="text-[10px] font-semibold text-primary">{AI_EXPANSION_CREDIT_COST} cr</span>
                   </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3">
-                  {/* Scan button - if not yet analyzed */}
-                  {!analyzerSummary && !isAnalyzerScanning && (
-                    <div className="flex flex-col items-center gap-3 py-4">
-                      <p className="text-xs text-muted-foreground text-center">Tap below to let AI analyze your video content</p>
-                      <button
-                        onClick={handleAnalyzerScan}
-                        className="px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-violet-500 to-purple-500 text-white flex items-center gap-2 hover:opacity-90 transition-opacity"
-                      >
-                        <Sparkles className="w-4 h-4 text-amber-300" />
-                        Scan Video
-                      </button>
+                  {/* Last frame preview */}
+                  {lastFrameDataUrl && (
+                    <div className="flex items-center gap-3 p-2.5 rounded-xl bg-primary/5 border border-primary/20">
+                      <img 
+                        src={lastFrameDataUrl} 
+                        alt="Last frame reference" 
+                        className="w-16 h-10 rounded-lg object-cover border border-border/30"
+                      />
+                      <div className="flex-1">
+                        <p className="text-[10px] font-semibold text-primary">Reference Frame</p>
+                        <p className="text-[10px] text-muted-foreground">Last frame will be used for seamless continuation</p>
+                      </div>
+                      <Check className="w-4 h-4 text-primary" />
                     </div>
                   )}
 
-                  {/* Analysis Result */}
-                  {analyzerSummary && (
-                    <>
-                      {/* Summary */}
-                      <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <FileText className="w-3.5 h-3.5 text-primary" />
-                          <span className="text-xs font-semibold text-primary">Analysis</span>
-                        </div>
-                        <p className="text-xs text-foreground/80 leading-relaxed">{analyzerSummary}</p>
-                      </div>
-
-                      {/* AI Suggestions */}
-                      {analyzerSuggestions.length > 0 && (
-                        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-                          {analyzerSuggestions.map((suggestion, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => setAnalyzerPrompt(suggestion)}
-                              className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                            >
-                              {suggestion}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* AI Suggestion Input */}
-                      <div className="p-3 rounded-xl bg-muted/10 border border-border/20">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                          <span className="text-xs font-semibold text-foreground">AI Suggestion</span>
-                        </div>
-                        <textarea
-                          value={analyzerPrompt}
-                          onChange={(e) => setAnalyzerPrompt(e.target.value)}
-                          placeholder="e.g., Add a 3-second clip of a golden retriever running towards the person"
-                          className="w-full min-h-[50px] rounded-lg border border-border/30 bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
-                          rows={2}
-                        />
-                      </div>
-                    </>
-                  )}
+                  {/* Expansion prompt */}
+                  <div className="p-3 rounded-xl bg-muted/10 border border-border/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="text-xs font-semibold text-foreground">Describe the expansion</span>
+                    </div>
+                    <textarea
+                      value={expansionPrompt}
+                      onChange={(e) => setExpansionPrompt(e.target.value)}
+                      placeholder="e.g., Continue with a slow zoom out revealing the full landscape..."
+                      className="w-full min-h-[60px] rounded-lg border border-border/30 bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                      rows={3}
+                    />
+                  </div>
                 </div>
 
-                {/* Generate & Insert button */}
-                {analyzerSummary && (
-                  <div className="px-4 pb-4">
-                    <button
-                      onClick={handleAnalyzerGenerate}
-                      disabled={!analyzerPrompt.trim()}
-                      className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 bg-gradient-to-r from-violet-500 to-purple-500 text-white hover:opacity-90 flex items-center justify-center gap-2"
-                    >
-                      <Sparkles className="w-4 h-4 text-amber-300" />
-                      <span>Generate & Insert</span>
-                      <span className="text-[10px] opacity-70">({AI_ANALYZER_GENERATE_CREDIT_COST} credits)</span>
-                    </button>
-                  </div>
-                )}
+                {/* Generate & Append button */}
+                <div className="px-4 pb-4">
+                  <button
+                    onClick={handleExpansionGenerate}
+                    disabled={!expansionPrompt.trim()}
+                    className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 bg-gradient-to-r from-violet-500 to-purple-500 text-primary-foreground hover:opacity-90 flex items-center justify-center gap-2"
+                  >
+                    <Maximize className="w-4 h-4" />
+                    <span>Expand Video</span>
+                    <span className="text-[10px] opacity-70">({AI_EXPANSION_CREDIT_COST} credits)</span>
+                  </button>
+                </div>
               </div>
             )}
 
