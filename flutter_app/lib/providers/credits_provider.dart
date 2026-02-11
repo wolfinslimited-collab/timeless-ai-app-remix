@@ -22,7 +22,7 @@ class CreditsProvider extends ChangeNotifier {
  
    /// Check if user has Premium Plus access
    bool get hasPremiumPlusAccess => 
-       _hasActiveSubscription && _currentPlan == 'premium-plus';
+       _hasActiveSubscription && (_currentPlan?.startsWith('premium-plus') ?? false);
 
   CreditsProvider() {
     _init();
