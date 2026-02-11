@@ -1404,8 +1404,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       });
       setIsPlaying(false);
     } else {
+      // If at or near the end, reset to beginning before playing
+      let playFromTime = currentTime;
+      if (currentTime >= totalTimelineDuration - 0.05) {
+        playFromTime = 0;
+        setCurrentTime(0);
+      }
+      
       // Play all - sync first, then play
-      syncAllLayersToTime(currentTime);
+      syncAllLayersToTime(playFromTime);
       
       if (videoRef.current) {
         videoRef.current.play().catch(() => {});
@@ -1413,10 +1420,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       
       // Play overlay videos that should be visible at current time
       videoOverlays.forEach(overlay => {
-        if (currentTime >= overlay.startTime && currentTime <= overlay.endTime) {
+        if (playFromTime >= overlay.startTime && playFromTime <= overlay.endTime) {
           const overlayEl = overlayVideoRefs.current[overlay.id];
           if (overlayEl) {
-            const overlayTime = currentTime - overlay.startTime;
+            const overlayTime = playFromTime - overlay.startTime;
             overlayEl.currentTime = Math.max(0, Math.min(overlayTime, overlay.duration));
             overlayEl.play().catch(() => {});
           }
@@ -1427,8 +1434,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       audioLayers.forEach(audio => {
         const audioEl = audioRefs.current.get(audio.id);
         if (!audioEl) return;
-        if (currentTime >= audio.startTime && currentTime <= audio.endTime) {
-          const audioTime = currentTime - audio.startTime;
+        if (playFromTime >= audio.startTime && playFromTime <= audio.endTime) {
+          const audioTime = playFromTime - audio.startTime;
           audioEl.currentTime = audioTime;
           audioEl.volume = audio.volume;
           audioEl.play().catch(() => {});

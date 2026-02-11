@@ -1876,6 +1876,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   void _unifiedPlay() {
     if (_videoController == null || !_isVideoInitialized) return;
     
+    // If at or near the end, reset to beginning before playing
+    if (_currentTimelinePosition >= _totalTimelineDuration - 0.05) {
+      _currentTimelinePosition = 0;
+    }
+    
     // Seek video to current playhead position before playing
     final activeResult = _getActiveClipAtTime(_currentTimelinePosition);
     if (activeResult != null) {
