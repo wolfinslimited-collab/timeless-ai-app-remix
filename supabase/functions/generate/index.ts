@@ -545,10 +545,12 @@ serve(async (req) => {
               return;
             }
             
-            const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-            const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+            // Use primary Timeless Supabase project for auth validation
+            // (users authenticate against the primary project, not Lovable Cloud)
+            const primarySupabaseUrl = "https://ifesxveahsbjhmrhkhhy.supabase.co";
+            const primaryAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmZXN4dmVhaHNiamhtcmhraGh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4ODc4OTQsImV4cCI6MjA4NDQ2Mzg5NH0.uBRcVNQcTdJNk9gstOCW6xRcQsZ8pnQwy5IGxbhZD6g";
             
-            const supabase = createClient(supabaseUrl, supabaseKey, {
+            const supabase = createClient(primarySupabaseUrl, primaryAnonKey, {
               global: { headers: { Authorization: authHeader } }
             });
 
@@ -795,10 +797,12 @@ serve(async (req) => {
       );
     }
     
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    // Use primary Timeless Supabase project for auth validation
+    // (users authenticate against the primary project, not Lovable Cloud)
+    const primarySupabaseUrl = "https://ifesxveahsbjhmrhkhhy.supabase.co";
+    const primaryAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmZXN4dmVhaHNiamhtcmhraGh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4ODc4OTQsImV4cCI6MjA4NDQ2Mzg5NH0.uBRcVNQcTdJNk9gstOCW6xRcQsZ8pnQwy5IGxbhZD6g";
     
-    const supabase = createClient(supabaseUrl, supabaseKey, {
+    const supabase = createClient(primarySupabaseUrl, primaryAnonKey, {
       global: { headers: { Authorization: authHeader } }
     });
 
