@@ -88,40 +88,8 @@ class _ProjectManagerScreenState extends State<ProjectManagerScreen> {
   }
 
   Future<void> _handleOpenProject(EditorProject project) async {
-    // First try the cached video file
-    final cachedFile = await ProjectStorage.getVideoFile(project.id);
-    if (cachedFile != null && await cachedFile.exists()) {
-      project.videoUrl = cachedFile.path;
-      widget.onNewProject(project, cachedFile);
-      return;
-    }
-
-    // Then check if the original video file still exists
-    if (project.videoUrl != null && project.videoUrl!.isNotEmpty) {
-      final file = File(project.videoUrl!);
-      if (await file.exists()) {
-        // Cache it for next time
-        await ProjectStorage.saveVideoFile(project.id, file);
-        widget.onOpenProject(project);
-        return;
-      }
-    }
-
-    // Video file no longer exists — ask user to re-select
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.video,
-      allowMultiple: false,
-    );
-
-    if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
-      final newFile = File(result.files.first.path!);
-      project.videoUrl = result.files.first.path;
-      await ProjectStorage.saveProject(project);
-      await ProjectStorage.saveVideoFile(project.id, newFile);
-      widget.onNewProject(project, newFile);
-    } else {
-      _showSnackBar('Please select a video file to open this project');
-    }
+    // Always use onOpenProject for existing projects so full state (overlays, effects, etc.) is restored
+    widget.onOpenProject(project);
   }
 
   Future<void> _handleRename() async {

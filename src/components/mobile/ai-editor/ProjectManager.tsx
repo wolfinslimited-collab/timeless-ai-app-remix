@@ -103,16 +103,8 @@ export function ProjectManager({ onBack, onOpenProject, onNewProject }: ProjectM
   };
 
   const handleOpenProject = async (project: EditorProject) => {
-    // Try to retrieve the cached video file from IndexedDB
-    const cachedFile = await getVideoFile(project.id);
-    if (cachedFile) {
-      const freshUrl = URL.createObjectURL(cachedFile);
-      project.videoUrl = freshUrl;
-      onNewProject(project, cachedFile);
-    } else {
-      // No cached file — fall back to existing behavior
-      onOpenProject(project);
-    }
+    // Always use onOpenProject for existing projects so full state is restored
+    onOpenProject(project);
   };
 
   const handleRename = async () => {
