@@ -181,7 +181,7 @@ export default function MobilePreview() {
   };
 
   // Determine if bottom nav should be hidden
-  const hideNav = showAuth || showSplash || showOnboarding;
+  const hideNav = showAuth || showSplash || showOnboarding || currentScreen === "subscription";
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
