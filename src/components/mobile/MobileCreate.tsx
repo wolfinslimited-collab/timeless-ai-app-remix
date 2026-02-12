@@ -98,7 +98,7 @@ function CreateOption({
       )}
     >
       <div className={cn(
-        "w-14 h-18 rounded-xl flex items-center justify-center",
+        "w-14 h-[72px] rounded-xl flex items-center justify-center",
         "bg-secondary"
       )}>
         <Icon className="w-7 h-7 text-foreground" />
