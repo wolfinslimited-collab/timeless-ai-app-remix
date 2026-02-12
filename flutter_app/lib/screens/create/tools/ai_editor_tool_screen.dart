@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
+import 'dart:ui' as ui show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -4894,7 +4894,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         child: Transform.scale(
                           scale: 1.1, // Prevent blur edges from showing
                           child: ImageFiltered(
-                            imageFilter: ImageFilter.blur(
+                            imageFilter: ui.ImageFilter.blur(
                               sigmaX: _backgroundBlur * 2,
                               sigmaY: _backgroundBlur * 2,
                             ),
@@ -5105,52 +5105,94 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     // AI Enhance Processing Overlay
                     if (_isAIEnhancing)
                       Positioned.fill(
-                        child: Container(
-                          color: Colors.black.withOpacity(0.7),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                width: 64,
-                                height: 64,
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    SizedBox(
-                                      width: 64,
-                                      height: 64,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.purple.withOpacity(0.6)),
-                                      ),
-                                    ),
-                                    const Icon(Icons.auto_fix_high, color: Colors.purpleAccent, size: 24),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              const Text(
-                                'AI Enhancing...',
-                                style: TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.w600, fontSize: 14),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Analyzing & optimizing video',
-                                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
-                              ),
-                              const SizedBox(height: 16),
-                              GestureDetector(
-                                onTap: () => setState(() => _isAIEnhancing = false),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(8),
+                        child: ClipRRect(
+                          child: BackdropFilter(
+                            filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                            child: Container(
+                              color: Colors.black.withOpacity(0.7),
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Scanning line effect
+                                  TweenAnimationBuilder<double>(
+                                    tween: Tween(begin: 0.0, end: 1.0),
+                                    duration: const Duration(seconds: 2),
+                                    builder: (context, value, child) {
+                                      return Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        top: value * MediaQuery.of(context).size.height * 0.5,
+                                        child: Container(
+                                          height: 2,
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                Colors.transparent,
+                                                Colors.purpleAccent.withOpacity(0.6),
+                                                Colors.transparent,
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    onEnd: () {},
                                   ),
-                                  child: const Text('Cancel', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w500)),
-                                ),
+                                  Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      // Pulsing rings with icon
+                                      SizedBox(
+                                        width: 80,
+                                        height: 80,
+                                        child: Stack(
+                                          alignment: Alignment.center,
+                                          children: [
+                                            // Outer ping ring
+                                            _buildPulsingRing(80, Colors.purple.withOpacity(0.15), 1200),
+                                            // Middle pulse ring
+                                            _buildPulsingRing(68, Colors.purple.withOpacity(0.25), 1500),
+                                            // Spinning ring
+                                            SizedBox(
+                                              width: 56,
+                                              height: 56,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 1.5,
+                                                valueColor: AlwaysStoppedAnimation<Color>(Colors.purpleAccent.withOpacity(0.5)),
+                                              ),
+                                            ),
+                                            // Center icon
+                                            Icon(Icons.auto_fix_high, color: Colors.purpleAccent, size: 28),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const Text(
+                                        'AI Enhancing...',
+                                        style: TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.w600, fontSize: 14),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Analyzing & optimizing video',
+                                        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      GestureDetector(
+                                        onTap: () => setState(() => _isAIEnhancing = false),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: Colors.red.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: const Text('Cancel', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w500)),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
@@ -5573,6 +5615,25 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             ),
           ),
       ],
+    );
+  }
+  
+  /// Helper: build a pulsing ring animation widget
+  Widget _buildPulsingRing(double size, Color color, int durationMs) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.8, end: 1.0),
+      duration: Duration(milliseconds: durationMs),
+      builder: (context, value, child) {
+        return Container(
+          width: size * value,
+          height: size * value,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: color, width: 2),
+          ),
+        );
+      },
+      onEnd: () {},
     );
   }
   
