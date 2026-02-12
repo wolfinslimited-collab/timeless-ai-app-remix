@@ -5013,6 +5013,34 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 </div>
               )}
 
+              {/* AI Enhance Processing Overlay */}
+              {isAIEnhancing && (
+                <div className="absolute inset-0 z-[200] flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm">
+                  <div className="relative w-20 h-20 mb-4">
+                    <div className="absolute inset-0 rounded-full border-2 border-violet-400/30 animate-ping" />
+                    <div className="absolute inset-1 rounded-full border-2 border-purple-400/50 animate-pulse" />
+                    <div className="absolute inset-2 rounded-full border border-fuchsia-400/40 animate-[spin_3s_linear_infinite]" 
+                      style={{ borderTopColor: '#a78bfa' }} 
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Wand2 className="w-7 h-7 text-purple-400 animate-pulse" />
+                    </div>
+                  </div>
+                  {/* Scanning line effect */}
+                  <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-violet-400 to-transparent opacity-60"
+                    style={{ animation: 'scan 2s ease-in-out infinite' }}
+                  />
+                  <p className="text-purple-300 font-semibold text-sm">AI Enhancing...</p>
+                  <p className="text-muted-foreground text-xs mt-1">Analyzing & optimizing video</p>
+                  <button
+                    onClick={() => setIsAIEnhancing(false)}
+                    className="mt-4 px-4 py-1.5 rounded-lg bg-destructive/20 text-destructive text-xs font-medium hover:bg-destructive/30 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
               {/* AI Video Expansion - Generating Overlay */}
               {isExpansionGenerating && (
                 <div className="absolute inset-0 z-[200] flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm">
