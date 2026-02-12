@@ -171,6 +171,7 @@ interface EditorStateSnapshot {
   captionLayers: CaptionLayerData[];
   effectLayers: EffectLayerData[];
   drawingLayers: DrawingLayerData[];
+  videoOverlays: VideoOverlayData[];
   timestamp: number;
 }
 
@@ -601,6 +602,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       startTime: d.startTime,
       endTime: d.endTime,
     })),
+    videoOverlays: videoOverlays.map(o => ({ ...o })),
     timestamp: Date.now(),
   });
 
@@ -694,6 +696,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       strokes: d.strokes.map(s => ({ ...s, points: [...s.points] })),
     })));
 
+    // Restore video overlays
+    setVideoOverlays((snapshot.videoOverlays || []).map(o => ({ ...o })));
+
     // Clear selections
     setSelectedClipId(null);
     setSelectedTextId(null);
@@ -701,6 +706,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setSelectedCaptionId(null);
     setSelectedEffectId(null);
     setSelectedDrawingId(null);
+    setSelectedOverlayId(null);
 
     setTimeout(() => {
       isRestoringRef.current = false;
