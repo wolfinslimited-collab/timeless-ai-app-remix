@@ -160,8 +160,11 @@ interface VideoClip {
   hqUpscaled?: boolean; // Whether AI HQ upscale has been applied
 }
 
-// Helper to get trimmed duration
+// Helper to get trimmed duration (source time, ignoring speed)
 const getClipTrimmedDuration = (clip: VideoClip) => clip.outPoint - clip.inPoint;
+
+// Helper to get effective timeline duration (accounts for speed)
+const getClipTimelineDuration = (clip: VideoClip) => (clip.outPoint - clip.inPoint) / (clip.speed || 1);
 
 // Editor state snapshot for undo/redo (without React refs/elements)
 interface EditorStateSnapshot {
@@ -1249,7 +1252,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Calculate total timeline duration from all clips (using trimmed durations)
   // This must be defined BEFORE the playback loop that uses it
   const videoClipsDuration = videoClips.length > 0 
-    ? videoClips.reduce((sum, clip) => sum + getClipTrimmedDuration(clip), 0)
+    ? videoClips.reduce((sum, clip) => sum + getClipTimelineDuration(clip), 0)
     : duration;
   const endingClipDuration = endingClip?.enabled ? endingClip.duration : 0;
   const totalTimelineDuration = videoClipsDuration + endingClipDuration;
@@ -1261,9 +1264,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Get the active clip based on current timeline position
   const getActiveClipAtTime = (time: number): { clip: VideoClip; localTime: number } | null => {
     for (const clip of videoClips) {
-      const clipEnd = clip.startTime + getClipTrimmedDuration(clip);
+      const clipEnd = clip.startTime + getClipTimelineDuration(clip);
       if (time >= clip.startTime && time < clipEnd) {
-        const localTime = clip.inPoint + (time - clip.startTime);
+        // Map timeline time to source time accounting for speed
+        const localTime = clip.inPoint + (time - clip.startTime) * (clip.speed || 1);
         return { clip, localTime };
       }
     }
@@ -1956,17 +1960,17 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     const clip = videoClips.find(c => c.id === clipId);
     if (!clip) return;
     
-    // Calculate local time within the clip
-    const localTime = currentTime - clip.startTime;
-    if (localTime <= 0.5 || localTime >= getClipTrimmedDuration(clip) - 0.5) {
+    // Calculate timeline-local time within the clip
+    const timelineLocalTime = currentTime - clip.startTime;
+    if (timelineLocalTime <= 0.5 || timelineLocalTime >= getClipTimelineDuration(clip) - 0.5) {
       toast({ variant: "destructive", title: "Cannot split here", description: "Move playhead to middle of clip" });
       return;
     }
     
     saveStateToHistory();
     
-    // Create two clips from the split
-    const splitPoint = clip.inPoint + localTime;
+    // Convert timeline time to source time for the split point
+    const splitPoint = clip.inPoint + timelineLocalTime * (clip.speed || 1);
     const firstClip: VideoClip = {
       ...clip,
       id: clip.id,
@@ -2032,8 +2036,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       toast({ title: "Speed for overlays", description: "Coming soon!" });
     } else {
       // Update the clip's speed in state
-      setVideoClips(prev => prev.map(clip => 
-        clip.id === editingClipId ? { ...clip, speed: clipSpeed } : clip
+      setVideoClips(prev => recalculateClipStartTimes(
+        prev.map(clip => clip.id === editingClipId ? { ...clip, speed: clipSpeed } : clip)
       ));
       
       // Apply real-time preview
@@ -2208,7 +2212,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     if (!targetClipId) {
       // Find clip at current playhead position
       const clipAtPlayhead = videoClips.find(clip => {
-        const clipEnd = clip.startTime + getClipTrimmedDuration(clip);
+        const clipEnd = clip.startTime + getClipTimelineDuration(clip);
         return currentTime >= clip.startTime && currentTime < clipEnd;
       });
       targetClipId = clipAtPlayhead?.id || null;
@@ -2236,7 +2240,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     
     if (!targetClipId) {
       const clipAtPlayhead = videoClips.find(clip => {
-        const clipEnd = clip.startTime + getClipTrimmedDuration(clip);
+        const clipEnd = clip.startTime + getClipTimelineDuration(clip);
         return currentTime >= clip.startTime && currentTime < clipEnd;
       });
       targetClipId = clipAtPlayhead?.id || null;
@@ -2552,7 +2556,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           let pos = 0;
           return updated.sort((a, b) => a.startTime - b.startTime).map(c => {
             const clip = { ...c, startTime: pos };
-            pos += getClipTrimmedDuration(clip);
+            pos += getClipTimelineDuration(clip);
             return clip;
           });
         });
@@ -2760,7 +2764,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Add a new video clip to the end of the timeline
   const addVideoClip = (url: string, clipDuration: number, fileToCache?: File) => {
     const lastClip = videoClips[videoClips.length - 1];
-    const startTime = lastClip ? lastClip.startTime + getClipTrimmedDuration(lastClip) : 0;
+    const startTime = lastClip ? lastClip.startTime + getClipTimelineDuration(lastClip) : 0;
     
     const clipId = Date.now().toString();
     const newClip: VideoClip = {
@@ -2794,7 +2798,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     let currentStart = 0;
     return clips.map(clip => {
       const updatedClip = { ...clip, startTime: currentStart };
-      currentStart += getClipTrimmedDuration(updatedClip);
+      currentStart += getClipTimelineDuration(updatedClip);
       return updatedClip;
     });
   };
@@ -5828,7 +5832,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         {/* Render all video clips snapped together */}
                         <div className="flex h-[32px]">
                           {videoClips.map((clip, clipIndex) => {
-                            const clipDuration = getClipTrimmedDuration(clip);
+                            const clipDuration = getClipTimelineDuration(clip);
                             const clipWidth = isFinite(clipDuration) ? clipDuration * PIXELS_PER_SECOND : 0;
                             const thumbCount = Math.max(1, Math.min(100, Math.ceil(clipWidth / 60)));
                             const isFirst = clipIndex === 0;
