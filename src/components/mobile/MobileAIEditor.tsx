@@ -5513,9 +5513,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   const timeUnderPlayhead = scrollLeft / PIXELS_PER_SECOND;
                   const clampedTime = Math.max(0, Math.min(totalTimelineDuration, timeUnderPlayhead));
                   
-                  // Pause playback and seek all layers to scrubbed position
+                  // Pause playback when user starts scrubbing
                   if (isPlaying) {
-                    // Pause all layers
                     if (videoRef.current) videoRef.current.pause();
                     audioLayers.forEach(audio => {
                       const audioEl = audioRefs.current.get(audio.id);
@@ -5530,13 +5529,34 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   
                   setCurrentTime(clampedTime);
                   
-                  // Directly seek the video element for immediate visual feedback
+                  // Sync all layers (video, audio, overlays) to scrubbed position for real-time preview
+                  // Use direct seek for the main video to minimize latency
                   if (videoRef.current) {
                     const activeResult = getActiveClipAtTime(clampedTime);
                     if (activeResult) {
-                      videoRef.current.currentTime = activeResult.localTime;
+                      const { clip, localTime } = activeResult;
+                      const activeIndex = videoClips.findIndex(c => c.id === clip.id);
+                      
+                      // Switch clip source if needed
+                      if (activeIndex !== activeClipIndex && videoRef.current.src !== clip.url) {
+                        setActiveClipIndex(activeIndex);
+                        videoRef.current.src = clip.url;
+                        videoRef.current.load();
+                      }
+                      
+                      // Seek with no threshold for instant frame updates
+                      videoRef.current.currentTime = localTime;
                     }
                   }
+                  
+                  // Sync overlay videos to scrubbed position
+                  videoOverlays.forEach(overlay => {
+                    const overlayEl = overlayVideoRefs.current[overlay.id];
+                    if (!overlayEl) return;
+                    if (clampedTime >= overlay.startTime && clampedTime <= overlay.endTime) {
+                      overlayEl.currentTime = Math.max(0, Math.min(clampedTime - overlay.startTime, overlay.duration));
+                    }
+                  });
                 }}
                 onMouseDown={() => { isUserScrollingRef.current = true; setIsUserScrolling(true); }}
                 onMouseUp={() => { isUserScrollingRef.current = false; setIsUserScrolling(false); }}
