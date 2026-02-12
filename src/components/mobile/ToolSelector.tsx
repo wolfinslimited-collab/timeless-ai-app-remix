@@ -19,8 +19,8 @@ interface ToolSelectorProps {
 
 export function ToolSelector({ tools, selectedToolId, onToolSelected }: ToolSelectorProps) {
   return (
-    <div className="overflow-x-auto min-h-[120px]">
-      <div className="flex gap-3 px-4 py-3" style={{ width: "max-content" }}>
+   <div className="overflow-x-auto">
+     <div className="flex gap-3 px-4 py-4" style={{ width: "max-content", minHeight: 100 }}>
         {tools.map((tool) => {
           const isSelected = tool.id === selectedToolId;
           const Icon = tool.icon;
