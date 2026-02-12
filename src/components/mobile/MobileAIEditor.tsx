@@ -7864,26 +7864,26 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         </div>
                         
                         {/* Slider */}
-                        <div className="relative h-2 mb-2">
+                        <div className="relative h-1 mb-2">
                           <div className="absolute inset-0 h-full bg-muted/30 rounded-full" />
                           <div 
                             className="absolute left-0 top-0 h-full rounded-full bg-primary transition-all"
-                            style={{ width: `${((Math.log10(clipSpeed) + 1) / (Math.log10(100) + 1)) * 100}%` }}
+                            style={{ width: `${((Math.log10(clipSpeed) + 1) / (Math.log10(10) + 1)) * 100}%` }}
                           />
                           <div 
                             className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-md border border-primary"
-                            style={{ left: `calc(${((Math.log10(clipSpeed) + 1) / (Math.log10(100) + 1)) * 100}% - 8px)` }}
+                            style={{ left: `calc(${((Math.log10(clipSpeed) + 1) / (Math.log10(10) + 1)) * 100}% - 8px)` }}
                           />
                           <input
                             type="range"
                             min="-1"
-                            max={Math.log10(100)}
+                            max={Math.log10(10)}
                             step="0.01"
                             value={Math.log10(clipSpeed)}
                             onChange={(e) => {
                               const logValue = parseFloat(e.target.value);
                               const newSpeed = Math.pow(10, logValue);
-                              setClipSpeed(Math.max(0.1, Math.min(100, newSpeed)));
+                              setClipSpeed(Math.max(0.1, Math.min(10, newSpeed)));
                             }}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           />
@@ -7892,11 +7892,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         {/* Markers */}
                         <div className="flex justify-between text-[10px] text-muted-foreground">
                           <span>0.1x</span>
+                          <span>0.5x</span>
                           <span>1x</span>
                           <span>2x</span>
                           <span>5x</span>
                           <span>10x</span>
-                          <span>100x</span>
                         </div>
                       </div>
                       

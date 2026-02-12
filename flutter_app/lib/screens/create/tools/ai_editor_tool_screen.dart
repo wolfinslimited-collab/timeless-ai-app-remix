@@ -3356,12 +3356,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         activeTrackColor: Theme.of(context).primaryColor,
                         inactiveTrackColor: Colors.white.withOpacity(0.1),
                         thumbColor: Theme.of(context).primaryColor,
-                        trackHeight: 4,
+                        trackHeight: 2,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
                       ),
                       child: Slider(
-                        value: _clipSpeed,
+                        value: _clipSpeed.clamp(0.25, 10.0),
                         min: 0.25,
-                        max: 2.0,
+                        max: 10.0,
                         onChanged: (value) {
                           setSheetState(() => _clipSpeed = value);
                           setState(() => _clipSpeed = value);
@@ -3373,7 +3374,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       children: [
                         Text('0.25x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
                         Text('1x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
-                        Text('2x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
+                        Text('5x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
+                        Text('10x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
                       ],
                     ),
                   ],
@@ -11335,23 +11337,23 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         ),
                         const SizedBox(height: 8),
                         
-                        // Logarithmic slider (0.1x to 100x)
+                        // Logarithmic slider (0.1x to 10x)
                         SliderTheme(
                           data: SliderTheme.of(context).copyWith(
                             activeTrackColor: AppTheme.primary,
                             inactiveTrackColor: Colors.white.withOpacity(0.15),
                             thumbColor: Colors.white,
-                            trackHeight: 4,
-                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                            trackHeight: 2,
+                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
                             overlayColor: AppTheme.primary.withOpacity(0.2),
                           ),
                           child: Slider(
-                            value: math.log(_clipSpeed.clamp(0.1, 100)) / math.ln10,
+                            value: math.log(_clipSpeed.clamp(0.1, 10)) / math.ln10,
                             min: -1, // log10(0.1)
-                            max: 2, // log10(100)
+                            max: 1, // log10(10)
                             onChanged: (logValue) {
                               final newSpeed = math.pow(10, logValue).toDouble();
-                              setState(() => _clipSpeed = newSpeed.clamp(0.1, 100));
+                              setState(() => _clipSpeed = newSpeed.clamp(0.1, 10));
                             },
                           ),
                         ),
@@ -11361,11 +11363,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text('0.1x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
+                            Text('0.5x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
                             Text('1x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
                             Text('2x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
                             Text('5x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
                             Text('10x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
-                            Text('100x', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
                           ],
                         ),
                       ],
