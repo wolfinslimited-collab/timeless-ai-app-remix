@@ -2969,6 +2969,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     let audioContext: AudioContext | null = null;
     let mediaRecorder: MediaRecorder | null = null;
     const createdBlobUrls: string[] = [];
+    const overlayExportVideos: Map<string, HTMLVideoElement> = new Map();
 
     try {
       const getResolutionDimensions = () => {
@@ -3139,6 +3140,63 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         });
       };
 
+      // Pre-load overlay video elements for compositing during export
+      
+      if (videoOverlays.length > 0) {
+        setExportStage('Loading overlay videos...');
+        for (const overlay of videoOverlays) {
+          try {
+            const overlayVid = await loadExportVideo(overlay.url);
+            overlayExportVideos.set(overlay.id, overlayVid);
+          } catch (e) {
+            console.warn(`[Export] Failed to load overlay ${overlay.id}:`, e);
+          }
+        }
+      }
+
+      // Helper: draw video overlay layers at a given timeline time
+      const drawVideoOverlaysAtTime = async (timelineTime: number) => {
+        for (const overlay of videoOverlays) {
+          if (timelineTime < overlay.startTime || timelineTime > overlay.endTime) continue;
+          
+          const overlayVid = overlayExportVideos.get(overlay.id);
+          if (!overlayVid) continue;
+          
+          // Seek overlay video to the correct position
+          const overlayLocalTime = Math.max(0, Math.min(timelineTime - overlay.startTime, overlay.duration));
+          overlayVid.currentTime = overlayLocalTime;
+          await new Promise<void>((resolve) => {
+            const onSeeked = () => {
+              overlayVid.removeEventListener('seeked', onSeeked);
+              resolve();
+            };
+            overlayVid.addEventListener('seeked', onSeeked);
+            // Timeout fallback in case seeked doesn't fire
+            setTimeout(() => {
+              overlayVid.removeEventListener('seeked', onSeeked);
+              resolve();
+            }, 500);
+          });
+          
+          // Calculate overlay position and size on the export canvas
+          const overlayX = overlay.position.x * width;
+          const overlayY = overlay.position.y * height;
+          const overlayW = overlay.size.width * (width / 375) * (overlay.scale || 1);
+          const overlayH = overlay.size.height * (width / 375) * (overlay.scale || 1);
+          
+          ctx.save();
+          ctx.globalAlpha = overlay.opacity ?? 1;
+          ctx.drawImage(
+            overlayVid,
+            overlayX - overlayW / 2,
+            overlayY - overlayH / 2,
+            overlayW,
+            overlayH
+          );
+          ctx.restore();
+        }
+      };
+
       // Render all clips sequentially
       let globalFrameCount = 0;
       let timelineOffset = 0; // cumulative timeline time at start of each clip
@@ -3189,6 +3247,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           drawVideoFrame(exportVid);
           
           const timelineTime = timelineOffset + (clipFrame * frameInterval);
+          await drawVideoOverlaysAtTime(timelineTime);
           drawTextOverlaysAtTime(timelineTime);
           
           // Request a frame from the stream track for MediaRecorder
@@ -3288,6 +3347,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         description: error instanceof Error ? error.message : "An error occurred during export",
       });
     } finally {
+      // Cleanup overlay export videos
+      overlayExportVideos.forEach((vid) => {
+        vid.pause();
+        if (vid.parentNode) vid.parentNode.removeChild(vid);
+        vid.src = '';
+        vid.load();
+      });
+      overlayExportVideos.clear();
+      
       if (audioContext) {
         try { await audioContext.close(); } catch (e) { console.warn('Error closing audio context:', e); }
       }

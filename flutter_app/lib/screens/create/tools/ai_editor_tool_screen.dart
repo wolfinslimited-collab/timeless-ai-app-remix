@@ -4001,7 +4001,57 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         }
       }
 
-      // Step 4: Save to gallery
+      // Step 4: Composite video overlays (PiP layers) onto the output
+      if (_videoOverlays.isNotEmpty) {
+        setState(() {
+          _exportStage = 'Compositing overlays...';
+          _exportProgress = 75;
+        });
+
+        for (final overlay in _videoOverlays) {
+          // Resolve overlay source file
+          File? overlayFile;
+          if (overlay.url.isNotEmpty) {
+            if (overlay.url.startsWith('/') || overlay.url.startsWith('file://')) {
+              final path = overlay.url.replaceFirst('file://', '');
+              overlayFile = File(path);
+              if (!await overlayFile.exists()) overlayFile = null;
+            }
+          }
+          
+          if (overlayFile == null) continue;
+
+          final overlayOutputPath = '${tempDir.path}/with_overlay_${overlay.id}.mp4';
+
+          try {
+            const channel = MethodChannel('com.wolfine.app/ffmpeg');
+            final success = await channel.invokeMethod<bool>('overlayVideo', {
+              'mainVideoPath': outputPath,
+              'overlayVideoPath': overlayFile.path,
+              'outputPath': overlayOutputPath,
+              'x': overlay.position.dx, // Normalized 0-1
+              'y': overlay.position.dy, // Normalized 0-1
+              'overlayWidth': overlay.width, // Normalized 0-1
+              'overlayHeight': overlay.height, // Normalized 0-1
+              'startTime': overlay.startTime,
+              'endTime': overlay.endTime,
+              'opacity': overlay.opacity,
+              'width': outW,
+              'height': outH,
+            });
+
+            if (success == true && await File(overlayOutputPath).exists()) {
+              // Replace output with overlaid version
+              await File(outputPath).delete();
+              await File(overlayOutputPath).rename(outputPath);
+            }
+          } catch (e) {
+            debugPrint('Export: Could not composite overlay ${overlay.id}: $e');
+          }
+        }
+      }
+
+      // Step 5: Save to gallery
       setState(() {
         _exportStage = 'Saving to gallery...';
         _exportProgress = 85;

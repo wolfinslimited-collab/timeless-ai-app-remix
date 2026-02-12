@@ -53,6 +53,8 @@ import AVFoundation
         self?.handleConcatVideos(args: args, result: result)
       case "generateEndingClip":
         self?.handleGenerateEndingClip(args: args, result: result)
+      case "overlayVideo":
+        self?.handleOverlayVideo(args: args, result: result)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -348,6 +350,151 @@ import AVFoundation
       }
       
       semaphore.wait()
+    }
+  }
+  
+  private func handleOverlayVideo(args: [String: Any], result: @escaping FlutterResult) {
+    DispatchQueue.global(qos: .userInitiated).async {
+      let mainVideoPath = args["mainVideoPath"] as? String ?? ""
+      let overlayVideoPath = args["overlayVideoPath"] as? String ?? ""
+      let outputPath = args["outputPath"] as? String ?? ""
+      let x = args["x"] as? Double ?? 0.5
+      let y = args["y"] as? Double ?? 0.5
+      let overlayWidth = args["overlayWidth"] as? Double ?? 0.35
+      let overlayHeight = args["overlayHeight"] as? Double ?? 0.35
+      let startTime = args["startTime"] as? Double ?? 0.0
+      let endTime = args["endTime"] as? Double ?? 0.0
+      let opacity = args["opacity"] as? Double ?? 1.0
+      let canvasWidth = args["width"] as? Int ?? 1920
+      let canvasHeight = args["height"] as? Int ?? 1080
+      
+      let mainURL = URL(fileURLWithPath: mainVideoPath)
+      let overlayURL = URL(fileURLWithPath: overlayVideoPath)
+      let outputURL = URL(fileURLWithPath: outputPath)
+      try? FileManager.default.removeItem(at: outputURL)
+      
+      let mainAsset = AVURLAsset(url: mainURL)
+      let overlayAsset = AVURLAsset(url: overlayURL)
+      
+      let composition = AVMutableComposition()
+      
+      // Add main video track
+      guard let mainVideoTrack = mainAsset.tracks(withMediaType: .video).first,
+            let compositionMainTrack = try? composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+        DispatchQueue.main.async { result(false) }
+        return
+      }
+      
+      let mainDuration = mainAsset.duration
+      try? compositionMainTrack.insertTimeRange(
+        CMTimeRange(start: .zero, duration: mainDuration),
+        of: mainVideoTrack,
+        at: .zero
+      )
+      
+      // Add main audio track
+      if let mainAudioTrack = mainAsset.tracks(withMediaType: .audio).first,
+         let compositionAudioTrack = try? composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
+        try? compositionAudioTrack.insertTimeRange(
+          CMTimeRange(start: .zero, duration: mainDuration),
+          of: mainAudioTrack,
+          at: .zero
+        )
+      }
+      
+      // Add overlay video track
+      guard let overlayVideoTrack = overlayAsset.tracks(withMediaType: .video).first,
+            let compositionOverlayTrack = try? composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+        // If overlay can't be loaded, just export main video
+        guard let exportSession = AVAssetExportSession(asset: composition, presetName: self.presetForSize(width: canvasWidth, height: canvasHeight)) else {
+          DispatchQueue.main.async { result(false) }
+          return
+        }
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .mp4
+        exportSession.exportAsynchronously {
+          DispatchQueue.main.async { result(exportSession.status == .completed) }
+        }
+        return
+      }
+      
+      let overlayStartCMTime = CMTime(seconds: startTime, preferredTimescale: 600)
+      let overlayDuration = CMTime(seconds: min(endTime - startTime, overlayAsset.duration.seconds), preferredTimescale: 600)
+      
+      try? compositionOverlayTrack.insertTimeRange(
+        CMTimeRange(start: .zero, duration: overlayDuration),
+        of: overlayVideoTrack,
+        at: overlayStartCMTime
+      )
+      
+      // Create video composition for positioning the overlay
+      let videoComposition = AVMutableVideoComposition()
+      videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+      videoComposition.renderSize = CGSize(width: canvasWidth, height: canvasHeight)
+      
+      let instruction = AVMutableVideoCompositionInstruction()
+      instruction.timeRange = CMTimeRange(start: .zero, duration: mainDuration)
+      
+      // Main video layer instruction
+      let mainLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionMainTrack)
+      
+      // Scale main video to fit canvas
+      let mainNaturalSize = mainVideoTrack.naturalSize
+      let mainScaleX = CGFloat(canvasWidth) / mainNaturalSize.width
+      let mainScaleY = CGFloat(canvasHeight) / mainNaturalSize.height
+      let mainScale = min(mainScaleX, mainScaleY)
+      let mainTranslateX = (CGFloat(canvasWidth) - mainNaturalSize.width * mainScale) / 2
+      let mainTranslateY = (CGFloat(canvasHeight) - mainNaturalSize.height * mainScale) / 2
+      var mainTransform = CGAffineTransform(scaleX: mainScale, y: mainScale)
+      mainTransform = mainTransform.translatedBy(x: mainTranslateX / mainScale, y: mainTranslateY / mainScale)
+      mainLayerInstruction.setTransform(mainTransform, at: .zero)
+      
+      // Overlay layer instruction
+      let overlayLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionOverlayTrack)
+      
+      // Calculate overlay position and size
+      let overlayNaturalSize = overlayVideoTrack.naturalSize
+      let overlayPixelW = CGFloat(overlayWidth) * CGFloat(canvasWidth)
+      let overlayPixelH = CGFloat(overlayHeight) * CGFloat(canvasHeight)
+      let overlayScaleX = overlayPixelW / overlayNaturalSize.width
+      let overlayScaleY = overlayPixelH / overlayNaturalSize.height
+      let overlayPixelX = CGFloat(x) * CGFloat(canvasWidth) - overlayPixelW / 2
+      let overlayPixelY = CGFloat(y) * CGFloat(canvasHeight) - overlayPixelH / 2
+      
+      var overlayTransform = CGAffineTransform(scaleX: overlayScaleX, y: overlayScaleY)
+      overlayTransform = overlayTransform.translatedBy(
+        x: overlayPixelX / overlayScaleX,
+        y: overlayPixelY / overlayScaleY
+      )
+      overlayLayerInstruction.setTransform(overlayTransform, at: .zero)
+      overlayLayerInstruction.setOpacity(Float(opacity), at: .zero)
+      
+      // Hide overlay before start and after end
+      if startTime > 0 {
+        overlayLayerInstruction.setOpacity(0, at: .zero)
+        overlayLayerInstruction.setOpacity(Float(opacity), at: overlayStartCMTime)
+      }
+      let overlayEndCMTime = CMTimeAdd(overlayStartCMTime, overlayDuration)
+      overlayLayerInstruction.setOpacity(0, at: overlayEndCMTime)
+      
+      instruction.layerInstructions = [overlayLayerInstruction, mainLayerInstruction]
+      videoComposition.instructions = [instruction]
+      
+      guard let exportSession = AVAssetExportSession(asset: composition, presetName: self.presetForSize(width: canvasWidth, height: canvasHeight)) else {
+        DispatchQueue.main.async { result(false) }
+        return
+      }
+      
+      exportSession.outputURL = outputURL
+      exportSession.outputFileType = .mp4
+      exportSession.videoComposition = videoComposition
+      exportSession.shouldOptimizeForNetworkUse = true
+      
+      exportSession.exportAsynchronously {
+        DispatchQueue.main.async {
+          result(exportSession.status == .completed)
+        }
+      }
     }
   }
   
