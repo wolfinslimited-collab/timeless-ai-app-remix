@@ -104,19 +104,38 @@ export function InpaintingEditor({
     ctx.translate(offsetX, offsetY);
     ctx.scale(scale, scale);
     ctx.drawImage(loadedImage, 0, 0);
+    ctx.restore();
 
-    // Draw strokes as semi-transparent overlay
+    // Draw mask overlay on a temporary canvas, then composite
+    const maskOverlay = document.createElement("canvas");
+    maskOverlay.width = canvas.width;
+    maskOverlay.height = canvas.height;
+    const mCtx = maskOverlay.getContext("2d");
+    if (!mCtx) return;
+
+    mCtx.save();
+    mCtx.translate(offsetX, offsetY);
+    mCtx.scale(scale, scale);
+
     const allStrokes = currentStroke ? [...strokes, currentStroke] : strokes;
     for (const stroke of allStrokes) {
-      ctx.fillStyle = stroke.isErase ? "rgba(0,0,0,0.5)" : "rgba(255,0,0,0.5)";
+      if (stroke.isErase) {
+        // Erase removes from the red overlay
+        mCtx.globalCompositeOperation = "destination-out";
+      } else {
+        mCtx.globalCompositeOperation = "source-over";
+      }
+      mCtx.fillStyle = stroke.isErase ? "rgba(255,0,0,1)" : "rgba(255,0,0,0.5)";
       for (const point of stroke.points) {
-        ctx.beginPath();
-        ctx.arc(point.x, point.y, stroke.brushSize / 2, 0, Math.PI * 2);
-        ctx.fill();
+        mCtx.beginPath();
+        mCtx.arc(point.x, point.y, stroke.brushSize / 2, 0, Math.PI * 2);
+        mCtx.fill();
       }
     }
+    mCtx.restore();
 
-    ctx.restore();
+    // Composite the mask overlay onto the main canvas
+    ctx.drawImage(maskOverlay, 0, 0);
   }, [loadedImage, strokes, currentStroke, canvasSize, getImageTransform]);
 
   // Generate mask as data URL
