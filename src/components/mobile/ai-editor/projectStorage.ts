@@ -290,6 +290,7 @@ export function createNewProject(): EditorProject {
     backgroundBlur: 0,
     backgroundImage: null,
     videoPosition: { x: 0, y: 0 },
+    endingClip: null,
   };
 }
 
