@@ -191,6 +191,10 @@ class SavedVideoClip {
   final double volume;
   final double speed;
   final bool aiEnhanced;
+  final bool aiModified;
+  final String? originalUrl;
+  final String? aiFilterCSS;
+  final Map<String, double>? aiAdjustments;
 
   SavedVideoClip({
     required this.id,
@@ -202,6 +206,10 @@ class SavedVideoClip {
     this.volume = 1.0,
     this.speed = 1.0,
     this.aiEnhanced = false,
+    this.aiModified = false,
+    this.originalUrl,
+    this.aiFilterCSS,
+    this.aiAdjustments,
   }) : inPoint = inPoint ?? 0,
        outPoint = outPoint ?? duration;
 
@@ -215,6 +223,10 @@ class SavedVideoClip {
     'volume': volume,
     'speed': speed,
     'aiEnhanced': aiEnhanced,
+    'aiModified': aiModified,
+    if (originalUrl != null) 'originalUrl': originalUrl,
+    if (aiFilterCSS != null) 'aiFilterCSS': aiFilterCSS,
+    if (aiAdjustments != null) 'aiAdjustments': aiAdjustments,
   };
 
   factory SavedVideoClip.fromJson(Map<String, dynamic> json) => SavedVideoClip(
@@ -227,6 +239,12 @@ class SavedVideoClip {
     volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
     speed: (json['speed'] as num?)?.toDouble() ?? 1.0,
     aiEnhanced: json['aiEnhanced'] as bool? ?? false,
+    aiModified: json['aiModified'] as bool? ?? false,
+    originalUrl: json['originalUrl'] as String?,
+    aiFilterCSS: json['aiFilterCSS'] as String?,
+    aiAdjustments: (json['aiAdjustments'] as Map<String, dynamic>?)?.map(
+      (k, v) => MapEntry(k, (v as num).toDouble()),
+    ),
   );
 }
 

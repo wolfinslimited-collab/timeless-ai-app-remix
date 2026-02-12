@@ -57,6 +57,10 @@ export interface SavedVideoClip {
   volume: number;
   speed: number;
   aiEnhanced?: boolean;
+  aiModified?: boolean;
+  originalUrl?: string;
+  aiFilterCSS?: string;
+  aiAdjustments?: Record<string, number>;
   animationIn?: { id: string; type: string; duration: number } | null;
   animationOut?: { id: string; type: string; duration: number } | null;
 }
