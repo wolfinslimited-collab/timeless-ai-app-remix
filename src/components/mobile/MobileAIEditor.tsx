@@ -4287,10 +4287,17 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       ...getBackgroundStyle(),
                     }}
                     onClick={() => {
-                      if (selectedTextId) {
-                        setSelectedTextId(null);
-                        setShowTextEditPanel(false);
-                      }
+                      // Deselect all layers when clicking on empty area
+                      setSelectedTextId(null);
+                      setShowTextEditPanel(false);
+                      setSelectedClipId(null);
+                      setSelectedAudioId(null);
+                      setSelectedCaptionId(null);
+                      setSelectedEffectId(null);
+                      setSelectedDrawingId(null);
+                      setSelectedOverlayId(null);
+                      setIsEditMenuMode(false);
+                      setEditingClipId(null);
                     }}
                   >
                     {/* Blurred video background layer */}
@@ -5785,11 +5792,18 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         boxSizing: 'content-box',
                       }}
                       onClick={(e) => {
-                        // Deselect clip when clicking on empty timeline area
+                        // Deselect all layers when clicking on empty timeline area
                         if (e.target === e.currentTarget) {
                           setSelectedClipId(null);
+                          setSelectedTextId(null);
+                          setSelectedAudioId(null);
+                          setSelectedCaptionId(null);
+                          setSelectedEffectId(null);
+                          setSelectedDrawingId(null);
+                          setSelectedOverlayId(null);
                           setIsEditMenuMode(false);
                           setEditSubPanel('none');
+                          setShowTextEditPanel(false);
                         }
                       }}
                     >

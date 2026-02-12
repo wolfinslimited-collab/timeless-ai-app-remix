@@ -5405,12 +5405,19 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 decoration: getBackgroundDecoration(),
                 child: GestureDetector(
                   onTap: () {
-                    if (_selectedTextId != null) {
-                      setState(() {
-                        _selectedTextId = null;
-                        _showTextEditPanel = false;
-                      });
-                    }
+                    // Deselect all layers when tapping on empty area
+                    setState(() {
+                      _selectedTextId = null;
+                      _showTextEditPanel = false;
+                      _selectedClipId = null;
+                      _selectedAudioId = null;
+                      _selectedCaptionId = null;
+                      _selectedEffectId = null;
+                      _selectedDrawingId = null;
+                      _selectedOverlayId = null;
+                      _isEditMenuMode = false;
+                      _editingClipId = null;
+                    });
                   },
                   child: Stack(
                   clipBehavior: Clip.hardEdge,
@@ -5912,11 +5919,18 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               physics: const BouncingScrollPhysics(),
               child: GestureDetector(
                 onTap: () {
-                  // Deselect clip when tapping on empty timeline area
+                  // Deselect all layers when tapping on empty timeline area
                   setState(() {
                     _selectedClipId = null;
+                    _selectedTextId = null;
+                    _selectedAudioId = null;
+                    _selectedCaptionId = null;
+                    _selectedEffectId = null;
+                    _selectedDrawingId = null;
+                    _selectedOverlayId = null;
                     _isEditMenuMode = false;
                     _editSubPanel = 'none';
+                    _showTextEditPanel = false;
                   });
                 },
                 behavior: HitTestBehavior.translucent,
