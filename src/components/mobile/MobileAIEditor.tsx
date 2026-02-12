@@ -6929,14 +6929,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           </div>
 
           {/* Bottom Toolbar - Fixed height, always pinned to bottom */}
-          <div className="shrink-0 bg-background border-t border-border/10 pb-safe relative" style={{ maxHeight: showTextEditPanel ? '55vh' : '200px', minHeight: showTextEditPanel ? '340px' : undefined }}>
-            {/* Main toolbar - always rendered, fades out when overlay is open */}
-            <div 
-              className={cn(
-                "overflow-x-auto transition-all duration-200",
-                isAnyOverlayOpen ? "opacity-0 pointer-events-none" : "opacity-100"
-              )}
-            >
+          <div className="shrink-0 bg-background border-t border-border/10 pb-safe relative" style={{ maxHeight: showTextEditPanel ? '55vh' : '340px', minHeight: showTextEditPanel ? '340px' : undefined }}>
+            {/* Main toolbar - always visible */}
+            <div className="overflow-x-auto">
               <div className="flex px-2 py-3 min-w-max">
                 {EDITOR_TOOLS.map((tool) => {
                   const Icon = tool.icon;
@@ -6976,7 +6971,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Overlay menus - absolute positioned, slide up with fade */}
             {showTextEditPanel && selectedTextOverlay && (
-              <div className="fixed left-0 right-0 bottom-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-50 flex flex-col" style={{ height: '55vh', maxHeight: '420px', minHeight: '320px' }}>
+              <div className="absolute left-0 right-0 bottom-full bg-background animate-in fade-in slide-in-from-bottom duration-200 z-50 flex flex-col border-t border-border/20" style={{ height: '55vh', maxHeight: '420px', minHeight: '320px' }}>
                 <TextEditPanel
                   onBack={() => setShowTextEditPanel(false)}
                   text={selectedTextOverlay.text}
@@ -7054,7 +7049,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* AI Prompt Edit Bottom Sheet */}
             {isMagicEditOpen && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col rounded-t-2xl border-t border-border/20" style={{ height: '260px' }}>
+              <div className="absolute bottom-full left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col rounded-t-2xl border-t border-border/20" style={{ height: '260px' }}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/20">
                   <button
@@ -7118,7 +7113,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
             {/* AI Video Expansion Bottom Sheet */}
             {isAIExpansionOpen && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col rounded-t-2xl border-t border-border/20" style={{ height: '320px' }}>
+              <div className="absolute bottom-full left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col rounded-t-2xl border-t border-border/20" style={{ height: '320px' }}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/20">
                   <button
@@ -7188,7 +7183,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
 
             {isAIUpscaleOpen && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col rounded-t-2xl border-t border-border/20" style={{ height: '280px' }}>
+              <div className="absolute bottom-full left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col rounded-t-2xl border-t border-border/20" style={{ height: '280px' }}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/20">
                   <button
@@ -7255,7 +7250,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             )}
             
             {isEditMenuMode && (
-              <div className="fixed bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-40 flex flex-col" style={{ height: editSubPanel === 'animations' ? '280px' : editSubPanel !== 'none' ? '200px' : '160px' }}>
+              <div className="absolute bottom-full left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-40 flex flex-col border-t border-border/20" style={{ height: editSubPanel === 'animations' ? '280px' : editSubPanel !== 'none' ? '200px' : '160px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
                   <button
@@ -7622,7 +7617,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Text Menu Overlay */}
             {isTextMenuMode && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
+              <div className="absolute bottom-full left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col border-t border-border/20" style={{ height: '160px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center px-4 py-2 border-b border-border/20">
                   <button
@@ -7718,7 +7713,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Effects Menu Overlay */}
             {isEffectsMenuMode && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
+              <div className="absolute bottom-full left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col border-t border-border/20" style={{ height: '160px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center px-4 py-2 border-b border-border/20">
                   <button
@@ -7766,7 +7761,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Overlay Menu Overlay */}
             {isOverlayMenuMode && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
+              <div className="absolute bottom-full left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col border-t border-border/20" style={{ height: '160px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center px-4 py-2 border-b border-border/20">
                   <button
@@ -7823,7 +7818,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Captions Menu Overlay */}
             {isCaptionsMenuMode && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
+              <div className="absolute bottom-full left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col border-t border-border/20" style={{ height: '160px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center px-4 py-2 border-b border-border/20">
                   <button
@@ -7870,7 +7865,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Aspect Ratio Menu Overlay */}
             {isAspectMenuMode && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '200px' }}>
+              <div className="absolute bottom-full left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col border-t border-border/20" style={{ height: '200px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
                   <button
@@ -7944,7 +7939,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Background Menu Overlay */}
             {isBackgroundMenuMode && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '200px' }}>
+              <div className="absolute bottom-full left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col border-t border-border/20" style={{ height: '200px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
                   <button
@@ -8092,7 +8087,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Adjust Menu Overlay */}
             {isAdjustMenuMode && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '280px' }}>
+              <div className="absolute bottom-full left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col border-t border-border/20" style={{ height: '280px' }}>
                 {/* Header with back button, title and confirm */}
                 <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
                   <button
@@ -8297,7 +8292,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             
             {/* Audio Menu Overlay */}
             {isAudioMenuMode && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
+              <div className="absolute bottom-full left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col border-t border-border/20" style={{ height: '160px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center px-4 py-2 border-b border-border/20">
                   <button
