@@ -6780,6 +6780,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     } else {
       // Show normal timeline + toolbar - wrapped in Stack for edit menu overlay and adjust overlay
       return Stack(
+        clipBehavior: Clip.none,
         children: [
           Column(
             mainAxisSize: MainAxisSize.min,

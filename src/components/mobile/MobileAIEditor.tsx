@@ -7255,7 +7255,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             )}
             
             {isEditMenuMode && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: editSubPanel === 'animations' ? '280px' : editSubPanel !== 'none' ? '200px' : '160px' }}>
+              <div className="fixed bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-40 flex flex-col" style={{ height: editSubPanel === 'animations' ? '280px' : editSubPanel !== 'none' ? '200px' : '160px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
                   <button
