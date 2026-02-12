@@ -219,7 +219,7 @@ export default function MobilePreview() {
             </div>
             
             {/* Content */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
               {renderScreen()}
             </div>
             
