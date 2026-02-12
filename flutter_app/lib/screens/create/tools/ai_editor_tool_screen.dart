@@ -1820,11 +1820,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       final localTime = activeResult.localTime;
       final newPosition = Duration(milliseconds: (localTime * 1000).toInt());
       
-      // Only seek if position has drifted significantly
-      final currentPos = _videoController!.value.position.inMilliseconds / 1000.0;
-      if ((currentPos - localTime).abs() > 0.1) {
-        _videoController!.seekTo(newPosition);
-      }
+      // Always seek for accurate scrubbing (no threshold)
+      _videoController!.seekTo(newPosition);
       
       // Apply per-clip speed and volume
       _videoController!.setPlaybackSpeed(clip.speed);
@@ -3368,8 +3365,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
 
   void _onTimelineScroll() {
-    // Only process manual scrolling (not auto-scroll from video playback)
-    if (!_isUserScrolling || _isAutoScrolling) return;
+    // Process scrolling if user-initiated (including momentum) but not auto-scroll
+    if (_isAutoScrolling) return;
     if (_videoController == null || !_isVideoInitialized) return;
     
     // PAUSE all layers immediately when user starts manual scrubbing
@@ -3383,9 +3380,23 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     final timeUnderPlayhead = _scrollToTime(scrollOffset);
     final clampedTime = timeUnderPlayhead.clamp(0.0, _totalTimelineDuration);
     
-    // Update timeline position and sync all layers
+    // Update timeline position
     _currentTimelinePosition = clampedTime;
-    _syncAllLayersToTime(clampedTime);
+    
+    // Directly seek video to the exact frame (no threshold)
+    final activeResult = _getActiveClipAtTime(clampedTime);
+    if (activeResult != null) {
+      final newPosition = Duration(milliseconds: (activeResult.localTime * 1000).toInt());
+      _videoController!.seekTo(newPosition);
+    }
+    
+    // Sync audio and overlays
+    _syncAudioLayersToTime(clampedTime);
+    
+    // Update UI immediately
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _onScrollEnd() {
@@ -5125,15 +5136,18 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 setState(() => _isUserScrolling = true);
                 // Pause video when user starts scrolling
                 if (_videoController?.value.isPlaying ?? false) {
-                  _videoController!.pause();
+                  _unifiedPause();
                 }
               } else if (notification is ScrollUpdateNotification) {
-                // Continuous seeking while scrolling
+                // Continuous seeking while scrolling (including momentum)
                 _onTimelineScroll();
               } else if (notification is ScrollEndNotification) {
-                setState(() => _isUserScrolling = false);
-                // Final sync when scrolling stops
+                // Final sync when scrolling fully stops
                 _onScrollEnd();
+                // Delay resetting flag to allow final momentum updates
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  if (mounted) setState(() => _isUserScrolling = false);
+                });
               }
               return false;
             },
