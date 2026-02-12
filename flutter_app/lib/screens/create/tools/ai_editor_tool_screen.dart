@@ -239,6 +239,10 @@ class VideoClip {
   ClipAnimation? animationOut; // Exit animation
   bool aiEnhanced; // Whether AI auto-adjustments have been applied
   bool hqUpscaled; // Whether AI HQ upscale has been applied
+  bool aiModified; // Whether AI Edit has replaced/modified this clip
+  String? originalUrl; // Original source URL before AI edit replacement
+  String? aiFilterCSS; // AI-applied CSS filter string baked into clip
+  Map<String, double>? aiAdjustments; // AI-applied adjustments baked into clip
   
   VideoClip({
     required this.id,
@@ -254,6 +258,10 @@ class VideoClip {
     this.animationOut,
     this.aiEnhanced = false,
     this.hqUpscaled = false,
+    this.aiModified = false,
+    this.originalUrl,
+    this.aiFilterCSS,
+    this.aiAdjustments,
   }) : inPoint = inPoint ?? 0,
        outPoint = outPoint ?? duration;
   
@@ -438,6 +446,10 @@ class VideoClipSnapshot {
   final double outPoint;
   final double volume;
   final double speed;
+  final bool aiModified;
+  final String? originalUrl;
+  final String? aiFilterCSS;
+  final Map<String, double>? aiAdjustments;
   
   VideoClipSnapshot({
     required this.id,
@@ -448,6 +460,10 @@ class VideoClipSnapshot {
     required this.outPoint,
     this.volume = 1.0,
     this.speed = 1.0,
+    this.aiModified = false,
+    this.originalUrl,
+    this.aiFilterCSS,
+    this.aiAdjustments,
   });
   
   factory VideoClipSnapshot.from(VideoClip clip) => VideoClipSnapshot(
@@ -459,6 +475,10 @@ class VideoClipSnapshot {
     outPoint: clip.outPoint,
     volume: clip.volume,
     speed: clip.speed,
+    aiModified: clip.aiModified,
+    originalUrl: clip.originalUrl,
+    aiFilterCSS: clip.aiFilterCSS,
+    aiAdjustments: clip.aiAdjustments != null ? Map.from(clip.aiAdjustments!) : null,
   );
   
   VideoClip toClip() => VideoClip(
@@ -470,6 +490,10 @@ class VideoClipSnapshot {
     outPoint: outPoint,
     volume: volume,
     speed: speed,
+    aiModified: aiModified,
+    originalUrl: originalUrl,
+    aiFilterCSS: aiFilterCSS,
+    aiAdjustments: aiAdjustments,
   );
 }
 
@@ -1228,6 +1252,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         volume: c.volume,
         speed: c.speed,
         aiEnhanced: c.aiEnhanced,
+        aiModified: c.aiModified,
+        originalUrl: c.originalUrl,
+        aiFilterCSS: c.aiFilterCSS,
+        aiAdjustments: c.aiAdjustments,
       )).toList();
     }
     
@@ -1262,6 +1290,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               id: clip.id, url: clipFile.path, duration: clip.duration,
               startTime: clip.startTime, inPoint: clip.inPoint, outPoint: clip.outPoint,
               thumbnails: [], volume: clip.volume, speed: clip.speed, aiEnhanced: clip.aiEnhanced,
+              aiModified: clip.aiModified, originalUrl: clip.originalUrl,
+              aiFilterCSS: clip.aiFilterCSS, aiAdjustments: clip.aiAdjustments,
             );
           }
         }
@@ -1337,6 +1367,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         id: c.id, url: c.url, duration: c.duration,
         startTime: c.startTime, inPoint: c.inPoint, outPoint: c.outPoint,
         volume: c.volume, speed: c.speed, aiEnhanced: c.aiEnhanced,
+        aiModified: c.aiModified, originalUrl: c.originalUrl,
+        aiFilterCSS: c.aiFilterCSS, aiAdjustments: c.aiAdjustments,
       )).toList();
       
       // Save text overlays
@@ -6531,6 +6563,21 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               child: Icon(Icons.auto_fix_high, size: 8, color: Colors.white),
             ),
           ),
+        
+        // AI-Modified tag badge
+        if (clip.aiModified)
+          Positioned(
+            top: 2,
+            right: clip.hqUpscaled ? 28 : 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: const Color(0xFF8B5CF6).withOpacity(0.85),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: const Text('AI', style: TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+            ),
+          ),
 
         // HQ Upscale badge
         if (hasHQUpscale)
@@ -7998,23 +8045,53 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
       final effect = data['effect'];
       
-      // Add effect layer
+      // Source Replacement: apply AI edit directly to the selected clip
       _saveStateToHistory();
-      final duration = _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
-      setState(() {
-        _effectLayers.add(EffectLayer(
-          id: 'ai-effect-${DateTime.now().millisecondsSinceEpoch}',
-          effectId: 'ai-generated',
-          name: effect['effectName'] ?? 'AI Effect',
-          category: effect['category'] ?? 'ai',
-          intensity: (effect['intensity'] as num?)?.toDouble() ?? 0.7,
-          startTime: _currentTimelinePosition,
-          endTime: math.min(_currentTimelinePosition + 5, duration),
-        ));
-        _isAiEditProcessing = false;
-      });
+      
+      // Find target clip (selected or at current playhead)
+      String? targetClipId = _selectedClipId;
+      if (targetClipId == null) {
+        for (final clip in _videoClips) {
+          final end = clip.startTime + clip.timelineDuration;
+          if (_currentTimelinePosition >= clip.startTime && _currentTimelinePosition < end) {
+            targetClipId = clip.id;
+            break;
+          }
+        }
+      }
+      
+      if (targetClipId != null) {
+        setState(() {
+          for (int i = 0; i < _videoClips.length; i++) {
+            if (_videoClips[i].id == targetClipId) {
+              // Store original URL for revert (only if not already stored)
+              _videoClips[i].originalUrl ??= _videoClips[i].url;
+              // Mark as AI modified
+              _videoClips[i].aiModified = true;
+              _videoClips[i].aiEnhanced = true;
+              // Bake AI filter and adjustments into the clip
+              if (effect['filterCSS'] != null) {
+                _videoClips[i].aiFilterCSS = effect['filterCSS'] as String;
+              }
+              if (effect['adjustments'] != null) {
+                final adj = (effect['adjustments'] as Map<String, dynamic>).map(
+                  (k, v) => MapEntry(k, (v as num).toDouble()),
+                );
+                _videoClips[i].aiAdjustments = {
+                  ...(_videoClips[i].aiAdjustments ?? {}),
+                  ...adj,
+                };
+              }
+              break;
+            }
+          }
+          _isAiEditProcessing = false;
+        });
+      } else {
+        setState(() => _isAiEditProcessing = false);
+      }
 
-      _showSnackBar('AI Edit Applied: ${effect['effectName'] ?? 'Effect'}');
+      _showSnackBar('✨ AI Edit Applied: ${effect['effectName'] ?? 'Effect'}');
     } catch (e) {
       debugPrint('AI Edit error: $e');
       if (mounted) {
@@ -10932,12 +11009,36 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       }
     }
     
+    // Check if the selected/active clip has AI modifications for revert button
+    final activeClip = _selectedClipId != null 
+        ? _videoClips.cast<VideoClip?>().firstWhere((c) => c?.id == _selectedClipId, orElse: () => null)
+        : null;
+    final hasAiModification = activeClip?.aiModified == true && activeClip?.originalUrl != null;
+    
     final editTools = [
       {'id': 'split', 'name': 'Split', 'icon': Icons.content_cut, 'action': handleSplitAtPlayhead},
       {'id': 'volume', 'name': 'Volume', 'icon': Icons.volume_up, 'action': () => setState(() => _editSubPanel = 'volume')},
       {'id': 'speed', 'name': 'Speed', 'icon': Icons.speed, 'action': () => setState(() => _editSubPanel = 'speed')},
       {'id': 'animations', 'name': 'Animations', 'icon': Icons.auto_awesome, 'action': _showAnimationsBottomSheet},
       {'id': 'crop', 'name': 'Crop', 'icon': Icons.crop, 'action': () => setState(() { _isEditMenuMode = false; _isCropMode = true; _cropBox = const Rect.fromLTWH(0.1, 0.1, 0.8, 0.8); })},
+      {'id': 'ai-edit', 'name': 'AI Edit', 'icon': Icons.auto_fix_high, 'isAI': true, 'action': () { setState(() { _isAiEditOpen = true; _isEditMenuMode = false; }); }},
+      if (hasAiModification)
+        {'id': 'revert-ai', 'name': 'Revert AI', 'icon': Icons.undo, 'isAI': true, 'action': () {
+          _saveStateToHistory();
+          setState(() {
+            for (int i = 0; i < _videoClips.length; i++) {
+              if (_videoClips[i].id == _selectedClipId) {
+                _videoClips[i].url = _videoClips[i].originalUrl!;
+                _videoClips[i].aiModified = false;
+                _videoClips[i].aiFilterCSS = null;
+                _videoClips[i].aiAdjustments = null;
+                _videoClips[i].originalUrl = null;
+                break;
+              }
+            }
+          });
+          _showSnackBar('Reverted to original');
+        }},
       {'id': 'ai-upscale', 'name': 'AI Upscale', 'icon': Icons.zoom_in, 'isAI': true, 'action': () { setState(() { _isAiUpscaleOpen = true; _isEditMenuMode = false; }); }},
       {'id': 'replace', 'name': 'Replace', 'icon': Icons.swap_horiz, 'action': () { _pickAndLoadVideo(); }},
       {'id': 'delete', 'name': 'Delete', 'icon': Icons.delete_outline, 'action': handleDeleteClip, 'isDestructive': true},

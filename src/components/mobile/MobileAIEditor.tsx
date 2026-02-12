@@ -158,6 +158,10 @@ interface VideoClip {
   animationOut?: ClipAnimation; // Exit animation
   aiEnhanced?: boolean; // Whether AI auto-adjustments have been applied
   hqUpscaled?: boolean; // Whether AI HQ upscale has been applied
+  aiModified?: boolean; // Whether AI Edit has replaced/modified this clip
+  originalUrl?: string; // Original source URL before AI edit replacement
+  aiFilterCSS?: string; // AI-applied CSS filter string baked into clip
+  aiAdjustments?: Partial<typeof defaultAdjustments>; // AI-applied adjustments baked into clip
 }
 
 // Helper to get trimmed duration (source time, ignoring speed)
@@ -1745,12 +1749,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     toast({ title: "Reset", description: "All adjustments reset to default" });
   };
 
-  // Build CSS filter string from adjustment values + active AI effects
+  // Build CSS filter string from adjustment values + active AI effects + per-clip AI filters
   const buildVideoFilter = () => {
     // Start with base adjustments
     let adj = { ...adjustments };
     
-    // Composite active AI effect adjustments for current time
+    // Composite active AI effect adjustments for current time (legacy effect layers)
     const activeEffects = effectLayers.filter(e => 
       e.effectId === 'ai-generated' && 
       e.adjustments && 
@@ -1771,6 +1775,24 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       if (ea.highlight !== undefined) adj.highlight = adj.highlight + ea.highlight * intensity;
     });
 
+    // Composite per-clip AI adjustments (source replacement style)
+    const activeClip = videoClips.find((c, i) => {
+      const end = c.startTime + getClipTimelineDuration(c);
+      return currentTime >= c.startTime && currentTime < end;
+    });
+    if (activeClip?.aiAdjustments) {
+      const ca = activeClip.aiAdjustments;
+      if (ca.brightness !== undefined) adj.brightness = adj.brightness + ca.brightness;
+      if (ca.contrast !== undefined) adj.contrast = adj.contrast + ca.contrast;
+      if (ca.saturation !== undefined) adj.saturation = adj.saturation + ca.saturation;
+      if (ca.hue !== undefined) adj.hue = adj.hue + ca.hue;
+      if (ca.exposure !== undefined) adj.exposure = adj.exposure + ca.exposure;
+      if (ca.temp !== undefined) adj.temp = adj.temp + ca.temp;
+      if (ca.sharpen !== undefined) adj.sharpen = adj.sharpen + ca.sharpen;
+      if (ca.shadow !== undefined) adj.shadow = adj.shadow + ca.shadow;
+      if (ca.highlight !== undefined) adj.highlight = adj.highlight + ca.highlight;
+    }
+
     const brightness = 1 + adj.brightness * 0.5;
     const contrast = 1 + adj.contrast;
     const saturation = 1 + adj.saturation;
@@ -1781,7 +1803,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     
     let filter = `brightness(${combinedBrightness}) contrast(${contrast}) saturate(${saturation}) hue-rotate(${hueRotate}deg) sepia(${sepia})`;
     
-    // Append any raw filterCSS from active AI effects
+    // Append any raw filterCSS from active AI effects (legacy)
     const activeFilterCSS = effectLayers.filter(e => 
       e.effectId === 'ai-generated' && 
       e.filterCSS && 
@@ -1790,6 +1812,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     activeFilterCSS.forEach(effect => {
       filter += ` ${effect.filterCSS}`;
     });
+
+    // Append per-clip AI filterCSS (source replacement)
+    if (activeClip?.aiFilterCSS) {
+      filter += ` ${activeClip.aiFilterCSS}`;
+    }
     
     return filter;
   };
@@ -2278,6 +2305,18 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     }},
     { id: 'crop', name: 'Crop', icon: Crop, action: () => { setIsEditMenuMode(false); setIsCropMode(true); setCropBox({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 }); } },
     { id: 'magic-edit', name: 'AI Edit', icon: Wand2, isAI: true, action: () => { setIsMagicEditOpen(true); setMagicEditPrompt(''); setIsEditMenuMode(false); } },
+    { id: 'revert-ai', name: 'Revert AI', icon: Undo2, isAI: true, action: () => {
+      const clip = videoClips.find(c => c.id === editingClipId);
+      if (clip?.originalUrl && clip.aiModified) {
+        saveStateToHistory();
+        setVideoClips(prev => prev.map(c => c.id === editingClipId ? {
+          ...c, url: c.originalUrl!, aiModified: false, aiFilterCSS: undefined, aiAdjustments: undefined, originalUrl: undefined
+        } : c));
+        toast({ title: "Reverted to Original", description: "AI modifications removed" });
+      } else {
+        toast({ variant: "destructive", title: "No AI edit to revert" });
+      }
+    }, hidden: !videoClips.find(c => c.id === editingClipId)?.aiModified },
     { id: 'ai-upscale', name: 'AI Upscale', icon: ZoomIn, isAI: true, action: () => { setIsAIUpscaleOpen(true); setIsEditMenuMode(false); } },
     { id: 'ai-expansion', name: 'AI Expand', icon: Maximize, isAI: true, action: () => { handleOpenAIExpansion(); setIsEditMenuMode(false); } },
     { id: 'replace', name: 'Replace', icon: Replace, action: () => { handleDirectFilePick(); } },
@@ -2336,34 +2375,33 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         refetchCredits();
       }
 
-      // Store AI adjustments and filterCSS on the effect layer (NOT globally)
+      // Source Replacement: apply AI edit directly to the selected clip
       saveStateToHistory();
-      const newEffect: EffectLayerData = {
-        id: `ai-effect-${Date.now()}`,
-        effectId: 'ai-generated',
-        name: effect.effectName || 'AI Generated Effect',
-        category: effect.category || 'ai',
-        intensity: effect.intensity || 0.7,
-        startTime: currentTime,
-        endTime: Math.min(currentTime + 5, duration || 10),
-        filterCSS: effect.filterCSS || undefined,
-        adjustments: effect.adjustments || undefined,
-      };
-      setEffectLayers(prev => [...prev, newEffect]);
-      setSelectedEffectId(newEffect.id);
-
-      // Mark clip as AI enhanced
-      if (editingClipId) {
-        const clipIdx = videoClips.findIndex(c => c.id === editingClipId);
-        if (clipIdx >= 0) {
-          const updated = [...videoClips];
-          updated[clipIdx] = { ...updated[clipIdx], aiEnhanced: true };
-          setVideoClips(updated);
-        }
+      
+      // Find the target clip (selected or editing clip, or clip at current playhead)
+      const targetClipId = editingClipId || selectedClipId || videoClips.find(c => 
+        currentTime >= c.startTime && currentTime < c.startTime + getClipTimelineDuration(c)
+      )?.id;
+      
+      if (targetClipId) {
+        setVideoClips(prev => prev.map(clip => {
+          if (clip.id !== targetClipId) return clip;
+          return {
+            ...clip,
+            // Store original URL for revert (only if not already stored)
+            originalUrl: clip.originalUrl || clip.url,
+            // Mark as AI modified
+            aiModified: true,
+            aiEnhanced: true,
+            // Bake AI filter and adjustments into the clip
+            aiFilterCSS: effect.filterCSS || clip.aiFilterCSS || undefined,
+            aiAdjustments: effect.adjustments ? { ...(clip.aiAdjustments || {}), ...effect.adjustments } : clip.aiAdjustments,
+          };
+        }));
       }
 
       setIsMagicEditProcessing(false);
-      toast({ title: "AI Edit Applied", description: effect.description || effect.effectName });
+      toast({ title: "✨ AI Edit Applied", description: `Source modified: ${effect.description || effect.effectName}` });
     } catch (err: any) {
       console.error("Magic Edit error:", err);
       setIsMagicEditProcessing(false);
@@ -3538,6 +3576,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             volume: clip.volume,
             speed: clip.speed,
             aiEnhanced: clip.aiEnhanced,
+            aiModified: clip.aiModified,
+            originalUrl: clip.originalUrl,
+            aiFilterCSS: clip.aiFilterCSS,
+            aiAdjustments: clip.aiAdjustments,
             animationIn: clip.animationIn ? {
               id: clip.animationIn.id,
               type: clip.animationIn.type,
@@ -3896,7 +3938,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             {/* Scrollable Tools Grid */}
             <div className="px-4 pb-6 overflow-x-auto scrollbar-hide">
               <div className="flex gap-3 pb-2">
-                {clipEditTools.map((tool) => (
+                {clipEditTools.filter(t => !('hidden' in t && t.hidden)).map((tool) => (
                   <button
                     key={tool.id}
                     onClick={tool.action}
@@ -6055,11 +6097,18 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                   <div 
                                     className="flex h-[5px] mt-0.5 rounded-full overflow-hidden bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500"
                                     style={{ width: clipWidth }}
-                                    title="AI Enhanced"
+                                    title={clip.aiModified ? "AI-Modified" : "AI Enhanced"}
                                   >
                                     <div className="flex-1 flex items-center justify-center">
                                       <Wand2 className="w-2 h-2 text-white/90" />
                                     </div>
+                                  </div>
+                                )}
+                                
+                                {/* AI-Modified tag */}
+                                {clip.aiModified && (
+                                  <div className="absolute top-1 right-1 px-1 py-0.5 rounded text-[6px] font-bold bg-violet-500/80 text-white leading-none">
+                                    AI
                                   </div>
                                 )}
                                 
@@ -7993,7 +8042,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   /* Main Edit Tools - Horizontal Scroll */
                   <div className="flex-1 flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
                     <div className="flex gap-2 min-w-max">
-                      {clipEditTools.map((tool) => {
+                      {clipEditTools.filter(t => !('hidden' in t && t.hidden)).map((tool) => {
                         const IconComponent = tool.icon;
                         const isDelete = tool.id === 'delete';
                         return (
