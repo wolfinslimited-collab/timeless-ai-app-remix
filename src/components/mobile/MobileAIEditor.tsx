@@ -6428,7 +6428,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       <div 
                         className="relative h-10 cursor-pointer group"
                         style={{ width: trackWidth }}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setIsTextMenuMode(true);
                           setTextMenuTab('add-text');
                         }}
@@ -7005,7 +7006,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   <div 
                     className="relative h-10 cursor-pointer group"
                     style={{ width: trackWidth }}
-                    onClick={() => setIsAudioMenuMode(true)}
+                    onClick={(e) => { e.stopPropagation(); setIsAudioMenuMode(true); }}
                   >
                       <div className="h-[34px] mt-[3px] rounded bg-[#2A2A2A] border border-border/30 hover:border-border/50 transition-all flex items-center gap-2 px-2" style={{ maxWidth: 180 }}>
                         <div className="flex items-center gap-2">
