@@ -917,29 +917,30 @@ class InpaintingCanvasPainter extends CustomPainter {
     canvas.translate(offsetX, offsetY);
     canvas.scale(scale);
     canvas.drawImage(image!, Offset.zero, Paint());
-
-    // Draw mask strokes as filled circles - matches web implementation
-    for (final stroke in strokes) {
-      _drawStroke(canvas, stroke);
-    }
-    if (currentStroke != null) {
-      _drawStroke(canvas, currentStroke!);
-    }
-
     canvas.restore();
-  }
 
-  void _drawStroke(Canvas canvas, DrawingStroke stroke) {
-    final paint = Paint()
-      ..color = stroke.isErase
-          ? Colors.black.withOpacity(0.5)
-          : Colors.red.withOpacity(0.5)
-      ..style = PaintingStyle.fill;
+    // Draw mask overlay using saveLayer so eraser only removes red paint, not the image
+    canvas.save();
+    canvas.translate(offsetX, offsetY);
+    canvas.scale(scale);
+    canvas.saveLayer(null, Paint());
 
-    // Draw filled circles at each point - matches web's arc-based drawing
-    for (final point in stroke.points) {
-      canvas.drawCircle(point, stroke.brushSize / 2, paint);
+    // Draw all strokes: paint adds red, erase removes red
+    final allStrokes = [...strokes, if (currentStroke != null) currentStroke!];
+    for (final stroke in allStrokes) {
+      final paint = Paint()..style = PaintingStyle.fill;
+      if (stroke.isErase) {
+        paint.blendMode = BlendMode.clear;
+      } else {
+        paint.color = Colors.red.withOpacity(0.5);
+      }
+      for (final point in stroke.points) {
+        canvas.drawCircle(point, stroke.brushSize / 2, paint);
+      }
     }
+
+    canvas.restore(); // restores saveLayer, compositing the mask overlay
+    canvas.restore(); // restores translate/scale
   }
 
   @override
