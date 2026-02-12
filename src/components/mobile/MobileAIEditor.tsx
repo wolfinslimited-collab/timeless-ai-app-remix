@@ -6090,7 +6090,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 "absolute h-[34px] mt-[3px] rounded flex items-center group/item transition-all",
                                 isSelected 
                                   ? "bg-gradient-to-r from-purple-600/40 to-pink-600/40 border-2 border-white" 
-                                  : "bg-gradient-to-r from-purple-600/30 to-pink-600/30 border border-purple-500/30 hover:border-purple-400/50"
+                                  : "bg-gradient-to-r from-purple-600/30 to-pink-600/30 border border-purple-500/30 hover:border-purple-400/50",
+                                draggingLayerId === overlay.id && "opacity-90 scale-[1.02] z-10"
                               )}
                               style={{
                                 left: leftOffset,
@@ -6098,12 +6099,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                // Select the overlay and open edit menu for it
                                 setSelectedOverlayId(overlay.id);
                                 setEditingClipId(overlay.id);
                                 setEditingLayerType('overlay');
                                 setClipVolume(overlay.volume);
-                                setClipSpeed(1.0); // Overlays don't have speed yet, default to 1
+                                setClipSpeed(1.0);
                                 setIsEditMenuMode(true);
                               }}
                             >
@@ -6134,10 +6134,131 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 <div className="w-0.5 h-3 bg-white/60 rounded-full" />
                               </div>
                               
-                              {/* Thumbnails content */}
-                              <div className="flex-1 flex h-full overflow-hidden cursor-grab">
+                              {/* Thumbnails content - Draggable center area */}
+                              <div 
+                                className="flex-1 flex h-full overflow-hidden cursor-grab active:cursor-grabbing"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  setDraggingLayerId(overlay.id);
+                                  setSelectedOverlayId(overlay.id);
+                                  
+                                  if (navigator.vibrate) navigator.vibrate(10);
+                                  
+                                  const startX = e.clientX;
+                                  const origStart = overlay.startTime;
+                                  const layerDuration = overlay.endTime - overlay.startTime;
+                                  const snapThreshold = 10 / PIXELS_PER_SECOND;
+                                  
+                                  const getSnapTargets = () => {
+                                    const targets: number[] = [currentTime];
+                                    videoClips.forEach(c => { targets.push(c.startTime, c.startTime + getClipTrimmedDuration(c)); });
+                                    textOverlays.forEach(t => { targets.push(t.startTime, t.endTime); });
+                                    videoOverlays.filter(o => o.id !== overlay.id).forEach(o => { targets.push(o.startTime, o.endTime); });
+                                    return targets;
+                                  };
+                                  
+                                  const handleMove = (moveE: MouseEvent) => {
+                                    const deltaX = moveE.clientX - startX;
+                                    const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                    let newStart = Math.max(0, Math.min(totalTimelineDuration - layerDuration, origStart + timeDelta));
+                                    
+                                    let snapped = false;
+                                    const targets = getSnapTargets();
+                                    for (const t of targets) {
+                                      if (Math.abs(newStart - t) < snapThreshold) {
+                                        newStart = t; snapped = true; break;
+                                      }
+                                      if (Math.abs(newStart + layerDuration - t) < snapThreshold) {
+                                        newStart = t - layerDuration; snapped = true; break;
+                                      }
+                                    }
+                                    
+                                    if (snapped) {
+                                      setSnapLinePosition(window.innerWidth / 2);
+                                      if (navigator.vibrate) navigator.vibrate(5);
+                                    } else {
+                                      setSnapLinePosition(null);
+                                    }
+                                    
+                                    setDragTooltip({ time: newStart, x: moveE.clientX, y: moveE.clientY });
+                                    updateVideoOverlay(overlay.id, { startTime: newStart, endTime: newStart + layerDuration });
+                                  };
+                                  
+                                  const handleUp = () => {
+                                    setDraggingLayerId(null);
+                                    setSnapLinePosition(null);
+                                    setDragTooltip(null);
+                                    document.removeEventListener('mousemove', handleMove);
+                                    document.removeEventListener('mouseup', handleUp);
+                                  };
+                                  
+                                  document.addEventListener('mousemove', handleMove);
+                                  document.addEventListener('mouseup', handleUp);
+                                }}
+                                onTouchStart={(e) => {
+                                  e.stopPropagation();
+                                  const touch = e.touches[0];
+                                  setDraggingLayerId(overlay.id);
+                                  setSelectedOverlayId(overlay.id);
+                                  
+                                  if (navigator.vibrate) navigator.vibrate(10);
+                                  
+                                  const startX = touch.clientX;
+                                  const origStart = overlay.startTime;
+                                  const layerDuration = overlay.endTime - overlay.startTime;
+                                  const snapThreshold = 10 / PIXELS_PER_SECOND;
+                                  
+                                  const getSnapTargets = () => {
+                                    const targets: number[] = [currentTime];
+                                    videoClips.forEach(c => { targets.push(c.startTime, c.startTime + getClipTrimmedDuration(c)); });
+                                    textOverlays.forEach(t => { targets.push(t.startTime, t.endTime); });
+                                    videoOverlays.filter(o => o.id !== overlay.id).forEach(o => { targets.push(o.startTime, o.endTime); });
+                                    return targets;
+                                  };
+                                  
+                                  const handleTouchMove = (moveE: TouchEvent) => {
+                                    moveE.preventDefault();
+                                    const t = moveE.touches[0];
+                                    const deltaX = t.clientX - startX;
+                                    const timeDelta = deltaX / PIXELS_PER_SECOND;
+                                    let newStart = Math.max(0, Math.min(totalTimelineDuration - layerDuration, origStart + timeDelta));
+                                    
+                                    let snapped = false;
+                                    const targets = getSnapTargets();
+                                    for (const st of targets) {
+                                      if (Math.abs(newStart - st) < snapThreshold) {
+                                        newStart = st; snapped = true; break;
+                                      }
+                                      if (Math.abs(newStart + layerDuration - st) < snapThreshold) {
+                                        newStart = st - layerDuration; snapped = true; break;
+                                      }
+                                    }
+                                    
+                                    if (snapped) {
+                                      setSnapLinePosition(window.innerWidth / 2);
+                                      if (navigator.vibrate) navigator.vibrate(5);
+                                    } else {
+                                      setSnapLinePosition(null);
+                                    }
+                                    
+                                    setDragTooltip({ time: newStart, x: t.clientX, y: t.clientY });
+                                    updateVideoOverlay(overlay.id, { startTime: newStart, endTime: newStart + layerDuration });
+                                  };
+                                  
+                                  const handleTouchEnd = () => {
+                                    setDraggingLayerId(null);
+                                    setSnapLinePosition(null);
+                                    setDragTooltip(null);
+                                    document.removeEventListener('touchmove', handleTouchMove);
+                                    document.removeEventListener('touchend', handleTouchEnd);
+                                  };
+                                  
+                                  document.addEventListener('touchmove', handleTouchMove, { passive: false });
+                                  document.addEventListener('touchend', handleTouchEnd);
+                                }}
+                              >
                                 {(() => {
-                                  const overlayWidth = itemWidth - 16; // Subtract trim handle widths
+                                  const overlayWidth = itemWidth - 16;
                                   const thumbWidth = 40;
                                   const thumbCount = Math.max(1, Math.min(10, Math.floor(overlayWidth / thumbWidth)));
                                   

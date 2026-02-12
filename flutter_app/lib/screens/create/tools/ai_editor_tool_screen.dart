@@ -6528,15 +6528,63 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         _isEditMenuMode = true;
                       });
                     },
+                    onHorizontalDragStart: (details) {
+                      HapticFeedback.lightImpact();
+                      setState(() {
+                        _draggingOverlayId = overlay.id;
+                        _selectedOverlayId = overlay.id;
+                      });
+                    },
                     onHorizontalDragUpdate: (details) {
                       final delta = details.primaryDelta ?? 0;
                       final timeDelta = delta / _pixelsPerSecond;
                       final itemDuration = overlay.endTime - overlay.startTime;
                       
+                      var newStart = (overlay.startTime + timeDelta).clamp(0.0, duration - itemDuration);
+                      
+                      // Magnetic snapping
+                      final snapThreshold = 10.0 / _pixelsPerSecond;
+                      final snapTargets = <double>[_currentTimelinePosition];
+                      for (final c in _videoClips) {
+                        snapTargets.add(c.startTime);
+                        snapTargets.add(c.startTime + (c.outPoint - c.inPoint));
+                      }
+                      for (final t in _textOverlays) {
+                        snapTargets.add(t.startTime);
+                        snapTargets.add(t.endTime);
+                      }
+                      for (final o in _videoOverlays) {
+                        if (o.id == overlay.id) continue;
+                        snapTargets.add(o.startTime);
+                        snapTargets.add(o.endTime);
+                      }
+                      
+                      bool snapped = false;
+                      for (final target in snapTargets) {
+                        if ((newStart - target).abs() < snapThreshold) {
+                          newStart = target;
+                          snapped = true;
+                          break;
+                        }
+                        if ((newStart + itemDuration - target).abs() < snapThreshold) {
+                          newStart = target - itemDuration;
+                          snapped = true;
+                          break;
+                        }
+                      }
+                      
+                      if (snapped) {
+                        HapticFeedback.selectionClick();
+                      }
+                      
                       setState(() {
-                        var newStart = (overlay.startTime + timeDelta).clamp(0.0, duration - itemDuration);
                         overlay.startTime = newStart;
                         overlay.endTime = newStart + itemDuration;
+                      });
+                    },
+                    onHorizontalDragEnd: (details) {
+                      setState(() {
+                        _draggingOverlayId = null;
                       });
                     },
                     child: Container(
