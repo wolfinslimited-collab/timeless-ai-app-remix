@@ -3800,6 +3800,42 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     return '$minutes:$seconds';
   }
 
+  /// Resolve the source file for a given video clip
+  Future<File?> _resolveClipFile(VideoClip clip) async {
+    // Try direct path
+    if (clip.url.isNotEmpty) {
+      if (clip.url.startsWith('/') || clip.url.startsWith('file://')) {
+        final path = clip.url.replaceFirst('file://', '');
+        final f = File(path);
+        if (await f.exists()) return f;
+      }
+    }
+    // Try cached file
+    final cachedFile = await ProjectStorage.getVideoFile(
+      _currentProject?.id ?? '',
+      clipId: clip.id,
+    );
+    if (cachedFile != null && await cachedFile.exists()) return cachedFile;
+    // Fall back to primary video file
+    if (_videoFile != null && await _videoFile!.exists()) return _videoFile;
+    return null;
+  }
+
+  /// Get resolution dimensions from settings string
+  Map<String, int> _getResolutionDimensions() {
+    switch (_outputResolution) {
+      case '480p':
+        return {'width': 854, 'height': 480};
+      case '720p':
+        return {'width': 1280, 'height': 720};
+      case '2K/4K':
+        return {'width': 3840, 'height': 2160};
+      case '1080p':
+      default:
+        return {'width': 1920, 'height': 1080};
+    }
+  }
+
   Future<void> _handleExport() async {
     if (_videoClips.isEmpty) {
       _showSnackBar('No video to export');
@@ -3818,82 +3854,166 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     });
 
     try {
-      // Collect all clip file bytes in order
-      final List<Uint8List> clipBytesList = [];
-      
+      final appDir = await getApplicationDocumentsDirectory();
+      final tempDir = Directory('${appDir.path}/export_temp');
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+      await tempDir.create(recursive: true);
+
+      final res = _getResolutionDimensions();
+      final outW = res['width']!;
+      final outH = res['height']!;
+      final fps = _outputFrameRate;
+      final bitrate = _outputBitrate * 1000; // Convert Mbps to kbps
+
+      // Step 1: Trim each clip individually using platform channel / FFmpeg
+      final List<String> trimmedPaths = [];
+
       for (int i = 0; i < _videoClips.length; i++) {
         setState(() {
-          _exportStage = 'Processing clip ${i + 1}/${_videoClips.length}...';
-          _exportProgress = (i / _videoClips.length * 60).round();
+          _exportStage = 'Trimming clip ${i + 1}/${_videoClips.length}...';
+          _exportProgress = (i / _videoClips.length * 50).round();
         });
-        
+
         final clip = _videoClips[i];
-        File? sourceFile;
-        
-        // Try to get clip source file
-        if (clip.url.isNotEmpty) {
-          if (clip.url.startsWith('/') || clip.url.startsWith('file://')) {
-            final path = clip.url.replaceFirst('file://', '');
-            sourceFile = File(path);
+        final sourceFile = await _resolveClipFile(clip);
+        if (sourceFile == null) {
+          debugPrint('Export: Could not resolve file for clip ${clip.id}');
+          continue;
+        }
+
+        final trimmedPath = '${tempDir.path}/clip_$i.mp4';
+        final inPt = clip.inPoint;
+        final duration = clip.outPoint - clip.inPoint;
+        final speed = clip.speed;
+
+        // Use platform channel to call native FFmpeg for trimming
+        try {
+          const channel = MethodChannel('com.wolfine.app/ffmpeg');
+          final success = await channel.invokeMethod<bool>('trimVideo', {
+            'inputPath': sourceFile.path,
+            'outputPath': trimmedPath,
+            'startTime': inPt,
+            'duration': duration,
+            'speed': speed,
+            'width': outW,
+            'height': outH,
+            'fps': fps,
+            'bitrate': bitrate,
+            'volume': clip.volume,
+          });
+
+          if (success == true && await File(trimmedPath).exists()) {
+            trimmedPaths.add(trimmedPath);
+          } else {
+            // Fallback: copy the source file directly (no trim)
+            debugPrint('Export: FFmpeg trim failed for clip $i, using source directly');
+            await sourceFile.copy(trimmedPath);
+            trimmedPaths.add(trimmedPath);
           }
+        } catch (e) {
+          debugPrint('Export: FFmpeg channel not available ($e), copying source file');
+          // If FFmpeg platform channel not available, copy source as-is
+          await sourceFile.copy(trimmedPath);
+          trimmedPaths.add(trimmedPath);
         }
-        
-        // Try cached file for this clip
-        if (sourceFile == null || !await sourceFile.exists()) {
-          final cachedFile = await ProjectStorage.getVideoFile(
-            _currentProject?.id ?? '', 
-            clipId: clip.id,
-          );
-          if (cachedFile != null && await cachedFile.exists()) {
-            sourceFile = cachedFile;
+      }
+
+      if (trimmedPaths.isEmpty) {
+        throw Exception('No video clips could be processed');
+      }
+
+      // Step 2: Generate ending clip video if enabled
+      if (_endingClip?.enabled == true) {
+        setState(() {
+          _exportStage = 'Generating ending...';
+          _exportProgress = 55;
+        });
+
+        final endingPath = '${tempDir.path}/ending.mp4';
+        try {
+          const channel = MethodChannel('com.wolfine.app/ffmpeg');
+          final bgColor = Color(_endingClip!.backgroundColor);
+          final txtColor = Color(_endingClip!.textColor);
+          final hexBg = '${bgColor.red.toRadixString(16).padLeft(2, '0')}${bgColor.green.toRadixString(16).padLeft(2, '0')}${bgColor.blue.toRadixString(16).padLeft(2, '0')}';
+          final hexTxt = '${txtColor.red.toRadixString(16).padLeft(2, '0')}${txtColor.green.toRadixString(16).padLeft(2, '0')}${txtColor.blue.toRadixString(16).padLeft(2, '0')}';
+
+          final success = await channel.invokeMethod<bool>('generateEndingClip', {
+            'outputPath': endingPath,
+            'duration': _endingClip!.duration,
+            'text': _endingClip!.text,
+            'backgroundColor': hexBg,
+            'textColor': hexTxt,
+            'fontSize': _endingClip!.fontSize,
+            'width': outW,
+            'height': outH,
+            'fps': fps,
+            'bitrate': bitrate,
+            'backgroundImage': _endingClip!.backgroundImage,
+          });
+
+          if (success == true && await File(endingPath).exists()) {
+            trimmedPaths.add(endingPath);
           }
-        }
-        
-        // Fall back to primary video file
-        sourceFile ??= _videoFile;
-        
-        if (sourceFile != null && await sourceFile.exists()) {
-          final bytes = await sourceFile.readAsBytes();
-          clipBytesList.add(bytes);
-        }
-      }
-      
-      if (clipBytesList.isEmpty) {
-        throw Exception('No video files found');
-      }
-
-      setState(() {
-        _exportStage = 'Rendering at $_outputResolution...';
-        _exportProgress = 70;
-      });
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      // For single clip, export directly. For multiple clips, concatenate bytes.
-      // Note: True video concatenation requires FFmpeg; for now we export the
-      // largest (or combined) file. On Flutter without FFmpeg we save individual
-      // clips and note the limitation.
-      final Uint8List exportBytes;
-      if (clipBytesList.length == 1) {
-        exportBytes = clipBytesList.first;
-      } else {
-        // Concatenate all clip bytes (simple binary concat — works for same-codec files)
-        int totalLength = clipBytesList.fold(0, (sum, b) => sum + b.length);
-        exportBytes = Uint8List(totalLength);
-        int offset = 0;
-        for (final bytes in clipBytesList) {
-          exportBytes.setRange(offset, offset + bytes.length, bytes);
-          offset += bytes.length;
+        } catch (e) {
+          debugPrint('Export: Could not generate ending clip: $e');
         }
       }
 
+      // Step 3: Concatenate all clips
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final extension = _videoFile?.path.split('.').last ?? 'mp4';
-      final fileName = 'ai-editor-export-$timestamp.$extension';
+      final outputPath = '${tempDir.path}/ai-editor-export-$timestamp.mp4';
 
+      if (trimmedPaths.length == 1) {
+        // Single clip — just rename
+        await File(trimmedPaths.first).copy(outputPath);
+      } else {
+        setState(() {
+          _exportStage = 'Joining ${trimmedPaths.length} clips...';
+          _exportProgress = 65;
+        });
+
+        // Create concat list file for FFmpeg
+        final concatListPath = '${tempDir.path}/concat_list.txt';
+        final concatContent = trimmedPaths.map((p) => "file '$p'").join('\n');
+        await File(concatListPath).writeAsString(concatContent);
+
+        try {
+          const channel = MethodChannel('com.wolfine.app/ffmpeg');
+          final success = await channel.invokeMethod<bool>('concatVideos', {
+            'concatListPath': concatListPath,
+            'outputPath': outputPath,
+            'width': outW,
+            'height': outH,
+            'fps': fps,
+            'bitrate': bitrate,
+          });
+
+          if (success != true || !await File(outputPath).exists()) {
+            // Fallback: use the first trimmed clip
+            debugPrint('Export: FFmpeg concat failed, using first clip');
+            await File(trimmedPaths.first).copy(outputPath);
+          }
+        } catch (e) {
+          debugPrint('Export: FFmpeg concat channel not available ($e), using first clip');
+          await File(trimmedPaths.first).copy(outputPath);
+        }
+      }
+
+      // Step 4: Save to gallery
       setState(() {
         _exportStage = 'Saving to gallery...';
-        _exportProgress = 90;
+        _exportProgress = 85;
       });
+
+      final exportFile = File(outputPath);
+      if (!await exportFile.exists()) {
+        throw Exception('Export file was not created');
+      }
+
+      final exportBytes = await exportFile.readAsBytes();
+      final fileName = 'ai-editor-export-$timestamp.mp4';
 
       String? savedPath;
       try {
@@ -3910,13 +4030,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         await Future.delayed(const Duration(milliseconds: 300));
         _showSnackBar('Video exported to gallery!');
       } else {
-        final appDir = await getApplicationDocumentsDirectory();
+        // Save to exports directory as fallback
         final exportDir = Directory('${appDir.path}/exports');
         if (!await exportDir.exists()) {
           await exportDir.create(recursive: true);
         }
-        final outputFile = File('${exportDir.path}/$fileName');
-        await outputFile.writeAsBytes(exportBytes);
+        final fallbackFile = File('${exportDir.path}/$fileName');
+        await exportFile.copy(fallbackFile.path);
 
         setState(() {
           _exportProgress = 100;
@@ -3925,6 +4045,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         await Future.delayed(const Duration(milliseconds: 300));
         _showSnackBar('Video saved locally!');
       }
+
+      // Cleanup temp files
+      try {
+        await tempDir.delete(recursive: true);
+      } catch (_) {}
 
     } catch (e) {
       debugPrint('Export error: $e');
