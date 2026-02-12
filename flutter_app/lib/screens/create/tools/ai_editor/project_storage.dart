@@ -695,7 +695,8 @@ class ProjectStorage {
   }
 
   /// Cache a video file to the app's documents directory for a given project.
-  static Future<String?> saveVideoFile(String projectId, File videoFile) async {
+  /// If [clipId] is provided, the file is stored with a clip-specific key.
+  static Future<String?> saveVideoFile(String projectId, File videoFile, {String? clipId}) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final videoDir = Directory('${dir.path}/ai_editor_videos');
@@ -703,7 +704,8 @@ class ProjectStorage {
         await videoDir.create(recursive: true);
       }
       final ext = videoFile.path.split('.').last;
-      final cachedPath = '${videoDir.path}/$projectId.$ext';
+      final key = clipId != null ? '${projectId}_$clipId' : projectId;
+      final cachedPath = '${videoDir.path}/$key.$ext';
       await videoFile.copy(cachedPath);
       return cachedPath;
     } catch (e) {
@@ -713,15 +715,28 @@ class ProjectStorage {
   }
 
   /// Retrieve the cached video file for a project, or null if not found.
-  static Future<File?> getVideoFile(String projectId) async {
+  /// If [clipId] is provided, looks for the clip-specific cached file first.
+  static Future<File?> getVideoFile(String projectId, {String? clipId}) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final videoDir = Directory('${dir.path}/ai_editor_videos');
       if (!await videoDir.exists()) return null;
       
+      // Try clip-specific key first
+      if (clipId != null) {
+        final key = '${projectId}_$clipId';
+        final files = await videoDir.list().toList();
+        for (final entity in files) {
+          if (entity is File && entity.path.contains('/$key.')) {
+            if (await entity.exists()) return entity;
+          }
+        }
+      }
+      
+      // Fall back to legacy project-level key
       final files = await videoDir.list().toList();
       for (final entity in files) {
-        if (entity is File && entity.path.contains('/$projectId.')) {
+        if (entity is File && entity.path.contains('/$projectId.') && !entity.path.contains('_')) {
           if (await entity.exists()) return entity;
         }
       }

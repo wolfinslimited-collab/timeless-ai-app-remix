@@ -1842,12 +1842,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         const tempVideo = document.createElement('video');
         tempVideo.src = localUrl;
         tempVideo.addEventListener('loadedmetadata', () => {
-          addVideoClip(localUrl, tempVideo.duration);
+          addVideoClip(localUrl, tempVideo.duration, file);
           setIsUploading(false);
         });
         tempVideo.addEventListener('error', () => {
-          // Fallback duration
-          addVideoClip(localUrl, 10);
+          addVideoClip(localUrl, 10, file);
           setIsUploading(false);
         });
       } else {
@@ -1857,10 +1856,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         // Clear old clips so the init effect creates a fresh primary clip
         setVideoClips([]);
         setUploadProgress(100);
-        // Cache file in IndexedDB for the current project
+        // Cache file in IndexedDB for the current project (primary clip)
         if (currentProject) {
           import('./ai-editor/projectStorage').then(({ saveVideoFile }) => {
             saveVideoFile(currentProject.id, file);
+            saveVideoFile(currentProject.id, file, 'primary');
           });
         }
         toast({
@@ -2738,7 +2738,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   };
 
   // Add a new video clip to the end of the timeline
-  const addVideoClip = (url: string, clipDuration: number) => {
+  const addVideoClip = (url: string, clipDuration: number, fileToCache?: File) => {
     const lastClip = videoClips[videoClips.length - 1];
     const startTime = lastClip ? lastClip.startTime + getClipTrimmedDuration(lastClip) : 0;
     
@@ -2757,6 +2757,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     
     setVideoClips(prev => [...prev, newClip]);
     toast({ title: "Video added", description: "Clip appended to timeline" });
+    
+    // Cache the clip's video file in IndexedDB
+    if (fileToCache && currentProject) {
+      import('./ai-editor/projectStorage').then(({ saveVideoFile }) => {
+        saveVideoFile(currentProject.id, fileToCache, clipId);
+      });
+    }
     
     // Extract thumbnails async
     extractThumbnails(url, clipDuration, clipId, 15);
@@ -3463,28 +3470,45 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       setVideoClips(restoredClips);
     }
 
-    // Try to get cached video file from IndexedDB
+    // Try to get cached video files from IndexedDB for each clip
     const { getVideoFile } = await import('./ai-editor/projectStorage');
-    const cachedFile = await getVideoFile(project.id);
     
-    if (cachedFile) {
-      originalVideoFileRef.current = cachedFile;
-      const freshUrl = URL.createObjectURL(cachedFile);
-      // Update restored clip URLs to match the fresh blob URL
-      const clipsWithUrl = restoredClips.map((clip, idx) => 
-        idx === 0 ? { ...clip, url: freshUrl } : clip
-      );
-      setVideoClips(clipsWithUrl);
-      setVideoUrl(freshUrl);
+    // First try the legacy key (projectId only) for backwards compatibility
+    const primaryFile = await getVideoFile(project.id);
+    
+    if (primaryFile || restoredClips.length > 0) {
+      // Resolve fresh URLs for each clip from cached files
+      const clipsWithUrl = await Promise.all(restoredClips.map(async (clip) => {
+        // Try clip-specific cache first, then fall back to legacy primary cache
+        let cachedFile = await getVideoFile(project.id, clip.id);
+        if (!cachedFile && clip.id === 'primary') {
+          cachedFile = primaryFile;
+        }
+        if (cachedFile) {
+          const freshUrl = URL.createObjectURL(cachedFile);
+          return { ...clip, url: freshUrl, _file: cachedFile };
+        }
+        return clip;
+      }));
+      
+      // Set primary video file ref from the first clip
+      const firstClipFile = (clipsWithUrl[0] as any)?._file || primaryFile;
+      if (firstClipFile) {
+        originalVideoFileRef.current = firstClipFile;
+      }
+      
+      // Clean up _file refs and set state
+      const cleanClips = clipsWithUrl.map(({ _file, ...clip }: any) => clip);
+      setVideoClips(cleanClips);
+      setVideoUrl(cleanClips[0]?.url || null);
       setShowProjectManager(false);
 
       // Regenerate thumbnails for all restored clips
       setTimeout(() => {
-        clipsWithUrl.forEach((clip, i) => {
-          const clipUrl = i === 0 ? freshUrl : clip.url;
+        cleanClips.forEach((clip: any) => {
           const clipDuration = clip.outPoint - clip.inPoint;
-          if (clipDuration > 0) {
-            extractThumbnails(clipUrl, clipDuration, clip.id, 15);
+          if (clipDuration > 0 && clip.url) {
+            extractThumbnails(clip.url, clipDuration, clip.id, 15);
           }
         });
       }, 500);
