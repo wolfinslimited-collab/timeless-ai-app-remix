@@ -9,6 +9,7 @@ import AddCreditsDialog from "@/components/AddCreditsDialog";
 import { ToolSelector, type ToolItem } from "./ToolSelector";
 import { ModelSelectorModal, type ModelOption } from "./ModelSelectorModal";
 import { ModelBrandLogo } from "./ModelBrandLogo";
+import { InpaintingEditor } from "./InpaintingEditor";
 
 interface MobileImageCreateProps {
   onBack: () => void;
@@ -66,12 +67,21 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
   const selectedTool = TOOLS.find(t => t.id === selectedToolId) || TOOLS[0];
   const selectedModelData = MODELS.find(m => m.id === model);
   const isUpscaleTool = selectedToolId === "upscale";
+  const isInpaintingTool = selectedToolId === "inpainting" || selectedToolId === "object-erase";
 
   // Upscale tool specific state
   const [upscaleInputImage, setUpscaleInputImage] = useState<string | null>(null);
   const [upscaleOutputImage, setUpscaleOutputImage] = useState<string | null>(null);
   const [isUpscaleProcessing, setIsUpscaleProcessing] = useState(false);
   const upscaleFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Inpainting tool specific state
+  const [inpaintInputImage, setInpaintInputImage] = useState<string | null>(null);
+  const [inpaintOutputImage, setInpaintOutputImage] = useState<string | null>(null);
+  const [isInpaintProcessing, setIsInpaintProcessing] = useState(false);
+  const [showInpaintEditor, setShowInpaintEditor] = useState(false);
+  const [hasMaskApplied, setHasMaskApplied] = useState(false);
+  const inpaintFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUpscaleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -149,6 +159,94 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
       const a = document.createElement('a');
       a.href = url;
       a.download = `upscale-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch {
+      toast({ variant: "destructive", title: "Download failed" });
+    }
+  };
+
+  // Inpainting image upload
+  const handleInpaintImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ variant: "destructive", title: "Invalid file", description: "Please upload an image." });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ variant: "destructive", title: "File too large", description: "Max 10MB." });
+      return;
+    }
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('generation-inputs').upload(fileName, file);
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('generation-inputs').getPublicUrl(fileName);
+      setInpaintInputImage(publicUrl);
+      setInpaintOutputImage(null);
+      setHasMaskApplied(false);
+      setShowInpaintEditor(true);
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Upload failed", description: error.message });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleInpaintDone = async (maskDataUrl: string, prompt: string) => {
+    if (!inpaintInputImage || !user) return;
+    const creditCost = selectedTool.credits;
+    const hasEnough = credits !== null && credits !== undefined && credits >= creditCost;
+    if (!hasEnough) {
+      setShowAddCreditsDialog(true);
+      return;
+    }
+    setIsInpaintProcessing(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const response = await fetch(`${TIMELESS_SUPABASE_URL}/functions/v1/image-tools`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'apikey': TIMELESS_ANON_KEY,
+        },
+        body: JSON.stringify({
+          tool: selectedToolId,
+          imageUrl: inpaintInputImage,
+          maskUrl: maskDataUrl,
+          prompt,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Processing failed');
+      setInpaintOutputImage(result.outputUrl);
+      setShowInpaintEditor(false);
+      setHasMaskApplied(true);
+      refetch();
+      toast({ title: `${selectedTool.name} complete!`, description: "Your image has been processed." });
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Processing failed", description: error.message });
+    } finally {
+      setIsInpaintProcessing(false);
+    }
+  };
+
+  const handleInpaintDownload = async () => {
+    if (!inpaintOutputImage) return;
+    try {
+      const response = await fetch(inpaintOutputImage);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${selectedToolId}-${Date.now()}.png`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -405,6 +503,81 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
               onChange={handleUpscaleImageUpload}
             />
           </div>
+        ) : isInpaintingTool ? (
+          <div className="flex flex-col gap-4">
+            {!inpaintInputImage ? (
+              <div
+                className="min-h-[280px] bg-secondary rounded-2xl border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => inpaintFileInputRef.current?.click()}
+              >
+                {isUploading ? (
+                  <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                ) : (
+                  <>
+                    <Upload className="w-12 h-12 text-muted-foreground mb-3" />
+                    <p className="text-muted-foreground text-sm">Upload an image to start</p>
+                    <p className="text-muted-foreground text-xs mt-1">Then paint a mask to {selectedToolId === "inpainting" ? "replace" : "erase"}</p>
+                  </>
+                )}
+              </div>
+            ) : inpaintOutputImage ? (
+              <div className="flex flex-col gap-3">
+                <div className="min-h-[280px] bg-secondary rounded-2xl border border-border overflow-hidden flex items-center justify-center">
+                  <img src={inpaintOutputImage} alt="Result" className="w-full h-full object-contain" />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleInpaintDownload}
+                    className="flex-1 py-3 rounded-full bg-primary flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-4 h-4 text-primary-foreground" />
+                    <span className="text-primary-foreground text-sm font-medium">Download</span>
+                  </button>
+                  <button
+                    onClick={() => { setInpaintInputImage(null); setInpaintOutputImage(null); setHasMaskApplied(false); }}
+                    className="py-3 px-5 rounded-full bg-secondary border border-border"
+                  >
+                    <span className="text-foreground text-sm font-medium">New</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <div className="min-h-[280px] bg-secondary rounded-2xl border border-border overflow-hidden relative flex items-center justify-center">
+                  <img src={inpaintInputImage} alt="Input" className="w-full h-full object-contain" />
+                  {hasMaskApplied && (
+                    <div className="absolute top-2 left-2 px-2 py-1 bg-primary/80 rounded-lg">
+                      <span className="text-primary-foreground text-xs font-medium">Mask applied</span>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => { setInpaintInputImage(null); setInpaintOutputImage(null); setHasMaskApplied(false); }}
+                    className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center"
+                  >
+                    <X className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowInpaintEditor(true)}
+                    className="flex-1 py-3 rounded-full bg-secondary border border-border flex items-center justify-center gap-2"
+                  >
+                    <Brush className="w-4 h-4 text-foreground" />
+                    <span className="text-foreground text-sm font-medium">
+                      {hasMaskApplied ? "Edit Mask" : "Paint Mask"}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+            <input
+              ref={inpaintFileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleInpaintImageUpload}
+            />
+          </div>
         ) : (
           <div className={cn(
             "bg-secondary rounded-2xl border border-border flex flex-col items-center justify-center overflow-hidden",
@@ -433,8 +606,8 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
         )}
       </div>
 
-      {/* Controls - hidden for upscale tool */}
-      {!isUpscaleTool && (
+      {/* Controls - hidden for upscale and inpainting tools */}
+      {!isUpscaleTool && !isInpaintingTool && (
       <div className="p-4 space-y-4 border-t border-border">
         {/* Model Selector Button */}
         <button
@@ -617,6 +790,17 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
         title="Select Image Model"
         type="image"
       />
+
+      {/* Inpainting Editor Overlay */}
+      {showInpaintEditor && inpaintInputImage && (
+        <InpaintingEditor
+          imageUrl={inpaintInputImage}
+          mode={selectedToolId === "object-erase" ? "object-erase" : "inpainting"}
+          onClose={() => setShowInpaintEditor(false)}
+          onDone={handleInpaintDone}
+          isProcessing={isInpaintProcessing}
+        />
+      )}
     </div>
   );
 }
