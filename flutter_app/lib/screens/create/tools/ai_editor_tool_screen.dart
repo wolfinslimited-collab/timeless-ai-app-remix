@@ -1141,6 +1141,22 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       endTime: d.endTime,
     )).toList();
     
+    // Restore video clips from saved project
+    if (project.videoClips.isNotEmpty) {
+      _videoClips = project.videoClips.map((c) => VideoClip(
+        id: c.id,
+        url: c.url,
+        duration: c.duration,
+        startTime: c.startTime,
+        inPoint: c.inPoint,
+        outPoint: c.outPoint,
+        thumbnails: [], // Will be regenerated after video controller init
+        volume: c.volume,
+        speed: c.speed,
+        aiEnhanced: c.aiEnhanced,
+      )).toList();
+    }
+
     // Video URL will trigger file re-select if missing
     if (project.videoUrl != null) {
       File? videoFile = File(project.videoUrl!);
@@ -1151,6 +1167,31 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       if (videoFile != null && videoFile.existsSync()) {
         _videoUrl = videoFile.path;
         _videoFile = videoFile;
+        
+        // Initialize video controller for restored project
+        try {
+          _videoController?.removeListener(_onVideoPositionChanged);
+          _videoController?.dispose();
+          _videoController = VideoPlayerController.file(videoFile);
+          await _videoController!.initialize();
+          _videoController!.setLooping(false);
+          _videoController!.addListener(_onVideoPositionChanged);
+          _isVideoInitialized = true;
+          
+          // If no clips were saved, create primary clip
+          if (_videoClips.isEmpty) {
+            _initializeFirstClip();
+          }
+          
+          // Regenerate thumbnails for all restored clips
+          for (final clip in _videoClips) {
+            _extractClipThumbnails(clip.id, clip.url, clip.outPoint - clip.inPoint);
+          }
+          
+          setState(() {});
+        } catch (e) {
+          debugPrint('Failed to initialize restored video: $e');
+        }
       }
     }
   }
