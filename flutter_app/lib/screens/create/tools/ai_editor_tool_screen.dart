@@ -6778,75 +6778,82 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     if (showSettingsPanel) {
       return _buildContextualSettingsPanel();
     } else {
-      // Show normal timeline + toolbar - wrapped in Stack for edit menu overlay and adjust overlay
-      return Stack(
-        clipBehavior: Clip.none,
+      // Show normal timeline + toolbar - wrapped in Stack for overlay menus above toolbar
+      return Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Column(
-            mainAxisSize: MainAxisSize.min,
+          _buildTimelineSection(),
+          // Stack to position overlay menus above the main toolbar
+          Stack(
+            clipBehavior: Clip.none,
             children: [
-              _buildTimelineSection(),
               _buildBottomToolbar(),
+              // Edit Menu Overlay - positioned above toolbar
+              if (_isEditMenuMode)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: _getToolbarHeight(),
+                  height: _editSubPanel != 'none' ? 200 : 160,
+                  child: Material(
+                    color: const Color(0xFF0A0A0A),
+                    elevation: 8,
+                    child: _buildEditMenu(),
+                  ),
+                ),
+              // Adjust Menu Overlay - positioned above toolbar
+              if (_selectedTool == 'adjust')
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: _getToolbarHeight(),
+                  height: 280,
+                  child: Material(
+                    color: const Color(0xFF0A0A0A),
+                    elevation: 8,
+                    child: _buildAdjustMenuOverlay(),
+                  ),
+                ),
+              // AI Edit Bottom Sheet Overlay
+              if (_isAiEditOpen)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: _getToolbarHeight(),
+                  child: _buildAiEditBottomSheet(),
+                ),
+              // AI Upscale Bottom Sheet Overlay
+              if (_isAiUpscaleOpen)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: _getToolbarHeight(),
+                  child: _buildAiUpscaleBottomSheet(),
+                ),
+              // AI Expansion Bottom Sheet Overlay
+              if (_isAiExpansionOpen)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: _getToolbarHeight(),
+                  child: _buildAiExpansionBottomSheet(),
+                ),
+              // AI Expansion Generating Overlay
+              if (_isExpansionGenerating)
+                Positioned.fill(
+                  child: _buildExpansionGeneratingOverlay(),
+                ),
             ],
           ),
-          // Edit Menu Overlay - positioned here to cover timeline and toolbar
-          if (_isEditMenuMode)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: _editSubPanel != 'none' ? 200 : 160,
-              child: Material(
-                color: const Color(0xFF0A0A0A),
-                elevation: 8,
-                child: _buildEditMenu(),
-              ),
-            ),
-          // Adjust Menu Overlay - inline overlay like edit menu
-          if (_selectedTool == 'adjust')
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 280,
-              child: Material(
-                color: const Color(0xFF0A0A0A),
-                elevation: 8,
-                child: _buildAdjustMenuOverlay(),
-              ),
-            ),
-          // AI Edit Bottom Sheet Overlay
-          if (_isAiEditOpen)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: _buildAiEditBottomSheet(),
-            ),
-          // AI Upscale Bottom Sheet Overlay
-          if (_isAiUpscaleOpen)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: _buildAiUpscaleBottomSheet(),
-            ),
-          // AI Expansion Bottom Sheet Overlay
-          if (_isAiExpansionOpen)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: _buildAiExpansionBottomSheet(),
-            ),
-          // AI Expansion Generating Overlay
-          if (_isExpansionGenerating)
-            Positioned.fill(
-              child: _buildExpansionGeneratingOverlay(),
-            ),
         ],
       );
     }
+  }
+
+  /// Get the toolbar height for positioning overlays above it
+  double _getToolbarHeight() {
+    if (_showTextEditPanel) return 450;
+    return 60; // Default toolbar height (icon + label + padding)
   }
   
   /// Build AI Edit bottom sheet
@@ -9182,255 +9189,237 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
 
   Widget _buildBottomToolbar() {
-    return Container(
-      constraints: BoxConstraints(maxHeight: _showTextEditPanel ? 450 : 160),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0A0A0A),
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
-      ),
-      child: Stack(
-        children: [
-          // Main toolbar - always rendered, fades out when overlay is open
-          AnimatedOpacity(
-            duration: const Duration(milliseconds: 200),
-            opacity: _isAnyOverlayOpen ? 0.0 : 1.0,
-            child: IgnorePointer(
-              ignoring: _isAnyOverlayOpen,
-              child: _buildMainToolbar(),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // Main toolbar - always visible
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF0A0A0A),
+            border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+          ),
+          child: _buildMainToolbar(),
+        ),
+        
+        // Overlay menus - positioned ABOVE the main toolbar
+        if (_showTextEditPanel && _selectedTextOverlay != null)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 60,
+            height: 390,
+            child: Material(
+              color: const Color(0xFF0A0A0A),
+              elevation: 8,
+              child: _buildTextEditPanel(),
             ),
           ),
-          
-          // Overlay menus - slide up with fade
-          if (_showTextEditPanel && _selectedTextOverlay != null)
-            Positioned.fill(
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: 1.0,
-                child: _buildTextEditPanel(),
-              ),
+        
+        if (_isTextMenuMode)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 60,
+            height: 160,
+            child: Material(
+              color: const Color(0xFF0A0A0A),
+              elevation: 8,
+              child: _buildTextMenu(),
             ),
-          
-          if (_isTextMenuMode)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 160,
-              child: Material(
-                color: const Color(0xFF0A0A0A),
-                elevation: 8,
-                child: _buildTextMenu(),
-              ),
+          ),
+        
+        if (_isAudioMenuMode)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 60,
+            height: 160,
+            child: Material(
+              color: const Color(0xFF0A0A0A),
+              elevation: 8,
+              child: _buildAudioMenu(),
             ),
-          
-          if (_isAudioMenuMode)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 160,
-              child: Material(
-                color: const Color(0xFF0A0A0A),
-                elevation: 8,
-                child: _buildAudioMenu(),
-              ),
-            ),
-          
-          // Audio Recording Overlay
-          if (_showRecordingOverlay)
-            Positioned.fill(
-              child: Material(
-                color: const Color(0xFF0A0A0A).withOpacity(0.95),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Animated recording indicator
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Outer pulsing ring
-                        TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 1.0, end: 1.3),
-                          duration: const Duration(milliseconds: 1000),
-                          builder: (context, value, child) {
-                            return Container(
-                              width: 120 * value,
-                              height: 120 * value,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.red.withOpacity(0.1 / value),
-                              ),
-                            );
-                          },
-                          onEnd: () {}, // Loops via rebuild
-                        ),
-                        // Inner pulsing ring
-                        Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.red.withOpacity(0.15),
-                          ),
-                        ),
-                        // Stop button
-                        GestureDetector(
-                          onTap: _stopAudioRecording,
-                          child: Container(
-                            width: 80,
-                            height: 80,
-                            decoration: const BoxDecoration(
+          ),
+        
+        // Audio Recording Overlay - this one stays full overlay
+        if (_showRecordingOverlay)
+          Positioned.fill(
+            child: Material(
+              color: const Color(0xFF0A0A0A).withOpacity(0.95),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 1.0, end: 1.3),
+                        duration: const Duration(milliseconds: 1000),
+                        builder: (context, value, child) {
+                          return Container(
+                            width: 120 * value,
+                            height: 120 * value,
+                            decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Colors.red,
+                              color: Colors.red.withOpacity(0.1 / value),
                             ),
-                            child: Icon(
-                              _isRecording ? Icons.stop : Icons.mic,
-                              size: 36,
-                              color: Colors.white,
-                            ),
+                          );
+                        },
+                        onEnd: () {},
+                      ),
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.red.withOpacity(0.15),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: _stopAudioRecording,
+                        child: Container(
+                          width: 80,
+                          height: 80,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.red,
+                          ),
+                          child: Icon(
+                            _isRecording ? Icons.stop : Icons.mic,
+                            size: 36,
+                            color: Colors.white,
                           ),
                         ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 32),
-                    
-                    // Timer display
-                    Text(
-                      _formatRecordingTime(_recordingDuration),
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'monospace',
-                        color: Colors.white,
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  Text(
+                    _formatRecordingTime(_recordingDuration),
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'monospace',
+                      color: Colors.white,
                     ),
-                    
-                    const SizedBox(height: 12),
-                    
-                    // Status text
-                    Text(
-                      _isRecording ? 'Recording... Tap to stop' : 'Tap to start recording',
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _isRecording ? 'Recording... Tap to stop' : 'Tap to start recording',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white.withOpacity(0.6),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  TextButton(
+                    onPressed: _cancelAudioRecording,
+                    child: Text(
+                      'Cancel',
                       style: TextStyle(
+                        color: Colors.white.withOpacity(0.5),
                         fontSize: 14,
-                        color: Colors.white.withOpacity(0.6),
                       ),
                     ),
-                    
-                    const SizedBox(height: 32),
-                    
-                    // Cancel button
-                    TextButton(
-                      onPressed: _cancelAudioRecording,
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          
-          if (_isEffectsMenuMode)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 160,
-              child: Material(
-                color: const Color(0xFF0A0A0A),
-                elevation: 8,
-                child: _buildEffectsMenu(),
-              ),
+          ),
+        
+        if (_isEffectsMenuMode)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 60,
+            height: 160,
+            child: Material(
+              color: const Color(0xFF0A0A0A),
+              elevation: 8,
+              child: _buildEffectsMenu(),
             ),
-          
-          if (_isOverlayMenuMode)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 160,
-              child: Material(
-                color: const Color(0xFF0A0A0A),
-                elevation: 8,
-                child: _buildOverlayMenu(),
-              ),
+          ),
+        
+        if (_isOverlayMenuMode)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 60,
+            height: 160,
+            child: Material(
+              color: const Color(0xFF0A0A0A),
+              elevation: 8,
+              child: _buildOverlayMenu(),
             ),
-          
-          if (_isCaptionsMenuMode)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 160,
-              child: Material(
-                color: const Color(0xFF0A0A0A),
-                elevation: 8,
-                child: _buildCaptionsMenu(),
-              ),
+          ),
+        
+        if (_isCaptionsMenuMode)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 60,
+            height: 160,
+            child: Material(
+              color: const Color(0xFF0A0A0A),
+              elevation: 8,
+              child: _buildCaptionsMenu(),
             ),
-          
-          if (_isAspectMenuMode)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 200,
-              child: Material(
-                color: const Color(0xFF0A0A0A),
-                elevation: 8,
-                child: _buildAspectMenu(),
-              ),
+          ),
+        
+        if (_isAspectMenuMode)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 60,
+            height: 200,
+            child: Material(
+              color: const Color(0xFF0A0A0A),
+              elevation: 8,
+              child: _buildAspectMenu(),
             ),
-          
-          if (_isBackgroundMenuMode)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 200,
-              child: Material(
-                color: const Color(0xFF0A0A0A),
-                elevation: 8,
-                child: _buildBackgroundMenu(),
-              ),
+          ),
+        
+        if (_isBackgroundMenuMode)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 60,
+            height: 200,
+            child: Material(
+              color: const Color(0xFF0A0A0A),
+              elevation: 8,
+              child: _buildBackgroundMenu(),
             ),
-          
-          // Draw Mode Menu Overlay
-          if (_isDrawMode)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 200,
-              child: Material(
-                color: const Color(0xFF0A0A0A),
-                elevation: 8,
-                child: _buildDrawMenu(),
-              ),
+          ),
+        
+        // Draw Mode Menu Overlay
+        if (_isDrawMode)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 60,
+            height: 200,
+            child: Material(
+              color: const Color(0xFF0A0A0A),
+              elevation: 8,
+              child: _buildDrawMenu(),
             ),
+          ),
 
-          // Crop Mode Menu Overlay
-          if (_isCropMode)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 180,
-              child: Material(
-                color: const Color(0xFF0A0A0A),
-                elevation: 8,
-                child: _buildCropMenu(),
-              ),
+        // Crop Mode Menu Overlay
+        if (_isCropMode)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 60,
+            height: 180,
+            child: Material(
+              color: const Color(0xFF0A0A0A),
+              elevation: 8,
+              child: _buildCropMenu(),
             ),
-          
-          // Edit Menu Overlay - MOVED to _buildDynamicBottomArea Stack for proper z-ordering
-        ],
-      ),
+          ),
+      ],
     );
   }
   
