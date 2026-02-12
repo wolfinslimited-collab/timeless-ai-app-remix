@@ -298,7 +298,7 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
   };
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="flex flex-col bg-background" style={{ height: '100%', minHeight: 0 }}>
       {/* Compact Header */}
       <div className="px-4 py-2 flex items-center gap-3 border-b border-border">
         <button onClick={onBack} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
