@@ -1052,7 +1052,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
   
   /// Restore all editor state from a saved project
-  void _restoreProjectState(EditorProject project) {
+  Future<void> _restoreProjectState(EditorProject project) async {
     // Restore adjustments
     _brightness = project.adjustments['brightness'] ?? 0;
     _contrast = project.adjustments['contrast'] ?? 0;
@@ -1143,10 +1143,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     
     // Video URL will trigger file re-select if missing
     if (project.videoUrl != null) {
-      final file = File(project.videoUrl!);
-      if (file.existsSync()) {
-        _videoUrl = project.videoUrl;
-        _videoFile = file;
+      File? videoFile = File(project.videoUrl!);
+      if (!videoFile.existsSync()) {
+        // Try cached file from project storage
+        videoFile = await ProjectStorage.getVideoFile(project.id);
+      }
+      if (videoFile != null && videoFile.existsSync()) {
+        _videoUrl = videoFile.path;
+        _videoFile = videoFile;
       }
     }
   }
@@ -3550,7 +3554,17 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         _uploadProgress = 1.0;
         _isVideoInitialized = true;
         _isUploading = false;
+        // Clear old clips so a fresh primary clip is created
+        _videoClips.clear();
       });
+      
+      // Cache the video file for the current project
+      if (_currentProject != null) {
+        final cachedPath = await ProjectStorage.saveVideoFile(_currentProject!.id, File(filePath));
+        if (cachedPath != null) {
+          _videoUrl = cachedPath;
+        }
+      }
       
       // Initialize first video clip
       _initializeFirstClip();

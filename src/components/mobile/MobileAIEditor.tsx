@@ -1851,9 +1851,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           setIsUploading(false);
         });
       } else {
-        // First video - set as primary
+      // First video - set as primary
         originalVideoFileRef.current = file;
         setVideoUrl(localUrl);
+        // Clear old clips so the init effect creates a fresh primary clip
+        setVideoClips([]);
         setUploadProgress(100);
         // Cache file in IndexedDB for the current project
         if (currentProject) {
@@ -3466,6 +3468,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     if (cachedFile) {
       originalVideoFileRef.current = cachedFile;
       const freshUrl = URL.createObjectURL(cachedFile);
+      // Update restored clip URLs to match the fresh blob URL
+      setVideoClips(prev => prev.map((clip, idx) => 
+        idx === 0 ? { ...clip, url: freshUrl } : clip
+      ));
       setVideoUrl(freshUrl);
       setShowProjectManager(false);
     } else {
