@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { ArrowLeft, Image, Sparkles, Loader2, Plus, X, Sun, Maximize, Grid3X3, Brush, Eraser, Scissors, Palette, User, RotateCcw, Zap, ChevronDown, Upload, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase, TIMELESS_SUPABASE_URL } from "@/lib/supabase";
+import { supabase, TIMELESS_SUPABASE_URL, TIMELESS_ANON_KEY } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { useToast } from "@/hooks/use-toast";
@@ -119,12 +119,12 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/image-tools`, {
+      const response = await fetch(`${TIMELESS_SUPABASE_URL}/functions/v1/image-tools`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          'apikey': TIMELESS_ANON_KEY,
         },
         body: JSON.stringify({ tool: "upscale", imageUrl: upscaleInputImage, scale: 2 }),
       });
