@@ -4008,6 +4008,265 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               ],
             ),
             
+            // Ending Clip Edit Panel
+            if (_isEditingEndingClip && _endingClip?.enabled == true)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.55),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1A1A),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Header
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Edit Ending', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                            IconButton(
+                              icon: Icon(Icons.close, color: Colors.white.withOpacity(0.6), size: 20),
+                              onPressed: () => setState(() => _isEditingEndingClip = false),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Text field
+                              Text('Text', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
+                              const SizedBox(height: 4),
+                              TextField(
+                                controller: TextEditingController(text: _endingClip!.text)
+                                  ..selection = TextSelection.collapsed(offset: _endingClip!.text.length),
+                                onChanged: (val) => setState(() => _endingClip = SavedEndingClip(
+                                  enabled: true, text: val,
+                                  duration: _endingClip!.duration,
+                                  backgroundColor: _endingClip!.backgroundColor,
+                                  textColor: _endingClip!.textColor,
+                                  fontSize: _endingClip!.fontSize,
+                                  backgroundImage: _endingClip!.backgroundImage,
+                                )),
+                                style: const TextStyle(color: Colors.white, fontSize: 14),
+                                decoration: InputDecoration(
+                                  hintText: 'Enter ending text...',
+                                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                                  filled: true,
+                                  fillColor: Colors.white.withOpacity(0.1),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.white.withOpacity(0.2))),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.white.withOpacity(0.2))),
+                                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.white.withOpacity(0.4))),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              // Duration slider
+                              Text('Duration: ${_endingClip!.duration.toStringAsFixed(1)}s', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
+                              const SizedBox(height: 4),
+                              Slider(
+                                value: _endingClip!.duration,
+                                min: 1, max: 10,
+                                divisions: 18,
+                                activeColor: Colors.purpleAccent,
+                                inactiveColor: Colors.white.withOpacity(0.1),
+                                onChanged: (val) => setState(() => _endingClip = SavedEndingClip(
+                                  enabled: true, text: _endingClip!.text,
+                                  duration: val,
+                                  backgroundColor: _endingClip!.backgroundColor,
+                                  textColor: _endingClip!.textColor,
+                                  fontSize: _endingClip!.fontSize,
+                                  backgroundImage: _endingClip!.backgroundImage,
+                                )),
+                              ),
+                              const SizedBox(height: 12),
+                              // Background color
+                              Text('Background Color', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8, runSpacing: 8,
+                                children: [
+                                  0xFF000000, 0xFFFFFFFF, 0xFF1A1A2E, 0xFF16213E,
+                                  0xFF0F3460, 0xFFE94560, 0xFF533483, 0xFF2B2D42,
+                                ].map((color) => GestureDetector(
+                                  onTap: () => setState(() => _endingClip = SavedEndingClip(
+                                    enabled: true, text: _endingClip!.text,
+                                    duration: _endingClip!.duration,
+                                    backgroundColor: color,
+                                    textColor: _endingClip!.textColor,
+                                    fontSize: _endingClip!.fontSize,
+                                    backgroundImage: _endingClip!.backgroundImage,
+                                  )),
+                                  child: Container(
+                                    width: 32, height: 32,
+                                    decoration: BoxDecoration(
+                                      color: Color(color),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: _endingClip!.backgroundColor == color ? Colors.white : Colors.transparent,
+                                        width: 2,
+                                      ),
+                                    ),
+                                  ),
+                                )).toList(),
+                              ),
+                              const SizedBox(height: 16),
+                              // Text color
+                              Text('Text Color', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8, runSpacing: 8,
+                                children: [
+                                  0xFFFFFFFF, 0xFF000000, 0xFFFFD700, 0xFFFF6B6B,
+                                  0xFF4ECDC4, 0xFF45B7D1, 0xFF96CEB4, 0xFFFFEAA7,
+                                ].map((color) => GestureDetector(
+                                  onTap: () => setState(() => _endingClip = SavedEndingClip(
+                                    enabled: true, text: _endingClip!.text,
+                                    duration: _endingClip!.duration,
+                                    backgroundColor: _endingClip!.backgroundColor,
+                                    textColor: color,
+                                    fontSize: _endingClip!.fontSize,
+                                    backgroundImage: _endingClip!.backgroundImage,
+                                  )),
+                                  child: Container(
+                                    width: 32, height: 32,
+                                    decoration: BoxDecoration(
+                                      color: Color(color),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: _endingClip!.textColor == color ? Colors.white : Colors.transparent,
+                                        width: 2,
+                                      ),
+                                    ),
+                                  ),
+                                )).toList(),
+                              ),
+                              const SizedBox(height: 16),
+                              // Font size slider
+                              Text('Font Size: ${_endingClip!.fontSize.toInt()}px', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
+                              const SizedBox(height: 4),
+                              Slider(
+                                value: _endingClip!.fontSize,
+                                min: 16, max: 72,
+                                activeColor: Colors.purpleAccent,
+                                inactiveColor: Colors.white.withOpacity(0.1),
+                                onChanged: (val) => setState(() => _endingClip = SavedEndingClip(
+                                  enabled: true, text: _endingClip!.text,
+                                  duration: _endingClip!.duration,
+                                  backgroundColor: _endingClip!.backgroundColor,
+                                  textColor: _endingClip!.textColor,
+                                  fontSize: val,
+                                  backgroundImage: _endingClip!.backgroundImage,
+                                )),
+                              ),
+                              const SizedBox(height: 16),
+                              // Background image upload
+                              Text('Background Image', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () async {
+                                        final picker = ImagePicker();
+                                        final image = await picker.pickImage(source: ImageSource.gallery);
+                                        if (image != null) {
+                                          setState(() => _endingClip = SavedEndingClip(
+                                            enabled: true, text: _endingClip!.text,
+                                            duration: _endingClip!.duration,
+                                            backgroundColor: _endingClip!.backgroundColor,
+                                            textColor: _endingClip!.textColor,
+                                            fontSize: _endingClip!.fontSize,
+                                            backgroundImage: image.path,
+                                          ));
+                                        }
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: Colors.white.withOpacity(0.2)),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.image, size: 16, color: Colors.white.withOpacity(0.6)),
+                                            const SizedBox(width: 4),
+                                            Text('Upload Image', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (_endingClip!.backgroundImage != null) ...[
+                                    const SizedBox(width: 8),
+                                    GestureDetector(
+                                      onTap: () => setState(() => _endingClip = SavedEndingClip(
+                                        enabled: true, text: _endingClip!.text,
+                                        duration: _endingClip!.duration,
+                                        backgroundColor: _endingClip!.backgroundColor,
+                                        textColor: _endingClip!.textColor,
+                                        fontSize: _endingClip!.fontSize,
+                                        backgroundImage: null,
+                                      )),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Text('Remove', style: TextStyle(color: Colors.red, fontSize: 12)),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+                              // Delete ending button
+                              SizedBox(
+                                width: double.infinity,
+                                child: GestureDetector(
+                                  onTap: () => setState(() {
+                                    _endingClip = SavedEndingClip(enabled: false);
+                                    _isEditingEndingClip = false;
+                                  }),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                                        const SizedBox(width: 4),
+                                        const Text('Remove Ending', style: TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.w500)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            
             // Export Progress Overlay
             if (_isExporting)
               Positioned.fill(
@@ -5191,6 +5450,39 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                                     ],
                                   ),
                                 ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    
+                    // Ending Clip Preview Overlay - shows when playhead is in ending segment
+                    if (_endingClip?.enabled == true && _currentTimelinePosition >= _videoClipsDuration)
+                      Positioned.fill(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _isEditingEndingClip = true),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Color(_endingClip!.backgroundColor),
+                              image: _endingClip!.backgroundImage != null
+                                  ? DecorationImage(
+                                      image: NetworkImage(_endingClip!.backgroundImage!),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Text(
+                                  _endingClip!.text,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Color(_endingClip!.textColor),
+                                    fontSize: _endingClip!.fontSize,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
