@@ -3453,12 +3453,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     }
 
     // Restore video clips
-    if (project.videoClips?.length) {
-      setVideoClips(project.videoClips.map(c => ({
-        ...c,
-        animationIn: c.animationIn ? { ...c.animationIn, type: c.animationIn.type as 'in' | 'out' | 'combo' } : null,
-        animationOut: c.animationOut ? { ...c.animationOut, type: c.animationOut.type as 'in' | 'out' | 'combo' } : null,
-      })));
+    const restoredClips = (project.videoClips || []).map(c => ({
+      ...c,
+      thumbnails: [] as string[],
+      animationIn: c.animationIn ? { ...c.animationIn, type: c.animationIn.type as 'in' | 'out' | 'combo' } : null,
+      animationOut: c.animationOut ? { ...c.animationOut, type: c.animationOut.type as 'in' | 'out' | 'combo' } : null,
+    }));
+    if (restoredClips.length) {
+      setVideoClips(restoredClips);
     }
 
     // Try to get cached video file from IndexedDB
@@ -3469,11 +3471,23 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       originalVideoFileRef.current = cachedFile;
       const freshUrl = URL.createObjectURL(cachedFile);
       // Update restored clip URLs to match the fresh blob URL
-      setVideoClips(prev => prev.map((clip, idx) => 
+      const clipsWithUrl = restoredClips.map((clip, idx) => 
         idx === 0 ? { ...clip, url: freshUrl } : clip
-      ));
+      );
+      setVideoClips(clipsWithUrl);
       setVideoUrl(freshUrl);
       setShowProjectManager(false);
+
+      // Regenerate thumbnails for all restored clips
+      setTimeout(() => {
+        clipsWithUrl.forEach((clip, i) => {
+          const clipUrl = i === 0 ? freshUrl : clip.url;
+          const clipDuration = clip.outPoint - clip.inPoint;
+          if (clipDuration > 0) {
+            extractThumbnails(clipUrl, clipDuration, clip.id, 15);
+          }
+        });
+      }, 500);
     } else {
       // No cached file — prompt to re-select
       setVideoUrl(null);
