@@ -323,7 +323,7 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
       <div className="h-px bg-border" />
 
       {/* Preview Area */}
-      <div className="flex-1 px-4 py-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4">
         {isUpscaleTool ? (
           <div className="h-full flex flex-col gap-4">
             {!upscaleInputImage ? (
