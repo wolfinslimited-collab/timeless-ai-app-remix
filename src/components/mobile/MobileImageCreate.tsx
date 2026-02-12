@@ -325,10 +325,10 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
       {/* Preview Area */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {isUpscaleTool ? (
-          <div className="h-full flex flex-col gap-4">
+          <div className="flex flex-col gap-4">
             {!upscaleInputImage ? (
               <div
-                className="flex-1 bg-secondary rounded-2xl border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
+                className="min-h-[280px] bg-secondary rounded-2xl border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
                 onClick={() => upscaleFileInputRef.current?.click()}
               >
                 {isUploading ? (
@@ -341,8 +341,8 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
                 )}
               </div>
             ) : upscaleOutputImage ? (
-              <div className="flex-1 flex flex-col gap-3">
-                <div className="flex-1 bg-secondary rounded-2xl border border-border overflow-hidden flex items-center justify-center">
+              <div className="flex flex-col gap-3">
+                <div className="min-h-[280px] bg-secondary rounded-2xl border border-border overflow-hidden flex items-center justify-center">
                   <img src={upscaleOutputImage} alt="Upscaled" className="w-full h-full object-contain" />
                 </div>
                 <div className="flex gap-2">
@@ -362,8 +362,8 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
                 </div>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col gap-3">
-                <div className="flex-1 bg-secondary rounded-2xl border border-border overflow-hidden relative flex items-center justify-center">
+              <div className="flex flex-col gap-3">
+                <div className="min-h-[280px] bg-secondary rounded-2xl border border-border overflow-hidden relative flex items-center justify-center">
                   {isUpscaleProcessing ? (
                     <div className="flex flex-col items-center gap-3">
                       <Loader2 className="w-12 h-12 text-primary animate-spin" />
