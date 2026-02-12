@@ -257,8 +257,11 @@ class VideoClip {
   }) : inPoint = inPoint ?? 0,
        outPoint = outPoint ?? duration;
   
-  /// Get the trimmed duration (what's visible on timeline)
+  /// Get the trimmed duration in source time (ignoring speed)
   double get trimmedDuration => outPoint - inPoint;
+  
+  /// Get the effective timeline duration (accounts for speed)
+  double get timelineDuration => (outPoint - inPoint) / (speed > 0 ? speed : 1);
 }
 
 /// Effect layer data model
@@ -1006,7 +1009,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Calculate total timeline duration from all clips (using trimmed durations)
   double get _videoClipsDuration {
     if (_videoClips.isNotEmpty) {
-      return _videoClips.fold(0.0, (sum, clip) => sum + clip.trimmedDuration);
+      return _videoClips.fold(0.0, (sum, clip) => sum + clip.timelineDuration);
     }
     return _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
   }
@@ -1020,7 +1023,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     double currentStart = 0;
     for (final clip in _videoClips) {
       clip.startTime = currentStart;
-      currentStart += clip.trimmedDuration;
+      currentStart += clip.timelineDuration;
     }
   }
 
@@ -1959,9 +1962,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   ({VideoClip clip, double localTime})? _getActiveClipAtTime(double timelineTime) {
     for (int i = 0; i < _videoClips.length; i++) {
       final clip = _videoClips[i];
-      final clipEnd = clip.startTime + clip.trimmedDuration;
+      final clipEnd = clip.startTime + clip.timelineDuration;
       if (timelineTime >= clip.startTime && timelineTime < clipEnd) {
-        final localTime = clip.inPoint + (timelineTime - clip.startTime);
+        final localTime = clip.inPoint + (timelineTime - clip.startTime) * (clip.speed > 0 ? clip.speed : 1);
         return (clip: clip, localTime: localTime);
       }
     }
@@ -2569,7 +2572,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   /// Add a new video clip to the end of the timeline
   void _addVideoClip(String url, double clipDuration) {
     final lastClip = _videoClips.isNotEmpty ? _videoClips.last : null;
-    final startTime = lastClip != null ? lastClip.startTime + lastClip.trimmedDuration : 0.0;
+    final startTime = lastClip != null ? lastClip.startTime + lastClip.timelineDuration : 0.0;
     
     debugPrint('AI Editor: Adding clip with duration: $clipDuration seconds');
     
@@ -2664,8 +2667,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     final currentTime = currentPos / 1000.0;
     
     // Calculate local time within the clip
-    final localTime = currentTime - clip.startTime;
-    if (localTime <= 0.5 || localTime >= clip.trimmedDuration - 0.5) {
+    final timelineLocalTime = currentTime - clip.startTime;
+    if (timelineLocalTime <= 0.5 || timelineLocalTime >= clip.timelineDuration - 0.5) {
       Navigator.of(context).pop();
       _showSnackBar('Move playhead to middle of clip');
       return;
@@ -2673,8 +2676,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     
     _saveStateToHistory();
     
-    // Create two clips from the split
-    final splitPoint = clip.inPoint + localTime;
+    // Convert timeline time to source time for the split point
+    final splitPoint = clip.inPoint + timelineLocalTime * (clip.speed > 0 ? clip.speed : 1);
     final firstClip = VideoClip(
       id: clip.id,
       url: clip.url,
@@ -2755,6 +2758,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       if (clipIndex != -1) {
         setState(() {
           _videoClips[clipIndex].speed = _clipSpeed;
+          _recalculateClipStartTimes();
         });
       }
       
@@ -6195,7 +6199,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   
   /// Build a single clip filmstrip segment with trim handles and indicator bars
   Widget _buildSingleClipFilmstrip(VideoClip clip, int clipIndex, bool isFirst, bool isLast) {
-    final clipWidth = clip.trimmedDuration * _pixelsPerSecond;
+    final clipWidth = clip.timelineDuration * _pixelsPerSecond;
     final thumbCount = (clipWidth / _thumbnailWidth).ceil().clamp(1, 100);
     final isSelected = clip.id == _selectedClipId;
     final isTrimming = clip.id == _trimmingClipId;
@@ -6383,7 +6387,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                                   Icon(Icons.videocam, size: 10, color: Colors.white.withOpacity(0.9)),
                                   const SizedBox(width: 3),
                                   Text(
-                                    '${clip.trimmedDuration.toStringAsFixed(1)}s',
+                                    '${clip.timelineDuration.toStringAsFixed(1)}s',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 9,
@@ -6459,7 +6463,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 // In animation indicator
                 if (hasAnimationIn)
                   Container(
-                    width: math.max(16, (clip.animationIn!.duration / clip.trimmedDuration) * clipWidth),
+                    width: math.max(16, (clip.animationIn!.duration / clip.timelineDuration) * clipWidth),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [Color(0xFF06B6D4), Color(0xFF22D3EE)],
@@ -6479,7 +6483,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 // Out animation indicator
                 if (hasAnimationOut)
                   Container(
-                    width: math.max(16, (clip.animationOut!.duration / clip.trimmedDuration) * clipWidth),
+                    width: math.max(16, (clip.animationOut!.duration / clip.timelineDuration) * clipWidth),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [Color(0xFFFB923C), Color(0xFFF97316)],
@@ -6679,7 +6683,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       final snapTargets = <double>[_currentTimelinePosition];
                       for (final c in _videoClips) {
                         snapTargets.add(c.startTime);
-                        snapTargets.add(c.startTime + (c.outPoint - c.inPoint));
+                        snapTargets.add(c.startTime + c.timelineDuration);
                       }
                       for (final t in _textOverlays) {
                         snapTargets.add(t.startTime);
@@ -6974,7 +6978,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         // Snap to video clip edges
                         if (!snapped) {
                           for (final clip in _videoClips) {
-                            final clipEnd = clip.startTime + clip.trimmedDuration;
+                            final clipEnd = clip.startTime + clip.timelineDuration;
                             if ((newStart - clip.startTime).abs() < snapTimeThreshold) {
                               newStart = clip.startTime; snapped = true; break;
                             }
