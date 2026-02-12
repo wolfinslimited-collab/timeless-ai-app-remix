@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { ArrowLeft, Image, Sparkles, Loader2, Plus, X, Sun, Maximize, Grid3X3, Brush, Eraser, Scissors, Palette, User, RotateCcw, Zap, ChevronDown, Upload, Download } from "lucide-react";
+import { ArrowLeft, Image, Sparkles, Loader2, Plus, X, Sun, Maximize, Grid3X3, Brush, Eraser, Scissors, Palette, User, RotateCcw, Zap, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase, TIMELESS_SUPABASE_URL } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -65,98 +65,6 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
 
   const selectedTool = TOOLS.find(t => t.id === selectedToolId) || TOOLS[0];
   const selectedModelData = MODELS.find(m => m.id === model);
-  const isUpscaleTool = selectedToolId === "upscale";
-
-  // Upscale tool specific state
-  const [upscaleInputImage, setUpscaleInputImage] = useState<string | null>(null);
-  const [upscaleOutputImage, setUpscaleOutputImage] = useState<string | null>(null);
-  const [isUpscaleProcessing, setIsUpscaleProcessing] = useState(false);
-  const upscaleFileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleUpscaleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-
-    if (!file.type.startsWith('image/')) {
-      toast({ variant: "destructive", title: "Invalid file", description: "Please upload an image." });
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ variant: "destructive", title: "File too large", description: "Max 10MB." });
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage
-        .from('generation-inputs')
-        .upload(fileName, file);
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage
-        .from('generation-inputs')
-        .getPublicUrl(fileName);
-      setUpscaleInputImage(publicUrl);
-      setUpscaleOutputImage(null);
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Upload failed", description: error.message });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleUpscaleProcess = async () => {
-    if (!upscaleInputImage || !user) return;
-    const creditCost = selectedTool.credits;
-    const hasEnough = credits !== null && credits !== undefined && credits >= creditCost;
-    if (!hasEnough) {
-      setShowAddCreditsDialog(true);
-      return;
-    }
-    setIsUpscaleProcessing(true);
-    setUpscaleOutputImage(null);
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/image-tools`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({ tool: "upscale", imageUrl: upscaleInputImage, scale: 2 }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Processing failed');
-      setUpscaleOutputImage(result.outputUrl);
-      refetch();
-      toast({ title: "Upscale complete!", description: "Your image has been enhanced." });
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Upscale failed", description: error.message });
-    } finally {
-      setIsUpscaleProcessing(false);
-    }
-  };
-
-  const handleUpscaleDownload = async () => {
-    if (!upscaleOutputImage) return;
-    try {
-      const response = await fetch(upscaleOutputImage);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `upscale-${Date.now()}.png`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch {
-      toast({ variant: "destructive", title: "Download failed" });
-    }
-  };
 
   const handleToolSelected = (tool: ToolItem) => {
     if (tool.isGenerate) {
@@ -324,117 +232,33 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
 
       {/* Preview Area */}
       <div className="flex-1 px-4 py-4">
-        {isUpscaleTool ? (
-          <div className="h-full flex flex-col gap-4">
-            {!upscaleInputImage ? (
-              <div
-                className="flex-1 bg-secondary rounded-2xl border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
-                onClick={() => upscaleFileInputRef.current?.click()}
-              >
-                {isUploading ? (
-                  <Loader2 className="w-12 h-12 text-primary animate-spin" />
-                ) : (
-                  <>
-                    <Upload className="w-12 h-12 text-muted-foreground mb-3" />
-                    <p className="text-muted-foreground text-sm">Tap to upload an image</p>
-                  </>
-                )}
-              </div>
-            ) : upscaleOutputImage ? (
-              <div className="flex-1 flex flex-col gap-3">
-                <div className="flex-1 bg-secondary rounded-2xl border border-border overflow-hidden flex items-center justify-center">
-                  <img src={upscaleOutputImage} alt="Upscaled" className="w-full h-full object-contain" />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleUpscaleDownload}
-                    className="flex-1 py-3 rounded-full bg-primary flex items-center justify-center gap-2"
-                  >
-                    <Download className="w-4 h-4 text-primary-foreground" />
-                    <span className="text-primary-foreground text-sm font-medium">Download</span>
-                  </button>
-                  <button
-                    onClick={() => { setUpscaleInputImage(null); setUpscaleOutputImage(null); }}
-                    className="py-3 px-5 rounded-full bg-secondary border border-border"
-                  >
-                    <span className="text-foreground text-sm font-medium">New</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex-1 flex flex-col gap-3">
-                <div className="flex-1 bg-secondary rounded-2xl border border-border overflow-hidden relative flex items-center justify-center">
-                  {isUpscaleProcessing ? (
-                    <div className="flex flex-col items-center gap-3">
-                      <Loader2 className="w-12 h-12 text-primary animate-spin" />
-                      <p className="text-muted-foreground text-sm">Enhancing your image...</p>
-                    </div>
-                  ) : (
-                    <>
-                      <img src={upscaleInputImage} alt="Input" className="w-full h-full object-contain" />
-                      <button
-                        onClick={() => { setUpscaleInputImage(null); setUpscaleOutputImage(null); }}
-                        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center"
-                      >
-                        <X className="w-4 h-4 text-white" />
-                      </button>
-                    </>
-                  )}
-                </div>
-                <button
-                  onClick={handleUpscaleProcess}
-                  disabled={isUpscaleProcessing}
-                  className="w-full py-3 rounded-full bg-primary flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {isUpscaleProcessing ? (
-                    <Loader2 className="w-5 h-5 text-primary-foreground animate-spin" />
-                  ) : (
-                    <>
-                      <Maximize className="w-5 h-5 text-primary-foreground" />
-                      <span className="text-primary-foreground font-medium">Upscale Image</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-            <input
-              ref={upscaleFileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleUpscaleImageUpload}
+        <div className={cn(
+          "bg-secondary rounded-2xl border border-border flex flex-col items-center justify-center overflow-hidden",
+          aspectRatio === "1:1" && "aspect-square",
+          aspectRatio === "16:9" && "aspect-video",
+          aspectRatio === "9:16" && "aspect-[9/16] max-h-[300px]"
+        )}>
+          {isGenerating ? (
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="w-12 h-12 text-primary animate-spin" />
+              <p className="text-muted-foreground text-sm">Generating...</p>
+            </div>
+          ) : generatedImage ? (
+            <img 
+              src={generatedImage} 
+              alt="Generated" 
+              className="w-full h-full object-cover"
             />
-          </div>
-        ) : (
-          <div className={cn(
-            "bg-secondary rounded-2xl border border-border flex flex-col items-center justify-center overflow-hidden",
-            aspectRatio === "1:1" && "aspect-square",
-            aspectRatio === "16:9" && "aspect-video",
-            aspectRatio === "9:16" && "aspect-[9/16] max-h-[300px]"
-          )}>
-            {isGenerating ? (
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 className="w-12 h-12 text-primary animate-spin" />
-                <p className="text-muted-foreground text-sm">Generating...</p>
-              </div>
-            ) : generatedImage ? (
-              <img 
-                src={generatedImage} 
-                alt="Generated" 
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <>
-                <Image className="w-12 h-12 text-muted-foreground mb-3" />
-                <p className="text-muted-foreground text-sm">Your image will appear here</p>
-              </>
-            )}
-          </div>
-        )}
+          ) : (
+            <>
+              <Image className="w-12 h-12 text-muted-foreground mb-3" />
+              <p className="text-muted-foreground text-sm">Your image will appear here</p>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Controls - hidden for upscale tool */}
-      {!isUpscaleTool && (
+      {/* Controls */}
       <div className="p-4 space-y-4 border-t border-border">
         {/* Model Selector Button */}
         <button
@@ -487,6 +311,7 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
 
         {/* Prompt Input with Reference Button */}
         <div className="flex items-center gap-2 bg-secondary rounded-full px-3 py-2 border border-border">
+          {/* Reference Image Button */}
           <button
             onClick={() => setShowRefDialog(true)}
             className={cn(
@@ -524,7 +349,6 @@ export function MobileImageCreate({ onBack, initialTool = "generate" }: MobileIm
           </button>
         </div>
       </div>
-      )}
 
       {/* Hidden file input */}
       <input

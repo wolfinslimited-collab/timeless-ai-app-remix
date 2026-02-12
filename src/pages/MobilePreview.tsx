@@ -198,7 +198,7 @@ export default function MobilePreview() {
           <div className="absolute top-3 left-1/2 -translate-x-1/2 w-[120px] h-[35px] bg-black rounded-full z-50" />
           
           {/* Screen */}
-          <div className="w-full h-full bg-[#0a0a0f] rounded-[40px] overflow-hidden relative flex flex-col">
+          <div className="w-full h-full bg-[#0a0a0f] rounded-[40px] overflow-hidden relative">
             {/* Splash Screen */}
             {showSplash && (
               <MobileSplash 
@@ -219,7 +219,7 @@ export default function MobilePreview() {
             </div>
             
             {/* Content */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="h-[calc(100%-48px-80px)] overflow-y-auto">
               {renderScreen()}
             </div>
             
