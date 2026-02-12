@@ -5508,7 +5508,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                 className="h-full overflow-x-auto scrollbar-hide"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 onScroll={(e) => {
-                  if (!isUserScrollingRef.current || isAutoScrollingRef.current) return;
+                  // Only block scroll processing during playback-driven auto-scrolls
+                  if (isAutoScrollingRef.current) return;
+                  
+                  // Mark as user scrolling (handles momentum scroll after touchEnd)
+                  isUserScrollingRef.current = true;
+                  setIsUserScrolling(true);
+                  
                   const scrollLeft = e.currentTarget.scrollLeft;
                   const timeUnderPlayhead = scrollLeft / PIXELS_PER_SECOND;
                   const clampedTime = Math.max(0, Math.min(totalTimelineDuration, timeUnderPlayhead));
@@ -5530,7 +5536,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   setCurrentTime(clampedTime);
                   
                   // Sync all layers (video, audio, overlays) to scrubbed position for real-time preview
-                  // Use direct seek for the main video to minimize latency
                   if (videoRef.current) {
                     const activeResult = getActiveClipAtTime(clampedTime);
                     if (activeResult) {
@@ -5557,12 +5562,19 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       overlayEl.currentTime = Math.max(0, Math.min(clampedTime - overlay.startTime, overlay.duration));
                     }
                   });
+                  
+                  // Reset user scrolling flag after momentum settles
+                  clearTimeout((window as any).__scrubTimeout);
+                  (window as any).__scrubTimeout = setTimeout(() => {
+                    isUserScrollingRef.current = false;
+                    setIsUserScrolling(false);
+                  }, 150);
                 }}
                 onMouseDown={() => { isUserScrollingRef.current = true; setIsUserScrolling(true); }}
-                onMouseUp={() => { isUserScrollingRef.current = false; setIsUserScrolling(false); }}
-                onMouseLeave={() => { isUserScrollingRef.current = false; setIsUserScrolling(false); }}
+                onMouseUp={() => { setTimeout(() => { isUserScrollingRef.current = false; setIsUserScrolling(false); }, 200); }}
+                onMouseLeave={() => { setTimeout(() => { isUserScrollingRef.current = false; setIsUserScrolling(false); }, 200); }}
                 onTouchStart={() => { isUserScrollingRef.current = true; setIsUserScrolling(true); }}
-                onTouchEnd={() => { isUserScrollingRef.current = false; setIsUserScrolling(false); }}
+                onTouchEnd={() => { /* Let onScroll timeout handle cleanup for momentum scrolling */ }}
               >
                 {/* Calculate dimensions using pixelsPerSecond - use totalTimelineDuration for multi-clip support */}
                 {(() => {
