@@ -350,6 +350,7 @@ class EditorStateSnapshot {
   final List<AudioLayerSnapshot> audioLayers;
   final List<CaptionLayerSnapshot> captionLayers;
   final List<EffectLayerSnapshot> effectLayers;
+  final List<VideoOverlaySnapshot> videoOverlays;
   final DateTime timestamp;
   
   EditorStateSnapshot({
@@ -358,8 +359,70 @@ class EditorStateSnapshot {
     required this.audioLayers,
     required this.captionLayers,
     required this.effectLayers,
+    required this.videoOverlays,
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
+}
+
+/// Immutable snapshot of VideoOverlay for history
+class VideoOverlaySnapshot {
+  final String id;
+  final String url;
+  final double duration;
+  final double startTime;
+  final double endTime;
+  final Offset position;
+  final double width;
+  final double height;
+  final double scaleX;
+  final double scaleY;
+  final double volume;
+  final double opacity;
+
+  VideoOverlaySnapshot({
+    required this.id,
+    required this.url,
+    required this.duration,
+    required this.startTime,
+    required this.endTime,
+    required this.position,
+    required this.width,
+    required this.height,
+    required this.scaleX,
+    required this.scaleY,
+    required this.volume,
+    required this.opacity,
+  });
+
+  factory VideoOverlaySnapshot.from(VideoOverlay o) => VideoOverlaySnapshot(
+    id: o.id,
+    url: o.url,
+    duration: o.duration,
+    startTime: o.startTime,
+    endTime: o.endTime,
+    position: o.position,
+    width: o.width,
+    height: o.height,
+    scaleX: o.scaleX,
+    scaleY: o.scaleY,
+    volume: o.volume,
+    opacity: o.opacity,
+  );
+
+  VideoOverlay toOverlay() => VideoOverlay(
+    id: id,
+    url: url,
+    duration: duration,
+    startTime: startTime,
+    endTime: endTime,
+    position: position,
+    width: width,
+    height: height,
+    scaleX: scaleX,
+    scaleY: scaleY,
+    volume: volume,
+    opacity: opacity,
+  );
 }
 
 /// Immutable snapshot of VideoClip for history
@@ -1366,6 +1429,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       audioLayers: _audioLayers.map((a) => AudioLayerSnapshot.from(a)).toList(),
       captionLayers: _captionLayers.map((c) => CaptionLayerSnapshot.from(c)).toList(),
       effectLayers: _effectLayers.map((e) => EffectLayerSnapshot.from(e)).toList(),
+      videoOverlays: _videoOverlays.map((o) => VideoOverlaySnapshot.from(o)).toList(),
     );
   }
   
@@ -1474,12 +1538,30 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       // Restore effect layers
       _effectLayers = snapshot.effectLayers.map((s) => s.toLayer()).toList();
       
+      // Restore video overlays (preserve existing controllers for matching IDs)
+      final existingOverlayControllers = Map.fromEntries(
+        _videoOverlays.map((o) => MapEntry(o.id, o.controller))
+      );
+      _videoOverlays = snapshot.videoOverlays.map((s) {
+        final overlay = s.toOverlay();
+        overlay.controller = existingOverlayControllers[s.id];
+        overlay.isInitialized = overlay.controller != null;
+        return overlay;
+      }).toList();
+      // Dispose controllers for removed overlays
+      for (final id in existingOverlayControllers.keys) {
+        if (!_videoOverlays.any((o) => o.id == id)) {
+          existingOverlayControllers[id]?.dispose();
+        }
+      }
+      
       // Clear selections
       _selectedClipId = null;
       _selectedTextId = null;
       _selectedAudioId = null;
       _selectedCaptionId = null;
       _selectedEffectId = null;
+      _selectedOverlayId = null;
     });
     
     _isRestoringState = false;
