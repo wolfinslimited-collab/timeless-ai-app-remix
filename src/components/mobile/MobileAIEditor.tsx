@@ -2997,7 +2997,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       console.log('[Export] Total clips:', videoClips.length, 'All clips duration:', allClipsDuration, 'Ending:', endingDuration, 'Total frames:', totalExportFrames);
 
       // Set up MediaRecorder
-      const stream = canvas.captureStream(outputFrameRate);
+      const stream = canvas.captureStream(0); // manual frame capture mode
       const videoBitsPerSecond = outputBitrate * 1000000;
 
       mediaRecorder = new MediaRecorder(stream, {
@@ -3168,41 +3168,42 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
         console.log(`[Export] Clip ${clipIdx + 1}: inPoint=${effectiveInPoint} outPoint=${effectiveOutPoint} speed=${playbackSpeed} frames=${clipTotalFrames}`);
 
-        // Seek to start
-        exportVid.currentTime = effectiveInPoint;
-        await new Promise(resolve => setTimeout(resolve, 200));
-
-        let videoEnded = false;
-        exportVid.onended = () => { videoEnded = true; };
-        await exportVid.play();
-
-        // Render frames for this clip
-        let clipFrameCount = 0;
-        await new Promise<void>((resolve) => {
-          const renderClipFrame = () => {
-            const currentPos = exportVid.currentTime;
-            const clipDone = currentPos >= effectiveOutPoint - 0.05 || videoEnded || clipFrameCount >= clipTotalFrames;
-
-            if (clipDone) {
-              exportVid.pause();
+        // Render frames by seeking frame-by-frame (not real-time playback)
+        const frameInterval = 1 / outputFrameRate; // time between frames in source video
+        
+        for (let clipFrame = 0; clipFrame < clipTotalFrames; clipFrame++) {
+          const sourceTime = effectiveInPoint + (clipFrame * frameInterval * playbackSpeed);
+          
+          if (sourceTime >= effectiveOutPoint) break;
+          
+          // Seek to exact frame position and wait for it
+          exportVid.currentTime = sourceTime;
+          await new Promise<void>((resolve) => {
+            const onSeeked = () => {
+              exportVid.removeEventListener('seeked', onSeeked);
               resolve();
-              return;
-            }
-
-            drawVideoFrame(exportVid);
-
-            const timelineTime = timelineOffset + (currentPos - effectiveInPoint) / playbackSpeed;
-            drawTextOverlaysAtTime(timelineTime);
-
-            clipFrameCount++;
-            globalFrameCount++;
-            const progress = Math.min(95, Math.round((globalFrameCount / totalExportFrames) * 100));
-            setExportProgress(progress);
-
-            requestAnimationFrame(renderClipFrame);
-          };
-          renderClipFrame();
-        });
+            };
+            exportVid.addEventListener('seeked', onSeeked);
+          });
+          
+          drawVideoFrame(exportVid);
+          
+          const timelineTime = timelineOffset + (clipFrame * frameInterval);
+          drawTextOverlaysAtTime(timelineTime);
+          
+          // Request a frame from the stream track for MediaRecorder
+          const videoTrack = stream.getVideoTracks()[0];
+          if (videoTrack && 'requestFrame' in videoTrack) {
+            (videoTrack as any).requestFrame();
+          }
+          
+          globalFrameCount++;
+          const progress = Math.min(95, Math.round((globalFrameCount / totalExportFrames) * 100));
+          setExportProgress(progress);
+          
+          // Give MediaRecorder time to encode this frame at the target frame rate
+          await new Promise(resolve => setTimeout(resolve, 1000 / outputFrameRate));
+        }
 
         // Cleanup this clip's video element
         exportVid.pause();
@@ -3232,6 +3233,12 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(endingClip.text, width / 2, height / 2);
+
+          // Request frame from stream
+          const videoTrack = stream.getVideoTracks()[0];
+          if (videoTrack && 'requestFrame' in videoTrack) {
+            (videoTrack as any).requestFrame();
+          }
 
           globalFrameCount++;
           const progress = Math.min(99, Math.round((globalFrameCount / totalExportFrames) * 100));
