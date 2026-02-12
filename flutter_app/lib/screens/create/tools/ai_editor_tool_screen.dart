@@ -6778,73 +6778,40 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     if (showSettingsPanel) {
       return _buildContextualSettingsPanel();
     } else {
-      // Show normal timeline + toolbar - wrapped in Stack for overlay menus above toolbar
+      // Show normal timeline + toolbar - overlays stacked above toolbar in normal flow
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildTimelineSection(),
-          // Stack to position overlay menus above the main toolbar
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              _buildBottomToolbar(),
-              // Edit Menu Overlay - positioned above toolbar
-              if (_isEditMenuMode)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: _getToolbarHeight(),
-                  height: _editSubPanel != 'none' ? 200 : 160,
-                  child: Material(
-                    color: const Color(0xFF0A0A0A),
-                    elevation: 8,
-                    child: _buildEditMenu(),
-                  ),
-                ),
-              // Adjust Menu Overlay - positioned above toolbar
-              if (_selectedTool == 'adjust')
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: _getToolbarHeight(),
-                  height: 280,
-                  child: Material(
-                    color: const Color(0xFF0A0A0A),
-                    elevation: 8,
-                    child: _buildAdjustMenuOverlay(),
-                  ),
-                ),
-              // AI Edit Bottom Sheet Overlay
-              if (_isAiEditOpen)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: _getToolbarHeight(),
-                  child: _buildAiEditBottomSheet(),
-                ),
-              // AI Upscale Bottom Sheet Overlay
-              if (_isAiUpscaleOpen)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: _getToolbarHeight(),
-                  child: _buildAiUpscaleBottomSheet(),
-                ),
-              // AI Expansion Bottom Sheet Overlay
-              if (_isAiExpansionOpen)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: _getToolbarHeight(),
-                  child: _buildAiExpansionBottomSheet(),
-                ),
-              // AI Expansion Generating Overlay
-              if (_isExpansionGenerating)
-                Positioned.fill(
-                  child: _buildExpansionGeneratingOverlay(),
-                ),
-            ],
-          ),
+          // Overlay menus rendered above the toolbar in normal flow
+          if (_isEditMenuMode)
+            SizedBox(
+              height: _editSubPanel != 'none' ? 200 : 160,
+              child: Material(
+                color: const Color(0xFF0A0A0A),
+                elevation: 8,
+                child: _buildEditMenu(),
+              ),
+            ),
+          if (_selectedTool == 'adjust')
+            SizedBox(
+              height: 280,
+              child: Material(
+                color: const Color(0xFF0A0A0A),
+                elevation: 8,
+                child: _buildAdjustMenuOverlay(),
+              ),
+            ),
+          if (_isAiEditOpen)
+            _buildAiEditBottomSheet(),
+          if (_isAiUpscaleOpen)
+            _buildAiUpscaleBottomSheet(),
+          if (_isAiExpansionOpen)
+            _buildAiExpansionBottomSheet(),
+          if (_isExpansionGenerating)
+            _buildExpansionGeneratingOverlay(),
+          // Main toolbar always at the bottom
+          _buildBottomToolbar(),
         ],
       );
     }
@@ -9189,24 +9156,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   }
 
   Widget _buildBottomToolbar() {
-    return Stack(
-      clipBehavior: Clip.none,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Main toolbar - always visible
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF0A0A0A),
-            border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
-          ),
-          child: _buildMainToolbar(),
-        ),
-        
-        // Overlay menus - positioned ABOVE the main toolbar
+        // Overlay menus rendered ABOVE the main toolbar in normal flow
         if (_showTextEditPanel && _selectedTextOverlay != null)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 60,
+          SizedBox(
             height: 390,
             child: Material(
               color: const Color(0xFF0A0A0A),
@@ -9216,10 +9171,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           ),
         
         if (_isTextMenuMode)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 60,
+          SizedBox(
             height: 160,
             child: Material(
               color: const Color(0xFF0A0A0A),
@@ -9229,10 +9181,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           ),
         
         if (_isAudioMenuMode)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 60,
+          SizedBox(
             height: 160,
             child: Material(
               color: const Color(0xFF0A0A0A),
@@ -9241,9 +9190,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             ),
           ),
         
-        // Audio Recording Overlay - this one stays full overlay
+        // Audio Recording Overlay - full screen overlay stays as-is
         if (_showRecordingOverlay)
-          Positioned.fill(
+          SizedBox(
+            height: 300,
             child: Material(
               color: const Color(0xFF0A0A0A).withOpacity(0.95),
               child: Column(
@@ -9328,10 +9278,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           ),
         
         if (_isEffectsMenuMode)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 60,
+          SizedBox(
             height: 160,
             child: Material(
               color: const Color(0xFF0A0A0A),
@@ -9341,10 +9288,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           ),
         
         if (_isOverlayMenuMode)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 60,
+          SizedBox(
             height: 160,
             child: Material(
               color: const Color(0xFF0A0A0A),
@@ -9354,10 +9298,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           ),
         
         if (_isCaptionsMenuMode)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 60,
+          SizedBox(
             height: 160,
             child: Material(
               color: const Color(0xFF0A0A0A),
@@ -9367,10 +9308,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           ),
         
         if (_isAspectMenuMode)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 60,
+          SizedBox(
             height: 200,
             child: Material(
               color: const Color(0xFF0A0A0A),
@@ -9380,10 +9318,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           ),
         
         if (_isBackgroundMenuMode)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 60,
+          SizedBox(
             height: 200,
             child: Material(
               color: const Color(0xFF0A0A0A),
@@ -9392,12 +9327,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             ),
           ),
         
-        // Draw Mode Menu Overlay
+        // Draw Mode Menu
         if (_isDrawMode)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 60,
+          SizedBox(
             height: 200,
             child: Material(
               color: const Color(0xFF0A0A0A),
@@ -9406,12 +9338,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             ),
           ),
 
-        // Crop Mode Menu Overlay
+        // Crop Mode Menu
         if (_isCropMode)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 60,
+          SizedBox(
             height: 180,
             child: Material(
               color: const Color(0xFF0A0A0A),
@@ -9419,6 +9348,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               child: _buildCropMenu(),
             ),
           ),
+
+        // Main toolbar - always at the bottom
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF0A0A0A),
+            border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+          ),
+          child: _buildMainToolbar(),
+        ),
       ],
     );
   }
