@@ -5086,6 +5086,59 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         ),
                       ),
                     
+                    // AI Enhance Processing Overlay
+                    if (_isAIEnhancing)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black.withOpacity(0.7),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 64,
+                                height: 64,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 64,
+                                      height: 64,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.purple.withOpacity(0.6)),
+                                      ),
+                                    ),
+                                    const Icon(Icons.auto_fix_high, color: Colors.purpleAccent, size: 24),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'AI Enhancing...',
+                                style: TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.w600, fontSize: 14),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Analyzing & optimizing video',
+                                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                              ),
+                              const SizedBox(height: 16),
+                              GestureDetector(
+                                onTap: () => setState(() => _isAIEnhancing = false),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text('Cancel', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w500)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    
                     // Drag indicator when not original aspect ratio
                     if (_selectedAspectRatio != 'original' && !_isDraggingVideo)
                       Positioned.fill(
