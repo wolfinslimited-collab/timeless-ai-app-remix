@@ -42,6 +42,9 @@ export interface EditorProject {
   backgroundBlur: number;
   backgroundImage: string | null;
   videoPosition: { x: number; y: number };
+  
+  // Ending clip
+  endingClip: SavedEndingClip | null;
 }
 
 export interface SavedVideoClip {
@@ -147,4 +150,14 @@ export interface SavedVideoOverlay {
   endTime: number;
   volume: number;
   opacity: number;
+}
+
+export interface SavedEndingClip {
+  enabled: boolean;
+  duration: number;
+  text: string;
+  backgroundColor: string;
+  textColor: string;
+  fontSize: number;
+  backgroundImage: string | null;
 }

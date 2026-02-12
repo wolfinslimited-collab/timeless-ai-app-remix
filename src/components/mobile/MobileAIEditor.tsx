@@ -490,6 +490,18 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [settingsPanelType, setSettingsPanelType] = useState<'stickers' | null>(null);
   
+  // Ending clip state
+  const [endingClip, setEndingClip] = useState<{
+    enabled: boolean;
+    duration: number;
+    text: string;
+    backgroundColor: string;
+    textColor: string;
+    fontSize: number;
+    backgroundImage: string | null;
+  } | null>(null);
+  const [isEditingEndingClip, setIsEditingEndingClip] = useState(false);
+  
   // Base overlay check - isAudioEditMode, isDrawMode, isCropMode are added later
   const isAnyOverlayOpenBase = isEditMenuMode || isAudioMenuMode || isTextMenuMode || isEffectsMenuMode || isOverlayMenuMode || isCaptionsMenuMode || isAspectMenuMode || isBackgroundMenuMode || isAdjustMenuMode || isSettingsPanelOpen || isCropMode || isMagicEditOpen || isAIUpscaleOpen || isAIExpansionOpen;
   
@@ -1230,9 +1242,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   
   // Calculate total timeline duration from all clips (using trimmed durations)
   // This must be defined BEFORE the playback loop that uses it
-  const totalTimelineDuration = videoClips.length > 0 
+  const videoClipsDuration = videoClips.length > 0 
     ? videoClips.reduce((sum, clip) => sum + getClipTrimmedDuration(clip), 0)
     : duration;
+  const endingClipDuration = endingClip?.enabled ? endingClip.duration : 0;
+  const totalTimelineDuration = videoClipsDuration + endingClipDuration;
   
   // Track which clip is currently active
   const [activeClipIndex, setActiveClipIndex] = useState(0);
@@ -3214,17 +3228,59 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       const frameDuration = 1 / outputFrameRate;
       const startTime = Date.now();
       
+      // Track ending clip rendering for export
+      let isRenderingEnding = false;
+      let endingFrameCount = 0;
+      const endingTotalFrames = endingClip?.enabled ? Math.floor(endingClip.duration * outputFrameRate) : 0;
+      
       const renderFrame = async () => {
         // Check if we've reached the end based on current position
         const currentPos = exportVideo.currentTime;
-        const hasReachedEnd = currentPos >= effectiveOutPoint - 0.05 || videoEnded || frameCount >= totalFrames;
+        const videoPortionEnded = currentPos >= effectiveOutPoint - 0.05 || videoEnded || frameCount >= totalFrames;
         
-        if (hasReachedEnd) {
-          // Stop recording
-          exportVideo.pause();
-          if (mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
+        // If video portion ended, switch to rendering ending clip
+        if (videoPortionEnded && !isRenderingEnding) {
+          if (endingClip?.enabled && endingTotalFrames > 0) {
+            isRenderingEnding = true;
+            exportVideo.pause();
+          } else {
+            // No ending clip, stop recording
+            exportVideo.pause();
+            if (mediaRecorder.state === 'recording') {
+              mediaRecorder.stop();
+            }
+            return;
           }
+        }
+        
+        // Render ending clip frames
+        if (isRenderingEnding) {
+          if (endingFrameCount >= endingTotalFrames) {
+            if (mediaRecorder.state === 'recording') {
+              mediaRecorder.stop();
+            }
+            return;
+          }
+          
+          // Draw ending card
+          ctx.fillStyle = endingClip!.backgroundColor;
+          ctx.fillRect(0, 0, width, height);
+          
+          // Draw ending text
+          const scaledFontSize = endingClip!.fontSize * (width / 375);
+          ctx.font = `bold ${scaledFontSize}px sans-serif`;
+          ctx.fillStyle = endingClip!.textColor;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(endingClip!.text, width / 2, height / 2);
+          
+          endingFrameCount++;
+          const totalAllFrames = totalFrames + endingTotalFrames;
+          const progress = Math.min(99, Math.round((totalFrames + endingFrameCount) / totalAllFrames * 100));
+          setExportProgress(progress);
+          
+          // Use setTimeout for consistent frame timing
+          setTimeout(renderFrame, 1000 / outputFrameRate);
           return;
         }
 
@@ -3454,6 +3510,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     if (project.videoOverlays?.length) {
       setVideoOverlays(project.videoOverlays as VideoOverlayData[]);
     }
+    // Restore ending clip
+    if (project.endingClip) {
+      setEndingClip(project.endingClip);
+    }
     // Audio layers need file URLs to be valid — restore metadata only
     if (project.audioLayers?.length) {
       setAudioLayers(project.audioLayers as any[]);
@@ -3666,6 +3726,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             volume: o.volume,
             opacity: o.opacity,
           })),
+          endingClip: endingClip?.enabled ? {
+            enabled: true,
+            duration: endingClip.duration,
+            text: endingClip.text,
+            backgroundColor: endingClip.backgroundColor,
+            textColor: endingClip.textColor,
+            fontSize: endingClip.fontSize,
+            backgroundImage: endingClip.backgroundImage,
+          } : null,
         };
         
         await saveProject(updatedProject);
@@ -3676,7 +3745,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     }, 2000); // Debounce 2 seconds
     
     return () => clearTimeout(saveTimer);
-  }, [videoUrl, duration, adjustments, selectedAspectRatio, backgroundColor, backgroundBlur, backgroundImage, videoPosition, videoClips, textOverlays, audioLayers, effectLayers, captionLayers, drawingLayers, videoOverlays]);
+  }, [videoUrl, duration, adjustments, selectedAspectRatio, backgroundColor, backgroundBlur, backgroundImage, videoPosition, videoClips, textOverlays, audioLayers, effectLayers, captionLayers, drawingLayers, videoOverlays, endingClip]);
 
   // Show Project Manager when no video is loaded
   if (showProjectManager) {
@@ -4335,7 +4404,31 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             }
                           }
                         }}
-                      />
+                    />
+                    )}
+                    
+                    {/* Ending Clip Overlay - shows when playhead is in ending segment */}
+                    {endingClip?.enabled && currentTime >= videoClipsDuration && (
+                      <div 
+                        className="absolute inset-0 flex flex-col items-center justify-center z-30 cursor-pointer"
+                        style={{
+                          backgroundColor: endingClip.backgroundColor,
+                          backgroundImage: endingClip.backgroundImage ? `url(${endingClip.backgroundImage})` : undefined,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                        }}
+                        onClick={() => setIsEditingEndingClip(true)}
+                      >
+                        <span 
+                          className="font-bold text-center px-4"
+                          style={{ 
+                            color: endingClip.textColor,
+                            fontSize: `${endingClip.fontSize}px`,
+                          }}
+                        >
+                          {endingClip.text}
+                        </span>
+                      </div>
                     )}
                     
                     {/* Main video layer - Aspect Fit with drag repositioning */}
@@ -5548,6 +5641,127 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
             </div>
           )}
           
+          {/* Ending Clip Edit Panel */}
+          {isEditingEndingClip && endingClip?.enabled && (
+            <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#1A1A1A] border-t border-white/10 rounded-t-2xl" style={{ maxHeight: '55vh' }}>
+              <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                <h3 className="text-white font-semibold text-sm">Edit Ending</h3>
+                <button onClick={() => setIsEditingEndingClip(false)}>
+                  <X className="w-5 h-5 text-white/60" />
+                </button>
+              </div>
+              <div className="px-4 pb-6 space-y-4 overflow-y-auto" style={{ maxHeight: 'calc(55vh - 48px)' }}>
+                {/* Text */}
+                <div>
+                  <label className="text-white/60 text-xs mb-1 block">Text</label>
+                  <input
+                    value={endingClip.text}
+                    onChange={(e) => setEndingClip(prev => prev ? { ...prev, text: e.target.value } : prev)}
+                    className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-white/40"
+                    placeholder="Enter ending text..."
+                  />
+                </div>
+                {/* Duration */}
+                <div>
+                  <label className="text-white/60 text-xs mb-1 block">Duration: {endingClip.duration}s</label>
+                  <input
+                    type="range"
+                    min={1}
+                    max={10}
+                    step={0.5}
+                    value={endingClip.duration}
+                    onChange={(e) => setEndingClip(prev => prev ? { ...prev, duration: parseFloat(e.target.value) } : prev)}
+                    className="w-full accent-purple-500"
+                  />
+                </div>
+                {/* Background Color */}
+                <div>
+                  <label className="text-white/60 text-xs mb-1 block">Background Color</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {['#000000', '#FFFFFF', '#1a1a2e', '#16213e', '#0f3460', '#e94560', '#533483', '#2b2d42'].map(color => (
+                      <button
+                        key={color}
+                        className={cn("w-8 h-8 rounded-full border-2 transition-all", endingClip.backgroundColor === color ? "border-white scale-110" : "border-transparent")}
+                        style={{ backgroundColor: color }}
+                        onClick={() => setEndingClip(prev => prev ? { ...prev, backgroundColor: color } : prev)}
+                      />
+                    ))}
+                  </div>
+                </div>
+                {/* Text Color */}
+                <div>
+                  <label className="text-white/60 text-xs mb-1 block">Text Color</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {['#FFFFFF', '#000000', '#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'].map(color => (
+                      <button
+                        key={color}
+                        className={cn("w-8 h-8 rounded-full border-2 transition-all", endingClip.textColor === color ? "border-white scale-110" : "border-transparent")}
+                        style={{ backgroundColor: color }}
+                        onClick={() => setEndingClip(prev => prev ? { ...prev, textColor: color } : prev)}
+                      />
+                    ))}
+                  </div>
+                </div>
+                {/* Font Size */}
+                <div>
+                  <label className="text-white/60 text-xs mb-1 block">Font Size: {endingClip.fontSize}px</label>
+                  <input
+                    type="range"
+                    min={16}
+                    max={72}
+                    value={endingClip.fontSize}
+                    onChange={(e) => setEndingClip(prev => prev ? { ...prev, fontSize: parseInt(e.target.value) } : prev)}
+                    className="w-full accent-purple-500"
+                  />
+                </div>
+                {/* Background Image Upload */}
+                <div>
+                  <label className="text-white/60 text-xs mb-1 block">Background Image</label>
+                  <div className="flex gap-2">
+                    <button
+                      className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white/60 text-xs hover:bg-white/15 transition-colors"
+                      onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = 'image/*';
+                        input.onchange = (e) => {
+                          const file = (e.target as HTMLInputElement).files?.[0];
+                          if (file) {
+                            const url = URL.createObjectURL(file);
+                            setEndingClip(prev => prev ? { ...prev, backgroundImage: url } : prev);
+                          }
+                        };
+                        input.click();
+                      }}
+                    >
+                      <ImageIcon className="w-4 h-4 inline mr-1" />
+                      Upload Image
+                    </button>
+                    {endingClip.backgroundImage && (
+                      <button
+                        className="bg-red-500/20 text-red-400 rounded-lg px-3 py-2 text-xs"
+                        onClick={() => setEndingClip(prev => prev ? { ...prev, backgroundImage: null } : prev)}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {/* Delete Ending */}
+                <button
+                  className="w-full bg-red-500/20 text-red-400 rounded-lg py-2 text-sm font-medium"
+                  onClick={() => {
+                    setEndingClip(prev => prev ? { ...prev, enabled: false } : prev);
+                    setIsEditingEndingClip(false);
+                  }}
+                >
+                  <Trash2 className="w-4 h-4 inline mr-1" />
+                  Remove Ending
+                </button>
+              </div>
+            </div>
+          )}
+          
           {/* Timeline Section - Multi-Track with Sync Engine (Mobile Optimized) */}
             {/* Timeline Section - Multi-Track with Sync Engine (Mobile Optimized) */}
             <div className="h-[200px] shrink-0 bg-[#0D0D0D] overflow-hidden relative">
@@ -5939,6 +6153,61 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               </div>
                             );
                           })}
+                          
+                          {/* Ending clip in timeline */}
+                          {endingClip?.enabled && (
+                            <div 
+                              className="relative h-[32px] shrink-0 group"
+                              style={{ width: endingClip.duration * PIXELS_PER_SECOND }}
+                              onClick={() => setIsEditingEndingClip(true)}
+                            >
+                              <div 
+                                className="h-full rounded-r-lg overflow-hidden border border-white/20 flex items-center justify-center cursor-pointer hover:border-white/40 transition-all"
+                                style={{ backgroundColor: endingClip.backgroundColor }}
+                              >
+                                <span className="text-[10px] font-medium truncate px-2" style={{ color: endingClip.textColor }}>
+                                  {endingClip.text || 'Ending'}
+                                </span>
+                              </div>
+                              {/* Delete button */}
+                              <div 
+                                className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500/80 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEndingClip(prev => prev ? { ...prev, enabled: false } : prev);
+                                }}
+                              >
+                                <X className="w-3 h-3 text-white" />
+                              </div>
+                              {/* Label */}
+                              <div className="absolute -bottom-4 left-0 right-0 text-center">
+                                <span className="text-[8px] text-white/40 font-medium">Ending</span>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Add Ending button when no ending clip */}
+                          {(!endingClip || !endingClip.enabled) && videoClips.length > 0 && (
+                            <div 
+                              className="h-[32px] shrink-0 flex items-center justify-center px-3 cursor-pointer group"
+                              onClick={() => {
+                                setEndingClip({
+                                  enabled: true,
+                                  duration: 2,
+                                  text: 'Thank You',
+                                  backgroundColor: '#000000',
+                                  textColor: '#FFFFFF',
+                                  fontSize: 32,
+                                  backgroundImage: null,
+                                });
+                              }}
+                            >
+                              <div className="flex items-center gap-1 text-white/30 group-hover:text-white/60 transition-colors">
+                                <Plus className="w-3 h-3" />
+                                <span className="text-[9px] font-medium whitespace-nowrap">Add Ending</span>
+                              </div>
+                            </div>
+                          )}
                           
                           {/* Fallback for single video without clips array */}
                           {videoClips.length === 0 && videoUrl && (

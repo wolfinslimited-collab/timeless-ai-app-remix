@@ -917,6 +917,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   Timer? _autoSaveTimer;
   bool _isRestoringProject = false; // Guards auto-save during project load
   
+  // Ending clip state
+  SavedEndingClip? _endingClip;
+  bool _isEditingEndingClip = false;
+  
   // Computed: check if any overlay menu is currently open (to hide main toolbar)
   bool get _isAnyOverlayOpen => 
       _isEditMenuMode || _isAudioMenuMode || _isTextMenuMode || 
@@ -937,11 +941,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   bool _isRestoringState = false; // Prevent recursive history pushes during restore
   
   // Calculate total timeline duration from all clips (using trimmed durations)
-  double get _totalTimelineDuration {
+  double get _videoClipsDuration {
     if (_videoClips.isNotEmpty) {
       return _videoClips.fold(0.0, (sum, clip) => sum + clip.trimmedDuration);
     }
     return _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+  }
+  
+  double get _totalTimelineDuration {
+    return _videoClipsDuration + (_endingClip?.enabled == true ? _endingClip!.duration : 0);
   }
   
   /// Recalculate clip start times after a trim operation
@@ -1156,6 +1164,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         aiEnhanced: c.aiEnhanced,
       )).toList();
     }
+    
+    // Restore ending clip
+    if (project.endingClip != null) {
+      _endingClip = project.endingClip;
+    }
 
     // Restore video - resolve cached files for each clip
     if (project.videoUrl != null) {
@@ -1315,6 +1328,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         )).toList(),
         startTime: d.startTime, endTime: d.endTime,
       )).toList();
+      
+      // Save ending clip
+      project.endingClip = _endingClip;
       
       await ProjectStorage.saveProject(project);
     } catch (e) {
@@ -5475,6 +5491,86 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             clipIndex, 
             clipIndex == 0, 
             clipIndex == _videoClips.length - 1,
+          ),
+        // Ending clip in timeline
+        if (_endingClip?.enabled == true)
+          GestureDetector(
+            onTap: () => setState(() => _isEditingEndingClip = true),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: _endingClip!.duration * _pixelsPerSecond,
+                  height: _thumbnailHeight,
+                  decoration: BoxDecoration(
+                    color: Color(_endingClip!.backgroundColor),
+                    border: Border.all(color: Colors.white24),
+                    borderRadius: const BorderRadius.only(
+                      topRight: Radius.circular(6),
+                      bottomRight: Radius.circular(6),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _endingClip!.text.isNotEmpty ? _endingClip!.text : 'Ending',
+                      style: TextStyle(
+                        color: Color(_endingClip!.textColor),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                // Delete button
+                Positioned(
+                  top: -8,
+                  right: -8,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _endingClip = SavedEndingClip(enabled: false)),
+                    child: Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.8),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close, size: 12, color: Colors.white),
+                    ),
+                  ),
+                ),
+                // Label
+                Positioned(
+                  bottom: -14,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Text('Ending', style: TextStyle(fontSize: 8, color: Colors.white38)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        // Add Ending button
+        if ((_endingClip == null || _endingClip?.enabled != true) && _videoClips.isNotEmpty)
+          GestureDetector(
+            onTap: () => setState(() {
+              _endingClip = SavedEndingClip();
+            }),
+            child: SizedBox(
+              height: _thumbnailHeight,
+              width: 80,
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add, size: 12, color: Colors.white30),
+                    const SizedBox(width: 2),
+                    Text('Add Ending', style: TextStyle(fontSize: 9, color: Colors.white30, fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              ),
+            ),
           ),
       ],
     );

@@ -41,6 +41,9 @@ class EditorProject {
   String? backgroundImage;
   double videoPositionX;
   double videoPositionY;
+  
+  // Ending clip
+  SavedEndingClip? endingClip;
 
   EditorProject({
     required this.id,
@@ -66,6 +69,7 @@ class EditorProject {
     this.backgroundImage,
     this.videoPositionX = 0,
     this.videoPositionY = 0,
+    this.endingClip,
   }) : videoClips = videoClips ?? [],
        textOverlays = textOverlays ?? [],
        audioLayers = audioLayers ?? [],
@@ -109,6 +113,7 @@ class EditorProject {
     'backgroundImage': backgroundImage,
     'videoPositionX': videoPositionX,
     'videoPositionY': videoPositionY,
+    'endingClip': endingClip?.toJson(),
   };
 
   factory EditorProject.fromJson(Map<String, dynamic> json) => EditorProject(
@@ -150,6 +155,7 @@ class EditorProject {
     backgroundImage: json['backgroundImage'] as String?,
     videoPositionX: (json['videoPositionX'] as num?)?.toDouble() ?? 0,
     videoPositionY: (json['videoPositionY'] as num?)?.toDouble() ?? 0,
+    endingClip: json['endingClip'] != null ? SavedEndingClip.fromJson(json['endingClip'] as Map<String, dynamic>) : null,
   );
 
   /// Check if this project contains any AI-generated content
@@ -517,6 +523,43 @@ class SavedDrawingStroke {
     color: json['color'] as int? ?? 0xFFFFFFFF,
     size: (json['size'] as num?)?.toDouble() ?? 5,
     tool: json['tool'] as String? ?? 'brush',
+  );
+}
+
+/// Saved ending clip model
+class SavedEndingClip {
+  final bool enabled;
+  final double duration;
+  final String text;
+  final int backgroundColor;
+  final int textColor;
+  final double fontSize;
+  final String? backgroundImage;
+
+  SavedEndingClip({
+    this.enabled = true,
+    this.duration = 2.0,
+    this.text = 'Thank You',
+    this.backgroundColor = 0xFF000000,
+    this.textColor = 0xFFFFFFFF,
+    this.fontSize = 32,
+    this.backgroundImage,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'enabled': enabled, 'duration': duration, 'text': text,
+    'backgroundColor': backgroundColor, 'textColor': textColor,
+    'fontSize': fontSize, 'backgroundImage': backgroundImage,
+  };
+
+  factory SavedEndingClip.fromJson(Map<String, dynamic> json) => SavedEndingClip(
+    enabled: json['enabled'] as bool? ?? true,
+    duration: (json['duration'] as num?)?.toDouble() ?? 2.0,
+    text: json['text'] as String? ?? 'Thank You',
+    backgroundColor: json['backgroundColor'] as int? ?? 0xFF000000,
+    textColor: json['textColor'] as int? ?? 0xFFFFFFFF,
+    fontSize: (json['fontSize'] as num?)?.toDouble() ?? 32,
+    backgroundImage: json['backgroundImage'] as String?,
   );
 }
 
