@@ -38,7 +38,7 @@ export function ToolSelector({ tools, selectedToolId, onToolSelected }: ToolSele
                     ? "bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/40"
                     : "bg-white/5 backdrop-blur-xl border border-white/10 shadow-lg shadow-black/5"
                 )}
-                style={{ width: 56, height: 56 }}
+                style={{ width: 56, height: 68 }}
               >
                 {/* Glass highlight effect */}
                 {!isSelected && (
