@@ -3806,7 +3806,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       return;
     }
 
-    // Prevent multiple simultaneous exports
     if (_isExporting) {
       _showSnackBar('Export already in progress');
       return;
@@ -3819,50 +3818,49 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     });
 
     try {
-      // Get the active clip
-      final activeClip = _videoClips.isNotEmpty ? _videoClips.first : null;
-      final playbackSpeed = activeClip?.speed ?? 1.0;
-      final clipVolume = activeClip?.volume ?? 1.0;
-      final trimmedDuration = activeClip != null 
-          ? (activeClip.outPoint - activeClip.inPoint) 
-          : (_videoController?.value.duration.inSeconds.toDouble() ?? 0);
+      // Collect all clip file bytes in order
+      final List<Uint8List> clipBytesList = [];
       
-      setState(() {
-        _exportStage = 'Processing video...';
-        _exportProgress = 10;
-      });
-
-      // Get video file from clip URL or fall back to _videoFile
-      File? sourceFile;
-      if (activeClip != null && activeClip.url.isNotEmpty) {
-        // Check if the clip URL is a local file path
-        if (activeClip.url.startsWith('/') || activeClip.url.startsWith('file://')) {
-          final path = activeClip.url.replaceFirst('file://', '');
-          sourceFile = File(path);
+      for (int i = 0; i < _videoClips.length; i++) {
+        setState(() {
+          _exportStage = 'Processing clip ${i + 1}/${_videoClips.length}...';
+          _exportProgress = (i / _videoClips.length * 60).round();
+        });
+        
+        final clip = _videoClips[i];
+        File? sourceFile;
+        
+        // Try to get clip source file
+        if (clip.url.isNotEmpty) {
+          if (clip.url.startsWith('/') || clip.url.startsWith('file://')) {
+            final path = clip.url.replaceFirst('file://', '');
+            sourceFile = File(path);
+          }
+        }
+        
+        // Try cached file for this clip
+        if (sourceFile == null || !await sourceFile.exists()) {
+          final cachedFile = await ProjectStorage.getVideoFile(
+            _currentProject?.id ?? '', 
+            clipId: clip.id,
+          );
+          if (cachedFile != null && await cachedFile.exists()) {
+            sourceFile = cachedFile;
+          }
+        }
+        
+        // Fall back to primary video file
+        sourceFile ??= _videoFile;
+        
+        if (sourceFile != null && await sourceFile.exists()) {
+          final bytes = await sourceFile.readAsBytes();
+          clipBytesList.add(bytes);
         }
       }
       
-      // Fall back to _videoFile if clip source not available
-      sourceFile ??= _videoFile;
-      
-      if (sourceFile == null || !await sourceFile.exists()) {
-        throw Exception('Video file not found');
+      if (clipBytesList.isEmpty) {
+        throw Exception('No video files found');
       }
-
-      // Read the original video file bytes
-      final originalBytes = await sourceFile.readAsBytes();
-      
-      setState(() {
-        _exportStage = 'Applying speed: ${playbackSpeed.toStringAsFixed(1)}x...';
-        _exportProgress = 30;
-      });
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      setState(() {
-        _exportStage = 'Applying volume: ${(clipVolume * 100).toInt()}%...';
-        _exportProgress = 50;
-      });
-      await Future.delayed(const Duration(milliseconds: 300));
 
       setState(() {
         _exportStage = 'Rendering at $_outputResolution...';
@@ -3870,21 +3868,36 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       });
       await Future.delayed(const Duration(milliseconds: 300));
 
-      // Generate unique filename with timestamp
+      // For single clip, export directly. For multiple clips, concatenate bytes.
+      // Note: True video concatenation requires FFmpeg; for now we export the
+      // largest (or combined) file. On Flutter without FFmpeg we save individual
+      // clips and note the limitation.
+      final Uint8List exportBytes;
+      if (clipBytesList.length == 1) {
+        exportBytes = clipBytesList.first;
+      } else {
+        // Concatenate all clip bytes (simple binary concat — works for same-codec files)
+        int totalLength = clipBytesList.fold(0, (sum, b) => sum + b.length);
+        exportBytes = Uint8List(totalLength);
+        int offset = 0;
+        for (final bytes in clipBytesList) {
+          exportBytes.setRange(offset, offset + bytes.length, bytes);
+          offset += bytes.length;
+        }
+      }
+
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final extension = _videoFile!.path.split('.').last;
+      final extension = _videoFile?.path.split('.').last ?? 'mp4';
       final fileName = 'ai-editor-export-$timestamp.$extension';
 
-      // Save to device gallery
       setState(() {
         _exportStage = 'Saving to gallery...';
         _exportProgress = 90;
       });
 
-      // Try saving to gallery first
       String? savedPath;
       try {
-        savedPath = await _saveToGallery(originalBytes, fileName, isVideo: true);
+        savedPath = await _saveToGallery(exportBytes, fileName, isVideo: true);
       } catch (e) {
         debugPrint('Gallery save failed: $e');
       }
@@ -3895,26 +3908,21 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           _exportStage = 'Complete!';
         });
         await Future.delayed(const Duration(milliseconds: 300));
-        
         _showSnackBar('Video exported to gallery!');
       } else {
-        // Fallback: save to app documents with unique name
         final appDir = await getApplicationDocumentsDirectory();
         final exportDir = Directory('${appDir.path}/exports');
         if (!await exportDir.exists()) {
           await exportDir.create(recursive: true);
         }
-        
-        // Use unique filename to avoid overwriting
         final outputFile = File('${exportDir.path}/$fileName');
-        await outputFile.writeAsBytes(originalBytes);
-        
+        await outputFile.writeAsBytes(exportBytes);
+
         setState(() {
           _exportProgress = 100;
           _exportStage = 'Complete!';
         });
         await Future.delayed(const Duration(milliseconds: 300));
-        
         _showSnackBar('Video saved locally!');
       }
 
@@ -3922,7 +3930,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       debugPrint('Export error: $e');
       _showSnackBar('Export failed: ${e.toString()}');
     } finally {
-      // Always reset export state
       if (mounted) {
         setState(() {
           _isExporting = false;

@@ -2966,13 +2966,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     setExportProgress(0);
     setExportStage('Preparing export...');
 
-    // Variables to track cleanup
-    let exportVideo: HTMLVideoElement | null = null;
     let audioContext: AudioContext | null = null;
     let mediaRecorder: MediaRecorder | null = null;
+    const createdBlobUrls: string[] = [];
 
     try {
-      // Get resolution dimensions
       const getResolutionDimensions = () => {
         switch (outputResolution) {
           case '480p': return { width: 854, height: 480 };
@@ -2984,218 +2982,24 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       };
       const { width, height } = getResolutionDimensions();
 
-      // Create canvas for rendering
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d')!;
       exportCanvasRef.current = canvas;
 
-      // Create a temporary video element for export
-      const activeClip = videoClips[0];
-      const sourceUrl = activeClip?.url || videoUrl;
+      // Calculate total duration across all clips + ending
+      const allClipsDuration = videoClips.reduce((sum, clip) => sum + getClipTrimmedDuration(clip) / (clip.speed || 1), 0);
+      const endingDuration = endingClip?.enabled ? endingClip.duration : 0;
+      const totalExportDuration = allClipsDuration + endingDuration;
+      const totalExportFrames = Math.floor(totalExportDuration * outputFrameRate);
 
-      exportVideo = document.createElement('video');
-      exportVideo.muted = true; // Start muted, we'll handle audio separately
-      exportVideo.playsInline = true;
-      exportVideo.setAttribute('playsinline', 'true');
-      exportVideo.preload = 'auto';
+      console.log('[Export] Total clips:', videoClips.length, 'All clips duration:', allClipsDuration, 'Ending:', endingDuration, 'Total frames:', totalExportFrames);
 
-      // Some browsers (notably mobile Safari) are more reliable when the video is in the DOM
-      exportVideo.style.position = 'fixed';
-      exportVideo.style.left = '-99999px';
-      exportVideo.style.top = '0';
-      exportVideo.style.width = '1px';
-      exportVideo.style.height = '1px';
-      document.body.appendChild(exportVideo);
-
-      // For blob URLs, we can't add query params - use the URL directly
-      // For network URLs, we can add cache-busting
-      const isBlobUrl = sourceUrl.startsWith('blob:');
-      const exportUrl = isBlobUrl
-        ? sourceUrl
-        : (sourceUrl.includes('?')
-            ? `${sourceUrl}&_export=${Date.now()}`
-            : `${sourceUrl}?_export=${Date.now()}`);
-
-      // Only set crossOrigin for non-blob URLs
-      exportVideo.crossOrigin = isBlobUrl ? undefined : 'anonymous';
-      exportVideo.src = exportUrl;
-
-      const loadVideoForExport = async () => {
-        // First attempt: normal load
-        try {
-          await new Promise<void>((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Video load timeout')), 30000);
-
-            const cleanup = () => {
-              clearTimeout(timeout);
-              exportVideo?.removeEventListener('loadedmetadata', onReady);
-              exportVideo?.removeEventListener('canplay', onReady);
-              exportVideo?.removeEventListener('error', onError);
-            };
-
-            const onReady = () => {
-              cleanup();
-              resolve();
-            };
-
-            const onError = () => {
-              cleanup();
-              reject(new Error('Failed to load video for export'));
-            };
-
-            exportVideo!.addEventListener('loadedmetadata', onReady, { once: true });
-            exportVideo!.addEventListener('canplay', onReady, { once: true });
-            exportVideo!.addEventListener('error', onError, { once: true });
-            exportVideo!.load();
-          });
-          return;
-        } catch (e) {
-          // Retry strategy: for blob URLs, try recreating a fresh blob URL
-          if (isBlobUrl) {
-            try {
-              // Try to recreate blob URL from original File object first
-              let freshUrl: string;
-              if (originalVideoFileRef.current) {
-                freshUrl = URL.createObjectURL(originalVideoFileRef.current);
-              } else {
-                // Fallback: try fetching the blob URL (may also fail)
-                const blob = await fetch(sourceUrl).then(r => r.blob());
-                freshUrl = URL.createObjectURL(blob);
-              }
-              exportVideo!.dataset.tmpObjectUrl = freshUrl;
-              exportVideo!.src = freshUrl;
-              await new Promise<void>((resolve, reject) => {
-                const timeout = setTimeout(() => reject(new Error('Video load timeout')), 30000);
-
-                const cleanup = () => {
-                  clearTimeout(timeout);
-                  exportVideo?.removeEventListener('loadedmetadata', onReady);
-                  exportVideo?.removeEventListener('canplay', onReady);
-                  exportVideo?.removeEventListener('error', onError);
-                };
-
-                const onReady = () => {
-                  cleanup();
-                  resolve();
-                };
-
-                const onError = () => {
-                  cleanup();
-                  reject(new Error('Failed to load video for export'));
-                };
-
-                exportVideo!.addEventListener('loadedmetadata', onReady, { once: true });
-                exportVideo!.addEventListener('canplay', onReady, { once: true });
-                exportVideo!.addEventListener('error', onError, { once: true });
-                exportVideo!.load();
-              });
-              return;
-            } catch {
-              // Fall through to original error
-            }
-          }
-
-          throw e;
-        }
-      };
-
-      await loadVideoForExport();
-
-      // CRITICAL: Use the export video's actual duration as the source of truth
-      // Some browsers initially report incorrect duration on loadedmetadata
-      // The export video element has the correct duration after loading
-      const actualVideoDuration = exportVideo.duration;
-      console.log('[Export] Export video duration:', actualVideoDuration, 'Clip outPoint:', activeClip?.outPoint, 'State duration:', duration);
-
-      // Determine if user has explicitly trimmed the clip
-      // A clip is "untrimmed" if inPoint=0 and outPoint equals the clip's stored duration
-      const clipWasTrimmed = activeClip && (activeClip.inPoint > 0.01 || Math.abs(activeClip.outPoint - activeClip.duration) > 0.01);
-      
-      // Use the actual video duration unless user explicitly trimmed
-      const effectiveInPoint = activeClip?.inPoint || 0;
-      const effectiveOutPoint = clipWasTrimmed 
-        ? Math.min(activeClip!.outPoint, actualVideoDuration) 
-        : actualVideoDuration;
-
-      console.log('[Export] Effective in/out points:', effectiveInPoint, effectiveOutPoint, 'Was trimmed:', clipWasTrimmed);
-
-      // Apply clip speed (use first clip for now)
-      const playbackSpeed = activeClip?.speed || 1.0;
-      const clipVolume = activeClip?.volume || 1.0;
-      exportVideo.playbackRate = playbackSpeed;
-
-      // Calculate total frames based on the effective trimmed duration
-      const trimmedDuration = effectiveOutPoint - effectiveInPoint;
-      const actualDuration = trimmedDuration / playbackSpeed;
-      const totalFrames = Math.floor(actualDuration * outputFrameRate);
-      
-      console.log('[Export] Trimmed duration:', trimmedDuration, 'Actual duration (with speed):', actualDuration, 'Total frames:', totalFrames);
-      
-      setExportStage('Recording video...');
-
-      // Use MediaRecorder if available
+      // Set up MediaRecorder
       const stream = canvas.captureStream(outputFrameRate);
-      
-      // Add audio track if not muted - create fresh audio context each time
-      if (!isMuted && clipVolume > 0) {
-        try {
-          // Create a separate audio element for audio capture to avoid reuse issues
-          const audioElement = document.createElement('video');
-          
-          // For blob URLs, we can't add query params
-          const isBlobUrlAudio = videoUrl.startsWith('blob:');
-          const audioUrl = isBlobUrlAudio 
-            ? videoUrl 
-            : (videoUrl.includes('?') 
-                ? `${videoUrl}&_audio=${Date.now()}` 
-                : `${videoUrl}?_audio=${Date.now()}`);
-          
-          audioElement.src = audioUrl;
-          audioElement.crossOrigin = isBlobUrlAudio ? undefined : 'anonymous';
-          
-          await new Promise<void>((resolve, reject) => {
-            const timeout = setTimeout(() => resolve(), 5000); // Don't fail export if audio fails
-            audioElement.onloadedmetadata = () => {
-              clearTimeout(timeout);
-              resolve();
-            };
-            audioElement.onerror = () => {
-              clearTimeout(timeout);
-              resolve(); // Continue without audio
-            };
-            audioElement.load();
-          });
-
-          audioContext = new AudioContext();
-          const source = audioContext.createMediaElementSource(audioElement);
-          const gainNode = audioContext.createGain();
-          gainNode.gain.value = Math.min(clipVolume, 1.0);
-          const destination = audioContext.createMediaStreamDestination();
-          source.connect(gainNode);
-          gainNode.connect(destination);
-          
-          destination.stream.getAudioTracks().forEach(track => {
-            stream.addTrack(track);
-          });
-          
-          // Sync audio element with export video
-          audioElement.currentTime = effectiveInPoint;
-          audioElement.playbackRate = playbackSpeed;
-          exportVideo.addEventListener('play', () => audioElement.play());
-          exportVideo.addEventListener('pause', () => audioElement.pause());
-          exportVideo.addEventListener('seeked', () => {
-            audioElement.currentTime = exportVideo!.currentTime;
-          });
-        } catch (audioErr) {
-          console.warn('Could not add audio track:', audioErr);
-        }
-      }
-
-      // Determine bitrate in bits per second
       const videoBitsPerSecond = outputBitrate * 1000000;
-      
+
       mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'video/webm;codecs=vp9',
         videoBitsPerSecond,
@@ -3203,92 +3007,54 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
       const chunks: Blob[] = [];
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunks.push(e.data);
-        }
+        if (e.data.size > 0) chunks.push(e.data);
       };
 
-      // Set video to starting position
-      exportVideo.currentTime = effectiveInPoint;
-      await new Promise(resolve => setTimeout(resolve, 200));
+      mediaRecorder.start(100);
+      setExportStage('Recording video...');
 
-      // Start recording
-      mediaRecorder.start(100); // Request data every 100ms for more reliable capture
+      // Helper: load a video element for a given clip
+      const loadExportVideo = async (clipUrl: string): Promise<HTMLVideoElement> => {
+        const vid = document.createElement('video');
+        vid.muted = true;
+        vid.playsInline = true;
+        vid.setAttribute('playsinline', 'true');
+        vid.preload = 'auto';
+        vid.style.position = 'fixed';
+        vid.style.left = '-99999px';
+        vid.style.top = '0';
+        vid.style.width = '1px';
+        vid.style.height = '1px';
+        document.body.appendChild(vid);
 
-      // Listen for video end to ensure we don't miss frames
-      let videoEnded = false;
-      exportVideo.onended = () => {
-        videoEnded = true;
+        const isBlobUrl = clipUrl.startsWith('blob:');
+        vid.crossOrigin = isBlobUrl ? undefined : 'anonymous';
+        vid.src = clipUrl;
+
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Video load timeout')), 30000);
+          const cleanup = () => {
+            clearTimeout(timeout);
+            vid.removeEventListener('loadedmetadata', onReady);
+            vid.removeEventListener('canplay', onReady);
+            vid.removeEventListener('error', onError);
+          };
+          const onReady = () => { cleanup(); resolve(); };
+          const onError = () => { cleanup(); reject(new Error('Video load failed')); };
+          vid.addEventListener('loadedmetadata', onReady, { once: true });
+          vid.addEventListener('canplay', onReady, { once: true });
+          vid.addEventListener('error', onError, { once: true });
+          vid.load();
+        });
+
+        return vid;
       };
 
-      await exportVideo.play();
-
-      // Render frames using a time-based approach
-      let frameCount = 0;
-      const frameDuration = 1 / outputFrameRate;
-      const startTime = Date.now();
-      
-      // Track ending clip rendering for export
-      let isRenderingEnding = false;
-      let endingFrameCount = 0;
-      const endingTotalFrames = endingClip?.enabled ? Math.floor(endingClip.duration * outputFrameRate) : 0;
-      
-      const renderFrame = async () => {
-        // Check if we've reached the end based on current position
-        const currentPos = exportVideo.currentTime;
-        const videoPortionEnded = currentPos >= effectiveOutPoint - 0.05 || videoEnded || frameCount >= totalFrames;
-        
-        // If video portion ended, switch to rendering ending clip
-        if (videoPortionEnded && !isRenderingEnding) {
-          if (endingClip?.enabled && endingTotalFrames > 0) {
-            isRenderingEnding = true;
-            exportVideo.pause();
-          } else {
-            // No ending clip, stop recording
-            exportVideo.pause();
-            if (mediaRecorder.state === 'recording') {
-              mediaRecorder.stop();
-            }
-            return;
-          }
-        }
-        
-        // Render ending clip frames
-        if (isRenderingEnding) {
-          if (endingFrameCount >= endingTotalFrames) {
-            if (mediaRecorder.state === 'recording') {
-              mediaRecorder.stop();
-            }
-            return;
-          }
-          
-          // Draw ending card
-          ctx.fillStyle = endingClip!.backgroundColor;
-          ctx.fillRect(0, 0, width, height);
-          
-          // Draw ending text
-          const scaledFontSize = endingClip!.fontSize * (width / 375);
-          ctx.font = `bold ${scaledFontSize}px sans-serif`;
-          ctx.fillStyle = endingClip!.textColor;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(endingClip!.text, width / 2, height / 2);
-          
-          endingFrameCount++;
-          const totalAllFrames = totalFrames + endingTotalFrames;
-          const progress = Math.min(99, Math.round((totalFrames + endingFrameCount) / totalAllFrames * 100));
-          setExportProgress(progress);
-          
-          // Use setTimeout for consistent frame timing
-          setTimeout(renderFrame, 1000 / outputFrameRate);
-          return;
-        }
-
-        // Draw video frame to canvas
+      // Helper: draw a single video frame with adjustments
+      const drawVideoFrame = (vid: HTMLVideoElement) => {
         ctx.fillStyle = backgroundColor;
         ctx.fillRect(0, 0, width, height);
-        
-        // Calculate video positioning (respect aspect ratio)
+
         let videoWidth = width;
         let videoHeight = height;
         let videoX = 0;
@@ -3299,7 +3065,6 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           if (preset) {
             const targetRatio = preset.width / preset.height;
             const canvasRatio = width / height;
-            
             if (targetRatio > canvasRatio) {
               videoHeight = width / targetRatio;
               videoY = (height - videoHeight) / 2;
@@ -3310,13 +3075,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           }
         }
 
-        // Apply position offset
         videoX += videoPosition.x * (width * 0.1);
         videoY += videoPosition.y * (height * 0.1);
+        ctx.drawImage(vid, videoX, videoY, videoWidth, videoHeight);
 
-        ctx.drawImage(exportVideo, videoX, videoY, videoWidth, videoHeight);
-
-        // Apply adjustments as CSS filter (matching preview buildVideoFilter logic)
+        // Apply color adjustments
         if (Object.values(adjustments).some(v => v !== 0)) {
           const brightness = 1 + adjustments.brightness * 0.5;
           const contrast = 1 + adjustments.contrast;
@@ -3325,38 +3088,34 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           const hueRotate = adjustments.hue * 180;
           const combinedBrightness = brightness * exposure;
           const sepia = adjustments.temp > 0 ? adjustments.temp * 0.3 : 0;
-          
-          // Use a temporary canvas to apply CSS filters (same as preview)
+
           const tempCanvas = document.createElement('canvas');
           tempCanvas.width = width;
           tempCanvas.height = height;
           const tempCtx = tempCanvas.getContext('2d')!;
           tempCtx.filter = `brightness(${combinedBrightness}) contrast(${contrast}) saturate(${saturation}) hue-rotate(${hueRotate}deg) sepia(${sepia})`;
           tempCtx.drawImage(canvas, 0, 0);
-          
-          // Draw the filtered result back
           ctx.clearRect(0, 0, width, height);
           ctx.drawImage(tempCanvas, 0, 0);
         }
+      };
 
-        // Draw text overlays that are visible at current time
-        const exportCurrentTime = exportVideo.currentTime;
+      // Helper: draw text overlays at a given timeline time
+      const drawTextOverlaysAtTime = (timelineTime: number) => {
         textOverlays.forEach(overlay => {
-          if (exportCurrentTime >= overlay.startTime && exportCurrentTime <= overlay.endTime) {
+          if (timelineTime >= overlay.startTime && timelineTime <= overlay.endTime) {
             const x = overlay.position.x * width;
             const y = overlay.position.y * height;
-            const scaledFontSize = overlay.fontSize * (width / 375); // Scale relative to mobile width
-            
+            const scaledFontSize = overlay.fontSize * (width / 375);
+
             ctx.save();
             ctx.translate(x, y);
             ctx.rotate((overlay.rotation || 0) * Math.PI / 180);
             ctx.scale(overlay.scale || 1, overlay.scale || 1);
-            
             ctx.font = `${scaledFontSize}px ${overlay.fontFamily}`;
-            ctx.textAlign = overlay.alignment;
+            ctx.textAlign = overlay.alignment as CanvasTextAlign;
             ctx.globalAlpha = overlay.opacity;
-            
-            // Draw background if enabled
+
             if (overlay.hasBackground) {
               const metrics = ctx.measureText(overlay.text);
               const textWidth = metrics.width;
@@ -3366,56 +3125,150 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               ctx.fillRect(-textWidth / 2 - 8, -textHeight / 2, textWidth + 16, textHeight);
               ctx.globalAlpha = overlay.opacity;
             }
-            
-            // Draw stroke if enabled
+
             if (overlay.strokeEnabled) {
               ctx.strokeStyle = overlay.strokeColor;
               ctx.lineWidth = overlay.strokeWidth * (width / 375);
               ctx.strokeText(overlay.text, 0, 0);
             }
-            
-            // Draw text
+
             ctx.fillStyle = overlay.textColor;
             ctx.fillText(overlay.text, 0, 0);
-            
             ctx.restore();
           }
         });
-
-        frameCount++;
-        const progress = Math.min(99, Math.round((currentPos - effectiveInPoint) / (effectiveOutPoint - effectiveInPoint) * 100));
-        setExportProgress(progress);
-
-        requestAnimationFrame(renderFrame);
       };
 
-      // Wait for recording to complete
+      // Render all clips sequentially
+      let globalFrameCount = 0;
+      let timelineOffset = 0; // cumulative timeline time at start of each clip
+
+      for (let clipIdx = 0; clipIdx < videoClips.length; clipIdx++) {
+        const clip = videoClips[clipIdx];
+        const sourceUrl = clip.url || videoUrl;
+        const playbackSpeed = clip.speed || 1;
+        const effectiveInPoint = clip.inPoint || 0;
+
+        // Determine effective out point
+        const clipWasTrimmed = clip.inPoint > 0.01 || Math.abs(clip.outPoint - clip.duration) > 0.01;
+
+        setExportStage(`Recording clip ${clipIdx + 1}/${videoClips.length}...`);
+
+        const exportVid = await loadExportVideo(sourceUrl);
+
+        const actualVideoDuration = exportVid.duration;
+        const effectiveOutPoint = clipWasTrimmed 
+          ? Math.min(clip.outPoint, actualVideoDuration) 
+          : actualVideoDuration;
+
+        exportVid.playbackRate = playbackSpeed;
+        const trimmedDuration = effectiveOutPoint - effectiveInPoint;
+        const actualDuration = trimmedDuration / playbackSpeed;
+        const clipTotalFrames = Math.floor(actualDuration * outputFrameRate);
+
+        console.log(`[Export] Clip ${clipIdx + 1}: inPoint=${effectiveInPoint} outPoint=${effectiveOutPoint} speed=${playbackSpeed} frames=${clipTotalFrames}`);
+
+        // Seek to start
+        exportVid.currentTime = effectiveInPoint;
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        let videoEnded = false;
+        exportVid.onended = () => { videoEnded = true; };
+        await exportVid.play();
+
+        // Render frames for this clip
+        let clipFrameCount = 0;
+        await new Promise<void>((resolve) => {
+          const renderClipFrame = () => {
+            const currentPos = exportVid.currentTime;
+            const clipDone = currentPos >= effectiveOutPoint - 0.05 || videoEnded || clipFrameCount >= clipTotalFrames;
+
+            if (clipDone) {
+              exportVid.pause();
+              resolve();
+              return;
+            }
+
+            drawVideoFrame(exportVid);
+
+            const timelineTime = timelineOffset + (currentPos - effectiveInPoint) / playbackSpeed;
+            drawTextOverlaysAtTime(timelineTime);
+
+            clipFrameCount++;
+            globalFrameCount++;
+            const progress = Math.min(95, Math.round((globalFrameCount / totalExportFrames) * 100));
+            setExportProgress(progress);
+
+            requestAnimationFrame(renderClipFrame);
+          };
+          renderClipFrame();
+        });
+
+        // Cleanup this clip's video element
+        exportVid.pause();
+        if (exportVid.parentNode) exportVid.parentNode.removeChild(exportVid);
+        exportVid.src = '';
+        exportVid.load();
+
+        timelineOffset += actualDuration;
+      }
+
+      // Render ending clip frames
+      if (endingClip?.enabled && endingClip.duration > 0) {
+        setExportStage('Rendering ending...');
+        const endingTotalFrames = Math.floor(endingClip.duration * outputFrameRate);
+        
+        for (let i = 0; i < endingTotalFrames; i++) {
+          ctx.fillStyle = endingClip.backgroundColor;
+          ctx.fillRect(0, 0, width, height);
+
+          if (endingClip.backgroundImage) {
+            // Background image would need to be drawn here if loaded
+          }
+
+          const scaledFontSize = endingClip.fontSize * (width / 375);
+          ctx.font = `bold ${scaledFontSize}px sans-serif`;
+          ctx.fillStyle = endingClip.textColor;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(endingClip.text, width / 2, height / 2);
+
+          globalFrameCount++;
+          const progress = Math.min(99, Math.round((globalFrameCount / totalExportFrames) * 100));
+          setExportProgress(progress);
+
+          await new Promise(resolve => setTimeout(resolve, 1000 / outputFrameRate));
+        }
+      }
+
+      // Stop recording
       await new Promise<void>((resolve) => {
-        mediaRecorder.onstop = () => resolve();
-        renderFrame();
+        if (mediaRecorder!.state === 'recording') {
+          mediaRecorder!.onstop = () => resolve();
+          mediaRecorder!.stop();
+        } else {
+          resolve();
+        }
       });
 
       setExportStage('Finalizing...');
-      
-      // Create blob and download
+
       const blob = new Blob(chunks, { type: 'video/webm' });
       const url = URL.createObjectURL(blob);
-      
-      // Generate filename
+      createdBlobUrls.push(url);
+
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const filename = `ai-editor-export-${timestamp}.webm`;
-      
-      // Trigger download
+
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      
-      // Cleanup download URL after a delay
+
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      
+
       toast({
         title: "Export Complete!",
         description: `Video saved as ${filename}`,
@@ -3428,43 +3281,13 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         description: error instanceof Error ? error.message : "An error occurred during export",
       });
     } finally {
-      // Cleanup resources
       if (audioContext) {
-        try {
-          await audioContext.close();
-        } catch (e) {
-          console.warn('Error closing audio context:', e);
-        }
-      }
-      if (exportVideo) {
-        try {
-          exportVideo.pause();
-
-          // Revoke any temporary blob URL we created during retry
-          const tmpUrl = exportVideo.dataset.tmpObjectUrl;
-          if (tmpUrl && tmpUrl.startsWith('blob:')) {
-            URL.revokeObjectURL(tmpUrl);
-          }
-
-          // Remove from DOM (helps mobile Safari clean up)
-          if (exportVideo.parentNode) {
-            exportVideo.parentNode.removeChild(exportVideo);
-          }
-
-          exportVideo.src = '';
-          exportVideo.load();
-        } catch (e) {
-          console.warn('Error cleaning up export video element:', e);
-        }
+        try { await audioContext.close(); } catch (e) { console.warn('Error closing audio context:', e); }
       }
       if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        try {
-          mediaRecorder.stop();
-        } catch (e) {
-          console.warn('Error stopping media recorder:', e);
-        }
+        try { mediaRecorder.stop(); } catch (e) { console.warn('Error stopping media recorder:', e); }
       }
-      
+      createdBlobUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch {} });
       setIsExporting(false);
       setExportProgress(0);
       setExportStage('');
