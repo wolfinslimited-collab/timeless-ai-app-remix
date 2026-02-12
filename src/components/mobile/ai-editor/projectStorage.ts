@@ -34,15 +34,16 @@ async function openDB(): Promise<IDBDatabase> {
   });
 }
 
-// Video file storage
-export async function saveVideoFile(projectId: string, file: File): Promise<void> {
+// Video file storage - supports multiple files per project via clipId
+export async function saveVideoFile(projectId: string, file: File, clipId?: string): Promise<void> {
   if (!isIndexedDBAvailable()) return;
   try {
     const database = await openDB();
+    const key = clipId ? `${projectId}_${clipId}` : projectId;
     return new Promise((resolve, reject) => {
       const transaction = database.transaction([VIDEO_STORE_NAME], 'readwrite');
       const store = transaction.objectStore(VIDEO_STORE_NAME);
-      const request = store.put({ projectId, file, name: file.name, type: file.type });
+      const request = store.put({ projectId: key, file, name: file.name, type: file.type });
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
@@ -51,14 +52,15 @@ export async function saveVideoFile(projectId: string, file: File): Promise<void
   }
 }
 
-export async function getVideoFile(projectId: string): Promise<File | null> {
+export async function getVideoFile(projectId: string, clipId?: string): Promise<File | null> {
   if (!isIndexedDBAvailable()) return null;
   try {
     const database = await openDB();
+    const key = clipId ? `${projectId}_${clipId}` : projectId;
     return new Promise((resolve, reject) => {
       const transaction = database.transaction([VIDEO_STORE_NAME], 'readonly');
       const store = transaction.objectStore(VIDEO_STORE_NAME);
-      const request = store.get(projectId);
+      const request = store.get(key);
       request.onsuccess = () => {
         const result = request.result;
         if (result?.file) {

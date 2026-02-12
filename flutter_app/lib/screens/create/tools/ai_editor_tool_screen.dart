@@ -1157,22 +1157,43 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       )).toList();
     }
 
-    // Video URL will trigger file re-select if missing
+    // Restore video - resolve cached files for each clip
     if (project.videoUrl != null) {
-      File? videoFile = File(project.videoUrl!);
-      if (!videoFile.existsSync()) {
-        // Try cached file from project storage
-        videoFile = await ProjectStorage.getVideoFile(project.id);
+      // Find primary video file (legacy key or clip-specific)
+      File? primaryVideoFile = File(project.videoUrl!);
+      if (!primaryVideoFile.existsSync()) {
+        primaryVideoFile = await ProjectStorage.getVideoFile(project.id);
       }
-      if (videoFile != null && videoFile.existsSync()) {
-        _videoUrl = videoFile.path;
-        _videoFile = videoFile;
+      
+      if (primaryVideoFile != null && primaryVideoFile.existsSync()) {
+        _videoFile = primaryVideoFile;
+        
+        // Resolve each clip's cached video file
+        for (int i = 0; i < _videoClips.length; i++) {
+          final clip = _videoClips[i];
+          File? clipFile = await ProjectStorage.getVideoFile(project.id, clipId: clip.id);
+          if (clipFile == null || !clipFile.existsSync()) {
+            // Fall back to primary file for the first clip
+            if (clip.id == 'primary') {
+              clipFile = primaryVideoFile;
+            }
+          }
+          if (clipFile != null && clipFile.existsSync()) {
+            _videoClips[i] = VideoClip(
+              id: clip.id, url: clipFile.path, duration: clip.duration,
+              startTime: clip.startTime, inPoint: clip.inPoint, outPoint: clip.outPoint,
+              thumbnails: [], volume: clip.volume, speed: clip.speed, aiEnhanced: clip.aiEnhanced,
+            );
+          }
+        }
+        
+        _videoUrl = _videoClips.isNotEmpty ? _videoClips.first.url : primaryVideoFile.path;
         
         // Initialize video controller for restored project
         try {
           _videoController?.removeListener(_onVideoPositionChanged);
           _videoController?.dispose();
-          _videoController = VideoPlayerController.file(videoFile);
+          _videoController = VideoPlayerController.file(File(_videoUrl!));
           await _videoController!.initialize();
           _videoController!.setLooping(false);
           _videoController!.addListener(_onVideoPositionChanged);
@@ -2454,13 +2475,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     
     debugPrint('AI Editor: Adding clip with duration: $clipDuration seconds');
     
+    final clipId = DateTime.now().millisecondsSinceEpoch.toString();
     final newClip = VideoClip(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: clipId,
       url: url,
       duration: clipDuration,
       startTime: startTime,
       inPoint: 0,
-      outPoint: clipDuration, // Explicitly set outPoint to full duration
+      outPoint: clipDuration,
       thumbnails: [],
       volume: 1.0,
       speed: 1.0,
@@ -2469,6 +2491,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     setState(() {
       _videoClips.add(newClip);
     });
+    
+    // Cache the clip's video file for future sessions
+    if (_currentProject != null) {
+      ProjectStorage.saveVideoFile(_currentProject!.id, File(url), clipId: clipId);
+    }
     
     // Extract thumbnails for this clip
     _extractClipThumbnails(newClip.id, url, clipDuration);
@@ -3599,9 +3626,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         _videoClips.clear();
       });
       
-      // Cache the video file for the current project
+      // Cache the video file for the current project (both legacy and clip-specific keys)
       if (_currentProject != null) {
         final cachedPath = await ProjectStorage.saveVideoFile(_currentProject!.id, File(filePath));
+        // Also save with 'primary' clipId for multi-clip restore
+        await ProjectStorage.saveVideoFile(_currentProject!.id, File(filePath), clipId: 'primary');
         if (cachedPath != null) {
           _videoUrl = cachedPath;
         }
