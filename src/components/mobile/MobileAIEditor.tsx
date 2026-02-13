@@ -4928,14 +4928,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       cursor: draggingTextId === overlay.id ? 'grabbing' : 'grab',
                       zIndex: 20 + (overlay.layerOrder || 0),
                     }}
-                    // Click to select - automatically show text edit panel
+                    // Click to select only (no edit panel)
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedTextId(overlay.id);
                       setTextInput(overlay.text);
-                      setShowTextEditPanel(true);
                       setSelectedTool('text');
                     }}
+                    // Double-click to open text edit panel
                     onDoubleClick={(e) => {
                       e.stopPropagation();
                       setSelectedTextId(overlay.id);
