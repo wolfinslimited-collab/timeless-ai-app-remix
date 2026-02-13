@@ -5001,12 +5001,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           fontStyle: overlay.italic ? 'italic' : 'normal',
                           textDecoration: overlay.underline ? 'underline' : 'none',
                           lineHeight: overlay.lineHeight,
-                          textAlign: overlay.alignment,
+                          textAlign: overlay.alignment as any,
                           letterSpacing: overlay.letterSpacing ? `${overlay.letterSpacing}px` : undefined,
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'keep-all',
+                          whiteSpace: 'nowrap',
                           display: 'block',
-                        } as React.CSSProperties}
+                        }}
                       >
                         {overlay.text}
                       </span>

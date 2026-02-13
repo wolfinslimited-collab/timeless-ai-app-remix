@@ -15288,6 +15288,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         top: constraints.maxHeight * overlay.position.dy,
         child: FractionalTranslation(
           translation: const Offset(-0.5, -0.5),
+          child: UnconstrainedBox(
           child: GestureDetector(
           // Single tap: Select only (no edit panel)
           onTap: () {
@@ -15445,6 +15446,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               ],
             ),
           ),
+        ),
         ),
         ),
       );
