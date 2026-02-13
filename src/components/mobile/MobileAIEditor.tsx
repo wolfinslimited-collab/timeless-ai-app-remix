@@ -3171,11 +3171,51 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
       console.log('[Export] Total clips:', videoClips.length, 'All clips duration:', allClipsDuration, 'Ending:', endingDuration, 'Total frames:', totalExportFrames);
 
-      // Set up MediaRecorder
-      const stream = canvas.captureStream(0); // manual frame capture mode
+      // Set up MediaRecorder with audio mixing
+      const videoStream = canvas.captureStream(0); // manual frame capture mode
       const videoBitsPerSecond = outputBitrate * 1000000;
 
-      mediaRecorder = new MediaRecorder(stream, {
+      // Create audio context and mix audio layers
+      audioContext = new AudioContext();
+      const audioDestination = audioContext.createMediaStreamDestination();
+      const audioSourceNodes: AudioBufferSourceNode[] = [];
+
+      if (audioLayers.length > 0) {
+        setExportStage('Loading audio tracks...');
+        for (const layer of audioLayers) {
+          try {
+            const response = await fetch(layer.fileUrl);
+            const arrayBuffer = await response.arrayBuffer();
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+            const sourceNode = audioContext.createBufferSource();
+            sourceNode.buffer = audioBuffer;
+
+            const gainNode = audioContext.createGain();
+            gainNode.gain.value = layer.volume ?? 1;
+
+            sourceNode.connect(gainNode);
+            gainNode.connect(audioDestination);
+            audioSourceNodes.push(sourceNode);
+
+            // Schedule audio to play at the correct offset
+            const startOffset = Math.max(0, layer.startTime || 0);
+            const audioStartInBuffer = 0;
+            const audioDuration = audioBuffer.duration;
+            sourceNode.start(audioContext.currentTime + startOffset, audioStartInBuffer, Math.min(audioDuration, totalExportDuration - startOffset));
+          } catch (e) {
+            console.warn('[Export] Failed to load audio layer:', layer.name, e);
+          }
+        }
+      }
+
+      // Combine video and audio tracks into one stream
+      const combinedStream = new MediaStream([
+        ...videoStream.getVideoTracks(),
+        ...audioDestination.stream.getAudioTracks(),
+      ]);
+
+      mediaRecorder = new MediaRecorder(combinedStream, {
         mimeType: 'video/webm;codecs=vp9',
         videoBitsPerSecond,
       });
@@ -3425,7 +3465,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           drawTextOverlaysAtTime(timelineTime);
           
           // Request a frame from the stream track for MediaRecorder
-          const videoTrack = stream.getVideoTracks()[0];
+           const videoTrack = videoStream.getVideoTracks()[0];
           if (videoTrack && 'requestFrame' in videoTrack) {
             (videoTrack as any).requestFrame();
           }
@@ -3468,7 +3508,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           ctx.fillText(endingClip.text, width / 2, height / 2);
 
           // Request frame from stream
-          const videoTrack = stream.getVideoTracks()[0];
+          const videoTrack = videoStream.getVideoTracks()[0];
           if (videoTrack && 'requestFrame' in videoTrack) {
             (videoTrack as any).requestFrame();
           }
