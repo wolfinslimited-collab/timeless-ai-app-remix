@@ -1831,8 +1831,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             debugPrint('Could not get audio duration: $e');
           }
           
-          final videoDuration = _videoController?.value.duration.inSeconds.toDouble() ?? 30.0;
           final audioSeconds = audioDuration?.inSeconds.toDouble() ?? 30.0;
+          final rawVideoDuration = _videoController?.value.duration.inSeconds.toDouble() ?? 0.0;
+          final videoDuration = rawVideoDuration > 0 ? rawVideoDuration : (audioSeconds + currentPlayhead);
           
           // Generate waveform data from file name hash for consistent visualization
           // This creates a pseudo-random but reproducible waveform pattern

@@ -1087,17 +1087,18 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         0.2 + 0.6 * Math.abs(Math.sin(i * 0.3) * Math.sin(i * 0.1))
       );
     }
-    
-    audioElement.addEventListener('loadedmetadata', () => {
+
+    const addAudioLayer = () => {
       saveStateToHistory();
-      const audioDuration = audioElement.duration;
+      const audioDuration = audioElement.duration || 30;
+      const timelineDuration = duration || audioDuration + currentTime || 30;
       const newAudio: AudioLayer = {
         id: Date.now().toString(),
         name: file.name,
         fileUrl: audioUrl,
         volume: 1.0,
         startTime: currentTime,
-        endTime: Math.min(currentTime + audioDuration, duration || 10),
+        endTime: Math.min(currentTime + audioDuration, timelineDuration),
         fadeIn: 0,
         fadeOut: 0,
         waveformData,
@@ -1105,17 +1106,35 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       setAudioLayers(prev => [...prev, newAudio]);
       setSelectedAudioId(newAudio.id);
       setIsAudioMenuMode(false);
+      setIsMusicLibraryOpen(false);
       setSelectedTool('audio');
       
       // Store reference for sync
       audioRefs.current.set(newAudio.id, audioElement);
       toast({ title: `Audio "${file.name}" added` });
-    });
+    };
+
+    // Handle both cases: metadata already loaded or not yet
+    if (audioElement.readyState >= 1) {
+      addAudioLayer();
+    } else {
+      audioElement.addEventListener('loadedmetadata', addAudioLayer, { once: true });
+      // Fallback timeout in case loadedmetadata never fires
+      setTimeout(() => {
+        if (audioElement.readyState < 1) {
+          console.warn('Audio metadata timeout, using defaults');
+          addAudioLayer();
+        }
+      }, 3000);
+    }
 
     // Reset input
     if (audioInputRef.current) {
       audioInputRef.current.value = '';
     }
+    // Also reset the music library input
+    const musicInput = document.getElementById('music-library-audio-input') as HTMLInputElement;
+    if (musicInput) musicInput.value = '';
   };
 
   const updateAudioLayer = (id: string, updates: Partial<AudioLayer>) => {
@@ -8991,9 +9010,9 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     })}
                   </div>
                 </div>
-                {/* Hidden audio input */}
+                {/* Hidden audio input - uses id instead of ref to avoid conflict */}
                 <input
-                  ref={audioInputRef}
+                  id="music-library-audio-input"
                   type="file"
                   accept="audio/*"
                   onChange={handleAudioImport}
@@ -9135,7 +9154,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                         <>
                           <FolderOpen className="w-10 h-10 text-foreground/20 mb-3" />
                           <span className="text-xs text-foreground/40 mb-3">No audio files added yet</span>
-                          <button onClick={() => audioInputRef.current?.click()} className="px-4 py-2 rounded-lg bg-primary/20 text-primary text-xs font-medium hover:bg-primary/30 transition-colors">
+                          <button onClick={() => (document.getElementById('music-library-audio-input') as HTMLInputElement)?.click()} className="px-4 py-2 rounded-lg bg-primary/20 text-primary text-xs font-medium hover:bg-primary/30 transition-colors">
                             Upload Audio
                           </button>
                         </>
