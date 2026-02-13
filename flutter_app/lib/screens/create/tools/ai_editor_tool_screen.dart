@@ -4287,6 +4287,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           _exportProgress = 80;
         });
 
+        // Calculate total video duration for clamping audio
+        final totalVideoDuration = _videoClips.fold<double>(0.0, (sum, clip) {
+          final trimmed = clip.outPoint - clip.inPoint;
+          return sum + trimmed / (clip.speed > 0 ? clip.speed : 1.0);
+        }) + (_endingClip?.enabled == true ? _endingClip!.duration : 0.0);
+
         for (final audioLayer in _audioLayers) {
           File? audioFile;
           if (audioLayer.fileUrl.isNotEmpty) {
@@ -4302,6 +4308,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             continue;
           }
 
+          // Clamp audio timing to actual video duration
+          final clampedStartTime = audioLayer.startTime.clamp(0.0, totalVideoDuration);
+          final clampedEndTime = audioLayer.endTime.clamp(clampedStartTime, totalVideoDuration);
+          
+          if (clampedEndTime <= clampedStartTime) continue;
+
           final audioOutputPath = '${tempDir.path}/with_audio_${audioLayer.id}.mp4';
 
           try {
@@ -4311,8 +4323,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               'audioPath': audioFile.path,
               'outputPath': audioOutputPath,
               'audioVolume': audioLayer.volume,
-              'audioStartTime': audioLayer.startTime,
-              'audioEndTime': audioLayer.endTime,
+              'audioStartTime': clampedStartTime,
+              'audioEndTime': clampedEndTime,
+              'audioDuration': clampedEndTime - clampedStartTime,
+              'totalVideoDuration': totalVideoDuration,
               'fadeIn': audioLayer.fadeIn,
               'fadeOut': audioLayer.fadeOut,
             });
@@ -7547,7 +7561,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         final isDragging = audio.id == _draggingLayerId;
         
         return SizedBox(
-          height: 44,
+          height: 30,
           child: Row(
             children: [
               SizedBox(width: startPadding),
@@ -7643,7 +7657,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     
     return Container(
       width: itemWidth,
-      height: 38,
+      height: 24,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isSelected 
@@ -7694,11 +7708,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               ),
               child: Center(
                 child: Container(
-                  width: 3,
-                  height: 18,
+                  width: 2,
+                  height: 12,
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(1.5),
+                    borderRadius: BorderRadius.circular(1),
                   ),
                 ),
               ),
@@ -7729,14 +7743,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   right: 4,
                   child: Row(
                     children: [
-                      Icon(Icons.music_note, size: 12, color: Colors.white.withOpacity(0.9)),
-                      const SizedBox(width: 4),
+                      Icon(Icons.music_note, size: 9, color: Colors.white.withOpacity(0.9)),
+                      const SizedBox(width: 2),
                       Flexible(
                         child: Text(
                           audio.name,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 10,
+                            fontSize: 8,
                             fontWeight: FontWeight.w600,
                           ),
                           overflow: TextOverflow.ellipsis,

@@ -3171,42 +3171,68 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
       console.log('[Export] Total clips:', videoClips.length, 'All clips duration:', allClipsDuration, 'Ending:', endingDuration, 'Total frames:', totalExportFrames);
 
-      // Set up MediaRecorder with audio mixing
+      // Set up MediaRecorder - we'll add audio as a pre-rendered track
       const videoStream = canvas.captureStream(0); // manual frame capture mode
       const videoBitsPerSecond = outputBitrate * 1000000;
 
-      // Create audio context and mix audio layers
-      audioContext = new AudioContext();
-      const audioDestination = audioContext.createMediaStreamDestination();
-      const audioSourceNodes: AudioBufferSourceNode[] = [];
-
+      // Pre-render all audio layers offline using OfflineAudioContext
+      let offlineRenderedBuffer: AudioBuffer | null = null;
+      
       if (audioLayers.length > 0) {
-        setExportStage('Loading audio tracks...');
+        setExportStage('Rendering audio tracks...');
+        const sampleRate = 44100;
+        const totalSamples = Math.ceil(totalExportDuration * sampleRate);
+        const offlineCtx = new OfflineAudioContext(2, totalSamples, sampleRate);
+        
         for (const layer of audioLayers) {
           try {
             const response = await fetch(layer.fileUrl);
             const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            const audioBuffer = await offlineCtx.decodeAudioData(arrayBuffer);
 
-            const sourceNode = audioContext.createBufferSource();
+            const sourceNode = offlineCtx.createBufferSource();
             sourceNode.buffer = audioBuffer;
 
-            const gainNode = audioContext.createGain();
+            const gainNode = offlineCtx.createGain();
             gainNode.gain.value = layer.volume ?? 1;
 
-            sourceNode.connect(gainNode);
-            gainNode.connect(audioDestination);
-            audioSourceNodes.push(sourceNode);
+            // Apply fade in
+            if (layer.fadeIn > 0) {
+              gainNode.gain.setValueAtTime(0, layer.startTime || 0);
+              gainNode.gain.linearRampToValueAtTime(layer.volume ?? 1, (layer.startTime || 0) + layer.fadeIn);
+            }
+            
+            // Apply fade out
+            if (layer.fadeOut > 0) {
+              const fadeOutStart = (layer.endTime || totalExportDuration) - layer.fadeOut;
+              gainNode.gain.setValueAtTime(layer.volume ?? 1, fadeOutStart);
+              gainNode.gain.linearRampToValueAtTime(0, layer.endTime || totalExportDuration);
+            }
 
-            // Schedule audio to play at the correct offset
+            sourceNode.connect(gainNode);
+            gainNode.connect(offlineCtx.destination);
+
             const startOffset = Math.max(0, layer.startTime || 0);
-            const audioStartInBuffer = 0;
-            const audioDuration = audioBuffer.duration;
-            sourceNode.start(audioContext.currentTime + startOffset, audioStartInBuffer, Math.min(audioDuration, totalExportDuration - startOffset));
+            const layerDuration = (layer.endTime || totalExportDuration) - startOffset;
+            sourceNode.start(startOffset, 0, Math.min(audioBuffer.duration, layerDuration));
           } catch (e) {
             console.warn('[Export] Failed to load audio layer:', layer.name, e);
           }
         }
+        
+        offlineRenderedBuffer = await offlineCtx.startRendering();
+        console.log('[Export] Audio pre-rendered:', offlineRenderedBuffer.duration, 'seconds');
+      }
+
+      // Create a real-time AudioContext to stream the pre-rendered audio
+      audioContext = new AudioContext();
+      const audioDestination = audioContext.createMediaStreamDestination();
+      
+      if (offlineRenderedBuffer) {
+        const playbackSource = audioContext.createBufferSource();
+        playbackSource.buffer = offlineRenderedBuffer;
+        playbackSource.connect(audioDestination);
+        playbackSource.start(0);
       }
 
       // Combine video and audio tracks into one stream
@@ -7274,16 +7300,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                       const itemWidth = Math.max(50, (audio.endTime - audio.startTime) * PIXELS_PER_SECOND);
                       
                       return (
-                    <div key={audio.id} className="relative h-10" style={{ width: trackWidth }}>
+                    <div key={audio.id} className="relative h-7" style={{ width: trackWidth }}>
                         <div
                           key={audio.id}
                           className={cn(
-                            "absolute h-[34px] rounded flex items-center cursor-grab transition-all active:cursor-grabbing group/audio",
+                            "absolute h-[22px] rounded flex items-center cursor-grab transition-all active:cursor-grabbing group/audio",
                             isSelected 
                               ? "bg-gradient-to-r from-emerald-500 to-emerald-600 border-2 border-white shadow-lg shadow-emerald-500/30"
                               : "bg-gradient-to-r from-emerald-600 to-emerald-700 border border-emerald-500/30 hover:border-emerald-400/50"
                           )}
-                          style={{ left: leftOffset, width: itemWidth, top: 3 }}
+                          style={{ left: leftOffset, width: itemWidth, top: 2 }}
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedAudioId(audio.id);
@@ -7347,7 +7373,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                               document.addEventListener('mouseup', handleUp);
                             }}
                           >
-                            <div className="w-0.5 h-4 bg-white/80 rounded-full" />
+                            <div className="w-0.5 h-3 bg-white/80 rounded-full" />
                           </div>
                           
                           {/* Content - waveform and label */}
@@ -7355,21 +7381,21 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             {/* Waveform visualization */}
                             <div className="absolute inset-0 flex items-center justify-center px-1">
                               <svg 
-                                viewBox="0 0 100 24" 
+                                viewBox="0 0 100 16" 
                                 preserveAspectRatio="none" 
                                 className="w-full h-full"
                               >
                                 {audio.waveformData && audio.waveformData.length > 0 ? (
                                   audio.waveformData.map((amp, i) => {
                                     const x = (i / audio.waveformData.length) * 100;
-                                    const height = Math.max(2, amp * 20);
+                                    const barH = Math.max(1, amp * 12);
                                     return (
                                       <rect
                                         key={i}
                                         x={x}
-                                        y={12 - height / 2}
+                                        y={8 - barH / 2}
                                         width={0.8}
-                                        height={height}
+                                        height={barH}
                                         fill="rgba(255, 255, 255, 0.7)"
                                         rx={0.2}
                                       />
@@ -7378,14 +7404,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                 ) : (
                                   // Placeholder waveform
                                   Array.from({ length: 50 }, (_, i) => {
-                                    const height = 3 + Math.abs(Math.sin(i * 0.4)) * 10;
+                                    const barH = 2 + Math.abs(Math.sin(i * 0.4)) * 6;
                                     return (
                                       <rect
                                         key={i}
                                         x={i * 2}
-                                        y={12 - height / 2}
+                                        y={8 - barH / 2}
                                         width={1.2}
-                                        height={height}
+                                        height={barH}
                                         fill="rgba(255, 255, 255, 0.4)"
                                         rx={0.3}
                                       />
@@ -7396,8 +7422,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             </div>
                             {/* Audio name overlay */}
                             <div className="absolute top-0 left-1 right-1 flex items-center gap-1 h-full">
-                              <Music className="w-3 h-3 text-white/90 shrink-0 drop-shadow-sm" />
-                              <span className="text-[10px] text-white font-semibold truncate drop-shadow-sm">
+                              <Music className="w-2.5 h-2.5 text-white/90 shrink-0 drop-shadow-sm" />
+                              <span className="text-[8px] text-white font-semibold truncate drop-shadow-sm">
                                 {audio.name.length > 10 ? audio.name.substring(0, 10) + '...' : audio.name}
                               </span>
                             </div>
