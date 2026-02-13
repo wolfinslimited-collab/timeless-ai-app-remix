@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { useCredits } from "@/hooks/useCredits";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, TIMELESS_SUPABASE_URL } from "@/lib/supabase";
 import { toast } from "sonner";
 import AddCreditsDialog from "@/components/AddCreditsDialog";
 import { 
@@ -117,7 +117,7 @@ const AudioToolLayout = ({
     setOutputUrl(null);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/music-tools`, {
+      const response = await fetch(`${TIMELESS_SUPABASE_URL}/functions/v1/music-tools`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
