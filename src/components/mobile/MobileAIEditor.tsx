@@ -3147,13 +3147,37 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
     try {
       const getResolutionDimensions = () => {
+        // Get base resolution height
+        let baseHeight: number;
         switch (outputResolution) {
-          case '480p': return { width: 854, height: 480 };
-          case '720p': return { width: 1280, height: 720 };
-          case '1080p': return { width: 1920, height: 1080 };
-          case '2K/4K': return { width: 3840, height: 2160 };
-          default: return { width: 1920, height: 1080 };
+          case '480p': baseHeight = 480; break;
+          case '720p': baseHeight = 720; break;
+          case '1080p': baseHeight = 1080; break;
+          case '2K/4K': baseHeight = 2160; break;
+          default: baseHeight = 1080;
         }
+
+        // Apply aspect ratio to determine width x height
+        if (selectedAspectRatio !== 'original') {
+          const preset = aspectRatioPresets.find(p => p.id === selectedAspectRatio);
+          if (preset) {
+            const ratio = preset.width / preset.height;
+            if (ratio >= 1) {
+              // Landscape or square: height is base, width derived
+              const w = Math.round(baseHeight * ratio);
+              return { width: w % 2 === 0 ? w : w + 1, height: baseHeight };
+            } else {
+              // Portrait: width is base, height derived
+              const h = Math.round(baseHeight / ratio);
+              // Cap to keep reasonable, use baseHeight as the short side
+              return { width: baseHeight, height: h % 2 === 0 ? h : h + 1 };
+            }
+          }
+        }
+
+        // Original: use standard 16:9
+        const w = Math.round(baseHeight * 16 / 9);
+        return { width: w % 2 === 0 ? w : w + 1, height: baseHeight };
       };
       const { width, height } = getResolutionDimensions();
 
@@ -3296,56 +3320,60 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         ctx.fillStyle = backgroundColor;
         ctx.fillRect(0, 0, width, height);
 
-        let videoWidth = width;
-        let videoHeight = height;
-        let videoX = 0;
-        let videoY = 0;
+        // Aspect-fit the video into the canvas (canvas already matches the target aspect ratio)
+        const vidRatio = vid.videoWidth / vid.videoHeight;
+        const canvasRatio = width / height;
+        let videoWidth: number, videoHeight: number, videoX: number, videoY: number;
 
-        if (selectedAspectRatio !== 'original') {
-          const preset = aspectRatioPresets.find(p => p.id === selectedAspectRatio);
-          if (preset) {
-            const targetRatio = preset.width / preset.height;
-            const canvasRatio = width / height;
-            if (targetRatio > canvasRatio) {
-              videoHeight = width / targetRatio;
-              videoY = (height - videoHeight) / 2;
-            } else {
-              videoWidth = height * targetRatio;
-              videoX = (width - videoWidth) / 2;
-            }
-          }
+        if (vidRatio > canvasRatio) {
+          // Video is wider than canvas — fit by width, letterbox top/bottom
+          videoWidth = width;
+          videoHeight = width / vidRatio;
+          videoX = 0;
+          videoY = (height - videoHeight) / 2;
+        } else {
+          // Video is taller than canvas — fit by height, pillarbox left/right
+          videoHeight = height;
+          videoWidth = height * vidRatio;
+          videoX = (width - videoWidth) / 2;
+          videoY = 0;
+        }
 
-          // Draw blurred video background if blur is enabled
-          if (backgroundBlur > 0) {
-            const blurCanvas = document.createElement('canvas');
-            blurCanvas.width = width;
-            blurCanvas.height = height;
-            const blurCtx = blurCanvas.getContext('2d')!;
-            // Draw video scaled to cover entire canvas
-            const vidRatio = vid.videoWidth / vid.videoHeight;
-            const canRatio = width / height;
-            let sw = width, sh = height, sx = 0, sy = 0;
-            if (vidRatio > canRatio) {
-              sw = height * vidRatio;
-              sx = (width - sw) / 2;
-            } else {
-              sh = width / vidRatio;
-              sy = (height - sh) / 2;
-            }
-            blurCtx.filter = `blur(${backgroundBlur * 2}px) brightness(0.7)`;
-            // Scale up slightly to hide blur edges
-            const scale = 1.1;
-            const scaledW = sw * scale;
-            const scaledH = sh * scale;
-            const scaledX = sx - (scaledW - sw) / 2;
-            const scaledY = sy - (scaledH - sh) / 2;
-            blurCtx.drawImage(vid, scaledX, scaledY, scaledW, scaledH);
-            blurCtx.filter = 'none';
-            // Draw blurred background onto main canvas
-            ctx.drawImage(blurCanvas, 0, 0);
-          } else if (backgroundImage) {
-            // backgroundImage is handled elsewhere if needed
+        // Draw blurred video background if blur is enabled and video doesn't fill canvas
+        if (backgroundBlur > 0 && (Math.abs(videoWidth - width) > 1 || Math.abs(videoHeight - height) > 1)) {
+          const blurCanvas = document.createElement('canvas');
+          blurCanvas.width = width;
+          blurCanvas.height = height;
+          const blurCtx = blurCanvas.getContext('2d')!;
+          // Draw video scaled to cover entire canvas
+          let sw = width, sh = height, sx = 0, sy = 0;
+          if (vidRatio > canvasRatio) {
+            sh = width / vidRatio;
+            sy = (height - sh) / 2;
+            // Scale to cover
+            const coverScale = height / sh;
+            sw = width * coverScale;
+            sh = height;
+            sx = (width - sw) / 2;
+            sy = 0;
+          } else {
+            sw = height * vidRatio;
+            sx = (width - sw) / 2;
+            const coverScale = width / sw;
+            sh = height * coverScale;
+            sw = width;
+            sy = (height - sh) / 2;
+            sx = 0;
           }
+          blurCtx.filter = `blur(${backgroundBlur * 2}px) brightness(0.7)`;
+          const scale = 1.1;
+          const scaledW = sw * scale;
+          const scaledH = sh * scale;
+          const scaledX = sx - (scaledW - sw) / 2;
+          const scaledY = sy - (scaledH - sh) / 2;
+          blurCtx.drawImage(vid, scaledX, scaledY, scaledW, scaledH);
+          blurCtx.filter = 'none';
+          ctx.drawImage(blurCanvas, 0, 0);
         }
 
         videoX += videoPosition.x * (width * 0.1);
