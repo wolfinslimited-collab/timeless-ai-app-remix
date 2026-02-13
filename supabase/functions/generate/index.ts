@@ -554,17 +554,16 @@ serve(async (req) => {
               global: { headers: { Authorization: authHeader } }
             });
 
-            const token = authHeader.replace('Bearer ', '');
-            const { data: claimsData, error: authError } = await supabase.auth.getClaims(token);
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
             
-            if (authError || !claimsData?.claims?.sub) {
+            if (authError || !user?.id) {
               console.log("Auth error:", authError?.message);
               sendEvent('error', { message: 'Unauthorized' });
               controller.close();
               return;
             }
             
-            const userId = claimsData.claims.sub as string;
+            const userId = user.id;
 
             sendEvent('status', { stage: 'credits', message: 'Checking credits...' });
 
@@ -806,10 +805,9 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: authError } = await supabase.auth.getClaims(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (authError || !claimsData?.claims?.sub) {
+    if (authError || !user?.id) {
       console.log("Auth error:", authError?.message);
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
@@ -817,7 +815,7 @@ serve(async (req) => {
       );
     }
 
-    const userId = claimsData.claims.sub as string;
+    const userId = user.id;
     console.log(`User authenticated: ${userId}`);
 
     // Check user profile for credits and subscription

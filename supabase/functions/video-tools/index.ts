@@ -136,11 +136,10 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Verify user via claims against primary project
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: authError } = await supabase.auth.getClaims(token);
+    // Verify user via getUser against primary project
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (authError || !claimsData?.claims) {
+    if (authError || !user?.id) {
       console.error("Auth validation failed:", authError?.message);
       return new Response(
         JSON.stringify({ error: "Invalid authentication" }),
@@ -148,7 +147,7 @@ serve(async (req) => {
       );
     }
 
-    const userId = claimsData.claims.sub as string;
+    const userId = user.id;
 
     // Use primary project client (with user auth) for DB operations
     // The supabase client already has the user's auth header for RLS
