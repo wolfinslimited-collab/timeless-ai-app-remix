@@ -120,10 +120,15 @@ class AudioLayer {
   double startTime;
   double endTime;
   double volume;
+  double fadeIn;
+  double fadeOut;
   int trackIndex;
   AudioPlayer? player;
   Duration? duration;
   List<double> waveformData; // Normalized amplitudes 0-1
+  
+  /// Convenience getter for file URL (alias for filePath)
+  String get fileUrl => filePath;
   
   AudioLayer({
     required this.id,
@@ -132,6 +137,8 @@ class AudioLayer {
     this.startTime = 0,
     this.endTime = 30,
     this.volume = 1.0,
+    this.fadeIn = 0.0,
+    this.fadeOut = 0.0,
     this.trackIndex = 0,
     this.player,
     this.duration,
@@ -594,6 +601,8 @@ class AudioLayerSnapshot {
   final double startTime;
   final double endTime;
   final double volume;
+  final double fadeIn;
+  final double fadeOut;
   final int trackIndex;
   final List<double> waveformData;
   
@@ -604,6 +613,8 @@ class AudioLayerSnapshot {
     required this.startTime,
     required this.endTime,
     required this.volume,
+    this.fadeIn = 0.0,
+    this.fadeOut = 0.0,
     required this.trackIndex,
     required this.waveformData,
   });
@@ -615,6 +626,8 @@ class AudioLayerSnapshot {
     startTime: layer.startTime,
     endTime: layer.endTime,
     volume: layer.volume,
+    fadeIn: layer.fadeIn,
+    fadeOut: layer.fadeOut,
     trackIndex: layer.trackIndex,
     waveformData: List.from(layer.waveformData),
   );
@@ -3743,7 +3756,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     // Only auto-scroll during playback
     if (!_videoController!.value.isPlaying) return;
     
-    final targetScroll = _timeToScroll(positionSeconds);
+    final targetScroll = _timeToScroll(timelinePosition);
     
     // Use flag to prevent feedback loops
     _isAutoScrolling = true;
@@ -4119,7 +4132,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       for (int i = 0; i < _videoClips.length; i++) {
         setState(() {
           _exportStage = 'Trimming clip ${i + 1}/${_videoClips.length}...';
-          _exportProgress = (i / _videoClips.length * 50).round();
+          _exportProgress = (i / _videoClips.length * 50).roundToDouble();
         });
 
         final clip = _videoClips[i];
@@ -4595,10 +4608,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                               const SizedBox(height: 8),
                               Wrap(
                                 spacing: 8, runSpacing: 8,
-                                children: [
+                                children: <int>[
                                   0xFF000000, 0xFFFFFFFF, 0xFF1A1A2E, 0xFF16213E,
                                   0xFF0F3460, 0xFFE94560, 0xFF533483, 0xFF2B2D42,
-                                ].map((color) => GestureDetector(
+                                ].map<Widget>((color) => GestureDetector(
                                   onTap: () => setState(() => _endingClip = SavedEndingClip(
                                     enabled: true, text: _endingClip!.text,
                                     duration: _endingClip!.duration,
@@ -4626,10 +4639,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                               const SizedBox(height: 8),
                               Wrap(
                                 spacing: 8, runSpacing: 8,
-                                children: [
+                                children: <int>[
                                   0xFFFFFFFF, 0xFF000000, 0xFFFFD700, 0xFFFF6B6B,
                                   0xFF4ECDC4, 0xFF45B7D1, 0xFF96CEB4, 0xFFFFEAA7,
-                                ].map((color) => GestureDetector(
+                                ].map<Widget>((color) => GestureDetector(
                                   onTap: () => setState(() => _endingClip = SavedEndingClip(
                                     enabled: true, text: _endingClip!.text,
                                     duration: _endingClip!.duration,
@@ -13845,7 +13858,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
             child: Row(
-              children: editTools.map((tool) {
+              children: editTools.map<Widget>((tool) {
                 return GestureDetector(
                   onTap: tool.onTap,
                   child: Container(
@@ -13924,8 +13937,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                
-                return Positioned(
+                    Positioned(
                   left: leftOffset,
                   child: GestureDetector(
                     onTap: () => _selectEffectLayer(effect.id),
@@ -14077,7 +14089,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       ),
                     ),
                   ),
-                );
+                ),
                   ],
                 ),
               ),
