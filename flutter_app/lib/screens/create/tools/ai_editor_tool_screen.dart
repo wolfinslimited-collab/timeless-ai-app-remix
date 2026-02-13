@@ -880,6 +880,37 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Audio menu mode state - activated by clicking "Audio" tool
   bool _isAudioMenuMode = false;
   
+  // Music Library state
+  bool _isMusicLibraryOpen = false;
+  String _musicLibraryTab = 'recommended'; // 'recommended', 'categories', 'my-files'
+  String? _musicPreviewingId;
+  String? _selectedMusicCategory;
+  
+  static const List<Map<String, dynamic>> _musicTracks = [
+    {'id': 'upbeat-pop', 'name': 'Upbeat Pop', 'artist': 'Studio Mix', 'duration': 30, 'category': 'Happy', 'isAI': false},
+    {'id': 'cinematic-epic', 'name': 'Cinematic Epic', 'artist': 'Film Score', 'duration': 45, 'category': 'Cinematic', 'isAI': false},
+    {'id': 'lofi-chill', 'name': 'Lo-fi Chill', 'artist': 'Chill Beats', 'duration': 60, 'category': 'Lo-fi', 'isAI': false},
+    {'id': 'energetic-rock', 'name': 'Energetic Rock', 'artist': 'Power Band', 'duration': 35, 'category': 'Energetic', 'isAI': false},
+    {'id': 'ambient-calm', 'name': 'Ambient Calm', 'artist': 'Nature Sounds', 'duration': 90, 'category': 'Calm', 'isAI': false},
+    {'id': 'hip-hop-groove', 'name': 'Hip Hop Groove', 'artist': 'Beat Lab', 'duration': 28, 'category': 'Hip Hop', 'isAI': false},
+    {'id': 'jazz-smooth', 'name': 'Jazz Smooth', 'artist': 'Late Night', 'duration': 40, 'category': 'Jazz', 'isAI': false},
+    {'id': 'electronic-pulse', 'name': 'Electronic Pulse', 'artist': 'Synth Wave', 'duration': 32, 'category': 'Electronic', 'isAI': false},
+    {'id': 'ai-custom', 'name': 'AI Generated ✨', 'artist': 'AI Studio', 'duration': 30, 'category': 'AI', 'isAI': true},
+  ];
+  
+  static const List<Map<String, String>> _musicCategories = [
+    {'name': 'Happy', 'emoji': '😊'},
+    {'name': 'Cinematic', 'emoji': '🎬'},
+    {'name': 'Lo-fi', 'emoji': '🎧'},
+    {'name': 'Energetic', 'emoji': '⚡'},
+    {'name': 'Calm', 'emoji': '🌊'},
+    {'name': 'Hip Hop', 'emoji': '🎤'},
+    {'name': 'Jazz', 'emoji': '🎷'},
+    {'name': 'Electronic', 'emoji': '🎹'},
+    {'name': 'Dramatic', 'emoji': '🎭'},
+    {'name': 'Romantic', 'emoji': '❤️'},
+  ];
+  
   // Audio recording state
   bool _isRecording = false;
   bool _showRecordingOverlay = false;
@@ -10258,6 +10289,21 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               ),
             ),
           
+          // Music Library Bottom Sheet
+          if (_isMusicLibraryOpen)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 380,
+              child: Material(
+                color: const Color(0xFF0A0A0A),
+                elevation: 12,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: _buildMusicLibrary(),
+              ),
+            ),
+          
           // Audio Recording Overlay
           if (_showRecordingOverlay)
             Positioned.fill(
@@ -10942,7 +10988,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 ),
                 // Music - Music library (green themed)
                 GestureDetector(
-                  onTap: () => _showSnackBar('Music library coming soon'),
+                  onTap: () => setState(() {
+                    _isMusicLibraryOpen = true;
+                    _musicLibraryTab = 'recommended';
+                    _selectedMusicCategory = null;
+                  }),
                   child: Container(
                     width: 64,
                     child: Column(
@@ -10977,6 +11027,292 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           ),
         ),
       ],
+    );
+  }
+  
+  void _addMusicTrackToTimeline(Map<String, dynamic> track) {
+    _saveStateToHistory();
+    final currentPos = _videoController?.value.position.inSeconds.toDouble() ?? 0;
+    final dur = _videoController?.value.duration.inSeconds.toDouble() ?? (track['duration'] as int).toDouble();
+    
+    final newAudio = AudioLayer(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: track['name'] as String,
+      filePath: 'music://${track['id']}',
+      startTime: currentPos,
+      endTime: (currentPos + (track['duration'] as int).toDouble()).clamp(0, dur),
+      volume: 1.0,
+      trackIndex: _audioLayers.length,
+      waveformData: List.generate(100, (_) => (0.1 + 0.8 * (DateTime.now().microsecond % 100) / 100)),
+    );
+    
+    setState(() {
+      _audioLayers.add(newAudio);
+      _selectedAudioId = newAudio.id;
+      _isMusicLibraryOpen = false;
+      _isAudioMenuMode = false;
+    });
+    _showSnackBar('Added "${track['name']}" to timeline');
+  }
+  
+  Widget _buildMusicLibrary() {
+    final filteredTracks = _selectedMusicCategory != null
+        ? _musicTracks.where((t) => t['category'] == _selectedMusicCategory).toList()
+        : _musicTracks;
+    
+    return Column(
+      children: [
+        // Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+          ),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => setState(() => _isMusicLibraryOpen = false),
+                child: Container(
+                  width: 32, height: 32,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(Icons.keyboard_arrow_down, size: 22, color: AppTheme.primary),
+                ),
+              ),
+              const Expanded(
+                child: Text('Music Library', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(width: 32),
+            ],
+          ),
+        ),
+        
+        // Tabs
+        Container(
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1)))),
+          child: Row(
+            children: ['recommended', 'categories', 'my-files'].map((tab) {
+              final isActive = _musicLibraryTab == tab;
+              final label = tab == 'recommended' ? 'Recommended' : tab == 'categories' ? 'Categories' : 'My Files';
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() {
+                    _musicLibraryTab = tab;
+                    if (tab != 'categories') _selectedMusicCategory = null;
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(color: isActive ? AppTheme.primary : Colors.transparent, width: 2)),
+                    ),
+                    child: Text(label, textAlign: TextAlign.center, style: TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w500,
+                      color: isActive ? AppTheme.primary : Colors.white.withOpacity(0.5),
+                    )),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        
+        // Content
+        Expanded(
+          child: _musicLibraryTab == 'recommended'
+            ? ListView.builder(
+                padding: const EdgeInsets.all(8),
+                itemCount: _musicTracks.length,
+                itemBuilder: (context, index) => _buildMusicTrackItem(_musicTracks[index]),
+              )
+            : _musicLibraryTab == 'categories'
+              ? _selectedMusicCategory == null
+                ? GridView.builder(
+                    padding: const EdgeInsets.all(12),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 2.2,
+                    ),
+                    itemCount: _musicCategories.length,
+                    itemBuilder: (context, index) {
+                      final cat = _musicCategories[index];
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedMusicCategory = cat['name']),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(cat['emoji']!, style: const TextStyle(fontSize: 18)),
+                              const SizedBox(height: 4),
+                              Text(cat['name']!, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  )
+                : Column(
+                    children: [
+                      GestureDetector(
+                        onTap: () => setState(() => _selectedMusicCategory = null),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Row(
+                            children: [
+                              Icon(Icons.arrow_back, size: 14, color: AppTheme.primary),
+                              const SizedBox(width: 4),
+                              Text('Back to categories', style: TextStyle(fontSize: 12, color: AppTheme.primary)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: filteredTracks.isEmpty
+                          ? Center(child: Text('No tracks in this category yet', style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.4))))
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              itemCount: filteredTracks.length,
+                              itemBuilder: (context, index) => _buildMusicTrackItem(filteredTracks[index]),
+                            ),
+                      ),
+                    ],
+                  )
+              : _audioLayers.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.folder_open, size: 40, color: Colors.white.withOpacity(0.2)),
+                        const SizedBox(height: 12),
+                        Text('No audio files added yet', style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.4))),
+                        const SizedBox(height: 12),
+                        GestureDetector(
+                          onTap: () => _importAudioFile(),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primary.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text('Upload Audio', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.primary)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(8),
+                    itemCount: _audioLayers.length,
+                    itemBuilder: (context, index) {
+                      final layer = _audioLayers[index];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 4),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.music_note, size: 16, color: AppTheme.primary),
+                            const SizedBox(width: 12),
+                            Expanded(child: Text(layer.name, style: const TextStyle(color: Colors.white, fontSize: 13), overflow: TextOverflow.ellipsis)),
+                            Text('${(layer.endTime - layer.startTime).round()}s', style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.4))),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildMusicTrackItem(Map<String, dynamic> track) {
+    final isPreviewing = _musicPreviewingId == track['id'];
+    final isAI = track['isAI'] == true;
+    
+    return GestureDetector(
+      onTap: () {},
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.03),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            // Play button
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _musicPreviewingId = isPreviewing ? null : track['id'] as String;
+                });
+                if (!isPreviewing) {
+                  _showSnackBar('Preview: ${track['name']}');
+                }
+              },
+              child: Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: isPreviewing ? AppTheme.primary : Colors.white.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isPreviewing ? Icons.pause : Icons.play_arrow,
+                  size: 18, color: isPreviewing ? Colors.white : Colors.white.withOpacity(0.7),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Track info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(child: Text(track['name'] as String, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+                      if (isAI) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text('AI ✨', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w500, color: AppTheme.primary)),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text('${track['artist']} • ${track['duration']}s', style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.4))),
+                ],
+              ),
+            ),
+            // Add button
+            GestureDetector(
+              onTap: () => _addMusicTrackToTimeline(track),
+              child: Container(
+                width: 32, height: 32,
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.add, size: 18, color: AppTheme.primary),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
   
