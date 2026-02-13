@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -136,9 +137,86 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
   }
 
   Future<void> _pickAudio() async {
-    // Audio picker would require file_picker package
-    // For now, show coming soon
-    _showSnackBar('Audio upload coming soon');
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.audio,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+
+        // Check file size (50MB limit)
+        if (file.size > 50 * 1024 * 1024) {
+          _showSnackBar('Audio must be under 50MB');
+          return;
+        }
+
+        final user = Supabase.instance.client.auth.currentUser;
+        if (user == null) {
+          _showSnackBar('Please sign in to upload');
+          return;
+        }
+
+        setState(() => _isUploading = true);
+
+        final fileName =
+            '${user.id}/${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+        final bytes = file.bytes;
+
+        if (bytes != null) {
+          await Supabase.instance.client.storage
+              .from('generation-inputs')
+              .uploadBinary(
+                fileName,
+                bytes,
+                fileOptions: FileOptions(
+                  contentType: file.extension != null
+                      ? 'audio/${file.extension}'
+                      : 'audio/mpeg',
+                ),
+              );
+
+          final publicUrl = Supabase.instance.client.storage
+              .from('generation-inputs')
+              .getPublicUrl(fileName);
+
+          setState(() {
+            _inputAudioUrl = publicUrl;
+          });
+
+          _showSnackBar('Audio uploaded successfully');
+        } else if (file.path != null) {
+          final fileBytes = await File(file.path!).readAsBytes();
+          await Supabase.instance.client.storage
+              .from('generation-inputs')
+              .uploadBinary(
+                fileName,
+                fileBytes,
+                fileOptions: FileOptions(
+                  contentType: file.extension != null
+                      ? 'audio/${file.extension}'
+                      : 'audio/mpeg',
+                ),
+              );
+
+          final publicUrl = Supabase.instance.client.storage
+              .from('generation-inputs')
+              .getPublicUrl(fileName);
+
+          setState(() {
+            _inputAudioUrl = publicUrl;
+          });
+
+          _showSnackBar('Audio uploaded successfully');
+        }
+      }
+    } catch (e) {
+      debugPrint('Audio pick error: $e');
+      _showSnackBar('Failed to upload audio');
+    } finally {
+      setState(() => _isUploading = false);
+    }
   }
 
   Future<void> _process() async {
