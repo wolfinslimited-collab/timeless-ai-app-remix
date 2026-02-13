@@ -2334,8 +2334,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       if (id != null) {
         final overlay = _textOverlays.firstWhere((t) => t.id == id);
         _textInputController.text = overlay.text;
-        // Automatically show text edit panel when selecting text on canvas
-        _showTextEditPanel = true;
+        // Only select, don't open edit panel (double-tap opens it)
       } else {
         _showTextEditPanel = false;
       }
@@ -15288,16 +15287,17 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         left: constraints.maxWidth * overlay.position.dx - 75,
         top: constraints.maxHeight * overlay.position.dy - 25,
         child: GestureDetector(
-          // Single tap: Select and show text edit panel
+          // Single tap: Select only (no edit panel)
           onTap: () {
-            if (isSelected) {
-              setState(() => _showTextEditPanel = true);
-            } else {
+            if (!isSelected) {
               _selectTextOverlay(overlay.id);
             }
           },
-          // Double tap: Always open inline editor
-          onDoubleTap: () => _openInlineTextEditor(overlay),
+          // Double tap: Open text edit panel
+          onDoubleTap: () {
+            _selectTextOverlay(overlay.id);
+            setState(() => _showTextEditPanel = true);
+          },
           // Pan for smooth dragging - with boundary constraints
           onPanUpdate: (details) {
             if (!_isTextEditorInline) {
