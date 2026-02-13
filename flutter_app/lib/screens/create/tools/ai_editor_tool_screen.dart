@@ -13419,20 +13419,22 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   /// Build effects track in timeline (Green themed)
   Widget _buildEffectsTrack(double startPadding, double trackWidth, double duration) {
     if (_effectLayers.isEmpty) return const SizedBox.shrink();
-    return SizedBox(
-      height: 40,
-      child: Row(
-        children: [
-          SizedBox(width: startPadding),
-          SizedBox(
-            width: trackWidth,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: _effectLayers.map((effect) {
-                final leftOffset = effect.startTime * _pixelsPerSecond;
-                final itemWidth = ((effect.endTime - effect.startTime) * _pixelsPerSecond).clamp(50.0, trackWidth);
-                final isSelected = effect.id == _selectedEffectId;
-                final isDragging = effect.id == _draggingLayerId;
+    return Column(
+      children: _effectLayers.map((effect) {
+        final leftOffset = effect.startTime * _pixelsPerSecond;
+        final itemWidth = ((effect.endTime - effect.startTime) * _pixelsPerSecond).clamp(50.0, trackWidth);
+        final isSelected = effect.id == _selectedEffectId;
+        final isDragging = effect.id == _draggingLayerId;
+        return SizedBox(
+          height: 40,
+          child: Row(
+            children: [
+              SizedBox(width: startPadding),
+              SizedBox(
+                width: trackWidth,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
                 
                 return Positioned(
                   left: leftOffset,
@@ -13587,12 +13589,14 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     ),
                   ),
                 );
-              }).toList(),
-            ),
+                  ],
+                ),
+              ),
+              SizedBox(width: startPadding),
+            ],
           ),
-          SizedBox(width: startPadding),
-        ],
-      ),
+        );
+      }).toList(),
     );
   }
 
