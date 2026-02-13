@@ -6891,10 +6891,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </div>
                   )}
                   
-                  {/* Effects Track - Green themed */}
-                  {effectLayers.length > 0 && (
-                    <div className="relative h-10" style={{ width: trackWidth }}>
-                      {effectLayers.map(effect => {
+                  {/* Effects Tracks - Green themed, each effect on its own layer */}
+                  {effectLayers.map(effect => {
+                    return (
+                    <div key={`effect-track-${effect.id}`} className="relative h-10" style={{ width: trackWidth }}>
+                      {(() => {
                         const isSelected = effect.id === selectedEffectId;
                         const leftOffset = effect.startTime * PIXELS_PER_SECOND;
                         const itemWidth = Math.max(50, (effect.endTime - effect.startTime) * PIXELS_PER_SECOND);
@@ -7054,9 +7055,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                             </div>
                           </div>
                         );
-                      })}
+                      })()}
                     </div>
-                  )}
+                    );
+                  })}
+                  
                   
                   {/* Audio Tracks - each audio layer gets its own row */}
                   {audioLayers.length === 0 && (
