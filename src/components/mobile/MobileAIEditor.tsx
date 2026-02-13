@@ -101,7 +101,7 @@ import { ProjectManager } from "./ai-editor/ProjectManager";
 import type { EditorProject } from "./ai-editor/types";
 import { saveProject, generateThumbnail, createNewProject } from "./ai-editor/projectStorage";
 import { supabase } from "@/integrations/supabase/client";
-import { supabase as timelessSupabase, TIMELESS_SUPABASE_URL } from "@/lib/supabase";
+import { supabase as timelessSupabase, TIMELESS_SUPABASE_URL, TIMELESS_ANON_KEY } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import AddCreditsDialog from "@/components/AddCreditsDialog";
@@ -2344,14 +2344,14 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
     try {
       // Get auth token for credit deduction
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await timelessSupabase.auth.getSession();
       const authToken = session?.access_token;
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-video-edit`, {
+      const response = await fetch(`${TIMELESS_SUPABASE_URL}/functions/v1/ai-video-edit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${authToken || TIMELESS_ANON_KEY}`,
         },
         body: JSON.stringify({ prompt: magicEditPrompt }),
       });
@@ -2467,15 +2467,15 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     }, 500);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await timelessSupabase.auth.getSession();
       const authToken = session?.access_token;
 
       // Step 1: Enhance the prompt via AI
-      const promptRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-video-analyzer`, {
+      const promptRes = await fetch(`${TIMELESS_SUPABASE_URL}/functions/v1/ai-video-analyzer`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${authToken || TIMELESS_ANON_KEY}`,
         },
         body: JSON.stringify({ action: 'generate-prompt', suggestionPrompt: expansionPrompt }),
       });
@@ -2515,11 +2515,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       }
 
       // Step 3: Generate video (I2V if we have the last frame, T2V otherwise)
-      const genRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate`, {
+      const genRes = await fetch(`${TIMELESS_SUPABASE_URL}/functions/v1/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${authToken || TIMELESS_ANON_KEY}`,
         },
         body: JSON.stringify({
           type: 'video',
@@ -2551,11 +2551,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
           attempts++;
           setExpansionGenerateProgress(Math.min(60 + (attempts / maxAttempts) * 35, 95));
 
-          const checkRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-generation`, {
+          const checkRes = await fetch(`${TIMELESS_SUPABASE_URL}/functions/v1/check-generation`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'Authorization': `Bearer ${authToken || TIMELESS_ANON_KEY}`,
             },
             body: JSON.stringify({ generationId: genData.generationId }),
           });
@@ -2645,11 +2645,11 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       const { data: { session } } = await timelessSupabase.auth.getSession();
       const authToken = session?.access_token;
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-tools`, {
+      const response = await fetch(`${TIMELESS_SUPABASE_URL}/functions/v1/video-tools`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${authToken || TIMELESS_ANON_KEY}`,
         },
         body: JSON.stringify({
           tool: 'ai-upscale',
