@@ -4109,6 +4109,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         // Use platform channel to call native FFmpeg for trimming
         try {
           const channel = MethodChannel('com.wolfine.app/ffmpeg');
+          
+          // Convert background color to hex for FFmpeg
+          final bgColor = _backgroundColor;
+          final hexBgColor = '${bgColor.red.toRadixString(16).padLeft(2, '0')}${bgColor.green.toRadixString(16).padLeft(2, '0')}${bgColor.blue.toRadixString(16).padLeft(2, '0')}';
+          
           final success = await channel.invokeMethod<bool>('trimVideo', {
             'inputPath': sourceFile.path,
             'outputPath': trimmedPath,
@@ -4120,6 +4125,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             'fps': fps,
             'bitrate': bitrate,
             'volume': clip.volume,
+            'aspectRatio': _selectedAspectRatio,
+            'backgroundBlur': _backgroundBlur,
+            'backgroundColor': hexBgColor,
+            'backgroundImage': _backgroundImage,
+            'videoPositionX': _videoPosition.dx,
+            'videoPositionY': _videoPosition.dy,
           });
 
           if (success == true && await File(trimmedPath).exists()) {

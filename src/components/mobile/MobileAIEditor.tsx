@@ -3288,6 +3288,38 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               videoX = (width - videoWidth) / 2;
             }
           }
+
+          // Draw blurred video background if blur is enabled
+          if (backgroundBlur > 0) {
+            const blurCanvas = document.createElement('canvas');
+            blurCanvas.width = width;
+            blurCanvas.height = height;
+            const blurCtx = blurCanvas.getContext('2d')!;
+            // Draw video scaled to cover entire canvas
+            const vidRatio = vid.videoWidth / vid.videoHeight;
+            const canRatio = width / height;
+            let sw = width, sh = height, sx = 0, sy = 0;
+            if (vidRatio > canRatio) {
+              sw = height * vidRatio;
+              sx = (width - sw) / 2;
+            } else {
+              sh = width / vidRatio;
+              sy = (height - sh) / 2;
+            }
+            blurCtx.filter = `blur(${backgroundBlur * 2}px) brightness(0.7)`;
+            // Scale up slightly to hide blur edges
+            const scale = 1.1;
+            const scaledW = sw * scale;
+            const scaledH = sh * scale;
+            const scaledX = sx - (scaledW - sw) / 2;
+            const scaledY = sy - (scaledH - sh) / 2;
+            blurCtx.drawImage(vid, scaledX, scaledY, scaledW, scaledH);
+            blurCtx.filter = 'none';
+            // Draw blurred background onto main canvas
+            ctx.drawImage(blurCanvas, 0, 0);
+          } else if (backgroundImage) {
+            // backgroundImage is handled elsewhere if needed
+          }
         }
 
         videoX += videoPosition.x * (width * 0.1);
