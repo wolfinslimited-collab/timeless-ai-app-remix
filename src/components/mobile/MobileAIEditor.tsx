@@ -436,6 +436,63 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   // Audio menu mode state - activated by clicking "Audio" tool
   const [isAudioMenuMode, setIsAudioMenuMode] = useState(false);
   
+  // Music Library state
+  const [isMusicLibraryOpen, setIsMusicLibraryOpen] = useState(false);
+  const [musicLibraryTab, setMusicLibraryTab] = useState<'recommended' | 'categories' | 'my-files'>('recommended');
+  const [musicPreviewingId, setMusicPreviewingId] = useState<string | null>(null);
+  const [selectedMusicCategory, setSelectedMusicCategory] = useState<string | null>(null);
+  const musicPreviewRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Music Library data
+  const musicTracks = [
+    { id: 'upbeat-pop', name: 'Upbeat Pop', artist: 'Studio Mix', duration: 30, category: 'Happy', url: '', isAI: false },
+    { id: 'cinematic-epic', name: 'Cinematic Epic', artist: 'Film Score', duration: 45, category: 'Cinematic', url: '', isAI: false },
+    { id: 'lofi-chill', name: 'Lo-fi Chill', artist: 'Chill Beats', duration: 60, category: 'Lo-fi', url: '', isAI: false },
+    { id: 'energetic-rock', name: 'Energetic Rock', artist: 'Power Band', duration: 35, category: 'Energetic', url: '', isAI: false },
+    { id: 'ambient-calm', name: 'Ambient Calm', artist: 'Nature Sounds', duration: 90, category: 'Calm', url: '', isAI: false },
+    { id: 'hip-hop-groove', name: 'Hip Hop Groove', artist: 'Beat Lab', duration: 28, category: 'Hip Hop', url: '', isAI: false },
+    { id: 'jazz-smooth', name: 'Jazz Smooth', artist: 'Late Night', duration: 40, category: 'Jazz', url: '', isAI: false },
+    { id: 'electronic-pulse', name: 'Electronic Pulse', artist: 'Synth Wave', duration: 32, category: 'Electronic', url: '', isAI: false },
+    { id: 'ai-custom', name: 'AI Generated ✨', artist: 'AI Studio', duration: 30, category: 'AI', url: '', isAI: true },
+  ];
+  
+  const musicCategories = ['Happy', 'Cinematic', 'Lo-fi', 'Energetic', 'Calm', 'Hip Hop', 'Jazz', 'Electronic', 'Dramatic', 'Romantic'];
+  
+  const filteredMusicTracks = selectedMusicCategory 
+    ? musicTracks.filter(t => t.category === selectedMusicCategory)
+    : musicTracks;
+  
+  const toggleMusicPreview = (trackId: string) => {
+    if (musicPreviewingId === trackId) {
+      musicPreviewRef.current?.pause();
+      setMusicPreviewingId(null);
+    } else {
+      // In real app, would play actual audio URL
+      setMusicPreviewingId(trackId);
+      toast({ title: "Preview: " + musicTracks.find(t => t.id === trackId)?.name });
+    }
+  };
+  
+  const addMusicTrackToTimeline = (track: typeof musicTracks[0]) => {
+    saveStateToHistory();
+    const newAudio: AudioLayer = {
+      id: Date.now().toString(),
+      name: track.name,
+      fileUrl: track.url || `music://${track.id}`,
+      volume: 1,
+      startTime: currentTime,
+      endTime: Math.min(currentTime + track.duration, duration || track.duration),
+      fadeIn: 0,
+      fadeOut: 0,
+      waveformData: Array.from({ length: 100 }, () => Math.random() * 0.8 + 0.1),
+    };
+    setAudioLayers(prev => [...prev, newAudio]);
+    setSelectedAudioId(newAudio.id);
+    setIsMusicLibraryOpen(false);
+    setIsAudioMenuMode(false);
+    toast({ title: `Added "${track.name}" to timeline` });
+  };
+  
   // Audio recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
@@ -8873,7 +8930,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </button>
                     {/* Music - Music library */}
                     <button
-                      onClick={() => toast({ title: "Music library coming soon" })}
+                      onClick={() => { setIsMusicLibraryOpen(true); setMusicLibraryTab('recommended'); setSelectedMusicCategory(null); }}
                       className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
                     >
                       <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-emerald-500/20 border border-emerald-500/30">
@@ -8926,6 +8983,142 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                   onChange={handleAudioImport}
                   className="hidden"
                 />
+              </div>
+            )}
+            
+            {/* Music Library Bottom Sheet */}
+            {isMusicLibraryOpen && (
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-40 flex flex-col rounded-t-2xl border-t border-border/30" style={{ height: '380px' }}>
+                {/* Header */}
+                <div className="flex items-center px-4 py-3 border-b border-border/20">
+                  <button
+                    onClick={() => setIsMusicLibraryOpen(false)}
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                  >
+                    <ChevronDown className="w-5 h-5 text-primary" />
+                  </button>
+                  <span className="flex-1 text-sm font-semibold text-foreground text-center pr-8">
+                    Music Library
+                  </span>
+                </div>
+                
+                {/* Tabs */}
+                <div className="flex border-b border-border/20 px-2">
+                  {(['recommended', 'categories', 'my-files'] as const).map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => { setMusicLibraryTab(tab); if (tab !== 'categories') setSelectedMusicCategory(null); }}
+                      className={cn(
+                        "flex-1 py-2.5 text-xs font-medium transition-colors border-b-2",
+                        musicLibraryTab === tab
+                          ? "text-primary border-primary"
+                          : "text-foreground/50 border-transparent hover:text-foreground/70"
+                      )}
+                    >
+                      {tab === 'recommended' ? 'Recommended' : tab === 'categories' ? 'Categories' : 'My Files'}
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Tab Content */}
+                <div className="flex-1 overflow-y-auto">
+                  {musicLibraryTab === 'recommended' && (
+                    <div className="p-2 space-y-1">
+                      {musicTracks.map(track => (
+                        <div key={track.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/30 transition-colors">
+                          <button
+                            onClick={() => toggleMusicPreview(track.id)}
+                            className={cn(
+                              "w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-colors",
+                              musicPreviewingId === track.id
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted/50 text-foreground/70 hover:bg-muted"
+                            )}
+                          >
+                            {musicPreviewingId === track.id ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm font-medium text-foreground truncate">{track.name}</span>
+                              {track.isAI && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-medium">AI ✨</span>}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-foreground/40">{track.artist}</span>
+                              <span className="text-[10px] text-foreground/30">•</span>
+                              <span className="text-[10px] text-foreground/40">{track.duration}s</span>
+                            </div>
+                          </div>
+                          <button onClick={() => addMusicTrackToTimeline(track)} className="w-8 h-8 rounded-full bg-primary/20 hover:bg-primary/30 flex items-center justify-center text-primary transition-colors">
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {musicLibraryTab === 'categories' && !selectedMusicCategory && (
+                    <div className="p-3 grid grid-cols-2 gap-2">
+                      {musicCategories.map(cat => (
+                        <button key={cat} onClick={() => setSelectedMusicCategory(cat)} className="p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors text-left">
+                          <span className="text-lg mb-1 block">
+                            {cat === 'Happy' ? '😊' : cat === 'Cinematic' ? '🎬' : cat === 'Lo-fi' ? '🎧' : cat === 'Energetic' ? '⚡' : cat === 'Calm' ? '🌊' : cat === 'Hip Hop' ? '🎤' : cat === 'Jazz' ? '🎷' : cat === 'Electronic' ? '🎹' : cat === 'Dramatic' ? '🎭' : '❤️'}
+                          </span>
+                          <span className="text-xs font-medium text-foreground">{cat}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {musicLibraryTab === 'categories' && selectedMusicCategory && (
+                    <div className="p-2">
+                      <button onClick={() => setSelectedMusicCategory(null)} className="flex items-center gap-1 px-2 py-1.5 text-xs text-primary mb-2">
+                        <ArrowLeft className="w-3 h-3" /> Back to categories
+                      </button>
+                      <div className="space-y-1">
+                        {filteredMusicTracks.length > 0 ? filteredMusicTracks.map(track => (
+                          <div key={track.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/30 transition-colors">
+                            <button onClick={() => toggleMusicPreview(track.id)} className={cn("w-9 h-9 rounded-full flex items-center justify-center shrink-0", musicPreviewingId === track.id ? "bg-primary text-primary-foreground" : "bg-muted/50 text-foreground/70")}>
+                              {musicPreviewingId === track.id ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium text-foreground truncate block">{track.name}</span>
+                              <span className="text-[10px] text-foreground/40">{track.artist} • {track.duration}s</span>
+                            </div>
+                            <button onClick={() => addMusicTrackToTimeline(track)} className="w-8 h-8 rounded-full bg-primary/20 hover:bg-primary/30 flex items-center justify-center text-primary">
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )) : (
+                          <div className="text-center py-8 text-foreground/40 text-xs">No tracks in this category yet</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {musicLibraryTab === 'my-files' && (
+                    <div className="p-4 flex flex-col items-center justify-center min-h-[200px]">
+                      {audioLayers.length > 0 ? (
+                        <div className="w-full space-y-1">
+                          {audioLayers.map(layer => (
+                            <div key={layer.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/20">
+                              <Music className="w-4 h-4 text-primary shrink-0" />
+                              <span className="text-sm text-foreground flex-1 truncate">{layer.name}</span>
+                              <span className="text-[10px] text-foreground/40">{Math.round(layer.endTime - layer.startTime)}s</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <>
+                          <FolderOpen className="w-10 h-10 text-foreground/20 mb-3" />
+                          <span className="text-xs text-foreground/40 mb-3">No audio files added yet</span>
+                          <button onClick={() => audioInputRef.current?.click()} className="px-4 py-2 rounded-lg bg-primary/20 text-primary text-xs font-medium hover:bg-primary/30 transition-colors">
+                            Upload Audio
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             
