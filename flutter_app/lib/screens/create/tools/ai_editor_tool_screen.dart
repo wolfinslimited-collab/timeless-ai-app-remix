@@ -3680,13 +3680,56 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     if (_isUserScrolling || _videoController == null || !_isVideoInitialized) return;
     if (!_timelineScrollController.hasClients) return;
     
-    final positionSeconds = _videoController!.value.position.inMilliseconds / 1000.0;
+    final rawPositionSeconds = _videoController!.value.position.inMilliseconds / 1000.0;
+    
+    // Convert raw video position to timeline position using active clip context
+    final activeResult = _getActiveClipAtTime(_currentTimelinePosition);
+    double timelinePosition = _currentTimelinePosition;
+    
+    if (_videoClips.length > 1 && activeResult != null) {
+      // Calculate timeline position from raw video position + clip's timeline offset
+      final clip = activeResult.clip;
+      final clipIndex = _videoClips.indexOf(clip);
+      double clipStartOnTimeline = 0;
+      for (int i = 0; i < clipIndex; i++) {
+        clipStartOnTimeline += _videoClips[i].timelineDuration;
+      }
+      timelinePosition = clipStartOnTimeline + rawPositionSeconds;
+      
+      // Check if the raw video reached the end of the current clip
+      final clipPlayDuration = clip.outPoint - clip.inPoint;
+      if (rawPositionSeconds >= clipPlayDuration - 0.05 && _videoController!.value.isPlaying) {
+        // Check if there's a next clip
+        if (clipIndex < _videoClips.length - 1) {
+          // Transition to next clip
+          final nextClip = _videoClips[clipIndex + 1];
+          _videoController!.pause();
+          _videoController?.removeListener(_onVideoPositionChanged);
+          _videoController?.dispose();
+          _videoController = VideoPlayerController.file(File(nextClip.url));
+          _videoController!.initialize().then((_) {
+            if (!mounted) return;
+            _videoController!.setLooping(false);
+            _videoController!.addListener(_onVideoPositionChanged);
+            _videoController!.seekTo(Duration(milliseconds: (nextClip.inPoint * 1000).toInt()));
+            _videoController!.setPlaybackSpeed(nextClip.speed);
+            _videoController!.setVolume(_isMuted ? 0.0 : nextClip.volume.clamp(0.0, 1.0));
+            _videoController!.play();
+            _currentTimelinePosition = clipStartOnTimeline + clipPlayDuration;
+            setState(() {});
+          });
+          return;
+        }
+      }
+    } else if (_videoClips.length <= 1) {
+      timelinePosition = rawPositionSeconds;
+    }
     
     // Update current timeline position
-    _currentTimelinePosition = positionSeconds;
+    _currentTimelinePosition = timelinePosition;
     
-    // Check if video reached the end - stop playback (no loop)
-    if (positionSeconds >= _totalTimelineDuration - 0.1 && _videoController!.value.isPlaying) {
+    // Check if timeline reached the end - stop playback (no loop)
+    if (timelinePosition >= _totalTimelineDuration - 0.1 && _videoController!.value.isPlaying) {
       _unifiedPause();
       _currentTimelinePosition = _totalTimelineDuration;
       if (mounted) {
@@ -3696,7 +3739,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     }
     
     // Sync all layers (audio, text visibility, etc.) to current time
-    _syncAudioLayersToTime(positionSeconds);
+    _syncAudioLayersToTime(timelinePosition);
     
     // Only auto-scroll during playback
     if (!_videoController!.value.isPlaying) return;

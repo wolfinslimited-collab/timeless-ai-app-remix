@@ -1399,12 +1399,26 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
         if (videoRef.current.src !== clip.url) {
           videoRef.current.src = clip.url;
           videoRef.current.load();
+          // After loading new source, seek and resume playback if playing
+          videoRef.current.addEventListener('loadeddata', () => {
+            if (videoRef.current) {
+              videoRef.current.currentTime = localTime;
+              if (isPlaying) {
+                videoRef.current.play().catch(() => {});
+              }
+            }
+          }, { once: true });
+          return; // Don't seek below since loadeddata handler will do it
         }
       }
       
       // Seek to correct position within clip
       if (videoRef.current && Math.abs(videoRef.current.currentTime - localTime) > 0.1) {
         videoRef.current.currentTime = localTime;
+        // Resume playback if it was paused by the video element ending
+        if (isPlaying && videoRef.current.paused) {
+          videoRef.current.play().catch(() => {});
+        }
       }
       
       // Apply per-clip speed and volume
@@ -1963,16 +1977,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
       setDuration(video.duration);
       setVideoDimensions({ width: video.videoWidth, height: video.videoHeight });
     };
-    const handleEnded = () => setIsPlaying(false);
+    // Do NOT listen to 'ended' event - the master playback loop handles end-of-timeline.
+    // The video element's 'ended' event fires when a single clip finishes, which would
+    // incorrectly stop playback before transitioning to the next clip.
 
     video.addEventListener("timeupdate", handleTimeUpdate);
     video.addEventListener("loadedmetadata", handleLoadedMetadata);
-    video.addEventListener("ended", handleEnded);
 
     return () => {
       video.removeEventListener("timeupdate", handleTimeUpdate);
       video.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      video.removeEventListener("ended", handleEnded);
     };
   }, [videoUrl, isPlaying, currentTime]);
 
