@@ -4269,10 +4269,57 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         }
       }
 
-      // Step 5: Save to gallery
+      // Step 5: Mix audio layers into the final video
+      if (_audioLayers.isNotEmpty) {
+        setState(() {
+          _exportStage = 'Mixing audio...';
+          _exportProgress = 80;
+        });
+
+        for (final audioLayer in _audioLayers) {
+          File? audioFile;
+          if (audioLayer.fileUrl.isNotEmpty) {
+            if (audioLayer.fileUrl.startsWith('/') || audioLayer.fileUrl.startsWith('file://')) {
+              final path = audioLayer.fileUrl.replaceFirst('file://', '');
+              audioFile = File(path);
+              if (!await audioFile.exists()) audioFile = null;
+            }
+          }
+
+          if (audioFile == null) {
+            debugPrint('Export: Could not resolve audio file for layer ${audioLayer.id}');
+            continue;
+          }
+
+          final audioOutputPath = '${tempDir.path}/with_audio_${audioLayer.id}.mp4';
+
+          try {
+            const channel = MethodChannel('com.wolfine.app/ffmpeg');
+            final success = await channel.invokeMethod<bool>('mixAudio', {
+              'videoPath': outputPath,
+              'audioPath': audioFile.path,
+              'outputPath': audioOutputPath,
+              'audioVolume': audioLayer.volume,
+              'audioStartTime': audioLayer.startTime,
+              'audioEndTime': audioLayer.endTime,
+              'fadeIn': audioLayer.fadeIn,
+              'fadeOut': audioLayer.fadeOut,
+            });
+
+            if (success == true && await File(audioOutputPath).exists()) {
+              await File(outputPath).delete();
+              await File(audioOutputPath).rename(outputPath);
+            }
+          } catch (e) {
+            debugPrint('Export: Could not mix audio layer ${audioLayer.id}: $e');
+          }
+        }
+      }
+
+      // Step 6: Save to gallery
       setState(() {
         _exportStage = 'Saving to gallery...';
-        _exportProgress = 85;
+        _exportProgress = 90;
       });
 
       final exportFile = File(outputPath);
