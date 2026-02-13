@@ -1507,10 +1507,22 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     };
   }, [isPlaying, totalTimelineDuration]);
   
-  // Sync all layers whenever currentTime changes
+  // Sync all layers whenever currentTime or isPlaying changes
   useEffect(() => {
     syncAllLayersToTime(currentTime);
-  }, [currentTime, videoClips, audioLayers]);
+    
+    // When playback stops, ensure all audio/overlay layers are paused
+    if (!isPlaying) {
+      audioLayers.forEach(audio => {
+        const audioEl = audioRefs.current.get(audio.id);
+        if (audioEl && !audioEl.paused) audioEl.pause();
+      });
+      videoOverlays.forEach(overlay => {
+        const overlayEl = overlayVideoRefs.current[overlay.id];
+        if (overlayEl && !overlayEl.paused) overlayEl.pause();
+      });
+    }
+  }, [currentTime, isPlaying, videoClips, audioLayers]);
   
   // Handle unified play/pause for all layers
   const unifiedPlayPause = () => {

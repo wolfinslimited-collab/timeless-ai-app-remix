@@ -2096,17 +2096,19 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     for (final audio in _audioLayers) {
       if (audio.player == null) continue;
       
+      // If video is not playing, always pause audio
+      if (!isPlaying) {
+        audio.player!.pause();
+        continue;
+      }
+      
       // Check if current time is within audio layer's time range
       if (timelineTime >= audio.startTime && timelineTime <= audio.endTime) {
         final audioTime = timelineTime - audio.startTime;
         
-        if (isPlaying) {
-          // Play audio and seek to correct position
-          audio.player!.seek(Duration(milliseconds: (audioTime * 1000).round()));
-          audio.player!.resume();
-        } else {
-          audio.player!.pause();
-        }
+        // Play audio and seek to correct position
+        audio.player!.seek(Duration(milliseconds: (audioTime * 1000).round()));
+        audio.player!.resume();
         
         // Apply volume
         audio.player!.setVolume(audio.volume);
