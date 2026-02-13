@@ -4039,19 +4039,48 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     return null;
   }
 
-  /// Get resolution dimensions from settings string
+  /// Get resolution dimensions from settings string, adjusted for aspect ratio
   Map<String, int> _getResolutionDimensions() {
+    int baseHeight;
     switch (_outputResolution) {
       case '480p':
-        return {'width': 854, 'height': 480};
+        baseHeight = 480;
+        break;
       case '720p':
-        return {'width': 1280, 'height': 720};
+        baseHeight = 720;
+        break;
       case '2K/4K':
-        return {'width': 3840, 'height': 2160};
+        baseHeight = 2160;
+        break;
       case '1080p':
       default:
-        return {'width': 1920, 'height': 1080};
+        baseHeight = 1080;
     }
+
+    // Apply aspect ratio
+    if (_selectedAspectRatio != 'original') {
+      final preset = _aspectRatioPresets.firstWhere(
+        (p) => p['id'] == _selectedAspectRatio,
+        orElse: () => {'width': 16, 'height': 9},
+      );
+      final ratio = (preset['width'] as num) / (preset['height'] as num);
+      if (ratio >= 1) {
+        // Landscape or square
+        var w = (baseHeight * ratio).round();
+        if (w % 2 != 0) w += 1;
+        return {'width': w, 'height': baseHeight};
+      } else {
+        // Portrait: baseHeight becomes the short side (width)
+        var h = (baseHeight / ratio).round();
+        if (h % 2 != 0) h += 1;
+        return {'width': baseHeight, 'height': h};
+      }
+    }
+
+    // Original: standard 16:9
+    var w = (baseHeight * 16 / 9).round();
+    if (w % 2 != 0) w += 1;
+    return {'width': w, 'height': baseHeight};
   }
 
   Future<void> _handleExport() async {
