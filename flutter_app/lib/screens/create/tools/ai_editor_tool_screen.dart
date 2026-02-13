@@ -278,7 +278,7 @@ class EffectLayer {
   String effectId;
   String name;
   String category;
-  String icon;
+  IconData icon;
   double intensity;
   double startTime;
   double endTime;
@@ -288,7 +288,7 @@ class EffectLayer {
     required this.effectId,
     required this.name,
     this.category = 'Basic',
-    this.icon = '✨',
+    this.icon = Icons.auto_awesome,
     this.intensity = 0.7,
     this.startTime = 0,
     this.endTime = 3,
@@ -341,7 +341,7 @@ class EffectPreset {
   final String id;
   final String name;
   final String category;
-  final String icon;
+  final IconData icon;
   final String tab; // 'trending' or 'visual'
   final bool isAI;
   
@@ -655,7 +655,7 @@ class EffectLayerSnapshot {
   final String effectId;
   final String name;
   final String category;
-  final String icon;
+  final IconData icon;
   final double intensity;
   final double startTime;
   final double endTime;
@@ -776,27 +776,27 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   // Available effect presets - expanded with filter effects
   final List<EffectPreset> _effectPresets = const [
     // Trending tab
-    EffectPreset(id: 'glitch', name: 'Glitch', category: 'Retro', icon: '⚡', tab: 'trending'),
-    EffectPreset(id: 'shake', name: 'Shake', category: 'Motion', icon: '📳', tab: 'trending'),
-    EffectPreset(id: 'bw', name: 'B&W', category: 'Filter', icon: '🖤', tab: 'trending'),
-    EffectPreset(id: 'film-grain', name: 'Film Grain', category: 'Cinematic', icon: '🎞️', tab: 'trending'),
-    EffectPreset(id: 'neon-glow', name: 'Neon Glow', category: 'Party', icon: '💜', tab: 'trending'),
-    EffectPreset(id: 'blur', name: 'Blur', category: 'Basic', icon: '🌫️', tab: 'trending'),
-    EffectPreset(id: 'vhs', name: 'VHS', category: 'Retro', icon: '📼', tab: 'trending'),
-    EffectPreset(id: 'ai-body-glow', name: 'AI Body Glow', category: 'AI', icon: '✨', tab: 'trending', isAI: true),
-    EffectPreset(id: 'ai-object-track', name: 'AI Track', category: 'AI', icon: '🎯', tab: 'trending', isAI: true),
+    EffectPreset(id: 'glitch', name: 'Glitch', category: 'Retro', icon: Icons.flash_on, tab: 'trending'),
+    EffectPreset(id: 'shake', name: 'Shake', category: 'Motion', icon: Icons.vibration, tab: 'trending'),
+    EffectPreset(id: 'bw', name: 'B&W', category: 'Filter', icon: Icons.circle, tab: 'trending'),
+    EffectPreset(id: 'film-grain', name: 'Film Grain', category: 'Cinematic', icon: Icons.movie_filter, tab: 'trending'),
+    EffectPreset(id: 'neon-glow', name: 'Neon Glow', category: 'Party', icon: Icons.auto_awesome, tab: 'trending'),
+    EffectPreset(id: 'blur', name: 'Blur', category: 'Basic', icon: Icons.blur_on, tab: 'trending'),
+    EffectPreset(id: 'vhs', name: 'VHS', category: 'Retro', icon: Icons.graphic_eq, tab: 'trending'),
+    EffectPreset(id: 'ai-body-glow', name: 'AI Body Glow', category: 'AI', icon: Icons.local_fire_department, tab: 'trending', isAI: true),
+    EffectPreset(id: 'ai-object-track', name: 'AI Track', category: 'AI', icon: Icons.visibility, tab: 'trending', isAI: true),
     // Visual tab
-    EffectPreset(id: 'sepia', name: 'Sepia', category: 'Filter', icon: '🟤', tab: 'visual'),
-    EffectPreset(id: 'vintage', name: 'Vintage', category: 'Filter', icon: '📷', tab: 'visual'),
-    EffectPreset(id: 'glow', name: 'Glow', category: 'Basic', icon: '✨', tab: 'visual'),
-    EffectPreset(id: 'vignette', name: 'Vignette', category: 'Basic', icon: '🔲', tab: 'visual'),
-    EffectPreset(id: 'zoom-pulse', name: 'Zoom Pulse', category: 'Motion', icon: '🔍', tab: 'visual'),
-    EffectPreset(id: 'chromatic', name: 'Chromatic', category: 'Retro', icon: '🌈', tab: 'visual'),
-    EffectPreset(id: 'letterbox', name: 'Letterbox', category: 'Cinematic', icon: '🎬', tab: 'visual'),
-    EffectPreset(id: 'light-leak', name: 'Light Leak', category: 'Cinematic', icon: '☀️', tab: 'visual'),
-    EffectPreset(id: 'flash', name: 'Flash', category: 'Motion', icon: '💥', tab: 'visual'),
-    EffectPreset(id: 'dreamy', name: 'Dreamy', category: 'Cinematic', icon: '🌙', tab: 'visual'),
-    EffectPreset(id: 'ai-face-blur', name: 'AI Face Blur', category: 'AI', icon: '🫥', tab: 'visual', isAI: true),
+    EffectPreset(id: 'sepia', name: 'Sepia', category: 'Filter', icon: Icons.wb_sunny, tab: 'visual'),
+    EffectPreset(id: 'vintage', name: 'Vintage', category: 'Filter', icon: Icons.camera_alt, tab: 'visual'),
+    EffectPreset(id: 'glow', name: 'Glow', category: 'Basic', icon: Icons.light_mode, tab: 'visual'),
+    EffectPreset(id: 'vignette', name: 'Vignette', category: 'Basic', icon: Icons.vignette, tab: 'visual'),
+    EffectPreset(id: 'zoom-pulse', name: 'Zoom Pulse', category: 'Motion', icon: Icons.search, tab: 'visual'),
+    EffectPreset(id: 'chromatic', name: 'Chromatic', category: 'Retro', icon: Icons.gradient, tab: 'visual'),
+    EffectPreset(id: 'letterbox', name: 'Letterbox', category: 'Cinematic', icon: Icons.movie_creation, tab: 'visual'),
+    EffectPreset(id: 'light-leak', name: 'Light Leak', category: 'Cinematic', icon: Icons.wb_twilight, tab: 'visual'),
+    EffectPreset(id: 'flash', name: 'Flash', category: 'Motion', icon: Icons.flare, tab: 'visual'),
+    EffectPreset(id: 'dreamy', name: 'Dreamy', category: 'Cinematic', icon: Icons.nightlight_round, tab: 'visual'),
+    EffectPreset(id: 'ai-face-blur', name: 'AI Face Blur', category: 'AI', icon: Icons.visibility_off, tab: 'visual', isAI: true),
   ];
   
   // Multi-clip video support
@@ -898,17 +898,17 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     {'id': 'ai-custom', 'name': 'AI Generated ✨', 'artist': 'AI Studio', 'duration': 30, 'category': 'AI', 'isAI': true},
   ];
   
-  static const List<Map<String, String>> _musicCategories = [
-    {'name': 'Happy', 'emoji': '😊'},
-    {'name': 'Cinematic', 'emoji': '🎬'},
-    {'name': 'Lo-fi', 'emoji': '🎧'},
-    {'name': 'Energetic', 'emoji': '⚡'},
-    {'name': 'Calm', 'emoji': '🌊'},
-    {'name': 'Hip Hop', 'emoji': '🎤'},
-    {'name': 'Jazz', 'emoji': '🎷'},
-    {'name': 'Electronic', 'emoji': '🎹'},
-    {'name': 'Dramatic', 'emoji': '🎭'},
-    {'name': 'Romantic', 'emoji': '❤️'},
+  static const List<Map<String, dynamic>> _musicCategories = [
+    {'name': 'Happy', 'icon': Icons.sentiment_very_satisfied},
+    {'name': 'Cinematic', 'icon': Icons.movie_creation},
+    {'name': 'Lo-fi', 'icon': Icons.headphones},
+    {'name': 'Energetic', 'icon': Icons.flash_on},
+    {'name': 'Calm', 'icon': Icons.water_drop},
+    {'name': 'Hip Hop', 'icon': Icons.mic},
+    {'name': 'Jazz', 'icon': Icons.music_note},
+    {'name': 'Electronic', 'icon': Icons.piano},
+    {'name': 'Dramatic', 'icon': Icons.local_fire_department},
+    {'name': 'Romantic', 'icon': Icons.favorite},
   ];
   
   // Audio recording state
@@ -1252,15 +1252,22 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     )).toList();
     
     // Restore effect layers
-    _effectLayers = project.effectLayers.map((e) => EffectLayer(
-      id: e.id,
-      effectId: e.effectId,
-      name: e.name,
-      category: e.category,
-      intensity: e.intensity,
-      startTime: e.startTime,
-      endTime: e.endTime,
-    )).toList();
+    _effectLayers = project.effectLayers.map((e) {
+      // Look up icon from preset by effectId
+      final preset = _effectPresets.cast<EffectPreset?>().firstWhere(
+        (p) => p?.id == e.effectId, orElse: () => null,
+      );
+      return EffectLayer(
+        id: e.id,
+        effectId: e.effectId,
+        name: e.name,
+        category: e.category,
+        icon: preset?.icon ?? Icons.auto_awesome,
+        intensity: e.intensity,
+        startTime: e.startTime,
+        endTime: e.endTime,
+      );
+    }).toList();
     
     // Restore caption layers
     _captionLayers = project.captionLayers.map((c) => CaptionLayer(
@@ -11148,7 +11155,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(cat['emoji']!, style: const TextStyle(fontSize: 18)),
+                              Icon(cat['icon'] as IconData, size: 20, color: AppTheme.primary),
                               const SizedBox(height: 4),
                               Text(cat['name']!, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
                             ],
@@ -12122,7 +12129,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(preset.icon, style: const TextStyle(fontSize: 28)),
+                            Icon(preset.icon, size: 28, color: const Color(0xFF4ADE80)),
                             const SizedBox(height: 4),
                             Text(
                               preset.name,
@@ -13857,7 +13864,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                                 padding: const EdgeInsets.symmetric(horizontal: 4),
                                 child: Row(
                                   children: [
-                                    Text(effect.icon, style: const TextStyle(fontSize: 12)),
+                                    Icon(effect.icon, size: 12, color: Colors.white),
                                     const SizedBox(width: 4),
                                     Expanded(
                                       child: Text(
@@ -13961,7 +13968,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         color: const Color(0xFF22C55E).withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Center(child: Text(selectedEffect.icon, style: const TextStyle(fontSize: 16))),
+                      child: Center(child: Icon(selectedEffect.icon, size: 16, color: const Color(0xFF4ADE80))),
                     ),
                     const SizedBox(width: 10),
                     Text(selectedEffect.name, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
@@ -14041,7 +14048,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(preset.icon, style: const TextStyle(fontSize: 22)),
+                              Icon(preset.icon, size: 22, color: const Color(0xFF4ADE80)),
                               const SizedBox(height: 4),
                               Text(preset.name, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 9), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
                             ],
@@ -14082,7 +14089,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(effect.icon, style: const TextStyle(fontSize: 14)),
+                              Icon(effect.icon, size: 14, color: Colors.white),
                               const SizedBox(width: 4),
                               Text(effect.name, style: const TextStyle(color: Colors.white, fontSize: 11)),
                             ],
