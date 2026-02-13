@@ -82,7 +82,23 @@ import {
   Wind,
   Zap,
   Flame,
-  LucideIcon
+  LucideIcon,
+  CircleDot,
+  Camera,
+  Search,
+  Rainbow,
+  Clapperboard,
+  SunDim,
+  Bomb,
+  Eye,
+  EyeOff,
+  Film,
+  Headphones,
+  Mic2,
+  Piano,
+  Drum,
+  Laugh,
+  CloudRain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -453,7 +469,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
     { id: 'hip-hop-groove', name: 'Hip Hop Groove', artist: 'Beat Lab', duration: 28, category: 'Hip Hop', url: '', isAI: false },
     { id: 'jazz-smooth', name: 'Jazz Smooth', artist: 'Late Night', duration: 40, category: 'Jazz', url: '', isAI: false },
     { id: 'electronic-pulse', name: 'Electronic Pulse', artist: 'Synth Wave', duration: 32, category: 'Electronic', url: '', isAI: false },
-    { id: 'ai-custom', name: 'AI Generated ✨', artist: 'AI Studio', duration: 30, category: 'AI', url: '', isAI: true },
+    { id: 'ai-custom', name: 'AI Generated', artist: 'AI Studio', duration: 30, category: 'AI', url: '', isAI: true },
   ];
   
   const musicCategories = ['Happy', 'Cinematic', 'Lo-fi', 'Energetic', 'Calm', 'Hip Hop', 'Jazz', 'Electronic', 'Dramatic', 'Romantic'];
@@ -624,29 +640,29 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   const selectedVideoOverlay = videoOverlays.find(o => o.id === selectedOverlayId);
 
   // Available effects - expanded with filter presets, organized by tabs
-  const effectPresets = [
+  const effectPresets: { id: string; name: string; category: string; icon: LucideIcon; tab: string; isAI: boolean }[] = [
     // Trending tab
-    { id: 'glitch', name: 'Glitch', category: 'Retro', icon: '⚡', tab: 'trending', isAI: false },
-    { id: 'shake', name: 'Shake', category: 'Motion', icon: '📳', tab: 'trending', isAI: false },
-    { id: 'bw', name: 'B&W', category: 'Filter', icon: '🖤', tab: 'trending', isAI: false },
-    { id: 'film-grain', name: 'Film Grain', category: 'Cinematic', icon: '🎞️', tab: 'trending', isAI: false },
-    { id: 'neon-glow', name: 'Neon Glow', category: 'Party', icon: '💜', tab: 'trending', isAI: false },
-    { id: 'blur', name: 'Blur', category: 'Basic', icon: '🌫️', tab: 'trending', isAI: false },
-    { id: 'vhs', name: 'VHS', category: 'Retro', icon: '📼', tab: 'trending', isAI: false },
-    { id: 'ai-body-glow', name: 'AI Body Glow', category: 'AI', icon: '✨', tab: 'trending', isAI: true },
-    { id: 'ai-object-track', name: 'AI Track', category: 'AI', icon: '🎯', tab: 'trending', isAI: true },
+    { id: 'glitch', name: 'Glitch', category: 'Retro', icon: Zap, tab: 'trending', isAI: false },
+    { id: 'shake', name: 'Shake', category: 'Motion', icon: Vibrate, tab: 'trending', isAI: false },
+    { id: 'bw', name: 'B&W', category: 'Filter', icon: CircleDot, tab: 'trending', isAI: false },
+    { id: 'film-grain', name: 'Film Grain', category: 'Cinematic', icon: Film, tab: 'trending', isAI: false },
+    { id: 'neon-glow', name: 'Neon Glow', category: 'Party', icon: Sparkles, tab: 'trending', isAI: false },
+    { id: 'blur', name: 'Blur', category: 'Basic', icon: Focus, tab: 'trending', isAI: false },
+    { id: 'vhs', name: 'VHS', category: 'Retro', icon: Activity, tab: 'trending', isAI: false },
+    { id: 'ai-body-glow', name: 'AI Body Glow', category: 'AI', icon: Flame, tab: 'trending', isAI: true },
+    { id: 'ai-object-track', name: 'AI Track', category: 'AI', icon: Eye, tab: 'trending', isAI: true },
     // Visual tab
-    { id: 'sepia', name: 'Sepia', category: 'Filter', icon: '🟤', tab: 'visual', isAI: false },
-    { id: 'vintage', name: 'Vintage', category: 'Filter', icon: '📷', tab: 'visual', isAI: false },
-    { id: 'glow', name: 'Glow', category: 'Basic', icon: '✨', tab: 'visual', isAI: false },
-    { id: 'vignette', name: 'Vignette', category: 'Basic', icon: '🔲', tab: 'visual', isAI: false },
-    { id: 'zoom-pulse', name: 'Zoom Pulse', category: 'Motion', icon: '🔍', tab: 'visual', isAI: false },
-    { id: 'chromatic', name: 'Chromatic', category: 'Retro', icon: '🌈', tab: 'visual', isAI: false },
-    { id: 'letterbox', name: 'Letterbox', category: 'Cinematic', icon: '🎬', tab: 'visual', isAI: false },
-    { id: 'light-leak', name: 'Light Leak', category: 'Cinematic', icon: '☀️', tab: 'visual', isAI: false },
-    { id: 'flash', name: 'Flash', category: 'Motion', icon: '💥', tab: 'visual', isAI: false },
-    { id: 'dreamy', name: 'Dreamy', category: 'Cinematic', icon: '🌙', tab: 'visual', isAI: false },
-    { id: 'ai-face-blur', name: 'AI Face Blur', category: 'AI', icon: '🫥', tab: 'visual', isAI: true },
+    { id: 'sepia', name: 'Sepia', category: 'Filter', icon: Sun, tab: 'visual', isAI: false },
+    { id: 'vintage', name: 'Vintage', category: 'Filter', icon: Camera, tab: 'visual', isAI: false },
+    { id: 'glow', name: 'Glow', category: 'Basic', icon: SunDim, tab: 'visual', isAI: false },
+    { id: 'vignette', name: 'Vignette', category: 'Basic', icon: Aperture, tab: 'visual', isAI: false },
+    { id: 'zoom-pulse', name: 'Zoom Pulse', category: 'Motion', icon: Search, tab: 'visual', isAI: false },
+    { id: 'chromatic', name: 'Chromatic', category: 'Retro', icon: Rainbow, tab: 'visual', isAI: false },
+    { id: 'letterbox', name: 'Letterbox', category: 'Cinematic', icon: Clapperboard, tab: 'visual', isAI: false },
+    { id: 'light-leak', name: 'Light Leak', category: 'Cinematic', icon: Sunrise, tab: 'visual', isAI: false },
+    { id: 'flash', name: 'Flash', category: 'Motion', icon: Bomb, tab: 'visual', isAI: false },
+    { id: 'dreamy', name: 'Dreamy', category: 'Cinematic', icon: Moon, tab: 'visual', isAI: false },
+    { id: 'ai-face-blur', name: 'AI Face Blur', category: 'AI', icon: EyeOff, tab: 'visual', isAI: true },
   ];
 
   // ============================================
@@ -8339,7 +8355,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           }}
                           className="relative flex flex-col items-center justify-center aspect-square rounded-xl border border-green-500/30 bg-muted/5 hover:bg-green-500/10 transition-all"
                         >
-                          <span className="text-2xl mb-1">{preset.icon}</span>
+                          <preset.icon className="w-6 h-6 text-green-400 mb-1" />
                           <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight px-1">{preset.name}</span>
                           {preset.isAI && (
                             <div className="absolute top-1 right-1 flex items-center gap-0.5 bg-amber-500/90 rounded px-1 py-0.5">
@@ -9040,7 +9056,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
                               <span className="text-sm font-medium text-foreground truncate">{track.name}</span>
-                              {track.isAI && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-medium">AI ✨</span>}
+                              {track.isAI && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-medium inline-flex items-center gap-0.5"><Sparkles className="w-2.5 h-2.5" /> AI</span>}
                             </div>
                             <div className="flex items-center gap-2 mt-0.5">
                               <span className="text-[10px] text-foreground/40">{track.artist}</span>
@@ -9060,8 +9076,16 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     <div className="p-3 grid grid-cols-2 gap-2">
                       {musicCategories.map(cat => (
                         <button key={cat} onClick={() => setSelectedMusicCategory(cat)} className="p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors text-left">
-                          <span className="text-lg mb-1 block">
-                            {cat === 'Happy' ? '😊' : cat === 'Cinematic' ? '🎬' : cat === 'Lo-fi' ? '🎧' : cat === 'Energetic' ? '⚡' : cat === 'Calm' ? '🌊' : cat === 'Hip Hop' ? '🎤' : cat === 'Jazz' ? '🎷' : cat === 'Electronic' ? '🎹' : cat === 'Dramatic' ? '🎭' : '❤️'}
+                          <span className="mb-1 block">
+                            {(() => {
+                              const catIcons: Record<string, LucideIcon> = {
+                                'Happy': Laugh, 'Cinematic': Clapperboard, 'Lo-fi': Headphones, 'Energetic': Zap,
+                                'Calm': CloudRain, 'Hip Hop': Mic2, 'Jazz': Music, 'Electronic': Piano,
+                                'Dramatic': Flame, 'Romantic': Heart,
+                              };
+                              const CatIcon = catIcons[cat] || Music;
+                              return <CatIcon className="w-5 h-5 text-primary" />;
+                            })()}
                           </span>
                           <span className="text-xs font-medium text-foreground">{cat}</span>
                         </button>
