@@ -475,6 +475,7 @@ class _TextEditPanelState extends State<TextEditPanel> {
     );
   }
 
+  Widget _buildPropertyButton(String label, IconData icon, bool isActive, VoidCallback onTap, {Color? colorIndicator}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
