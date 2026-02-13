@@ -15284,9 +15284,11 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       final isSelected = overlay.id == _selectedTextId;
       
       return Positioned(
-        left: constraints.maxWidth * overlay.position.dx - 75,
-        top: constraints.maxHeight * overlay.position.dy - 25,
-        child: GestureDetector(
+        left: constraints.maxWidth * overlay.position.dx,
+        top: constraints.maxHeight * overlay.position.dy,
+        child: FractionalTranslation(
+          translation: const Offset(-0.5, -0.5),
+          child: GestureDetector(
           // Single tap: Select only (no edit panel)
           onTap: () {
             if (!isSelected) {
@@ -15333,6 +15335,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     opacity: overlay.opacity,
                     child: Text(
                       overlay.text,
+                      softWrap: false,
                       style: TextStyle(
                         color: overlay.textColor,
                         fontSize: overlay.fontSize,
@@ -15343,9 +15346,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         fontFamily: overlay.fontFamily,
                         letterSpacing: overlay.letterSpacing != 0 ? overlay.letterSpacing : null,
                       ),
-                      textAlign: overlay.alignment,
-                    ),
-                  ),
                       textAlign: overlay.alignment,
                     ),
                   ),
@@ -15445,6 +15445,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               ],
             ),
           ),
+        ),
         ),
       );
     }).toList();

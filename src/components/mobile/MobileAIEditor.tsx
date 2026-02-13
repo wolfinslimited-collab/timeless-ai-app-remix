@@ -5003,7 +5003,10 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                           lineHeight: overlay.lineHeight,
                           textAlign: overlay.alignment,
                           letterSpacing: overlay.letterSpacing ? `${overlay.letterSpacing}px` : undefined,
-                        }}
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'keep-all',
+                          display: 'block',
+                        } as React.CSSProperties}
                       >
                         {overlay.text}
                       </span>
