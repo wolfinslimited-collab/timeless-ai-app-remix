@@ -342,12 +342,16 @@ class EffectPreset {
   final String name;
   final String category;
   final String icon;
+  final String tab; // 'trending' or 'visual'
+  final bool isAI;
   
   const EffectPreset({
     required this.id,
     required this.name,
     required this.category,
     required this.icon,
+    this.tab = 'visual',
+    this.isAI = false,
   });
 }
 
@@ -771,21 +775,28 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   
   // Available effect presets - expanded with filter effects
   final List<EffectPreset> _effectPresets = const [
-    EffectPreset(id: 'bw', name: 'B&W', category: 'Filter', icon: '🖤'),
-    EffectPreset(id: 'sepia', name: 'Sepia', category: 'Filter', icon: '🟤'),
-    EffectPreset(id: 'vintage', name: 'Vintage', category: 'Filter', icon: '📷'),
-    EffectPreset(id: 'blur', name: 'Blur', category: 'Basic', icon: '🌫️'),
-    EffectPreset(id: 'glow', name: 'Glow', category: 'Basic', icon: '✨'),
-    EffectPreset(id: 'vignette', name: 'Vignette', category: 'Basic', icon: '🔲'),
-    EffectPreset(id: 'shake', name: 'Shake', category: 'Motion', icon: '📳'),
-    EffectPreset(id: 'zoom-pulse', name: 'Zoom Pulse', category: 'Motion', icon: '🔍'),
-    EffectPreset(id: 'film-grain', name: 'Film Grain', category: 'Cinematic', icon: '🎞️'),
-    EffectPreset(id: 'vhs', name: 'VHS', category: 'Retro', icon: '📼'),
-    EffectPreset(id: 'glitch', name: 'Glitch', category: 'Retro', icon: '⚡'),
-    EffectPreset(id: 'chromatic', name: 'Chromatic', category: 'Retro', icon: '🌈'),
-    EffectPreset(id: 'letterbox', name: 'Letterbox', category: 'Cinematic', icon: '🎬'),
-    EffectPreset(id: 'light-leak', name: 'Light Leak', category: 'Cinematic', icon: '☀️'),
-    EffectPreset(id: 'flash', name: 'Flash', category: 'Motion', icon: '💥'),
+    // Trending tab
+    EffectPreset(id: 'glitch', name: 'Glitch', category: 'Retro', icon: '⚡', tab: 'trending'),
+    EffectPreset(id: 'shake', name: 'Shake', category: 'Motion', icon: '📳', tab: 'trending'),
+    EffectPreset(id: 'bw', name: 'B&W', category: 'Filter', icon: '🖤', tab: 'trending'),
+    EffectPreset(id: 'film-grain', name: 'Film Grain', category: 'Cinematic', icon: '🎞️', tab: 'trending'),
+    EffectPreset(id: 'neon-glow', name: 'Neon Glow', category: 'Party', icon: '💜', tab: 'trending'),
+    EffectPreset(id: 'blur', name: 'Blur', category: 'Basic', icon: '🌫️', tab: 'trending'),
+    EffectPreset(id: 'vhs', name: 'VHS', category: 'Retro', icon: '📼', tab: 'trending'),
+    EffectPreset(id: 'ai-body-glow', name: 'AI Body Glow', category: 'AI', icon: '✨', tab: 'trending', isAI: true),
+    EffectPreset(id: 'ai-object-track', name: 'AI Track', category: 'AI', icon: '🎯', tab: 'trending', isAI: true),
+    // Visual tab
+    EffectPreset(id: 'sepia', name: 'Sepia', category: 'Filter', icon: '🟤', tab: 'visual'),
+    EffectPreset(id: 'vintage', name: 'Vintage', category: 'Filter', icon: '📷', tab: 'visual'),
+    EffectPreset(id: 'glow', name: 'Glow', category: 'Basic', icon: '✨', tab: 'visual'),
+    EffectPreset(id: 'vignette', name: 'Vignette', category: 'Basic', icon: '🔲', tab: 'visual'),
+    EffectPreset(id: 'zoom-pulse', name: 'Zoom Pulse', category: 'Motion', icon: '🔍', tab: 'visual'),
+    EffectPreset(id: 'chromatic', name: 'Chromatic', category: 'Retro', icon: '🌈', tab: 'visual'),
+    EffectPreset(id: 'letterbox', name: 'Letterbox', category: 'Cinematic', icon: '🎬', tab: 'visual'),
+    EffectPreset(id: 'light-leak', name: 'Light Leak', category: 'Cinematic', icon: '☀️', tab: 'visual'),
+    EffectPreset(id: 'flash', name: 'Flash', category: 'Motion', icon: '💥', tab: 'visual'),
+    EffectPreset(id: 'dreamy', name: 'Dreamy', category: 'Cinematic', icon: '🌙', tab: 'visual'),
+    EffectPreset(id: 'ai-face-blur', name: 'AI Face Blur', category: 'AI', icon: '🫥', tab: 'visual', isAI: true),
   ];
   
   // Multi-clip video support
@@ -897,6 +908,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     {'id': 'ramp_up', 'name': 'Ramp Up', 'description': 'Gradually accelerate'},
     {'id': 'ramp_down', 'name': 'Ramp Down', 'description': 'Gradually decelerate'},
   ];
+  
+  // Effects tab state: 'trending' or 'visual'
+  String _effectsTab = 'trending';
   
   // Effects menu mode state - activated by clicking "Effects" tool
   bool _isEffectsMenuMode = false;
@@ -10348,7 +10362,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               left: 0,
               right: 0,
               bottom: 0,
-              height: 160,
+              height: 320,
               child: Material(
                 color: const Color(0xFF0A0A0A),
                 elevation: 8,
@@ -11685,11 +11699,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   
   /// Build the effects menu - horizontal scrollable menu with effects tools
   Widget _buildEffectsMenu() {
-    final effectsTools = [
-      {'id': 'video-effects', 'name': 'Video effects', 'icon': Icons.videocam_outlined, 'isAI': false},
-      {'id': 'body-effects', 'name': 'Body effects', 'icon': Icons.star_outline, 'isAI': true},
-      {'id': 'photo-effects', 'name': 'Photo effects', 'icon': Icons.image_outlined, 'isAI': false},
-    ];
+    final trendingPresets = _effectPresets.where((p) => p.tab == 'trending').toList();
+    final visualPresets = _effectPresets.where((p) => p.tab == 'visual').toList();
+    final activePresets = _effectsTab == 'trending' ? trendingPresets : visualPresets;
     
     return Column(
       key: const ValueKey('effects_menu'),
@@ -11712,10 +11724,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     decoration: BoxDecoration(
                       color: AppTheme.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: AppTheme.primary.withOpacity(0.2),
-                        width: 1,
-                      ),
+                      border: Border.all(color: AppTheme.primary.withOpacity(0.2), width: 1),
                     ),
                     child: const Icon(Icons.chevron_left, size: 22, color: AppTheme.primary),
                   ),
@@ -11724,13 +11733,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text(
-                    'Effects',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  child: const Text(
+                    'Video Effects',
+                    style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -11740,32 +11745,113 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           ),
         ),
         
-        // Horizontal Scrollable Effects Tools
+        // Tabs: Trending / Visual
         Container(
-          height: 120,
-          alignment: Alignment.topCenter,
-          padding: const EdgeInsets.only(top: 16),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: effectsTools.map((tool) {
-                final isAI = tool['isAI'] as bool;
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildMenuToolButton(
-                      tool['name'] as String,
-                      tool['icon'] as IconData,
-                      () => _showSnackBar('${tool['name']} coming soon'),
-                    ),
-                  ],
-                );
-              }).toList(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              _buildEffectsTabButton('Trending', 'trending'),
+              const SizedBox(width: 8),
+              _buildEffectsTabButton('Visual', 'visual'),
+            ],
+          ),
+        ),
+        
+        // Effects Grid
+        Container(
+          height: 180,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: GridView.builder(
+            scrollDirection: Axis.vertical,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              childAspectRatio: 1.0,
             ),
+            itemCount: activePresets.length,
+            itemBuilder: (context, index) {
+              final preset = activePresets[index];
+              return GestureDetector(
+                onTap: () => _addEffectLayer(preset),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF22C55E).withOpacity(0.3)),
+                  ),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(preset.icon, style: const TextStyle(fontSize: 28)),
+                            const SizedBox(height: 4),
+                            Text(
+                              preset.name,
+                              style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10, fontWeight: FontWeight.w500),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (preset.isAI)
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B).withOpacity(0.9),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.auto_awesome, size: 8, color: Colors.white),
+                                SizedBox(width: 2),
+                                Text('AI', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],
+    );
+  }
+  
+  Widget _buildEffectsTabButton(String label, String tabId) {
+    final isActive = _effectsTab == tabId;
+    return GestureDetector(
+      onTap: () => setState(() => _effectsTab = tabId),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF22C55E).withOpacity(0.2) : Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? const Color(0xFF22C55E) : Colors.white.withOpacity(0.15),
+            width: isActive ? 1.5 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isActive ? const Color(0xFF22C55E) : Colors.white.withOpacity(0.6),
+            fontSize: 12,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
+      ),
     );
   }
   
@@ -13330,7 +13416,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     _showSnackBar('Clip duplicated');
   }
 
-  /// Build effects track in timeline (Amber/Gold themed)
+  /// Build effects track in timeline (Green themed)
   Widget _buildEffectsTrack(double startPadding, double trackWidth, double duration) {
     if (_effectLayers.isEmpty) return const SizedBox.shrink();
     return SizedBox(
@@ -13380,16 +13466,16 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                         width: itemWidth,
                         height: 34,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: isSelected 
-                                ? [const Color(0xFFF59E0B), const Color(0xFFF97316)]
-                                : [const Color(0xFFD97706), const Color(0xFFEA580C)],
-                          ),
+                        gradient: LinearGradient(
+                          colors: isSelected 
+                              ? [const Color(0xFF22C55E), const Color(0xFF16A34A)]
+                              : [const Color(0xFF15803D), const Color(0xFF166534)],
+                        ),
                           borderRadius: BorderRadius.circular(6),
                           border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFF59E0B).withOpacity(isDragging ? 0.6 : 0.3),
+                              color: const Color(0xFF22C55E).withOpacity(isDragging ? 0.6 : 0.3),
                               blurRadius: isDragging ? 16 : 8,
                             ),
                           ],
@@ -13510,142 +13596,114 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     );
   }
 
-  /// Effects settings content panel
+  /// Effects settings content panel - shows intensity slider for selected effect
   Widget _buildEffectsSettingsContent() {
+    final selectedEffect = _effectLayers.where((e) => e.id == _selectedEffectId).isNotEmpty
+        ? _effectLayers.firstWhere((e) => e.id == _selectedEffectId)
+        : null;
+    
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Effects grid
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Select an effect to add',
-                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 90,
-                child: GridView.builder(
-                  scrollDirection: Axis.horizontal,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 1,
-                    mainAxisSpacing: 8,
-                    childAspectRatio: 1.0,
-                  ),
-                  itemCount: _effectPresets.length,
-                  itemBuilder: (context, index) {
-                    final preset = _effectPresets[index];
-                    return GestureDetector(
-                      onTap: () => _addEffectLayer(preset),
-                      child: Container(
-                        width: 80,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(preset.icon, style: const TextStyle(fontSize: 24)),
-                            const SizedBox(height: 4),
-                            Text(
-                              preset.name,
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-        
-        // Applied effects list
-        if (_effectLayers.isNotEmpty)
+        // If an effect is selected, show intensity slider
+        if (selectedEffect != null)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Applied Effects',
-                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+                Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF22C55E).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(child: Text(selectedEffect.icon, style: const TextStyle(fontSize: 16))),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(selectedEffect.name, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    Text(
+                      '${(selectedEffect.intensity * 100).round()}%',
+                      style: const TextStyle(color: Color(0xFF22C55E), fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
+                const Text('Intensity', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                SliderTheme(
+                  data: SliderThemeData(
+                    activeTrackColor: const Color(0xFF22C55E),
+                    inactiveTrackColor: Colors.white.withOpacity(0.15),
+                    thumbColor: const Color(0xFF22C55E),
+                    trackHeight: 3,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                  ),
+                  child: Slider(
+                    value: selectedEffect.intensity,
+                    onChanged: (value) => setState(() => selectedEffect.intensity = value),
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    GestureDetector(
+                      onTap: () => _deleteEffectLayer(selectedEffect.id),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.delete_outline, color: Colors.red, size: 14),
+                            SizedBox(width: 4),
+                            Text('Remove', style: TextStyle(color: Colors.red, fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          )
+        else
+          // Quick add grid when nothing selected
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Tap an effect to add', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
+                const SizedBox(height: 8),
                 SizedBox(
-                  height: 100,
+                  height: 80,
                   child: ListView.builder(
-                    scrollDirection: Axis.vertical,
-                    itemCount: _effectLayers.length,
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _effectPresets.length,
                     itemBuilder: (context, index) {
-                      final effect = _effectLayers[index];
-                      final isSelected = effect.id == _selectedEffectId;
+                      final preset = _effectPresets[index];
                       return GestureDetector(
-                        onTap: () => _selectEffectLayer(effect.id),
+                        onTap: () => _addEffectLayer(preset),
                         child: Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(12),
+                          width: 70,
+                          margin: const EdgeInsets.only(right: 8),
                           decoration: BoxDecoration(
-                            color: isSelected 
-                                ? const Color(0xFFF59E0B).withOpacity(0.2) 
-                                : Colors.white.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(12),
-                            border: isSelected 
-                                ? Border.all(color: const Color(0xFFF59E0B), width: 2) 
-                                : Border.all(color: Colors.white.withOpacity(0.1)),
+                            color: Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFF22C55E).withOpacity(0.3)),
                           ),
-                          child: Row(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF59E0B).withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Center(child: Text(effect.icon, style: const TextStyle(fontSize: 18))),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      effect.name,
-                                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
-                                    ),
-                                    if (isSelected)
-                                      Slider(
-                                        value: effect.intensity,
-                                        onChanged: (value) => setState(() => effect.intensity = value),
-                                        activeColor: const Color(0xFFF59E0B),
-                                        inactiveColor: Colors.white.withOpacity(0.2),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: () => _deleteEffectLayer(effect.id),
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(Icons.delete_outline, color: Colors.red, size: 16),
-                                ),
-                              ),
+                              Text(preset.icon, style: const TextStyle(fontSize: 22)),
+                              const SizedBox(height: 4),
+                              Text(preset.name, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 9), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
                             ],
                           ),
                         ),
@@ -13655,16 +13713,45 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                 ),
               ],
             ),
-          )
-        else
+          ),
+        
+        // Applied effects list
+        if (_effectLayers.isNotEmpty && selectedEffect == null)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.star_border, size: 40, color: Colors.white.withOpacity(0.3)),
-                const SizedBox(height: 8),
-                Text('No effects applied', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14)),
+                Text('Applied', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
+                const SizedBox(height: 4),
+                SizedBox(
+                  height: 40,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: _effectLayers.map((effect) {
+                      return GestureDetector(
+                        onTap: () => _selectEffectLayer(effect.id),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF22C55E).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF22C55E).withOpacity(0.4)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(effect.icon, style: const TextStyle(fontSize: 14)),
+                              const SizedBox(width: 4),
+                              Text(effect.name, style: const TextStyle(color: Colors.white, fontSize: 11)),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
               ],
             ),
           ),

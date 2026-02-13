@@ -462,6 +462,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
   
   // Effects menu mode state - activated by clicking "Effects" tool
   const [isEffectsMenuMode, setIsEffectsMenuMode] = useState(false);
+  const [effectsTab, setEffectsTab] = useState<'trending' | 'visual'>('trending');
   
   // Overlay menu mode state - activated by clicking "Overlay" tool
   const [isOverlayMenuMode, setIsOverlayMenuMode] = useState(false);
@@ -565,23 +566,30 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
 
   const selectedVideoOverlay = videoOverlays.find(o => o.id === selectedOverlayId);
 
-  // Available effects - expanded with filter presets
+  // Available effects - expanded with filter presets, organized by tabs
   const effectPresets = [
-    { id: 'bw', name: 'B&W', category: 'Filter', icon: '🖤' },
-    { id: 'sepia', name: 'Sepia', category: 'Filter', icon: '🟤' },
-    { id: 'vintage', name: 'Vintage', category: 'Filter', icon: '📷' },
-    { id: 'blur', name: 'Blur', category: 'Basic', icon: '🌫️' },
-    { id: 'glow', name: 'Glow', category: 'Basic', icon: '✨' },
-    { id: 'vignette', name: 'Vignette', category: 'Basic', icon: '🔲' },
-    { id: 'shake', name: 'Shake', category: 'Motion', icon: '📳' },
-    { id: 'zoom-pulse', name: 'Zoom Pulse', category: 'Motion', icon: '🔍' },
-    { id: 'film-grain', name: 'Film Grain', category: 'Cinematic', icon: '🎞️' },
-    { id: 'vhs', name: 'VHS', category: 'Retro', icon: '📼' },
-    { id: 'glitch', name: 'Glitch', category: 'Retro', icon: '⚡' },
-    { id: 'chromatic', name: 'Chromatic', category: 'Retro', icon: '🌈' },
-    { id: 'letterbox', name: 'Letterbox', category: 'Cinematic', icon: '🎬' },
-    { id: 'light-leak', name: 'Light Leak', category: 'Cinematic', icon: '☀️' },
-    { id: 'flash', name: 'Flash', category: 'Motion', icon: '💥' },
+    // Trending tab
+    { id: 'glitch', name: 'Glitch', category: 'Retro', icon: '⚡', tab: 'trending', isAI: false },
+    { id: 'shake', name: 'Shake', category: 'Motion', icon: '📳', tab: 'trending', isAI: false },
+    { id: 'bw', name: 'B&W', category: 'Filter', icon: '🖤', tab: 'trending', isAI: false },
+    { id: 'film-grain', name: 'Film Grain', category: 'Cinematic', icon: '🎞️', tab: 'trending', isAI: false },
+    { id: 'neon-glow', name: 'Neon Glow', category: 'Party', icon: '💜', tab: 'trending', isAI: false },
+    { id: 'blur', name: 'Blur', category: 'Basic', icon: '🌫️', tab: 'trending', isAI: false },
+    { id: 'vhs', name: 'VHS', category: 'Retro', icon: '📼', tab: 'trending', isAI: false },
+    { id: 'ai-body-glow', name: 'AI Body Glow', category: 'AI', icon: '✨', tab: 'trending', isAI: true },
+    { id: 'ai-object-track', name: 'AI Track', category: 'AI', icon: '🎯', tab: 'trending', isAI: true },
+    // Visual tab
+    { id: 'sepia', name: 'Sepia', category: 'Filter', icon: '🟤', tab: 'visual', isAI: false },
+    { id: 'vintage', name: 'Vintage', category: 'Filter', icon: '📷', tab: 'visual', isAI: false },
+    { id: 'glow', name: 'Glow', category: 'Basic', icon: '✨', tab: 'visual', isAI: false },
+    { id: 'vignette', name: 'Vignette', category: 'Basic', icon: '🔲', tab: 'visual', isAI: false },
+    { id: 'zoom-pulse', name: 'Zoom Pulse', category: 'Motion', icon: '🔍', tab: 'visual', isAI: false },
+    { id: 'chromatic', name: 'Chromatic', category: 'Retro', icon: '🌈', tab: 'visual', isAI: false },
+    { id: 'letterbox', name: 'Letterbox', category: 'Cinematic', icon: '🎬', tab: 'visual', isAI: false },
+    { id: 'light-leak', name: 'Light Leak', category: 'Cinematic', icon: '☀️', tab: 'visual', isAI: false },
+    { id: 'flash', name: 'Flash', category: 'Motion', icon: '💥', tab: 'visual', isAI: false },
+    { id: 'dreamy', name: 'Dreamy', category: 'Cinematic', icon: '🌙', tab: 'visual', isAI: false },
+    { id: 'ai-face-blur', name: 'AI Face Blur', category: 'AI', icon: '🫥', tab: 'visual', isAI: true },
   ];
 
   // ============================================
@@ -6883,7 +6891,7 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     </div>
                   )}
                   
-                  {/* Effects Track - Amber/Gold themed */}
+                  {/* Effects Track - Green themed */}
                   {effectLayers.length > 0 && (
                     <div className="relative h-10" style={{ width: trackWidth }}>
                       {effectLayers.map(effect => {
@@ -6901,8 +6909,8 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                                   ? "bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 ring-2 ring-white shadow-lg shadow-violet-500/30"
                                   : "bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-600 shadow-md shadow-violet-600/30"
                                 : isSelected 
-                                  ? "bg-gradient-to-r from-amber-500 to-orange-500 ring-2 ring-white shadow-lg shadow-amber-500/30"
-                                  : "bg-gradient-to-r from-amber-600 to-orange-600 shadow-md shadow-amber-600/30",
+                                  ? "bg-gradient-to-r from-green-500 to-emerald-500 ring-2 ring-white shadow-lg shadow-green-500/30"
+                                  : "bg-gradient-to-r from-green-600 to-emerald-600 shadow-md shadow-green-600/30",
                               draggingLayerId === effect.id && "opacity-90 scale-[1.02] z-10"
                             )}
                             style={{ left: leftOffset, width: itemWidth, top: 3 }}
@@ -8182,9 +8190,50 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
               </div>
             )}
             
+            {/* Effect Intensity Sub-menu - shown when an effect layer is selected */}
+            {selectedEffectLayer && !isEffectsMenuMode && (
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '140px' }}>
+                <div className="flex items-center px-4 py-2 border-b border-border/20">
+                  <button
+                    onClick={() => setSelectedEffectId(null)}
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                  >
+                    <ChevronDown className="w-5 h-5 text-primary" />
+                  </button>
+                  <span className="flex-1 text-sm font-medium text-foreground text-center">
+                    {selectedEffectLayer.name}
+                  </span>
+                  <button
+                    onClick={() => deleteEffectFromTimeline(selectedEffectLayer.id)}
+                    className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-destructive/10 hover:bg-destructive/20 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </button>
+                </div>
+                <div className="flex-1 px-4 py-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-foreground/60">Intensity</span>
+                    <span className="text-xs font-medium text-green-400">{Math.round(selectedEffectLayer.intensity * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={selectedEffectLayer.intensity}
+                    onChange={(e) => updateSelectedEffect({ intensity: parseFloat(e.target.value) })}
+                    className="w-full h-1 rounded-full appearance-none cursor-pointer accent-green-500"
+                    style={{
+                      background: `linear-gradient(to right, #22c55e ${selectedEffectLayer.intensity * 100}%, rgba(255,255,255,0.15) ${selectedEffectLayer.intensity * 100}%)`
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            
             {/* Effects Menu Overlay */}
             {isEffectsMenuMode && (
-              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '160px' }}>
+              <div className="absolute bottom-0 left-0 right-0 bg-background animate-in fade-in slide-in-from-bottom duration-200 z-30 flex flex-col" style={{ height: '320px' }}>
                 {/* Header with back button and title */}
                 <div className="flex items-center px-4 py-2 border-b border-border/20">
                   <button
@@ -8194,37 +8243,52 @@ export function MobileAIEditor({ onBack }: MobileAIEditorProps) {
                     <ChevronDown className="w-5 h-5 text-primary" />
                   </button>
                   <span className="flex-1 text-sm font-medium text-foreground text-center pr-8">
-                    Effects
+                    Video Effects
                   </span>
                 </div>
                 
-                {/* Horizontal Scrollable Effects Tools */}
-                <div className="flex-1 flex items-start pt-4 overflow-x-auto px-3" style={{ WebkitOverflowScrolling: 'touch' }}>
-                  <div className="flex gap-2 min-w-max">
-                    {[
-                      { id: 'video-effects', name: 'Video effects', icon: Video, action: () => toast({ title: "Video effects coming soon" }) },
-                      { id: 'body-effects', name: 'Body effects', icon: Star, isAI: true, action: () => toast({ title: "Body effects coming soon" }) },
-                      { id: 'photo-effects', name: 'Photo effects', icon: ImageIcon, action: () => toast({ title: "Photo effects coming soon" }) },
-                    ].map((tool) => {
-                      const IconComponent = tool.icon;
-                      return (
+                {/* Tabs: Trending / Visual */}
+                <div className="flex gap-2 px-4 py-2">
+                  {(['trending', 'visual'] as const).map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setEffectsTab(tab)}
+                      className={cn(
+                        "px-4 py-1.5 rounded-full text-xs font-medium transition-all border",
+                        effectsTab === tab
+                          ? "bg-green-500/20 text-green-400 border-green-500"
+                          : "bg-muted/10 text-foreground/50 border-border/30 hover:bg-muted/20"
+                      )}
+                    >
+                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Effects Grid */}
+                <div className="flex-1 overflow-y-auto px-3 pb-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    {effectPresets
+                      .filter(e => e.tab === effectsTab)
+                      .map(preset => (
                         <button
-                          key={tool.id}
-                          onClick={tool.action}
-                          className="flex flex-col items-center justify-center w-16 rounded-xl transition-all hover:bg-muted/50"
+                          key={preset.id}
+                          onClick={() => {
+                            addEffectLayer(preset.id);
+                            setIsEffectsMenuMode(false);
+                          }}
+                          className="relative flex flex-col items-center justify-center aspect-square rounded-xl border border-green-500/30 bg-muted/5 hover:bg-green-500/10 transition-all"
                         >
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1.5 bg-muted/30 relative">
-                            <IconComponent className="w-5 h-5 text-foreground" />
-                            {tool.isAI && (
-                              <Sparkles className="w-2.5 h-2.5 text-amber-400 absolute -top-0.5 -right-0.5" />
-                            )}
-                          </div>
-                          <span className="text-[10px] font-medium text-foreground/60">
-                            {tool.name}
-                          </span>
+                          <span className="text-2xl mb-1">{preset.icon}</span>
+                          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight px-1">{preset.name}</span>
+                          {preset.isAI && (
+                            <div className="absolute top-1 right-1 flex items-center gap-0.5 bg-amber-500/90 rounded px-1 py-0.5">
+                              <Sparkles className="w-2 h-2 text-white" />
+                              <span className="text-[7px] text-white font-bold">AI</span>
+                            </div>
+                          )}
                         </button>
-                      );
-                    })}
+                      ))}
                   </div>
                 </div>
               </div>
