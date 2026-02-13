@@ -7868,13 +7868,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         ],
       ),
     );
-              ],
-            ),
-          ),
-          SizedBox(width: startPadding),
-        ],
-      ),
-    );
   }).toList(),
   );
   }
