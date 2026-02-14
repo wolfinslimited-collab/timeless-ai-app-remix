@@ -1,8 +1,9 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:video_player/video_player.dart';
-import '../../../core/theme.dart';
+import '../../../../core/theme.dart';
 import 'project_storage.dart';
 
 class ProjectManagerScreen extends StatefulWidget {
@@ -559,9 +560,11 @@ class _ProjectManagerScreenState extends State<ProjectManagerScreen> {
                     color: Colors.white.withOpacity(0.05),
                     child: project.thumbnail != null
                         ? Image.memory(
-                            Uri.parse('data:image/jpeg;base64,${project.thumbnail}')
-                                .data
-                                ?.contentAsBytes() ?? [],
+                            Uint8List.fromList(
+                              Uri.parse('data:image/jpeg;base64,${project.thumbnail}')
+                                  .data
+                                  ?.contentAsBytes() ?? <int>[],
+                            ),
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => _buildPlaceholder(),
                           )

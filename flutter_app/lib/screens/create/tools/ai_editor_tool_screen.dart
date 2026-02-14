@@ -1846,13 +1846,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           
           final audioSeconds = audioDuration?.inSeconds.toDouble() ?? 30.0;
           final rawVideoDuration = _videoController?.value.duration.inSeconds.toDouble() ?? 0.0;
+          final currentPlayhead = _currentTimelinePosition;
           final videoDuration = rawVideoDuration > 0 ? rawVideoDuration : (audioSeconds + currentPlayhead);
           
           // Generate waveform data from file name hash for consistent visualization
           // This creates a pseudo-random but reproducible waveform pattern
           final waveformData = _generateWaveformFromSeed(file.name.hashCode, 100);
-          
-          final currentPlayhead = _currentTimelinePosition;
           final newAudio = AudioLayer(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             name: file.name,
@@ -1960,7 +1959,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         
         final videoDuration = _videoController?.value.duration.inSeconds.toDouble() ?? 30.0;
         final audioSeconds = audioDuration?.inSeconds.toDouble() ?? _recordingDuration.toDouble();
-        final currentPlayhead = _currentPosition;
+        final currentPlayhead = _currentTimelinePosition;
         
         // Generate waveform data from recording
         final waveformData = _generateWaveformFromSeed(path.hashCode, 100);
@@ -2650,9 +2649,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         }
         
         // Play if main video is playing
-        if (_isPlaying && !overlay.controller!.value.isPlaying) {
+        final isCurrentlyPlaying = _videoController?.value.isPlaying ?? false;
+        if (isCurrentlyPlaying && !overlay.controller!.value.isPlaying) {
           overlay.controller!.play();
-        } else if (!_isPlaying && overlay.controller!.value.isPlaying) {
+        } else if (!isCurrentlyPlaying && overlay.controller!.value.isPlaying) {
           overlay.controller!.pause();
         }
       } else {
@@ -7149,8 +7149,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       ),
                     ),
                   ),
-                );
-                );
+                ),
                   ],
                 ),
               ),
@@ -7325,8 +7324,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       ),
                     ),
                   ),
-                );
-                );
+                ),
                   ],
                 ),
               ),
