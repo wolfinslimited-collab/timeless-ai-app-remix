@@ -13,7 +13,6 @@ class UpscaleToolScreen extends StatelessWidget {
       creditCost: 3,
       previewVideoUrl: 'https://timeless-bucket.fra1.cdn.digitaloceanspaces.com/ai_agent_timeless/02e516fd-e889-49fe-af14-043fc2c79521-Upscale-ezgif.com-resize-video.mp4',
       showPrompt: true,
-      showPrompt: true,
       promptLabel: 'Enhancement hints',
       promptPlaceholder: 'Optional: e.g., sharp details, high quality photograph...',
     );
