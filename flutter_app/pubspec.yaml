@@ -58,10 +58,10 @@ dependencies:
   permission_handler: ^11.3.1
   flutter_tts: ^4.2.0
 
-  # In-App Purchases
-  in_app_purchase: ^3.2.0
-  in_app_purchase_storekit: ^0.3.17+3
-  in_app_purchase_android: ^0.3.6+10
+  # In-App Purchases (uses Google Play Billing Library 8.x)
+  in_app_purchase: ^3.2.3
+  in_app_purchase_storekit: ^0.4.0
+  in_app_purchase_android: ^0.4.0+8
 
   # Analytics & Attribution
   tiktok_events_sdk: ^1.0.9
