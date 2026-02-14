@@ -7866,8 +7866,6 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
         ],
       ),
     );
-  }).toList(),
-  );
   }
   
   Widget _buildTimeRuler(double startPadding) {
