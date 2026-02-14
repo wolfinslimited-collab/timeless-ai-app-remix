@@ -533,11 +533,11 @@ class SavedDrawingStroke {
   factory SavedDrawingStroke.fromJson(Map<String, dynamic> json) => SavedDrawingStroke(
     id: json['id'] as String,
     points: (json['points'] as List<dynamic>?)
-        ?.map((p) => {
+        ?.map((p) {
           final m = p as Map<String, dynamic>;
-          return {'x': (m['x'] as num).toDouble(), 'y': (m['y'] as num).toDouble()};
+          return <String, double>{'x': (m['x'] as num).toDouble(), 'y': (m['y'] as num).toDouble()};
         })
-        .toList() ?? [],
+        .toList() ?? <Map<String, double>>[],
     color: json['color'] as int? ?? 0xFFFFFFFF,
     size: (json['size'] as num?)?.toDouble() ?? 5,
     tool: json['tool'] as String? ?? 'brush',
