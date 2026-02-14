@@ -1,3 +1,8 @@
+# Flutter embedding references Play Core (deferred components); we don't use it - ignore missing classes
+-dontwarn com.google.android.play.core.splitcompat.SplitCompatApplication
+-dontwarn com.google.android.play.core.splitinstall.**
+-dontwarn com.google.android.play.core.tasks.**
+
 # Flutter wrapper
 -keep class io.flutter.app.** { *; }
 -keep class io.flutter.plugin.** { *; }
