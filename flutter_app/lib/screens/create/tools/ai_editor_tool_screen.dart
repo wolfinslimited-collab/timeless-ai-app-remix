@@ -8493,10 +8493,32 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       final enhancedPrompt = promptRes.data?['enhancedPrompt'] ?? prompt;
       setState(() => _expansionGenerateProgress = 30);
 
+      // Upload last frame to storage for imageUrl
+      String? lastFrameUrl;
+      if (_lastFrameBytes != null) {
+        final fileName = '${user.id}/expand-frame-${DateTime.now().millisecondsSinceEpoch}.jpg';
+        await Supabase.instance.client.storage
+            .from('generation-inputs')
+            .uploadBinary(fileName, _lastFrameBytes!);
+        lastFrameUrl = Supabase.instance.client.storage
+            .from('generation-inputs')
+            .getPublicUrl(fileName);
+      }
+
+      // Determine aspect ratio from current editor setting
+      final expandAspectRatio = _selectedAspectRatio ?? '16:9';
+
       final genRes = await Supabase.instance.client.functions.invoke('generate', body: {
-        'type': 'video', 'model': 'wan-2.6',
-        'prompt': 'Continue this video seamlessly: $enhancedPrompt',
-        'aspectRatio': '16:9', 'duration': 5, 'quality': '720p',
+        'type': 'video',
+        'model': 'kie-veo31-fast',
+        'prompt': 'Analyze video and write scenario: $enhancedPrompt',
+        'aspectRatio': expandAspectRatio,
+        'duration': 8,
+        'quality': '720p',
+        'background': false,
+        'stream': true,
+        if (lastFrameUrl != null) 'imageUrl': lastFrameUrl,
+        if (lastFrameUrl != null) 'referenceImageUrls': [lastFrameUrl],
       });
 
       if (genRes.status != 200) throw Exception('Video generation failed');
@@ -8523,7 +8545,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
         _saveStateToHistory();
         setState(() {
-          _videoClips.add(VideoClip(id: 'clip-${DateTime.now().millisecondsSinceEpoch}', url: videoUrl!, duration: 5, startTime: _totalTimelineDuration, volume: 1.0, speed: 1.0, aiEnhanced: true));
+          _videoClips.add(VideoClip(id: 'clip-${DateTime.now().millisecondsSinceEpoch}', url: videoUrl!, duration: 8, startTime: _totalTimelineDuration, volume: 1.0, speed: 1.0, aiEnhanced: true));
           _isExpansionGenerating = false; _expansionGenerateProgress = 0;
         });
         _showSnackBar('Video expanded! New clip appended.');
