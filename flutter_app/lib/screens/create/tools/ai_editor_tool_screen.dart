@@ -7673,14 +7673,15 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                       ),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
+                ),
+                  ],
+                ),
+              ),
+              SizedBox(width: startPadding),
+            ],
           ),
-          
-          SizedBox(width: startPadding),
-        ],
-      ),
+        );
+      }).toList(),
     );
   }
   
@@ -11464,8 +11465,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       if (targetClipId == null && _videoClips.isNotEmpty) {
         // Find clip at current playhead position
         for (final clip in _videoClips) {
-          final clipEnd = clip.startTime + _getClipTrimmedDuration(clip);
-          if (_currentPosition >= clip.startTime && _currentPosition < clipEnd) {
+          final clipEnd = clip.startTime + clip.timelineDuration;
+          if (_currentTimelinePosition >= clip.startTime && _currentTimelinePosition < clipEnd) {
             targetClipId = clip.id;
             break;
           }
@@ -11485,8 +11486,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       
       if (targetClipId == null && _videoClips.isNotEmpty) {
         for (final clip in _videoClips) {
-          final clipEnd = clip.startTime + _getClipTrimmedDuration(clip);
-          if (_currentPosition >= clip.startTime && _currentPosition < clipEnd) {
+          final clipEnd = clip.startTime + clip.timelineDuration;
+          if (_currentTimelinePosition >= clip.startTime && _currentTimelinePosition < clipEnd) {
             targetClipId = clip.id;
             break;
           }
