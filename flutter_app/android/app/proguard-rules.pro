@@ -29,5 +29,7 @@
 -dontwarn com.google.android.gms.common.annotation.**
 -keep class com.google.android.play.core.** { *; }
 
-# In-App Purchase
+# In-App Purchase / Google Play Billing Library
 -keep class com.android.vending.billing.** { *; }
+-keep class com.android.billingclient.** { *; }
+-dontwarn com.android.billingclient.**
