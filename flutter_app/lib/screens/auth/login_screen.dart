@@ -18,6 +18,11 @@ class _LoginScreenState extends State<LoginScreen>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _loginLoading = false;
+  bool _googleLoading = false;
+  bool _appleLoading = false;
+
+  bool get _anyLoading => _loginLoading || _googleLoading || _appleLoading;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -51,27 +56,29 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
+    setState(() => _loginLoading = true);
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.signIn(
       email: _emailController.text.trim(),
       password: _passwordController.text,
     );
+    if (mounted) setState(() => _loginLoading = false);
 
     if (success && mounted) {
-      // Check if user has active subscription
       final hasSubscription = authProvider.hasActiveSubscription;
       if (hasSubscription) {
         context.go('/');
       } else {
-        // Show upgrade wizard for non-premium users
         context.go('/upgrade-wizard', extra: true);
       }
     }
   }
 
   Future<void> _handleGoogleSignIn() async {
+    setState(() => _googleLoading = true);
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.signInWithGoogle();
+    if (mounted) setState(() => _googleLoading = false);
 
     if (success && mounted) {
       _navigateAfterAuth(authProvider);
@@ -79,8 +86,10 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _handleAppleSignIn() async {
+    setState(() => _appleLoading = true);
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.signInWithApple();
+    if (mounted) setState(() => _appleLoading = false);
 
     if (success && mounted) {
       _navigateAfterAuth(authProvider);
@@ -341,55 +350,51 @@ class _LoginScreenState extends State<LoginScreen>
                       const SizedBox(height: 16),
 
                       // Login button
-                      Consumer<AuthProvider>(
-                        builder: (context, auth, child) {
-                          return Container(
-                            height: 56,
-                            decoration: BoxDecoration(
+                      Container(
+                        height: 56,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.primary,
+                              AppTheme.primary.withOpacity(0.8),
+                            ],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primary.withOpacity(0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ElevatedButton(
+                          onPressed: _anyLoading ? null : _handleLogin,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppTheme.primary,
-                                  AppTheme.primary.withOpacity(0.8),
-                                ],
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.primary.withOpacity(0.3),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
                             ),
-                            child: ElevatedButton(
-                              onPressed: auth.isLoading ? null : _handleLogin,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: _loginLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Sign In',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
                                 ),
-                              ),
-                              child: auth.isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Sign In',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                            ),
-                          );
-                        },
+                        ),
                       ),
                       const SizedBox(height: 24),
 
@@ -429,102 +434,92 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildGoogleButton() {
-    return Consumer<AuthProvider>(
-      builder: (context, auth, child) {
-        final isLoading = auth.isLoading;
-        return Container(
-          height: 52,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.muted.withOpacity(0.2)),
-          ),
-          child: Material(
-            color: AppTheme.card,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              onTap: isLoading ? null : _handleGoogleSignIn,
-              borderRadius: BorderRadius.circular(12),
-              child: Opacity(
-                opacity: isLoading ? 0.5 : 1.0,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (isLoading)
-                        const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      else
-                        const GoogleIcon(size: 20),
-                      const SizedBox(width: 12),
-                      Text(
-                        isLoading ? 'Signing in...' : 'Continue with Google',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+    return Container(
+      height: 52,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.muted.withOpacity(0.2)),
+      ),
+      child: Material(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: _anyLoading ? null : _handleGoogleSignIn,
+          borderRadius: BorderRadius.circular(12),
+          child: Opacity(
+            opacity: _anyLoading ? 0.5 : 1.0,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (_googleLoading)
+                    const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else
+                    const GoogleIcon(size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    _googleLoading ? 'Signing in...' : 'Continue with Google',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
   Widget _buildAppleButton() {
-    return Consumer<AuthProvider>(
-      builder: (context, auth, child) {
-        final isLoading = auth.isLoading;
-        return Container(
-          height: 52,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.muted.withOpacity(0.2)),
-          ),
-          child: Material(
-            color: AppTheme.card,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              onTap: isLoading ? null : _handleAppleSignIn,
-              borderRadius: BorderRadius.circular(12),
-              child: Opacity(
-                opacity: isLoading ? 0.5 : 1.0,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (isLoading)
-                        const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      else
-                        const AppleIcon(size: 20, color: AppTheme.foreground),
-                      const SizedBox(width: 12),
-                      Text(
-                        isLoading ? 'Signing in...' : 'Continue with Apple',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+    return Container(
+      height: 52,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.muted.withOpacity(0.2)),
+      ),
+      child: Material(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: _anyLoading ? null : _handleAppleSignIn,
+          borderRadius: BorderRadius.circular(12),
+          child: Opacity(
+            opacity: _anyLoading ? 0.5 : 1.0,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (_appleLoading)
+                    const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else
+                    const AppleIcon(size: 20, color: AppTheme.foreground),
+                  const SizedBox(width: 12),
+                  Text(
+                    _appleLoading ? 'Signing in...' : 'Continue with Apple',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
