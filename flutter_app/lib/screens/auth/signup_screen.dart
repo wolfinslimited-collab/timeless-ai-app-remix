@@ -33,6 +33,8 @@ class _SignupScreenState extends State<SignupScreen>
   bool _obscurePassword = true;
   bool _showVerification = false;
   bool _isLoading = false;
+  bool _googleLoading = false;
+  bool _appleLoading = false;
   String? _error;
   int _resendCountdown = 0;
 
@@ -257,8 +259,10 @@ class _SignupScreenState extends State<SignupScreen>
   }
 
   Future<void> _handleGoogleSignIn() async {
+    setState(() => _googleLoading = true);
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.signInWithGoogle();
+    if (mounted) setState(() => _googleLoading = false);
 
     if (success && mounted) {
       _navigateAfterAuth(authProvider);
@@ -266,8 +270,10 @@ class _SignupScreenState extends State<SignupScreen>
   }
 
   Future<void> _handleAppleSignIn() async {
+    setState(() => _appleLoading = true);
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.signInWithApple();
+    if (mounted) setState(() => _appleLoading = false);
 
     if (success && mounted) {
       _navigateAfterAuth(authProvider);
@@ -989,102 +995,96 @@ class _SignupScreenState extends State<SignupScreen>
   }
 
   Widget _buildGoogleButton() {
-    return Consumer<AuthProvider>(
-      builder: (context, auth, child) {
-        final isLoading = auth.isLoading;
-        return Container(
-          height: 52,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.muted.withOpacity(0.2)),
-          ),
-          child: Material(
-            color: AppTheme.card,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              onTap: isLoading ? null : _handleGoogleSignIn,
-              borderRadius: BorderRadius.circular(12),
-              child: Opacity(
-                opacity: isLoading ? 0.5 : 1.0,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (isLoading)
-                        const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      else
-                        const GoogleIcon(size: 20),
-                      const SizedBox(width: 12),
-                      Text(
-                        isLoading ? 'Signing in...' : 'Continue with Google',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+    final isLoading = _googleLoading;
+    final anyLoading = _isLoading || _googleLoading || _appleLoading;
+    return Container(
+      height: 52,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.muted.withOpacity(0.2)),
+      ),
+      child: Material(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: anyLoading ? null : _handleGoogleSignIn,
+          borderRadius: BorderRadius.circular(12),
+          child: Opacity(
+            opacity: anyLoading ? 0.5 : 1.0,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (isLoading)
+                    const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else
+                    const GoogleIcon(size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    isLoading ? 'Signing in...' : 'Continue with Google',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
   Widget _buildAppleButton() {
-    return Consumer<AuthProvider>(
-      builder: (context, auth, child) {
-        final isLoading = auth.isLoading;
-        return Container(
-          height: 52,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.muted.withOpacity(0.2)),
-          ),
-          child: Material(
-            color: AppTheme.card,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              onTap: isLoading ? null : _handleAppleSignIn,
-              borderRadius: BorderRadius.circular(12),
-              child: Opacity(
-                opacity: isLoading ? 0.5 : 1.0,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (isLoading)
-                        const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      else
-                        const AppleIcon(size: 20, color: AppTheme.foreground),
-                      const SizedBox(width: 12),
-                      Text(
-                        isLoading ? 'Signing in...' : 'Continue with Apple',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+    final isLoading = _appleLoading;
+    final anyLoading = _isLoading || _googleLoading || _appleLoading;
+    return Container(
+      height: 52,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.muted.withOpacity(0.2)),
+      ),
+      child: Material(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: anyLoading ? null : _handleAppleSignIn,
+          borderRadius: BorderRadius.circular(12),
+          child: Opacity(
+            opacity: anyLoading ? 0.5 : 1.0,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (isLoading)
+                    const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else
+                    const AppleIcon(size: 20, color: AppTheme.foreground),
+                  const SizedBox(width: 12),
+                  Text(
+                    isLoading ? 'Signing in...' : 'Continue with Apple',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
