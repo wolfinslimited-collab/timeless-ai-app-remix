@@ -871,6 +871,8 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
         return const SketchToVideoToolScreen();
       case 'ugc-factory':
         return const UGCFactoryToolScreen();
+      case 'ai-editor':
+        return const AIEditorToolScreen();
       default:
         return _buildCreateContent();
     }
