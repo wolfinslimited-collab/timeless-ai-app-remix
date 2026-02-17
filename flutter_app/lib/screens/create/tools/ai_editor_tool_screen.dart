@@ -1093,7 +1093,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     if (_videoClips.isNotEmpty) {
       return _videoClips.fold(0.0, (sum, clip) => sum + clip.timelineDuration);
     }
-    return _videoController?.value.duration.inSeconds.toDouble() ?? 10.0;
+    return _videoController?.value.duration.inMilliseconds / 1000.0 ?? 10.0;
   }
   
   double get _totalTimelineDuration {
@@ -3745,7 +3745,21 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           return;
         }
       }
-    } else if (_videoClips.length <= 1) {
+    } else if (_videoClips.length == 1) {
+      // Single clip: map raw video position to timeline accounting for inPoint and speed
+      final clip = _videoClips[0];
+      final speed = clip.speed > 0 ? clip.speed : 1.0;
+      timelinePosition = (rawPositionSeconds - clip.inPoint) / speed;
+      
+      // Check if raw position reached clip's outPoint
+      if (rawPositionSeconds >= clip.outPoint - 0.05 && _videoController!.value.isPlaying) {
+        _unifiedPause();
+        _currentTimelinePosition = clip.timelineDuration;
+        if (mounted) setState(() {});
+        return;
+      }
+    } else {
+      // No clips - use raw position as fallback
       timelinePosition = rawPositionSeconds;
     }
     
