@@ -1094,7 +1094,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     if (_videoClips.isNotEmpty) {
       return _videoClips.fold(0.0, (sum, clip) => sum + clip.timelineDuration);
     }
-    return _videoController?.value.duration.inMilliseconds / 1000.0 ?? 10.0;
+    return (_videoController?.value.duration.inMilliseconds ?? 10000) / 1000.0;
   }
   
   double get _totalTimelineDuration {
