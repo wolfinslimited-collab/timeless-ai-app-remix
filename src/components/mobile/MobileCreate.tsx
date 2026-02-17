@@ -19,7 +19,7 @@ export function MobileCreate({ onNavigate }: MobileCreateProps) {
         {/* Visual Styles Card (Featured) */}
         <CreateOption 
           icon={Paintbrush} 
-          title="Visual Styles" 
+          title="Trending Styles" 
           description="Ultra-realistic fashion visuals with AI styling"
           badge="NEW"
           onClick={() => onNavigate("visual-styles")}
