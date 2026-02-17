@@ -1063,6 +1063,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
   EditorProject? _currentProject;
   bool _autoSavePending = false;
   Timer? _autoSaveTimer;
+  bool _showProjectManager = true; // Show project manager as initial screen
   bool _isRestoringProject = false; // Guards auto-save during project load
   
   // Ending clip state
@@ -1197,6 +1198,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     
     // Restore project state if opening an existing project
     if (widget.initialProject != null) {
+      _showProjectManager = false; // Skip project manager when opening existing project
       _isRestoringProject = true;
       _currentProject = widget.initialProject;
       _restoreProjectState(widget.initialProject!);
@@ -4035,6 +4037,27 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       _thumbnails = [];
     });
   }
+  
+  /// Dispose video resources and reset state for returning to project manager
+  void _disposeVideoResources() {
+    _autoSaveTimer?.cancel();
+    _videoController?.removeListener(_onVideoPositionChanged);
+    _videoController?.dispose();
+    _videoController = null;
+    _videoUrl = null;
+    _videoFile = null;
+    _isVideoInitialized = false;
+    _thumbnails = [];
+    _videoClips.clear();
+    _textOverlays.clear();
+    _audioLayers.forEach((a) => a.player?.dispose());
+    _audioLayers.clear();
+    _effectLayers.clear();
+    _captionLayers.clear();
+    _currentProject = null;
+    _currentTimelinePosition = 0;
+    _selectedTool = 'edit';
+  }
 
   void _togglePlayPause() {
     if (_videoController == null || !_isVideoInitialized) return;
@@ -4491,6 +4514,31 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
 
   @override
   Widget build(BuildContext context) {
+    // Show Project Manager as the initial entry screen
+    if (_showProjectManager) {
+      return ProjectManagerScreen(
+        onBack: () => Navigator.of(context).pop(),
+        onOpenProject: (project) {
+          setState(() {
+            _showProjectManager = false;
+            _isRestoringProject = true;
+            _currentProject = project;
+          });
+          _restoreProjectState(project);
+          Future.delayed(const Duration(seconds: 3), () {
+            if (mounted) _isRestoringProject = false;
+          });
+        },
+        onNewProject: (project, file) {
+          setState(() {
+            _showProjectManager = false;
+            _currentProject = project;
+          });
+          _handleLocalVideoFileFromProject(file);
+        },
+      );
+    }
+    
     // Calculate video preview height - scales down when text edit panel is open
     final screenHeight = MediaQuery.of(context).size.height;
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
@@ -4951,7 +4999,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () {
+              // Go back to project manager instead of exiting
+              _disposeVideoResources();
+              setState(() {
+                _showProjectManager = true;
+              });
+            },
             child: Container(
               width: 28,
               height: 28,
@@ -8582,7 +8636,16 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       if (mounted) { setState(() { _isExpansionGenerating = false; _expansionGenerateProgress = 0; }); _showSnackBar('Expansion failed: ${e.toString()}'); }
     }
   }
-
+  
+  /// Handle a video file selected from the Project Manager
+  Future<void> _handleLocalVideoFileFromProject(File file) async {
+    setState(() {
+      _isUploading = true;
+      _uploadProgress = 0.3;
+      _videoFile = file;
+    });
+    await _initializeVideoFromLocalFile(file.path);
+  }
 
   Widget _buildAiUpscaleBottomSheet() {
     return Material(
