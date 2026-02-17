@@ -142,7 +142,7 @@ const musicModels = [
 // Cinema Studio Models (optimized for cinematic camera control)
 const cinemaModels = [
   { id: "wan-2.6-cinema", name: "Wan Cinema", description: "Best for camera control", badge: "TOP", credits: 20 },
-  { id: "kling-2.6-cinema", name: "Kling Cinema Pro", description: "Premium cinematic", badge: "PRO", credits: 30 },
+  { id: "kling-3.0-cinema", name: "Kling v3.0 Cinema", description: "Premium cinematic", badge: "PRO", credits: 30 },
   { id: "veo-3-cinema", name: "Veo 3 Cinema", description: "Google cinematic AI", badge: "TOP", credits: 35 },
   { id: "luma-cinema", name: "Luma Cinema", description: "Dream machine pro", badge: "PRO", credits: 28 },
 ];

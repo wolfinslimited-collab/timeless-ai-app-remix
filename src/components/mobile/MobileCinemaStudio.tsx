@@ -41,7 +41,7 @@ const durations = [3, 5, 7, 10];
 
 const cinemaModels = [
   { id: "wan-2.6-cinema", name: "Wan Cinema", credits: 20 },
-  { id: "kling-2.6-cinema", name: "Kling Cinema Pro", credits: 30 },
+  { id: "kling-3.0-cinema", name: "Kling v3.0 Cinema", credits: 30 },
   { id: "veo-3-cinema", name: "Veo 3 Cinema", credits: 35 },
   { id: "luma-cinema", name: "Luma Cinema", credits: 28 },
 ];
