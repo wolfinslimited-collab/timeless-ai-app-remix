@@ -29,6 +29,7 @@ const MODEL_CREDITS: Record<string, number> = {
   // Video models
   "wan-2.6": 15,
   "kling-2.6": 25,
+  "kling-3.0": 30,
   "veo-3": 30,
   "veo-3-fast": 20,
   "hailuo-02": 18,
@@ -196,6 +197,12 @@ const FAL_VIDEO_MODELS: Record<string, FalVideoModelConfig> = {
   "kling-2.6": {
     t2v: "fal-ai/kling-video/v2.6/pro/text-to-video",
     i2v: "fal-ai/kling-video/v2.6/pro/image-to-video",
+    duration: 5,
+    maxPollingTime: 600,
+  },
+  "kling-3.0": {
+    t2v: "fal-ai/kling-video/v3/standard/text-to-video",
+    i2v: "fal-ai/kling-video/v3/standard/image-to-video",
     duration: 5,
     maxPollingTime: 600,
   },

@@ -42,7 +42,7 @@ class AppConfig {
 
     // Cinema Studio Models
     'wan-2.6-cinema': 20,
-    'kling-2.6-cinema': 30,
+    'kling-3.0-cinema': 30,
     'veo-3-cinema': 35,
     'luma-cinema': 28,
 

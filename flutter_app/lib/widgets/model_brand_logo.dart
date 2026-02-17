@@ -129,6 +129,7 @@ final Map<String, LogoConfig> _modelConfigs = {
   // Kling (Kuaishou)
   'kling': const LogoConfig(assetPath: 'assets/logos/kling.png'),
   'kling-2.6': const LogoConfig(assetPath: 'assets/logos/kling.png'),
+  'kling-3.0': const LogoConfig(assetPath: 'assets/logos/kling.png'),
   'kling-2.1': const LogoConfig(assetPath: 'assets/logos/kling.png'),
   'kie-kling': const LogoConfig(assetPath: 'assets/logos/kling.png'),
 
