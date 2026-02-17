@@ -2095,6 +2095,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     // 2. Sync audio layers
     _syncAudioLayersToTime(timelineTime);
     
+    // 3. Sync video overlays
+    _syncVideoOverlaysToTime(timelineTime);
+    
     // Update UI
     if (mounted) {
       setState(() {});
@@ -2180,6 +2183,13 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
     // Pause all audio layers
     for (final audio in _audioLayers) {
       audio.player?.pause();
+    }
+    
+    // Pause all video overlays
+    for (final overlay in _videoOverlays) {
+      if (overlay.controller != null && overlay.isInitialized) {
+        overlay.controller!.pause();
+      }
     }
   }
   
@@ -3665,8 +3675,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       _videoController!.seekTo(newPosition);
     }
     
-    // Sync audio and overlays
+    // Sync audio and video overlays
     _syncAudioLayersToTime(clampedTime);
+    _syncVideoOverlaysToTime(clampedTime);
     
     // Update UI immediately
     if (mounted) {
@@ -3706,11 +3717,12 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       for (int i = 0; i < clipIndex; i++) {
         clipStartOnTimeline += _videoClips[i].timelineDuration;
       }
-      timelinePosition = clipStartOnTimeline + rawPositionSeconds;
+      // Calculate local progress within clip, then map to timeline
+      final localProgress = (rawPositionSeconds - clip.inPoint) / (clip.speed > 0 ? clip.speed : 1);
+      timelinePosition = clipStartOnTimeline + localProgress;
       
-      // Check if the raw video reached the end of the current clip
-      final clipPlayDuration = clip.outPoint - clip.inPoint;
-      if (rawPositionSeconds >= clipPlayDuration - 0.05 && _videoController!.value.isPlaying) {
+      // Check if the raw video reached the end of the current clip's outPoint
+      if (rawPositionSeconds >= clip.outPoint - 0.05 && _videoController!.value.isPlaying) {
         // Check if there's a next clip
         if (clipIndex < _videoClips.length - 1) {
           // Transition to next clip
@@ -3727,7 +3739,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
             _videoController!.setPlaybackSpeed(nextClip.speed);
             _videoController!.setVolume(_isMuted ? 0.0 : nextClip.volume.clamp(0.0, 1.0));
             _videoController!.play();
-            _currentTimelinePosition = clipStartOnTimeline + clipPlayDuration;
+            _currentTimelinePosition = clipStartOnTimeline + clip.timelineDuration;
             setState(() {});
           });
           return;
@@ -3750,8 +3762,9 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
       return;
     }
     
-    // Sync all layers (audio, text visibility, etc.) to current time
+    // Sync all layers (audio, overlays, text visibility, etc.) to current time
     _syncAudioLayersToTime(timelinePosition);
+    _syncVideoOverlaysToTime(timelinePosition);
     
     // Only auto-scroll during playback
     if (!_videoController!.value.isPlaying) return;
@@ -3915,7 +3928,7 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
           // Create a temporary controller to get duration
           final tempController = VideoPlayerController.file(File(filePath));
           await tempController.initialize();
-          final clipDuration = tempController.value.duration.inSeconds.toDouble();
+          final clipDuration = tempController.value.duration.inMilliseconds / 1000.0;
           await tempController.dispose();
           
           // Add clip to timeline
@@ -13691,9 +13704,8 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               // AI Expand tool opens the expansion bottom sheet
               if (tool.id == 'ai-expand') {
                 _handleOpenAIExpansion();
+                return;
               }
-              
-              setState(() => _selectedTool = tool.id);
               
               // Edit tool opens the edit menu (same style as audio)
               if (tool.id == 'edit') {
@@ -13709,7 +13721,10 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                   _clipVolume = targetClip.volume;
                   _clipSpeed = targetClip.speed;
                   
-                  setState(() => _isEditMenuMode = true);
+                  setState(() {
+                    _selectedTool = 'edit';
+                    _isEditMenuMode = true;
+                  });
                 } else {
                   _showSnackBar('Add a video clip first');
                 }
@@ -13718,23 +13733,25 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
               
               // Aspect tool opens the aspect ratio menu
               if (tool.id == 'aspect') {
-                setState(() => _isAspectMenuMode = true);
+                setState(() {
+                  _selectedTool = 'aspect';
+                  _isAspectMenuMode = true;
+                });
                 return;
               }
               
               // Background tool opens the background menu
               if (tool.id == 'background') {
                 setState(() {
+                  _selectedTool = 'background';
                   _isBackgroundMenuMode = true;
                   _backgroundTab = 'main';
                 });
                 return;
               }
               
-              // Only show coming soon for non-functional tools
-              if (tool.id != 'adjust' && tool.id != 'filters' && tool.id != 'stickers') {
-                _showSnackBar('${tool.name} coming soon');
-              }
+              // Filters and Adjust tools
+              setState(() => _selectedTool = tool.id);
             },
             child: Container(
               width: 64,
