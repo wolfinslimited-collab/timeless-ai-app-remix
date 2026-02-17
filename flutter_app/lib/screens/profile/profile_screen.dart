@@ -376,13 +376,12 @@ class ProfileScreen extends StatelessWidget {
     final initials =
         displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: Consumer<CreditsProvider>(
-          builder: (context, creditsProvider, child) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+    return SafeArea(
+      bottom: false,
+      child: Consumer<CreditsProvider>(
+        builder: (context, creditsProvider, child) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
