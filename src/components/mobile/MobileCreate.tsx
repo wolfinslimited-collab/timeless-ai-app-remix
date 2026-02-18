@@ -21,7 +21,6 @@ export function MobileCreate({ onNavigate }: MobileCreateProps) {
           icon={Paintbrush} 
           title="Trending Styles" 
           description="Ultra-realistic fashion visuals with AI styling"
-          badge="NEW"
           onClick={() => onNavigate("visual-styles")}
         />
 
