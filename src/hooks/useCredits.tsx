@@ -24,12 +24,22 @@ export const MODEL_CREDITS: Record<string, number> = {
   // Video models
   "wan-2.6": 15,
   "kling-2.6": 25,
+  "kling-3.0": 40,
   "veo-3": 30,
   "veo-3-fast": 20,
   "hailuo-02": 18,
   "seedance-1.5": 20,
+  "seedance-pro": 22,
   "luma": 22,
   "hunyuan-1.5": 18,
+  "kie-kling": 12,
+  "kie-veo31": 12,
+  "kie-grok": 15,
+  "kie-sora2": 12,
+  "kie-sora2-pro": 18,
+  "kie-hailuo": 10,
+  "kie-hailuo-2.3": 15,
+  "kie-wan": 8,
 
   // Music models - Fal.ai
   "sonauto": 15,
