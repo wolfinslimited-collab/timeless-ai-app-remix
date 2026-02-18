@@ -20,6 +20,7 @@ class _PricingScreenState extends State<PricingScreen>
   bool _isYearly = false;
   bool _isLoading = true;
   int _plansPageIndex = 0;
+  String? _purchasingPackageId;
 
   List<SubscriptionPlan> _subscriptionPlans = [];
   List<CreditPackage> _creditPackages = [];
@@ -170,7 +171,11 @@ class _PricingScreenState extends State<PricingScreen>
       return;
     }
 
+    setState(() => _purchasingPackageId = package.id);
+
     final success = await iapProvider.purchase(productId);
+
+    if (mounted) setState(() => _purchasingPackageId = null);
 
     if (!success && iapProvider.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -662,8 +667,9 @@ class _PricingScreenState extends State<PricingScreen>
                 ..._creditPackages.map((pkg) => _CreditPackageCard(
                       package: pkg,
                       iconData: _getIconData(pkg.icon),
-                      isPurchasing: iapProvider.isPurchasing,
-                      onPurchase: () => _handleCreditPurchase(pkg),
+                      isPurchasing: _purchasingPackageId == pkg.id,
+                      isAnyPurchasing: _purchasingPackageId != null,
+                      onPurchase: _purchasingPackageId != null ? null : () => _handleCreditPurchase(pkg),
                     )),
               ],
 
@@ -1031,12 +1037,14 @@ class _CreditPackageCard extends StatelessWidget {
   final CreditPackage package;
   final IconData iconData;
   final bool isPurchasing;
-  final VoidCallback onPurchase;
+  final bool isAnyPurchasing;
+  final VoidCallback? onPurchase;
 
   const _CreditPackageCard({
     required this.package,
     required this.iconData,
     required this.isPurchasing,
+    required this.isAnyPurchasing,
     required this.onPurchase,
   });
 
@@ -1137,32 +1145,38 @@ class _CreditPackageCard extends StatelessWidget {
                   : null,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: ElevatedButton(
-              onPressed: isPurchasing ? null : onPurchase,
-              style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    isPopular ? Colors.transparent : AppTheme.secondary,
-                foregroundColor: isPopular ? Colors.white : null,
-                shadowColor: Colors.transparent,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: isPopular
-                      ? BorderSide.none
-                      : BorderSide(color: AppTheme.border),
+            child: Opacity(
+              opacity: isAnyPurchasing && !isPurchasing ? 0.5 : 1.0,
+              child: ElevatedButton(
+                onPressed: onPurchase,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      isPopular ? Colors.transparent : AppTheme.secondary,
+                  foregroundColor: isPopular ? Colors.white : null,
+                  shadowColor: Colors.transparent,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: isPopular
+                        ? BorderSide.none
+                        : BorderSide(color: AppTheme.border),
+                  ),
                 ),
+                child: isPurchasing
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: isPopular ? Colors.white : AppTheme.primary,
+                        ),
+                      )
+                    : Text(
+                        '\$${package.price.toStringAsFixed(2)}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
               ),
-              child: isPurchasing
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(
-                      '\$${package.price.toStringAsFixed(2)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
             ),
           ),
         ],

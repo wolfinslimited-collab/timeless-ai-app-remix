@@ -137,7 +137,7 @@ function getIcon(iconName: string) {
 export function MobilePricing({ onBack }: MobilePricingProps) {
   const [activeTab, setActiveTab] = useState<"subscriptions" | "credits">("subscriptions");
   const [isYearly, setIsYearly] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loadingPackageId, setLoadingPackageId] = useState<string | null>(null);
   
   const [currentPlanIndex, setCurrentPlanIndex] = useState(0);
 
@@ -146,13 +146,15 @@ export function MobilePricing({ onBack }: MobilePricingProps) {
 
   const plans = isYearly ? YEARLY_PLANS : SUBSCRIPTION_PLANS;
 
+  const [isSubscribeLoading, setIsSubscribeLoading] = useState(false);
+
   const handleSubscribe = async (plan: SubscriptionPlan) => {
     if (!user) {
       toast.error("Please sign in to subscribe");
       return;
     }
 
-    setIsLoading(true);
+    setIsSubscribeLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: { priceId: plan.priceId, isSubscription: true }
@@ -163,7 +165,7 @@ export function MobilePricing({ onBack }: MobilePricingProps) {
     } catch (error: any) {
       toast.error(error.message || "Something went wrong");
     } finally {
-      setIsLoading(false);
+      setIsSubscribeLoading(false);
     }
   };
 
@@ -174,7 +176,7 @@ export function MobilePricing({ onBack }: MobilePricingProps) {
       return;
     }
 
-    setIsLoading(true);
+    setLoadingPackageId(pkg.id);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: { priceId: pkg.priceId, isSubscription: false }
@@ -185,7 +187,7 @@ export function MobilePricing({ onBack }: MobilePricingProps) {
     } catch (error: any) {
       toast.error(error.message || "Something went wrong");
     } finally {
-      setIsLoading(false);
+      setLoadingPackageId(null);
     }
   };
 
@@ -265,7 +267,7 @@ export function MobilePricing({ onBack }: MobilePricingProps) {
             setIsYearly={setIsYearly}
             currentPlanIndex={currentPlanIndex}
             setCurrentPlanIndex={setCurrentPlanIndex}
-            isLoading={isLoading}
+            isLoading={isSubscribeLoading}
             isCurrentPlan={isCurrentPlan}
             onSubscribe={handleSubscribe}
           />
@@ -273,7 +275,7 @@ export function MobilePricing({ onBack }: MobilePricingProps) {
           <CreditPacksTab
             packages={CREDIT_PACKAGES}
             hasActiveSubscription={hasActiveSubscription}
-            isLoading={isLoading}
+            loadingPackageId={loadingPackageId}
             onPurchase={handleCreditPurchase}
             onViewPlans={() => setActiveTab("subscriptions")}
           />
@@ -490,13 +492,13 @@ function SubscriptionsTab({
 function CreditPacksTab({
   packages,
   hasActiveSubscription,
-  isLoading,
+  loadingPackageId,
   onPurchase,
   onViewPlans,
 }: {
   packages: CreditPackage[];
   hasActiveSubscription: boolean;
-  isLoading: boolean;
+  loadingPackageId: string | null;
   onPurchase: (pkg: CreditPackage) => void;
   onViewPlans: () => void;
 }) {
@@ -537,6 +539,8 @@ function CreditPacksTab({
       <div className="space-y-3">
         {packages.map((pkg) => {
           const Icon = getIcon(pkg.icon);
+          const isThisLoading = loadingPackageId === pkg.id;
+          const anyLoading = loadingPackageId !== null;
           return (
             <div
               key={pkg.id}
@@ -574,15 +578,39 @@ function CreditPacksTab({
                 </div>
                 <button
                   onClick={() => onPurchase(pkg)}
-                  disabled={isLoading || !hasActiveSubscription}
+                  disabled={anyLoading || !hasActiveSubscription}
                   className={cn(
-                    "px-4 py-2 rounded-xl font-semibold text-sm transition-all",
+                    "min-w-[68px] px-4 py-2 rounded-xl font-semibold text-sm transition-all flex items-center justify-center",
                     pkg.popular
                       ? "bg-gradient-to-r from-primary to-pink-500 text-white"
-                      : "bg-secondary text-foreground"
+                      : "bg-secondary text-foreground",
+                    anyLoading && !isThisLoading ? "opacity-50" : ""
                   )}
                 >
-                  ${pkg.price.toFixed(2)}
+                  {isThisLoading ? (
+                    <svg
+                      className="animate-spin h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                  ) : (
+                    `$${pkg.price.toFixed(2)}`
+                  )}
                 </button>
               </div>
             </div>
