@@ -60,7 +60,6 @@ import '../../core/theme.dart';
               description: 'Ultra-realistic fashion visuals with AI styling',
               gradient: [const Color(0xFFF472B6), const Color(0xFFA855F7)],
               onTap: () => context.go('/create/visual-styles'),
-              badge: 'NEW',
             ),
             const SizedBox(height: 16),
 
