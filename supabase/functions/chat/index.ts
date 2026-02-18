@@ -22,6 +22,10 @@ const MODEL_MAPPING: Record<string, string> = {
   // DeepSeek - map to similar reasoning model
   "deepseek-r1": "openai/gpt-5.2",
   "deepseek-v3": "openai/gpt-5",
+  // Claude models - map to best available reasoning models
+  "claude-opus-4": "openai/gpt-5.2",
+  "claude-sonnet-4": "openai/gpt-5",
+  "claude-haiku-4": "openai/gpt-5-mini",
   // Llama models - map to fast models
   "llama-3.3": "google/gemini-2.5-flash",
   "llama-3.3-large": "google/gemini-2.5-pro",
@@ -39,6 +43,9 @@ const MODEL_CREDITS: Record<string, number> = {
   "gemini-3-flash": 1,
   "deepseek-r1": 3,
   "deepseek-v3": 2,
+  "claude-opus-4": 4,
+  "claude-sonnet-4": 3,
+  "claude-haiku-4": 1,
   "llama-3.3": 1,
   "llama-3.3-large": 2,
 };
@@ -51,6 +58,8 @@ const VISION_MODELS = new Set([
   "chatgpt-5.2",
   "chatgpt-5",
   "grok-3",
+  "claude-opus-4",
+  "claude-sonnet-4",
 ]);
 
 // System prompts per model personality
@@ -65,6 +74,9 @@ const SYSTEM_PROMPTS: Record<string, string> = {
   "gemini-3-flash": "You are Gemini 3 Flash, a fast and capable AI. Provide quick, accurate responses while maintaining quality. You can analyze images when provided.",
   "deepseek-r1": "You are DeepSeek R1, an AI specialized in deep reasoning and analysis. Think step by step and provide thorough explanations.",
   "deepseek-v3": "You are DeepSeek V3, a powerful AI assistant. Provide helpful, accurate, and well-reasoned responses.",
+  "claude-opus-4": "You are Claude, an AI assistant made by Anthropic. You are helpful, harmless, and honest. You excel at thoughtful analysis, nuanced reasoning, and clear communication. You can analyze images when provided.",
+  "claude-sonnet-4": "You are Claude Sonnet, an AI assistant made by Anthropic. You balance intelligence and speed, providing well-reasoned and helpful responses. You can analyze images when provided.",
+  "claude-haiku-4": "You are Claude Haiku, a fast and compact AI assistant by Anthropic. Be concise, helpful, and accurate in your responses.",
   "llama-3.3": "You are Llama 3.3, an open and helpful AI assistant. Be friendly, accurate, and provide clear responses.",
   "llama-3.3-large": "You are Llama 3.3 Large, a powerful open AI model. Provide comprehensive and helpful responses to all queries.",
 };

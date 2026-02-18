@@ -54,6 +54,9 @@ export const MODEL_CREDITS: Record<string, number> = {
   "gemini-3-flash": 1,
   "deepseek-r1": 3,
   "deepseek-v3": 2,
+  "claude-opus-4": 4,
+  "claude-sonnet-4": 3,
+  "claude-haiku-4": 1,
   "llama-3.3": 1,
   "llama-3.3-large": 2,
 };
