@@ -1153,7 +1153,10 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
             />
           ) : (
             /* Normal Input */
-            <div className="flex gap-2">
+            <div
+              className="flex gap-2 rounded-xl border border-border/50 bg-secondary/20 p-2 cursor-text focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:border-ring transition-all"
+              onClick={() => textareaRef.current?.focus()}
+            >
               {supportsVision && (
                 <>
                   <input
@@ -1232,7 +1235,7 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
                     ? `Message ${model.name} or share an image...` 
                     : `Message ${model.name}...`)
                 }
-                className="min-h-[48px] max-h-[200px] resize-none"
+                className="min-h-[48px] max-h-[200px] resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 p-1"
                 disabled={isLoading}
               />
               <Button
