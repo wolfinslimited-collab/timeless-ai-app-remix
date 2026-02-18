@@ -104,9 +104,10 @@ final Map<String, LogoConfig> _modelConfigs = {
   'kie-runway': const LogoConfig(assetPath: 'assets/logos/runway.png'),
   'kie-runway-i2v': const LogoConfig(assetPath: 'assets/logos/runway.png'),
 
-  // Seedance - original blue color
+  // Seedance (ByteDance)
   'seedance': const LogoConfig(assetPath: 'assets/logos/seedance.webp', useOriginalColor: true),
   'seedance-1.5': const LogoConfig(assetPath: 'assets/logos/seedance.webp', useOriginalColor: true),
+  'seedance-pro': const LogoConfig(assetPath: 'assets/logos/seedance.webp', useOriginalColor: true),
   'kie-seedance': const LogoConfig(assetPath: 'assets/logos/seedance.webp', useOriginalColor: true),
 
   // Luma - original gradient color
@@ -137,6 +138,10 @@ final Map<String, LogoConfig> _modelConfigs = {
   'hailuo': const LogoConfig(assetPath: 'assets/logos/hailuo.png'),
   'hailuo-02': const LogoConfig(assetPath: 'assets/logos/hailuo.png'),
   'kie-hailuo': const LogoConfig(assetPath: 'assets/logos/hailuo.png'),
+  'kie-hailuo-2.3': const LogoConfig(assetPath: 'assets/logos/hailuo.png'),
+
+  // Grok Imagine (xAI)
+  'kie-grok': const LogoConfig(assetPath: 'assets/logos/x-logo.svg', isSvg: true),
 
   // === CHAT MODELS ===
   
@@ -161,6 +166,11 @@ final Map<String, LogoConfig> _modelConfigs = {
   // Llama (Meta)
   'llama-3.3': const LogoConfig(assetPath: 'assets/logos/meta-llama.svg', isSvg: true),
   'llama-3.3-large': const LogoConfig(assetPath: 'assets/logos/meta-llama.svg', isSvg: true),
+
+  // Claude (Anthropic)
+  'claude-opus-4': const LogoConfig(assetPath: 'assets/logos/anthropic.svg', isSvg: true),
+  'claude-sonnet-4': const LogoConfig(assetPath: 'assets/logos/anthropic.svg', isSvg: true),
+  'claude-haiku-4': const LogoConfig(assetPath: 'assets/logos/anthropic.svg', isSvg: true),
 };
 
 class ModelBrandLogo extends StatelessWidget {
