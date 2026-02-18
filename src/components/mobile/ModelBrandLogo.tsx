@@ -3,9 +3,18 @@ import { cn } from "@/lib/utils";
 // Import actual logo files
 import openaiLogo from "@/assets/logos/openai.svg";
 import geminiLogo from "@/assets/logos/gemini.svg";
+import googleGeminiLogo from "@/assets/logos/google-gemini.svg";
 import xLogo from "@/assets/logos/x-logo.svg";
 import metaLlamaLogo from "@/assets/logos/meta-llama.svg";
 import deepseekLogo from "@/assets/logos/deepseek.png";
+import anthropicLogo from "@/assets/logos/anthropic.svg";
+import klingLogo from "@/assets/logos/kling.png";
+import wanLogo from "@/assets/logos/wan.png";
+import lumaLogo from "@/assets/logos/luma.png";
+import hailuoLogo from "@/assets/logos/hailuo.png";
+import seedanceLogo from "@/assets/logos/seedance.webp";
+import hunyuanLogo from "@/assets/logos/hunyuan.png";
+import runwayLogo from "@/assets/logos/runway.png";
 
 interface ModelBrandLogoProps {
   modelId: string;
@@ -62,40 +71,59 @@ const MODEL_CONFIG: Record<string, LogoConfig> = {
   "sd-3.5": { textLogo: "SD", bgColor: "bg-orange-500/20", gradient: "from-orange-500 to-amber-500" },
   
   // Imagen (Google)
-  "imagen-4": { logo: geminiLogo, bgColor: "bg-blue-500/20", invert: false },
-  
+  "imagen-4": { logo: googleGeminiLogo, bgColor: "bg-blue-500/20", invert: false },
+
   // === VIDEO MODELS ===
   // Kling (Kuaishou)
-  "kling-2.6": { textLogo: "K", bgColor: "bg-sky-500/20", gradient: "from-sky-500 to-blue-500" },
-  "kling-2.1": { textLogo: "K", bgColor: "bg-sky-500/20", gradient: "from-sky-500 to-blue-500" },
+  "kling-2.6": { logo: klingLogo, bgColor: "bg-secondary" },
+  "kling-3.0": { logo: klingLogo, bgColor: "bg-secondary" },
+  "kling-2.1": { logo: klingLogo, bgColor: "bg-secondary" },
+  "kie-kling": { logo: klingLogo, bgColor: "bg-secondary" },
   
   // Wan (Alibaba)
-  "wan-2.6": { textLogo: "W", bgColor: "bg-orange-500/20", gradient: "from-orange-500 to-red-500" },
-  "wan-2.1": { textLogo: "W", bgColor: "bg-orange-500/20", gradient: "from-orange-500 to-red-500" },
+  "wan-2.6": { logo: wanLogo, bgColor: "bg-secondary" },
+  "wan-2.1": { logo: wanLogo, bgColor: "bg-secondary" },
+  "kie-wan": { logo: wanLogo, bgColor: "bg-secondary" },
   
   // Veo (Google)
-  "veo-3": { logo: geminiLogo, bgColor: "bg-blue-500/20", invert: false },
-  "veo-3-fast": { logo: geminiLogo, bgColor: "bg-blue-500/20", invert: false },
+  "veo-3": { logo: googleGeminiLogo, bgColor: "bg-blue-500/20", invert: false },
+  "veo-3-fast": { logo: googleGeminiLogo, bgColor: "bg-blue-500/20", invert: false },
+  "kie-veo31": { logo: googleGeminiLogo, bgColor: "bg-blue-500/20", invert: false },
+  "kie-veo31-fast": { logo: googleGeminiLogo, bgColor: "bg-blue-500/20", invert: false },
   
   // Sora (OpenAI)
   "sora": { logo: openaiLogo, bgColor: "bg-secondary", invert: true },
   "sora-2": { logo: openaiLogo, bgColor: "bg-secondary", invert: true },
+  "kie-sora2": { logo: openaiLogo, bgColor: "bg-secondary", invert: true },
+  "kie-sora2-pro": { logo: openaiLogo, bgColor: "bg-secondary", invert: true },
   
   // Luma
-  "luma": { textLogo: "L", bgColor: "bg-purple-500/20", gradient: "from-purple-500 to-violet-500" },
+  "luma": { logo: lumaLogo, bgColor: "bg-secondary" },
+  "kie-luma": { logo: lumaLogo, bgColor: "bg-secondary" },
   
   // Hailuo (MiniMax)
-  "hailuo-02": { textLogo: "H", bgColor: "bg-cyan-500/20", gradient: "from-cyan-500 to-teal-500" },
+  "hailuo-02": { logo: hailuoLogo, bgColor: "bg-secondary" },
+  "kie-hailuo": { logo: hailuoLogo, bgColor: "bg-secondary" },
+  "kie-hailuo-2.3": { logo: hailuoLogo, bgColor: "bg-secondary" },
   
-  // Runway
-  "runway": { textLogo: "R", bgColor: "bg-green-500/20", gradient: "from-green-500 to-emerald-500" },
-  
-  // Seedance
-  "seedance-1.5": { textLogo: "S", bgColor: "bg-lime-500/20", gradient: "from-lime-500 to-green-500" },
+  // Seedance (ByteDance)
+  "seedance-1.5": { logo: seedanceLogo, bgColor: "bg-secondary" },
+  "seedance-pro": { logo: seedanceLogo, bgColor: "bg-secondary" },
+  "kie-seedance": { logo: seedanceLogo, bgColor: "bg-secondary" },
   
   // Hunyuan (Tencent)
-  "hunyuan-1.5": { textLogo: "混", bgColor: "bg-blue-500/20", gradient: "from-blue-600 to-indigo-500" },
+  "hunyuan-1.5": { logo: hunyuanLogo, bgColor: "bg-secondary" },
+  "kie-hunyuan": { logo: hunyuanLogo, bgColor: "bg-secondary" },
   
+  // Runway
+  "runway": { logo: runwayLogo, bgColor: "bg-secondary" },
+  "kie-runway": { logo: runwayLogo, bgColor: "bg-secondary" },
+  "kie-runway-i2v": { logo: runwayLogo, bgColor: "bg-secondary" },
+
+  // Grok Imagine (xAI)
+  "kie-grok": { logo: xLogo, bgColor: "bg-secondary", invert: true },
+  "grok-image": { logo: xLogo, bgColor: "bg-secondary", invert: true },
+
   // === CHAT MODELS ===
   // Grok/xAI
   "grok-3": { logo: xLogo, bgColor: "bg-secondary", invert: true },
@@ -118,6 +146,11 @@ const MODEL_CONFIG: Record<string, LogoConfig> = {
   // Llama (Meta)
   "llama-3.3": { logo: metaLlamaLogo, bgColor: "bg-secondary", invert: true },
   "llama-3.3-large": { logo: metaLlamaLogo, bgColor: "bg-secondary", invert: true },
+
+  // Claude (Anthropic)
+  "claude-opus-4": { logo: anthropicLogo, bgColor: "bg-secondary", invert: true },
+  "claude-sonnet-4": { logo: anthropicLogo, bgColor: "bg-secondary", invert: true },
+  "claude-haiku-4": { logo: anthropicLogo, bgColor: "bg-secondary", invert: true },
 };
 
 // Fallback config
