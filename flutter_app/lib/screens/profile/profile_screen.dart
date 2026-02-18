@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
@@ -33,9 +34,13 @@ class ProfileScreen extends StatelessWidget {
         ),
       );
 
-      // Show rate app bottom sheet after sharing
+      // Show rate app bottom sheet after sharing, only if not already rated
       if (context.mounted) {
-        _showRateAppBottomSheet(context);
+        final prefs = await SharedPreferences.getInstance();
+        final hasRated = prefs.getBool('hasRatedApp') ?? false;
+        if (!hasRated && context.mounted) {
+          _showRateAppBottomSheet(context);
+        }
       }
     } catch (e) {
       debugPrint('Share failed: $e');
@@ -166,6 +171,10 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Future<void> _requestInAppReview() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasRated = prefs.getBool('hasRatedApp') ?? false;
+    if (hasRated) return;
+
     final InAppReview inAppReview = InAppReview.instance;
 
     try {
@@ -178,6 +187,8 @@ class ProfileScreen extends StatelessWidget {
           microsoftStoreId: null,
         );
       }
+      // Mark as rated after successfully requesting review
+      await prefs.setBool('hasRatedApp', true);
     } catch (e) {
       debugPrint('In-app review failed: $e');
     }
