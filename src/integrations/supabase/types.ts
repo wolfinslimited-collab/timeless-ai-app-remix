@@ -158,6 +158,7 @@ export type Database = {
           prompt: string
           provider_endpoint: string | null
           quality: string | null
+          reference_image_url: string | null
           status: string
           task_id: string | null
           thumbnail_url: string | null
@@ -175,6 +176,7 @@ export type Database = {
           prompt: string
           provider_endpoint?: string | null
           quality?: string | null
+          reference_image_url?: string | null
           status?: string
           task_id?: string | null
           thumbnail_url?: string | null
@@ -192,6 +194,7 @@ export type Database = {
           prompt?: string
           provider_endpoint?: string | null
           quality?: string | null
+          reference_image_url?: string | null
           status?: string
           task_id?: string | null
           thumbnail_url?: string | null
