@@ -708,17 +708,6 @@ class _ChatScreenState extends State<ChatScreen> {
                         ],
                       ),
                     ),
-                    // Minimal footer
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        'AI can make mistakes',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: AppTheme.muted.withOpacity(0.5),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),

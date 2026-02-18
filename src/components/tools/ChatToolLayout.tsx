@@ -1252,7 +1252,7 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
               </Button>
             </div>
           )}
-          <div className="flex items-center justify-between mt-2">
+          <div className="flex items-center mt-2">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Coins className="h-3 w-3" />
               <span>
@@ -1262,9 +1262,6 @@ const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {
                 }
               </span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              AI can make mistakes. Consider checking important information.
-            </p>
           </div>
         </div>
       </div>
