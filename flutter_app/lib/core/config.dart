@@ -57,6 +57,9 @@ class AppConfig {
     'gemini-3-flash': 1,
     'deepseek-r1': 3,
     'deepseek-v3': 2,
+    'claude-opus-4': 4,
+    'claude-sonnet-4': 3,
+    'claude-haiku-4': 1,
     'llama-3.3': 1,
     'llama-3.3-large': 2,
   };
@@ -175,6 +178,34 @@ class AppConfig {
       'badge': null,
       'supportsImages': false
     },
+    // Claude/Anthropic models
+    {
+      'id': 'claude-opus-4',
+      'name': 'Claude Opus 4',
+      'credits': 4,
+      'icon': 'anthropic',
+      'description': "Anthropic's most powerful model",
+      'badge': 'TOP',
+      'supportsImages': true
+    },
+    {
+      'id': 'claude-sonnet-4',
+      'name': 'Claude Sonnet 4',
+      'credits': 3,
+      'icon': 'anthropic',
+      'description': 'Balanced speed and intelligence',
+      'badge': null,
+      'supportsImages': true
+    },
+    {
+      'id': 'claude-haiku-4',
+      'name': 'Claude Haiku 4',
+      'credits': 1,
+      'icon': 'anthropic',
+      'description': 'Fast and compact Claude',
+      'badge': null,
+      'supportsImages': false
+    },
     // Llama models
     {
       'id': 'llama-3.3',
@@ -204,6 +235,8 @@ class AppConfig {
     'chatgpt-5.2',
     'chatgpt-5',
     'grok-3',
+    'claude-opus-4',
+    'claude-sonnet-4',
   ];
 
   static bool supportsVision(String modelId) {

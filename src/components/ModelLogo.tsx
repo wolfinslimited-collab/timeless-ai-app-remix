@@ -6,6 +6,7 @@ import geminiLogo from "@/assets/logos/gemini.svg";
 import xLogo from "@/assets/logos/x-logo.svg";
 import metaLlamaLogo from "@/assets/logos/meta-llama.svg";
 import deepseekLogo from "@/assets/logos/deepseek.png";
+import anthropicLogo from "@/assets/logos/anthropic.svg";
 
 interface ModelLogoProps {
   modelId: string;
@@ -49,6 +50,11 @@ const MODEL_CONFIG: Record<string, {
   "deepseek-r1": { logo: deepseekLogo, bgColor: "bg-secondary", invert: false },
   "deepseek-v3": { logo: deepseekLogo, bgColor: "bg-secondary", invert: false },
   
+  // Anthropic/Claude models
+  "claude-opus-4": { logo: anthropicLogo, bgColor: "bg-secondary", invert: true },
+  "claude-sonnet-4": { logo: anthropicLogo, bgColor: "bg-secondary", invert: true },
+  "claude-haiku-4": { logo: anthropicLogo, bgColor: "bg-secondary", invert: true },
+
   // Llama/Meta models
   "llama-3.3": { logo: metaLlamaLogo, bgColor: "bg-secondary", invert: true },
   "llama-3.3-large": { logo: metaLlamaLogo, bgColor: "bg-secondary", invert: true },
@@ -93,6 +99,9 @@ export const getModelEmoji = (modelId: string): string => {
     "gemini-2.5-pro": "✦",
     "deepseek-r1": "🔍",
     "deepseek-v3": "🔍",
+    "claude-opus-4": "◆",
+    "claude-sonnet-4": "◆",
+    "claude-haiku-4": "◆",
     "llama-3.3": "🦙",
     "llama-3.3-large": "🦙",
   };

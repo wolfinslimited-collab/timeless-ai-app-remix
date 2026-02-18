@@ -35,6 +35,11 @@ final Map<String, ModelConfig> _modelConfigs = {
   'deepseek-r1': const ModelConfig(logoPath: 'assets/logos/deepseek.png', isSvg: false, invert: false),
   'deepseek-v3': const ModelConfig(logoPath: 'assets/logos/deepseek.png', isSvg: false, invert: false),
 
+  // Claude/Anthropic models
+  'claude-opus-4': const ModelConfig(logoPath: 'assets/logos/anthropic.svg', invert: true),
+  'claude-sonnet-4': const ModelConfig(logoPath: 'assets/logos/anthropic.svg', invert: true),
+  'claude-haiku-4': const ModelConfig(logoPath: 'assets/logos/anthropic.svg', invert: true),
+
   // Llama/Meta models
   'llama-3.3': const ModelConfig(logoPath: 'assets/logos/meta-llama.svg', invert: true),
   'llama-3.3-large': const ModelConfig(logoPath: 'assets/logos/meta-llama.svg', invert: true),

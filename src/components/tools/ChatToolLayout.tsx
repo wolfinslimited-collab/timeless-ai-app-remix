@@ -119,6 +119,8 @@ const VISION_MODELS = [
   "chatgpt-5.2",
   "chatgpt-5",
   "grok-3",
+  "claude-opus-4",
+  "claude-sonnet-4",
 ];
 
 const ChatToolLayout = ({ model }: ChatToolLayoutProps) => {

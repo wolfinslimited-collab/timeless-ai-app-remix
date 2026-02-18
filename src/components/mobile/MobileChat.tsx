@@ -45,6 +45,9 @@ const chatModels: ChatModel[] = [
   { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", credits: 2, icon: "gemini", description: "Top-tier reasoning", supportsImages: true },
   { id: "deepseek-r1", name: "DeepSeek R1", credits: 3, icon: "deepseek", description: "Deep reasoning model", badge: "AI", supportsImages: false },
   { id: "deepseek-v3", name: "DeepSeek V3", credits: 2, icon: "deepseek", description: "Powerful open model", supportsImages: false },
+  { id: "claude-opus-4", name: "Claude Opus 4", credits: 4, icon: "anthropic", description: "Anthropic's most powerful model", badge: "TOP", supportsImages: true },
+  { id: "claude-sonnet-4", name: "Claude Sonnet 4", credits: 3, icon: "anthropic", description: "Balanced speed and intelligence", supportsImages: true },
+  { id: "claude-haiku-4", name: "Claude Haiku 4", credits: 1, icon: "anthropic", description: "Fast and compact Claude", supportsImages: false },
   { id: "llama-3.3", name: "Llama 3.3", credits: 1, icon: "meta", description: "Meta's open AI model", supportsImages: false },
   { id: "llama-3.3-large", name: "Llama 3.3 Large", credits: 2, icon: "meta", description: "Extended capabilities", supportsImages: false },
 ];
