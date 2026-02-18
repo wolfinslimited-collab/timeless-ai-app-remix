@@ -47,6 +47,9 @@ export function MobileProfile({ onNavigate }: MobileProfileProps) {
   };
 
   const handleRateApp = () => {
+    const hasRated = localStorage.getItem('hasRatedApp');
+    if (hasRated) return;
+    localStorage.setItem('hasRatedApp', 'true');
     window.open('https://apps.apple.com/us/app/timeless-all-in-one-ai/id6740804440', '_blank');
   };
 
