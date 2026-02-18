@@ -672,6 +672,10 @@ class _GenerationCard extends StatelessWidget {
                   generation.prompt,
                   style: const TextStyle(color: AppTheme.mutedForeground),
                 ),
+                const SizedBox(height: 20),
+
+                // Details grid
+                _DetailSection(generation: generation),
                 const SizedBox(height: 24),
 
                 // Actions
@@ -772,6 +776,160 @@ class _GenerationCard extends StatelessWidget {
         );
       }
     }
+  }
+}
+
+/// Detail info section shown in the generation detail modal
+class _DetailSection extends StatelessWidget {
+  final Generation generation;
+
+  const _DetailSection({required this.generation});
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <_DetailRow>[];
+
+    // Type
+    rows.add(_DetailRow(
+      icon: Icons.category_outlined,
+      label: 'Type',
+      value: _typeLabel(generation.type),
+    ));
+
+    // Model
+    if (generation.model.isNotEmpty) {
+      rows.add(_DetailRow(
+        icon: Icons.smart_toy_outlined,
+        label: 'Model',
+        value: generation.model,
+      ));
+    }
+
+    // Aspect ratio
+    if (generation.aspectRatio != null && generation.aspectRatio!.isNotEmpty) {
+      rows.add(_DetailRow(
+        icon: Icons.aspect_ratio,
+        label: 'Aspect Ratio',
+        value: generation.aspectRatio!,
+      ));
+    }
+
+    // Quality
+    if (generation.quality != null && generation.quality!.isNotEmpty) {
+      rows.add(_DetailRow(
+        icon: Icons.high_quality_outlined,
+        label: 'Quality',
+        value: _capitalize(generation.quality!),
+      ));
+    }
+
+    // Credits used
+    rows.add(_DetailRow(
+      icon: Icons.toll_outlined,
+      label: 'Credits Used',
+      value: generation.creditsUsed.toString(),
+    ));
+
+    // Created at
+    rows.add(_DetailRow(
+      icon: Icons.calendar_today_outlined,
+      label: 'Created',
+      value: _formatDate(generation.createdAt),
+    ));
+
+    // Status
+    rows.add(_DetailRow(
+      icon: Icons.info_outline,
+      label: 'Status',
+      value: _capitalize(generation.status.name),
+      valueColor: _statusColor(generation.status),
+    ));
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.secondary.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border.withOpacity(0.5)),
+      ),
+      child: Column(
+        children: [
+          for (int i = 0; i < rows.length; i++) ...[
+            rows[i],
+            if (i < rows.length - 1)
+              Divider(height: 1, color: AppTheme.border.withOpacity(0.4), indent: 16, endIndent: 16),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _typeLabel(GenerationType type) {
+    switch (type) {
+      case GenerationType.video: return 'Video';
+      case GenerationType.music: return 'Music';
+      default: return 'Image';
+    }
+  }
+
+  String _capitalize(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+  String _formatDate(DateTime dt) {
+    final months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
+  }
+
+  Color _statusColor(GenerationStatus status) {
+    switch (status) {
+      case GenerationStatus.completed: return const Color(0xFF10B981);
+      case GenerationStatus.failed: return AppTheme.destructive;
+      case GenerationStatus.pending:
+      case GenerationStatus.processing: return const Color(0xFFF59E0B);
+    }
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  const _DetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: AppTheme.mutedForeground),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: const TextStyle(color: AppTheme.mutedForeground, fontSize: 13),
+          ),
+          const Spacer(),
+          Flexible(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: valueColor,
+              ),
+              textAlign: TextAlign.right,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
