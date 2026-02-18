@@ -31,6 +31,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final _supabase = Supabase.instance.client;
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  final _inputFocusNode = FocusNode();
+  bool _inputFocused = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -50,6 +52,9 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _inputFocusNode.addListener(() {
+      setState(() => _inputFocused = _inputFocusNode.hasFocus);
+    });
     _initVoice();
   }
 
@@ -64,6 +69,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    _inputFocusNode.dispose();
     _voiceService.cancelListening();
     super.dispose();
   }
@@ -607,11 +613,25 @@ class _ChatScreenState extends State<ChatScreen> {
                         color: AppTheme.secondary,
                         borderRadius: BorderRadius.circular(22),
                         border: Border.all(
-                          color: AppTheme.border.withOpacity(0.4),
-                          width: 1,
+                          color: _inputFocused
+                              ? AppTheme.primary
+                              : AppTheme.border.withOpacity(0.4),
+                          width: _inputFocused ? 1.5 : 1,
                         ),
+                        boxShadow: _inputFocused
+                            ? [
+                                BoxShadow(
+                                  color: AppTheme.primary.withOpacity(0.15),
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : null,
                       ),
-                      child: Row(
+                      child: GestureDetector(
+                        onTap: () => _inputFocusNode.requestFocus(),
+                        behavior: HitTestBehavior.translucent,
+                        child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           // Left actions — compact inline icons
@@ -648,6 +668,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           Expanded(
                             child: TextField(
                               controller: _messageController,
+                              focusNode: _inputFocusNode,
                               minLines: 1,
                               maxLines: 3,
                               textInputAction: TextInputAction.send,
@@ -706,7 +727,8 @@ class _ChatScreenState extends State<ChatScreen> {
                             ),
                           ),
                         ],
-                      ),
+                       ),
+                      ), // GestureDetector
                     ),
                   ],
                 ),
