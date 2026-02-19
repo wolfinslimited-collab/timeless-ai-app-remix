@@ -34,11 +34,18 @@ class ProfileScreen extends StatelessWidget {
         ),
       );
 
-      // Show rate app bottom sheet after sharing, only if not already rated
       if (context.mounted) {
         final prefs = await SharedPreferences.getInstance();
         final hasRated = prefs.getBool('hasRatedApp') ?? false;
-        if (!hasRated && context.mounted) {
+        if (hasRated) return;
+
+        final lastDismissed = prefs.getInt('ratePromptDismissedAt') ?? 0;
+        final daysSinceDismiss = DateTime.now()
+                .difference(DateTime.fromMillisecondsSinceEpoch(lastDismissed))
+                .inDays;
+        if (lastDismissed > 0 && daysSinceDismiss < 30) return;
+
+        if (context.mounted) {
           _showRateAppBottomSheet(context);
         }
       }
@@ -113,8 +120,10 @@ class ProfileScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(context);
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('hasRatedApp', true);
                   _requestInAppReview();
                 },
                 style: ElevatedButton.styleFrom(
@@ -147,7 +156,12 @@ class ProfileScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () async {
+                  Navigator.pop(context);
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setInt('ratePromptDismissedAt',
+                      DateTime.now().millisecondsSinceEpoch);
+                },
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.white60,
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -172,8 +186,7 @@ class ProfileScreen extends StatelessWidget {
 
   Future<void> _requestInAppReview() async {
     final prefs = await SharedPreferences.getInstance();
-    final hasRated = prefs.getBool('hasRatedApp') ?? false;
-    if (hasRated) return;
+    await prefs.setBool('hasRatedApp', true);
 
     final InAppReview inAppReview = InAppReview.instance;
 
@@ -181,14 +194,11 @@ class ProfileScreen extends StatelessWidget {
       if (await inAppReview.isAvailable()) {
         await inAppReview.requestReview();
       } else {
-        // Fallback to opening store listing
         await inAppReview.openStoreListing(
           appStoreId: _appStoreId,
           microsoftStoreId: null,
         );
       }
-      // Mark as rated after successfully requesting review
-      await prefs.setBool('hasRatedApp', true);
     } catch (e) {
       debugPrint('In-app review failed: $e');
     }
@@ -397,30 +407,12 @@ class ProfileScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Profile',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppTheme.secondary,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.settings_outlined, size: 18),
-                          onPressed: () {},
-                          padding: EdgeInsets.zero,
-                        ),
-                      ),
-                    ],
+                  const Text(
+                    'Profile',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 24),
 
@@ -546,7 +538,7 @@ class ProfileScreen extends StatelessWidget {
                           ],
                         ),
                         GestureDetector(
-                          onTap: () => context.push('/pricing'),
+                          onTap: () => context.push('/pricing?tab=credits'),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,

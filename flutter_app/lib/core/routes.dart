@@ -68,9 +68,28 @@ import '../widgets/common/main_scaffold.dart';
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
+class _KeyboardDismissObserver extends NavigatorObserver {
+  @override
+  void didPush(Route route, Route? previousRoute) =>
+      FocusManager.instance.primaryFocus?.unfocus();
+
+  @override
+  void didPop(Route route, Route? previousRoute) =>
+      FocusManager.instance.primaryFocus?.unfocus();
+
+  @override
+  void didReplace({Route? newRoute, Route? oldRoute}) =>
+      FocusManager.instance.primaryFocus?.unfocus();
+
+  @override
+  void didRemove(Route route, Route? previousRoute) =>
+      FocusManager.instance.primaryFocus?.unfocus();
+}
+
 final appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/splash',
+  observers: [_KeyboardDismissObserver()],
   redirect: (context, state) {
     final session = Supabase.instance.client.auth.currentSession;
     final isLoggedIn = session != null;
@@ -134,6 +153,7 @@ final appRouter = GoRouter(
     // Main app routes (with bottom nav)
     ShellRoute(
       navigatorKey: _shellNavigatorKey,
+      observers: [_KeyboardDismissObserver()],
       builder: (context, state, child) => MainScaffold(child: child),
       routes: [
         GoRoute(
@@ -327,7 +347,12 @@ final appRouter = GoRouter(
         ),
         GoRoute(
           path: '/pricing',
-          builder: (context, state) => const PricingScreen(),
+          builder: (context, state) {
+            final tab = state.uri.queryParameters['tab'];
+            return PricingScreen(
+              initialTab: tab == 'credits' ? 1 : 0,
+            );
+          },
         ),
         // AI Apps routes
         GoRoute(

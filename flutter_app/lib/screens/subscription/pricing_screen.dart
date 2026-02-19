@@ -7,7 +7,9 @@ import '../../providers/iap_provider.dart';
 import '../../services/pricing_service.dart';
 
 class PricingScreen extends StatefulWidget {
-  const PricingScreen({super.key});
+  final int initialTab;
+
+  const PricingScreen({super.key, this.initialTab = 0});
 
   @override
   State<PricingScreen> createState() => _PricingScreenState();
@@ -36,7 +38,11 @@ class _PricingScreenState extends State<PricingScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTab,
+    );
     _plansPageController = PageController();
     _fetchPricing();
     _setupIAPCallbacks();
@@ -80,7 +86,6 @@ class _PricingScreenState extends State<PricingScreen>
         iapProvider.clearSuccess();
       }
     };
-
 
     iapProvider.onVerificationError = (message) {
       if (mounted) {
@@ -133,10 +138,11 @@ class _PricingScreenState extends State<PricingScreen>
   }
 
   Future<void> _handleCreditPurchase(CreditPackage package) async {
+    if (_purchasingPackageId != null) return;
+
     final creditsProvider = context.read<CreditsProvider>();
     final iapProvider = context.read<IAPProvider>();
 
-    // Check if user has active subscription - only premium users can buy credits
     if (!creditsProvider.hasActiveSubscription) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -187,7 +193,6 @@ class _PricingScreenState extends State<PricingScreen>
       iapProvider.clearError();
     }
   }
-
 
   IconData _getIconData(String iconName) {
     switch (iconName) {
@@ -479,7 +484,7 @@ class _PricingScreenState extends State<PricingScreen>
                             creditsProvider.currentPlan?.toLowerCase() ?? '';
                         final planId = plan.id.toLowerCase();
                         final planName = plan.name.toLowerCase();
-                        
+
                         // Only match if:
                         // 1. User has active subscription AND
                         // 2. Either exact match on plan ID or plan name
@@ -652,6 +657,7 @@ class _PricingScreenState extends State<PricingScreen>
                           iconData: _getIconData(pkg.icon),
                           isPurchasing: false,
                           onPurchase: () {},
+                          isAnyPurchasing: true,
                         ),
                       ),
                     )),
@@ -663,13 +669,12 @@ class _PricingScreenState extends State<PricingScreen>
                 ),
                 const SizedBox(height: 20),
 
-                // Credit packages - enabled for premium users
                 ..._creditPackages.map((pkg) => _CreditPackageCard(
                       package: pkg,
                       iconData: _getIconData(pkg.icon),
                       isPurchasing: _purchasingPackageId == pkg.id,
                       isAnyPurchasing: _purchasingPackageId != null,
-                      onPurchase: _purchasingPackageId != null ? null : () => _handleCreditPurchase(pkg),
+                      onPurchase: () => _handleCreditPurchase(pkg),
                     )),
               ],
 
@@ -1038,7 +1043,7 @@ class _CreditPackageCard extends StatelessWidget {
   final IconData iconData;
   final bool isPurchasing;
   final bool isAnyPurchasing;
-  final VoidCallback? onPurchase;
+  final VoidCallback onPurchase;
 
   const _CreditPackageCard({
     required this.package,
@@ -1052,134 +1057,158 @@ class _CreditPackageCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPopular = package.popular;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: isPopular
-            ? LinearGradient(
-                colors: [
-                  AppTheme.primary.withOpacity(0.2),
-                  const Color(0xFFEC4899).withOpacity(0.2),
-                ],
-              )
-            : null,
-        color: isPopular ? null : AppTheme.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isPopular ? AppTheme.primary : AppTheme.border,
-          width: isPopular ? 2 : 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: isPopular
-                  ? const LinearGradient(
-                      colors: [Color(0xFFF59E0B), Color(0xFFF97316)])
-                  : null,
-              color: isPopular ? null : AppTheme.secondary,
-              borderRadius: BorderRadius.circular(12),
+    return IgnorePointer(
+      ignoring: isAnyPurchasing && !isPurchasing,
+      child: GestureDetector(
+        onTap: isPurchasing ? null : onPurchase,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: isPopular
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppTheme.primary.withOpacity(0.18),
+                      const Color(0xFFEC4899).withOpacity(0.12),
+                    ],
+                  )
+                : null,
+            color: isPopular ? null : AppTheme.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isPopular ? AppTheme.primary : AppTheme.border,
+              width: isPopular ? 1.5 : 1,
             ),
-            child: Icon(
-              iconData,
-              color: isPopular ? Colors.white : AppTheme.primary,
-              size: 24,
-            ),
+            boxShadow: isPopular
+                ? [
+                    BoxShadow(
+                      color: AppTheme.primary.withOpacity(0.15),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: isPopular
+                      ? const LinearGradient(
+                          colors: [AppTheme.primary, Color(0xFFEC4899)])
+                      : null,
+                  color: isPopular ? null : AppTheme.secondary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  iconData,
+                  color: isPopular ? Colors.white : AppTheme.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            package.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isPopular) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [AppTheme.primary, Color(0xFFEC4899)],
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.local_fire_department,
+                                    size: 10, color: Colors.white),
+                                SizedBox(width: 3),
+                                Text(
+                                  'Popular',
+                                  style: TextStyle(
+                                      fontSize: 9,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
                     Text(
-                      package.name,
+                      '${package.credits.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')} credits',
                       style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
                       ),
                     ),
-                    if (isPopular) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [AppTheme.primary, Color(0xFFEC4899)],
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'Popular',
-                          style: TextStyle(
-                              fontSize: 9,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '${package.credits.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')} credits',
-                  style: TextStyle(
-                    color: AppTheme.primary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: isPopular
-                  ? const LinearGradient(
-                      colors: [AppTheme.primary, Color(0xFFEC4899)])
-                  : null,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Opacity(
-              opacity: isAnyPurchasing && !isPurchasing ? 0.5 : 1.0,
-              child: ElevatedButton(
-                onPressed: onPurchase,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      isPopular ? Colors.transparent : AppTheme.secondary,
-                  foregroundColor: isPopular ? Colors.white : null,
-                  shadowColor: Colors.transparent,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    side: isPopular
-                        ? BorderSide.none
-                        : BorderSide(color: AppTheme.border),
-                  ),
-                ),
-                child: isPurchasing
-                    ? SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: isPopular ? Colors.white : AppTheme.primary,
-                        ),
-                      )
-                    : Text(
-                        '\$${package.price.toStringAsFixed(2)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
               ),
-            ),
+              const SizedBox(width: 8),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.primary, Color(0xFFEC4899)],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: ElevatedButton(
+                  onPressed: isPurchasing ? null : onPurchase,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.transparent,
+                    disabledForegroundColor: Colors.white70,
+                    shadowColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: isPurchasing
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          '\$${package.price.toStringAsFixed(2)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

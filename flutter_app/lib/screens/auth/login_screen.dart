@@ -110,7 +110,8 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        body: Container(
+        body: SizedBox.expand(
+      child: Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -430,7 +431,7 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
       ),
-    ));
+    )));
   }
 
   Widget _buildGoogleButton() {

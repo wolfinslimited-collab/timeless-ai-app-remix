@@ -82,7 +82,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
     }
 
     return Scaffold(
-      body: Container(
+      body: SizedBox.expand(
+        child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -315,12 +316,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
           ),
         ),
       ),
+      ),
     );
   }
 
   Widget _buildSuccessScreen() {
     return Scaffold(
-      body: Container(
+      body: SizedBox.expand(
+        child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -424,6 +427,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
             ),
           ),
         ),
+      ),
       ),
     );
   }

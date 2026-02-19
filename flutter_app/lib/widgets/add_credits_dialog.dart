@@ -162,7 +162,7 @@ class AddCreditsDialogContent extends StatelessWidget {
           InkWell(
             onTap: () {
               Navigator.pop(context);
-              context.push('/pricing');
+              context.push('/pricing?tab=credits');
             },
             borderRadius: BorderRadius.circular(14),
             child: Container(
@@ -283,7 +283,7 @@ class AddCreditsDialogContent extends StatelessWidget {
                   isBest: false,
                   onTap: () {
                     Navigator.pop(context);
-                    context.push('/subscription');
+                    context.push('/pricing?tab=credits');
                   },
                 ),
               ),
@@ -295,7 +295,7 @@ class AddCreditsDialogContent extends StatelessWidget {
                   isBest: true,
                   onTap: () {
                     Navigator.pop(context);
-                    context.push('/subscription');
+                    context.push('/pricing?tab=credits');
                   },
                 ),
               ),
@@ -307,7 +307,7 @@ class AddCreditsDialogContent extends StatelessWidget {
                   isBest: false,
                   onTap: () {
                     Navigator.pop(context);
-                    context.push('/subscription');
+                    context.push('/pricing?tab=credits');
                   },
                 ),
               ),

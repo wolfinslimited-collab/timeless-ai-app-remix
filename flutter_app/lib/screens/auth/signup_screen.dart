@@ -301,7 +301,8 @@ class _SignupScreenState extends State<SignupScreen>
 
   Widget _buildVerificationScreen() {
     return Scaffold(
-      body: Container(
+      body: SizedBox.expand(
+        child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -545,12 +546,14 @@ class _SignupScreenState extends State<SignupScreen>
           ),
         ),
       ),
+      ),
     );
   }
 
   Widget _buildSignupScreen() {
     return Scaffold(
-      body: Container(
+      body: SizedBox.expand(
+        child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -990,6 +993,7 @@ class _SignupScreenState extends State<SignupScreen>
             ),
           ),
         ),
+      ),
       ),
     );
   }
