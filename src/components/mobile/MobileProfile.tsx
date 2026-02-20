@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Settings, Crown, Download, Heart, Share2, ChevronRight, LogOut, Image as ImageIcon, Star, Trash2 } from "lucide-react";
+import { Crown, Download, Heart, Share2, ChevronRight, LogOut, Image as ImageIcon, Star, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import type { Screen } from "./MobileNav";
@@ -58,9 +58,6 @@ export function MobileProfile({ onNavigate }: MobileProfileProps) {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-foreground text-xl font-bold">Profile</h1>
-        <button className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center">
-          <Settings className="w-[18px] h-[18px] text-foreground" />
-        </button>
       </div>
 
       {/* User Card */}
