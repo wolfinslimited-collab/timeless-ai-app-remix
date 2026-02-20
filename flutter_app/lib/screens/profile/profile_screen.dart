@@ -238,11 +238,12 @@ class ProfileScreen extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () async {
+              final auth = context.read<AuthProvider>();
               Navigator.pop(context);
-              await context.read<AuthProvider>().signOut();
-              // if (context.mounted) {
-              context.go('/login');
-              // }
+              await auth.signOut();
+              if (context.mounted) {
+                context.go('/login');
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red[400],
