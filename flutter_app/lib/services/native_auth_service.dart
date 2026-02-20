@@ -237,7 +237,7 @@ class NativeAuthService {
           ],
           nonce: hashedNonce,
           webAuthenticationOptions: WebAuthenticationOptions(
-            clientId: 'com.timelessai.app.signin', // Apple Services ID
+            clientId: 'com.timeless.signin', // Apple Services ID
             redirectUri: Uri.parse(
               'https://ifesxveahsbjhmrhkhhy.supabase.co/auth/v1/callback',
             ),
