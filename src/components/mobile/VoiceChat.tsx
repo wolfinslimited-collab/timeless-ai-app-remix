@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, forwardRef } from "react";
-import { Mic, MicOff, X, Keyboard, Settings, HelpCircle } from "lucide-react";
+import { Mic, MicOff, X, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceChatVisualizer } from "./VoiceChatVisualizer";
@@ -318,7 +318,7 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
     <div
       ref={ref}
       className={cn(
-        "fixed inset-0 z-50 flex flex-col transition-all duration-300",
+        "absolute inset-0 z-40 flex flex-col transition-all duration-300",
         isClosing ? "opacity-0 scale-95" : "opacity-100 scale-100 animate-in fade-in zoom-in-95 duration-300"
       )}
       style={{
@@ -351,15 +351,8 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
         <VoiceChatVisualizer state={voiceState} size={180} />
       </div>
 
-      {/* Status text */}
-      <div className="text-center pb-4">
-        <p className="text-muted-foreground text-base">
-          {getStatusLabel()}
-        </p>
-      </div>
-
       {/* Bottom controls */}
-      <div className="flex items-center justify-center gap-8 pb-10 px-6">
+      <div className="flex items-center justify-center gap-6 pb-4 px-6">
         {/* Close button */}
         <button
           onClick={handleClose}
@@ -369,34 +362,22 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
           <X className="h-6 w-6 text-foreground" />
         </button>
 
-        {/* Main mic button */}
+        {/* Status text */}
+        <p className="text-muted-foreground text-base min-w-[120px] text-center">
+          {getStatusLabel()}
+        </p>
+
+        {/* Mute toggle */}
         <button
-          onClick={voiceState === "listening" ? stopListening : startListening}
-          disabled={voiceState === "processing"}
-          className={cn(
-            "w-16 h-16 rounded-full flex items-center justify-center transition-all",
-            voiceState === "processing" && "opacity-50 cursor-not-allowed"
-          )}
-          style={{
-            backgroundColor: voiceState === "listening" 
-              ? "hsla(0, 70%, 50%, 0.9)"
-              : "hsla(0, 0%, 20%, 0.8)",
-          }}
+          onClick={toggleMute}
+          className="w-14 h-14 rounded-full flex items-center justify-center transition-all"
+          style={{ backgroundColor: isMuted ? "hsla(0, 70%, 50%, 0.9)" : "hsla(0, 0%, 20%, 0.8)" }}
         >
           {isMuted ? (
-            <MicOff className="h-6 w-6 text-foreground" />
+            <MicOff className="h-5 w-5 text-foreground" />
           ) : (
-            <Mic className="h-6 w-6 text-foreground" />
+            <Mic className="h-5 w-5 text-foreground" />
           )}
-        </button>
-
-        {/* Keyboard / switch to text */}
-        <button
-          onClick={() => { handleClose(); onSwitchToText?.(); }}
-          className="w-14 h-14 rounded-full flex items-center justify-center transition-all"
-          style={{ backgroundColor: "hsla(0, 0%, 20%, 0.8)" }}
-        >
-          <Keyboard className="h-5 w-5 text-foreground" />
         </button>
       </div>
     </div>

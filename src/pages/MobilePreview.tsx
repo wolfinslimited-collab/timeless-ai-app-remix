@@ -241,14 +241,16 @@ export default function MobilePreview() {
               />
             )}
 
-            {/* Voice Chat Overlay */}
+            {/* Voice Chat Overlay - positioned above navbar */}
             {showVoiceChat && (
-              <VoiceChat
-                isOpen={showVoiceChat}
-                onClose={() => setShowVoiceChat(false)}
-                onSwitchToText={() => { setShowVoiceChat(false); }}
-                model="gemini-3-flash"
-              />
+              <div className="absolute inset-0 bottom-20 z-40">
+                <VoiceChat
+                  isOpen={showVoiceChat}
+                  onClose={() => setShowVoiceChat(false)}
+                  onSwitchToText={() => { setShowVoiceChat(false); }}
+                  model="gemini-3-flash"
+                />
+              </div>
             )}
           </div>
         </div>

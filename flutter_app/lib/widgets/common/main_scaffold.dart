@@ -52,24 +52,14 @@ class BottomNavBar extends StatelessWidget {
               context.go('/create');
               break;
             case 2:
-              // Open voice chat overlay instead of navigating
-              Navigator.of(context).push(
-                PageRouteBuilder(
-                  opaque: false,
-                  pageBuilder: (context, animation, secondaryAnimation) =>
-                      const VoiceChatScreen(),
-                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: ScaleTransition(
-                        scale: Tween<double>(begin: 0.95, end: 1.0).animate(
-                          CurvedAnimation(parent: animation, curve: Curves.easeOut),
-                        ),
-                        child: child,
-                      ),
-                    );
-                  },
-                  transitionDuration: const Duration(milliseconds: 300),
+              // Open voice chat as a non-opaque overlay that doesn't cover the nav bar
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => FractionallySizedBox(
+                  heightFactor: 0.88,
+                  child: const VoiceChatScreen(),
                 ),
               );
               break;
