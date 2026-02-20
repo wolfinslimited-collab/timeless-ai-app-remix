@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 import '../../core/theme.dart';
 import '../../models/download_model.dart';
 import '../../providers/download_provider.dart';
+import '../../widgets/report_content_dialog.dart';
 
 class DownloadsScreen extends StatefulWidget {
   const DownloadsScreen({super.key});
@@ -573,6 +574,16 @@ class _DownloadDetailSheet extends StatelessWidget {
                       onPressed: () => _deleteFile(context),
                       icon: const Icon(Icons.delete_outline, color: AppTheme.destructive),
                       label: const Text('Delete', style: TextStyle(color: AppTheme.destructive)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    onPressed: () => ReportContentDialog.show(context, contentType: 'AI Content'),
+                    icon: const Icon(Icons.flag_outlined, color: AppTheme.muted),
+                    tooltip: 'Report',
+                    style: IconButton.styleFrom(
+                      side: const BorderSide(color: AppTheme.border),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                   ),
                 ],

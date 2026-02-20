@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/theme.dart';
+import '../../widgets/report_content_dialog.dart';
 import '../../services/tools_service.dart';
 import '../../models/download_model.dart';
 import '../../providers/download_provider.dart';
@@ -1115,6 +1116,17 @@ class _ImageToolLayoutState extends State<ImageToolLayout> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: () => ReportContentDialog.show(context, contentType: 'Image'),
+                        icon: const Icon(Icons.flag_outlined, size: 18),
+                        tooltip: 'Report',
+                        style: IconButton.styleFrom(
+                          foregroundColor: AppTheme.muted,
+                          side: BorderSide(color: AppTheme.border.withOpacity(0.5)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                     ],

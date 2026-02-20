@@ -10,6 +10,7 @@ import '../../providers/download_provider.dart';
 import '../../models/download_model.dart';
 import '../create/audio_waveform_widget.dart';
 import '../../widgets/add_credits_dialog.dart';
+import '../../widgets/report_content_dialog.dart';
 
 /// Reusable layout for audio processing tools
 class AudioToolLayout extends StatefulWidget {
@@ -801,6 +802,16 @@ class _AudioToolLayoutState extends State<AudioToolLayout> {
                                           vertical: 12,
                                         ),
                                       ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    onPressed: () => ReportContentDialog.show(context, contentType: 'Audio'),
+                                    icon: const Icon(Icons.flag_outlined, color: AppTheme.muted),
+                                    tooltip: 'Report',
+                                    style: IconButton.styleFrom(
+                                      side: const BorderSide(color: AppTheme.border),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                     ),
                                   ),
                                 ],

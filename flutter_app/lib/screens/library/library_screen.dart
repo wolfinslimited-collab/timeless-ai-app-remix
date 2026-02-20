@@ -10,6 +10,7 @@ import '../../providers/favorites_provider.dart';
 import '../../services/audio_player_service.dart';
 import '../../widgets/music_player_bar.dart';
 import '../../widgets/common/smart_media_image.dart';
+import '../../widgets/report_content_dialog.dart';
 import '../../widgets/common/cached_video_player.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -701,6 +702,16 @@ class _GenerationCard extends StatelessWidget {
                             color: AppTheme.destructive),
                         label: const Text('Delete',
                             style: TextStyle(color: AppTheme.destructive)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      onPressed: () => ReportContentDialog.show(context, contentType: 'AI Content'),
+                      icon: const Icon(Icons.flag_outlined, color: AppTheme.muted),
+                      tooltip: 'Report',
+                      style: IconButton.styleFrom(
+                        side: const BorderSide(color: AppTheme.border),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
                   ],

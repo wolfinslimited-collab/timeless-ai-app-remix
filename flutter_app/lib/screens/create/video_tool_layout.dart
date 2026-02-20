@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:convert';
 import '../../core/theme.dart';
+import '../../widgets/report_content_dialog.dart';
 import '../../providers/credits_provider.dart';
 import '../../models/download_model.dart';
 import '../../providers/download_provider.dart';
@@ -899,6 +900,16 @@ class _VideoToolLayoutState extends State<VideoToolLayout> {
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 8),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            onPressed: () => ReportContentDialog.show(context, contentType: 'Video'),
+                            icon: const Icon(Icons.flag_outlined, size: 16, color: Colors.white70),
+                            tooltip: 'Report',
+                            style: IconButton.styleFrom(
+                              backgroundColor: AppTheme.card,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                           ),
                         ],

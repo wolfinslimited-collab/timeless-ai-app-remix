@@ -37,16 +37,6 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(':app')
-    afterEvaluate {
-        if (project.hasProperty('android')) {
-            project.android {
-                lint {
-                    disable "NullSafeMutableLiveData"
-                    checkReleaseBuilds false
-                }
-            }
-        }
-    }
 }
 
 tasks.register("clean", Delete) {
