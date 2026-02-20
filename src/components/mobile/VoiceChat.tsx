@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback, useEffect, forwardRef } from "react";
-import { Mic, MicOff, Volume2, VolumeX, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Mic, MicOff, X, Keyboard, Settings, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceChatVisualizer } from "./VoiceChatVisualizer";
@@ -10,30 +9,25 @@ interface SpeechRecognitionEvent extends Event {
   resultIndex: number;
   results: SpeechRecognitionResultList;
 }
-
 interface SpeechRecognitionResultList {
   length: number;
   item(index: number): SpeechRecognitionResult;
   [index: number]: SpeechRecognitionResult;
 }
-
 interface SpeechRecognitionResult {
   isFinal: boolean;
   length: number;
   item(index: number): SpeechRecognitionAlternative;
   [index: number]: SpeechRecognitionAlternative;
 }
-
 interface SpeechRecognitionAlternative {
   transcript: string;
   confidence: number;
 }
-
 interface SpeechRecognitionErrorEvent extends Event {
   error: string;
   message: string;
 }
-
 interface SpeechRecognitionInterface extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
@@ -49,44 +43,36 @@ interface SpeechRecognitionInterface extends EventTarget {
 interface VoiceChatProps {
   isOpen: boolean;
   onClose: () => void;
+  onSwitchToText?: () => void;
   model: string;
 }
 
 type VoiceState = "idle" | "listening" | "processing" | "speaking";
-
-// Fast model for voice chat - optimized for low latency
 const VOICE_MODEL = "gemini-3-flash";
 
-// Clean markdown formatting from text for display
 const cleanMarkdown = (text: string): string => {
   return text
-    // Remove bold/italic markers
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/\*([^*]+)\*/g, '$1')
     .replace(/__([^_]+)__/g, '$1')
     .replace(/_([^_]+)_/g, '$1')
-    // Remove headers
     .replace(/^#{1,6}\s+/gm, '')
-    // Remove bullet points and normalize spacing
     .replace(/^\s*[-*+]\s+/gm, '• ')
-    // Remove numbered list markers
     .replace(/^\s*\d+\.\s+/gm, '')
-    // Remove code backticks
     .replace(/`([^`]+)`/g, '$1')
-    // Remove links, keep text
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    // Clean up extra whitespace
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 };
 
-const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose, model }, ref) => {
+const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose, onSwitchToText, model }, ref) => {
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState("");
   const [isMuted, setIsMuted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
   
   const recognitionRef = useRef<SpeechRecognitionInterface | null>(null);
   const conversationRef = useRef<Array<{ role: string; content: string }>>([]);
@@ -96,220 +82,113 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
   const silenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
 
-  // Load and select the best available voice - prioritizing natural/premium voices
+  // Load voices
   useEffect(() => {
     const loadVoices = () => {
       const voices = window.speechSynthesis?.getVoices() || [];
-      
-      // Priority order for most natural-sounding voices
-      // These are ranked by quality based on common availability
       const voicePriority = [
-        // Premium/Neural voices (best quality)
         (v: SpeechSynthesisVoice) => v.name.includes("Google UK English Female") && v.lang.startsWith("en"),
-        (v: SpeechSynthesisVoice) => v.name.includes("Google UK English Male") && v.lang.startsWith("en"),
         (v: SpeechSynthesisVoice) => v.name.includes("Google US English") && v.lang.startsWith("en"),
-        // macOS premium voices
         (v: SpeechSynthesisVoice) => v.name === "Samantha" && v.lang.startsWith("en"),
-        (v: SpeechSynthesisVoice) => v.name === "Karen" && v.lang.startsWith("en"),
-        (v: SpeechSynthesisVoice) => v.name === "Daniel" && v.lang.startsWith("en"),
-        (v: SpeechSynthesisVoice) => v.name === "Moira" && v.lang.startsWith("en"),
-        // Enhanced/Premium fallbacks
-        (v: SpeechSynthesisVoice) => (v.name.includes("Premium") || v.name.includes("Neural") || v.name.includes("Natural")) && v.lang.startsWith("en"),
-        (v: SpeechSynthesisVoice) => v.name.includes("Enhanced") && v.lang.startsWith("en"),
-        // Microsoft voices (Windows)
-        (v: SpeechSynthesisVoice) => v.name.includes("Microsoft Zira") && v.lang.startsWith("en"),
-        (v: SpeechSynthesisVoice) => v.name.includes("Microsoft David") && v.lang.startsWith("en"),
-        // Any Google voice
         (v: SpeechSynthesisVoice) => v.name.includes("Google") && v.lang.startsWith("en"),
-        // Final fallback - any English voice
         (v: SpeechSynthesisVoice) => v.lang.startsWith("en-US"),
-        (v: SpeechSynthesisVoice) => v.lang.startsWith("en-GB"),
         (v: SpeechSynthesisVoice) => v.lang.startsWith("en"),
       ];
-      
       for (const matcher of voicePriority) {
         const voice = voices.find(matcher);
-        if (voice) {
-          setSelectedVoice(voice);
-          console.log("Selected voice:", voice.name, voice.lang);
-          break;
-        }
+        if (voice) { setSelectedVoice(voice); break; }
       }
     };
-
     loadVoices();
-    
-    if (window.speechSynthesis) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-    
-    return () => {
-      if (window.speechSynthesis) {
-        window.speechSynthesis.onvoiceschanged = null;
-      }
-    };
+    if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = loadVoices;
+    return () => { if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = null; };
   }, []);
 
-  // Initialize speech recognition with optimized settings
+  // Init speech recognition
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = true; // Keep listening
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SR) {
+        recognitionRef.current = new SR();
+        recognitionRef.current.continuous = true;
         recognitionRef.current.interimResults = true;
         recognitionRef.current.lang = "en-US";
 
         recognitionRef.current.onresult = (event) => {
-          // Clear silence timeout on any speech
-          if (silenceTimeoutRef.current) {
-            clearTimeout(silenceTimeoutRef.current);
-          }
-
+          if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
           let finalTranscript = "";
           let interimTranscript = "";
-
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const result = event.results[i];
-            if (result.isFinal) {
-              finalTranscript += result[0].transcript;
-            } else {
-              interimTranscript += result[0].transcript;
-            }
+            if (result.isFinal) finalTranscript += result[0].transcript;
+            else interimTranscript += result[0].transcript;
           }
-
-          // Show what user is saying in real-time
           setTranscript(finalTranscript || interimTranscript);
-
           if (finalTranscript) {
-            // Set a short silence timeout to detect end of speech
             silenceTimeoutRef.current = setTimeout(() => {
-              if (recognitionRef.current) {
-                recognitionRef.current.stop();
-              }
+              recognitionRef.current?.stop();
               handleSendMessage(finalTranscript.trim());
-            }, 800); // Wait 800ms of silence before sending
+            }, 800);
           }
         };
-
         recognitionRef.current.onerror = (event) => {
-          console.error("Speech recognition error:", event.error);
-          if (event.error !== "no-speech" && event.error !== "aborted") {
-            setError(`Speech error: ${event.error}`);
-          }
+          if (event.error !== "no-speech" && event.error !== "aborted") setError(`Speech error: ${event.error}`);
           setVoiceState("idle");
         };
-
         recognitionRef.current.onend = () => {
-          // Only reset if we're still in listening mode (not processing)
-          if (voiceState === "listening") {
-            setVoiceState("idle");
-          }
+          if (voiceState === "listening") setVoiceState("idle");
         };
       } else {
         setError("Speech recognition not supported");
       }
     }
-
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-      }
-      if (silenceTimeoutRef.current) {
-        clearTimeout(silenceTimeoutRef.current);
-      }
-      if (streamAbortRef.current) {
-        streamAbortRef.current.abort();
-      }
+      recognitionRef.current?.abort();
+      if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+      streamAbortRef.current?.abort();
       window.speechSynthesis?.cancel();
     };
   }, []);
 
-  // Track if we finished speaking to auto-restart listening
   const shouldAutoRestartRef = useRef(false);
 
-  // Speak the next chunk in the queue
   const speakNextChunk = useCallback(() => {
-    if (!window.speechSynthesis || isMuted) {
-      isSpeakingRef.current = false;
-      return;
-    }
-
+    if (!window.speechSynthesis || isMuted) { isSpeakingRef.current = false; return; }
     const nextText = speechQueueRef.current.shift();
     if (!nextText) {
       isSpeakingRef.current = false;
-      // Auto-restart listening after speaking completes
       if (shouldAutoRestartRef.current) {
         shouldAutoRestartRef.current = false;
         setVoiceState("idle");
-        // Small delay before restarting to feel natural
         setTimeout(() => {
           if (recognitionRef.current) {
             setVoiceState("listening");
-            try {
-              recognitionRef.current.start();
-            } catch (e) {
-              console.log("Recognition restart failed:", e);
-              setVoiceState("idle");
-            }
+            try { recognitionRef.current.start(); } catch { setVoiceState("idle"); }
           }
         }, 500);
       }
       return;
     }
-
     isSpeakingRef.current = true;
     setVoiceState("speaking");
-    shouldAutoRestartRef.current = true; // Mark that we should auto-restart after speaking
-
+    shouldAutoRestartRef.current = true;
     const utterance = new SpeechSynthesisUtterance(nextText);
-    utterance.rate = 1.05; // Slightly faster but still natural
+    utterance.rate = 1.05;
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
-
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-    }
-
-    utterance.onend = () => {
-      currentUtteranceRef.current = null;
-      speakNextChunk(); // Speak next chunk
-    };
-
-    utterance.onerror = (e) => {
-      console.log("Speech error:", e);
-      currentUtteranceRef.current = null;
-      speakNextChunk(); // Try next chunk on error
-    };
-
+    if (selectedVoice) utterance.voice = selectedVoice;
+    utterance.onend = () => { currentUtteranceRef.current = null; speakNextChunk(); };
+    utterance.onerror = () => { currentUtteranceRef.current = null; speakNextChunk(); };
     currentUtteranceRef.current = utterance;
-    
-    // Chrome workaround: cancel and re-speak to avoid stuck queue
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
   }, [selectedVoice, isMuted]);
 
-  // Add text to speech queue - speak immediately for faster response
   const queueSpeech = useCallback((text: string) => {
-    // Clean text for speech
-    const cleaned = text
-      .replace(/```[\s\S]*?```/g, "code block")
-      .replace(/`([^`]+)`/g, "$1")
-      .replace(/\*\*([^*]+)\*\*/g, "$1")
-      .replace(/\*([^*]+)\*/g, "$1")
-      .replace(/#{1,6}\s/g, "")
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-      .trim();
-
+    const cleaned = text.replace(/```[\s\S]*?```/g, "code block").replace(/`([^`]+)`/g, "$1").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*]+)\*/g, "$1").replace(/#{1,6}\s/g, "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").trim();
     if (!cleaned) return;
-
-    console.log("Queueing speech:", cleaned.substring(0, 50) + "...");
     speechQueueRef.current.push(cleaned);
-
-    // Start speaking immediately if not already
-    if (!isSpeakingRef.current && !isMuted) {
-      speakNextChunk();
-    }
+    if (!isSpeakingRef.current && !isMuted) speakNextChunk();
   }, [speakNextChunk, isMuted]);
 
   const handleSendMessage = async (text: string) => {
@@ -317,153 +196,82 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
     setResponse("");
     setError(null);
     speechQueueRef.current = [];
-
-    // Abort any previous stream
-    if (streamAbortRef.current) {
-      streamAbortRef.current.abort();
-    }
+    streamAbortRef.current?.abort();
     streamAbortRef.current = new AbortController();
-
     try {
       conversationRef.current.push({ role: "user", content: text });
-
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
-
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-          body: JSON.stringify({
-            messages: conversationRef.current,
-            model: VOICE_MODEL, // Always use fast model for voice
-            webSearch: false,
-          }),
-          signal: streamAbortRef.current.signal,
-        }
-      );
-
-      if (!res.ok) {
-        throw new Error(`API error: ${res.status}`);
-      }
-
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token && { Authorization: `Bearer ${token}` }) },
+        body: JSON.stringify({ messages: conversationRef.current, model: VOICE_MODEL, webSearch: false }),
+        signal: streamAbortRef.current.signal,
+      });
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
       const reader = res.body?.getReader();
       if (!reader) throw new Error("No response body");
-
       const decoder = new TextDecoder();
-      let buffer = "";
-      let fullResponse = "";
-      let sentenceBuffer = "";
-
+      let buffer = "", fullResponse = "", sentenceBuffer = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
-
         let newlineIndex: number;
         while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
           let line = buffer.slice(0, newlineIndex);
           buffer = buffer.slice(newlineIndex + 1);
-
           if (line.endsWith("\r")) line = line.slice(0, -1);
           if (line.startsWith(":") || line.trim() === "") continue;
           if (!line.startsWith("data: ")) continue;
-
           const jsonStr = line.slice(6).trim();
           if (jsonStr === "[DONE]") break;
-
           try {
             const parsed = JSON.parse(jsonStr);
             const content = parsed.choices?.[0]?.delta?.content;
             if (content) {
               fullResponse += content;
               setResponse(fullResponse);
-
-              // Stream speech: queue smaller chunks for faster response
               sentenceBuffer += content;
-              
-              // Speak after shorter phrases (comma, period, question, exclamation, or 60+ chars)
               const phraseMatch = sentenceBuffer.match(/^(.*?[.!?,;:])\s*/);
               if (phraseMatch && phraseMatch[1].length > 10) {
-                const phrase = phraseMatch[1];
+                queueSpeech(phraseMatch[1]);
                 sentenceBuffer = sentenceBuffer.slice(phraseMatch[0].length);
-                queueSpeech(phrase);
               } else if (sentenceBuffer.length > 60) {
-                // Speak longer chunks even without punctuation
                 const words = sentenceBuffer.split(' ');
                 if (words.length > 5) {
-                  const toSpeak = words.slice(0, -1).join(' ');
+                  queueSpeech(words.slice(0, -1).join(' '));
                   sentenceBuffer = words[words.length - 1];
-                  queueSpeech(toSpeak);
                 }
               }
             }
-          } catch {
-            buffer = line + "\n" + buffer;
-            break;
-          }
+          } catch { buffer = line + "\n" + buffer; break; }
         }
       }
-
-      // Speak any remaining text
-      if (sentenceBuffer.trim()) {
-        queueSpeech(sentenceBuffer.trim());
-      }
-
-      // Add to conversation history
-      if (fullResponse) {
-        conversationRef.current.push({ role: "assistant", content: fullResponse });
-      }
-
-      // If muted or nothing to speak, go back to idle
-      if (isMuted || speechQueueRef.current.length === 0) {
-        setVoiceState("idle");
-      }
+      if (sentenceBuffer.trim()) queueSpeech(sentenceBuffer.trim());
+      if (fullResponse) conversationRef.current.push({ role: "assistant", content: fullResponse });
+      if (isMuted || speechQueueRef.current.length === 0) setVoiceState("idle");
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        return; // Ignore abort errors
-      }
-      console.error("Voice chat error:", err);
+      if (err instanceof Error && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : "Failed to get response");
       setVoiceState("idle");
     }
   };
 
   const startListening = useCallback(() => {
-    if (!recognitionRef.current) {
-      setError("Speech recognition not available");
-      return;
-    }
-
+    if (!recognitionRef.current) { setError("Speech recognition not available"); return; }
     setError(null);
     setTranscript("");
     setVoiceState("listening");
-
-    // Stop any ongoing speech
     window.speechSynthesis?.cancel();
     speechQueueRef.current = [];
     isSpeakingRef.current = false;
-
-    try {
-      recognitionRef.current.start();
-    } catch (err) {
-      console.error("Failed to start recognition:", err);
-      setVoiceState("idle");
-    }
+    try { recognitionRef.current.start(); } catch { setVoiceState("idle"); }
   }, []);
 
   const stopListening = useCallback(() => {
-    if (silenceTimeoutRef.current) {
-      clearTimeout(silenceTimeoutRef.current);
-    }
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
+    if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+    recognitionRef.current?.stop();
     setVoiceState("idle");
   }, []);
 
@@ -473,129 +281,123 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
       window.speechSynthesis?.cancel();
       speechQueueRef.current = [];
       isSpeakingRef.current = false;
-      if (voiceState === "speaking") {
-        setVoiceState("idle");
-      }
+      if (voiceState === "speaking") setVoiceState("idle");
     }
   };
 
   const handleClose = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.abort();
+    setIsClosing(true);
+    setTimeout(() => {
+      recognitionRef.current?.abort();
+      if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+      streamAbortRef.current?.abort();
+      window.speechSynthesis?.cancel();
+      speechQueueRef.current = [];
+      isSpeakingRef.current = false;
+      setVoiceState("idle");
+      setTranscript("");
+      setResponse("");
+      conversationRef.current = [];
+      setIsClosing(false);
+      onClose();
+    }, 300);
+  };
+
+  const getStatusLabel = () => {
+    switch (voiceState) {
+      case "listening": return "Listening...";
+      case "processing": return "Thinking...";
+      case "speaking": return "";
+      default: return "Say something...";
     }
-    if (silenceTimeoutRef.current) {
-      clearTimeout(silenceTimeoutRef.current);
-    }
-    if (streamAbortRef.current) {
-      streamAbortRef.current.abort();
-    }
-    window.speechSynthesis?.cancel();
-    speechQueueRef.current = [];
-    isSpeakingRef.current = false;
-    setVoiceState("idle");
-    setTranscript("");
-    setResponse("");
-    conversationRef.current = [];
-    onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div ref={ref} className="fixed inset-0 z-50 bg-background flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <div className="flex items-center gap-2">
-          <div
-            className={cn(
-              "w-2 h-2 rounded-full",
-              voiceState === "idle" && "bg-muted-foreground",
-              voiceState === "listening" && "bg-green-500 animate-pulse",
-              voiceState === "processing" && "bg-yellow-500 animate-pulse",
-              voiceState === "speaking" && "bg-primary animate-pulse"
-            )}
-          />
-          <span className="text-sm font-medium capitalize">
-            {voiceState === "idle" ? "Ready" : voiceState}
-          </span>
-          <span className="text-xs text-muted-foreground">• Flash mode</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleMute}
-            className="h-8 w-8"
-          >
-            {isMuted ? (
-              <VolumeX className="h-4 w-4" />
-            ) : (
-              <Volume2 className="h-4 w-4" />
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleClose}
-            className="h-8 w-8"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+    <div
+      ref={ref}
+      className={cn(
+        "fixed inset-0 z-50 flex flex-col transition-all duration-300",
+        isClosing ? "opacity-0 scale-95" : "opacity-100 scale-100 animate-in fade-in zoom-in-95 duration-300"
+      )}
+      style={{
+        background: "radial-gradient(ellipse at 50% 60%, hsla(30, 40%, 12%, 1) 0%, hsla(0, 0%, 5%, 1) 60%, hsla(0, 0%, 3%, 1) 100%)",
+      }}
+    >
+      {/* Top bar: Settings + Help */}
+      <div className="flex items-center justify-end p-4 pt-6">
+        <button className="p-2 rounded-full text-muted-foreground hover:text-foreground transition-colors">
+          <Settings className="h-5 w-5" />
+        </button>
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 gap-8">
-        {/* Visualization */}
-        <VoiceChatVisualizer state={voiceState} />
-
-        {/* Transcript / Response */}
-        <div className="w-full max-w-md text-center space-y-4">
-          {transcript && (
-            <div className="p-4 rounded-lg bg-secondary/50">
-              <p className="text-sm text-muted-foreground mb-1">You said:</p>
-              <p className="text-foreground">{transcript}</p>
-            </div>
-          )}
-          {response && (
-            <div className="p-4 rounded-lg bg-primary/10 max-h-48 overflow-y-auto">
-              <p className="text-sm text-muted-foreground mb-1">AI response:</p>
-              <p className="text-foreground text-sm whitespace-pre-wrap">{cleanMarkdown(response)}</p>
-            </div>
-          )}
-          {error && (
-            <div className="p-4 rounded-lg bg-destructive/10">
-              <p className="text-destructive text-sm">{error}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Instructions */}
-        {voiceState === "idle" && !transcript && !response && (
-          <p className="text-muted-foreground text-sm text-center">
-            Tap the microphone to start talking
+      {/* Response area at top */}
+      <div className="flex-shrink-0 px-6 min-h-[80px]">
+        {response ? (
+          <p className="text-foreground/80 text-lg leading-relaxed max-h-[200px] overflow-y-auto">
+            {cleanMarkdown(response)}
           </p>
+        ) : transcript ? (
+          <p className="text-foreground/60 text-lg">{transcript}</p>
+        ) : null}
+        {error && (
+          <p className="text-destructive/80 text-sm mt-2">{error}</p>
         )}
       </div>
 
-      {/* Mic button */}
-      <div className="p-6 flex justify-center">
-        <Button
-          size="lg"
+      {/* Center: Sphere visualizer */}
+      <div className="flex-1 flex items-center justify-center">
+        <VoiceChatVisualizer state={voiceState} size={180} />
+      </div>
+
+      {/* Status text */}
+      <div className="text-center pb-4">
+        <p className="text-muted-foreground text-base">
+          {getStatusLabel()}
+        </p>
+      </div>
+
+      {/* Bottom controls */}
+      <div className="flex items-center justify-center gap-8 pb-10 px-6">
+        {/* Close button */}
+        <button
+          onClick={handleClose}
+          className="w-14 h-14 rounded-full flex items-center justify-center transition-all"
+          style={{ backgroundColor: "hsla(0, 0%, 20%, 0.8)" }}
+        >
+          <X className="h-6 w-6 text-foreground" />
+        </button>
+
+        {/* Main mic button */}
+        <button
           onClick={voiceState === "listening" ? stopListening : startListening}
           disabled={voiceState === "processing"}
           className={cn(
-            "w-16 h-16 rounded-full",
-            voiceState === "listening" && "bg-red-500 hover:bg-red-600",
-            voiceState === "speaking" && "bg-primary/50"
+            "w-16 h-16 rounded-full flex items-center justify-center transition-all",
+            voiceState === "processing" && "opacity-50 cursor-not-allowed"
           )}
+          style={{
+            backgroundColor: voiceState === "listening" 
+              ? "hsla(0, 70%, 50%, 0.9)"
+              : "hsla(0, 0%, 20%, 0.8)",
+          }}
         >
-          {voiceState === "listening" ? (
-            <MicOff className="h-6 w-6" />
+          {isMuted ? (
+            <MicOff className="h-6 w-6 text-foreground" />
           ) : (
-            <Mic className="h-6 w-6" />
+            <Mic className="h-6 w-6 text-foreground" />
           )}
-        </Button>
+        </button>
+
+        {/* Keyboard / switch to text */}
+        <button
+          onClick={() => { handleClose(); onSwitchToText?.(); }}
+          className="w-14 h-14 rounded-full flex items-center justify-center transition-all"
+          style={{ backgroundColor: "hsla(0, 0%, 20%, 0.8)" }}
+        >
+          <Keyboard className="h-5 w-5 text-foreground" />
+        </button>
       </div>
     </div>
   );

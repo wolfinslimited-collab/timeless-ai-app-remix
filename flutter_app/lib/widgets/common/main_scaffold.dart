@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
+import '../../screens/chat/voice_chat_screen.dart';
 
 class MainScaffold extends StatelessWidget {
   final Widget child;
@@ -51,7 +52,26 @@ class BottomNavBar extends StatelessWidget {
               context.go('/create');
               break;
             case 2:
-              context.go('/chat');
+              // Open voice chat overlay instead of navigating
+              Navigator.of(context).push(
+                PageRouteBuilder(
+                  opaque: false,
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      const VoiceChatScreen(),
+                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(
+                        scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+                          CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                        ),
+                        child: child,
+                      ),
+                    );
+                  },
+                  transitionDuration: const Duration(milliseconds: 300),
+                ),
+              );
               break;
             case 3:
               context.go('/apps');
@@ -73,9 +93,9 @@ class BottomNavBar extends StatelessWidget {
             label: 'Create',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            activeIcon: Icon(Icons.chat_bubble),
-            label: 'Chat',
+            icon: Icon(Icons.mic_none),
+            activeIcon: Icon(Icons.mic),
+            label: 'Ask AI',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.apps_outlined),
