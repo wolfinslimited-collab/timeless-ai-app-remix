@@ -239,7 +239,7 @@ class NativeAuthService {
           webAuthenticationOptions: WebAuthenticationOptions(
             clientId: 'com.timeless.signin', // Apple Services ID
             redirectUri: Uri.parse(
-              'https://ifesxveahsbjhmrhkhhy.supabase.co/auth/v1/callback',
+              'https://hpuqeabtgwbwcnklxolt.supabase.co/functions/v1/apple-signin-callback',
             ),
           ),
         );
