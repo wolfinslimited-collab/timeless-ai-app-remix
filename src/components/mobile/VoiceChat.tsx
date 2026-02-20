@@ -479,7 +479,13 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
 
       {/* Center: Sphere visualizer */}
       <div className="flex-1 flex items-center justify-center">
-        <VoiceChatVisualizer state={voiceState} size={180} />
+        <button
+          onClick={voiceState === "listening" ? stopListening : startListening}
+          disabled={voiceState === "processing" || voiceState === "speaking"}
+          className="focus:outline-none disabled:opacity-50"
+        >
+          <VoiceChatVisualizer state={voiceState} size={180} />
+        </button>
       </div>
 
       {/* Bottom controls */}
