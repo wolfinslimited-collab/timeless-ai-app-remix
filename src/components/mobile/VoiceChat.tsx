@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect, forwardRef } from "react";
-import { Mic, MicOff, X, Settings } from "lucide-react";
+import { Mic, MicOff, X, Settings, History, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { supabase as timelessSupabase, TIMELESS_SUPABASE_URL, TIMELESS_ANON_KEY } from "@/lib/supabase";
 import { VoiceChatVisualizer } from "./VoiceChatVisualizer";
 
 // Web Speech API types
@@ -47,6 +48,13 @@ interface VoiceChatProps {
   model: string;
 }
 
+interface VoiceSession {
+  id: string;
+  title: string;
+  transcript: unknown;
+  created_at: string;
+}
+
 type VoiceState = "idle" | "listening" | "processing" | "speaking";
 const VOICE_MODEL = "gemini-3-flash";
 
@@ -65,6 +73,21 @@ const cleanMarkdown = (text: string): string => {
     .trim();
 };
 
+const formatSessionDate = (dateStr: string): string => {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+
 const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose, onSwitchToText, model }, ref) => {
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [transcript, setTranscript] = useState("");
@@ -73,6 +96,9 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
   const [error, setError] = useState<string | null>(null);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [isClosing, setIsClosing] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [sessions, setSessions] = useState<VoiceSession[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
   
   const recognitionRef = useRef<SpeechRecognitionInterface | null>(null);
   const conversationRef = useRef<Array<{ role: string; content: string }>>([]);
@@ -81,6 +107,46 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
   const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const silenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
+
+  // Fetch voice sessions from the primary project
+  const fetchSessions = useCallback(async () => {
+    setLoadingSessions(true);
+    try {
+      const session = await timelessSupabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      const userId = session.data.session?.user?.id;
+      if (!userId || !token) {
+        setSessions([]);
+        return;
+      }
+
+      const res = await fetch(
+        `${TIMELESS_SUPABASE_URL}/rest/v1/voice_sessions?select=id,title,transcript,created_at&user_id=eq.${userId}&order=created_at.desc&limit=50`,
+        {
+          headers: {
+            "apikey": TIMELESS_ANON_KEY,
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/json",
+          },
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setSessions(data || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch voice sessions:", err);
+    } finally {
+      setLoadingSessions(false);
+    }
+  }, []);
+
+  const toggleHistory = () => {
+    const next = !showHistory;
+    setShowHistory(next);
+    if (next) fetchSessions();
+  };
 
   // Load voices
   useEffect(() => {
@@ -325,8 +391,73 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
         background: "radial-gradient(ellipse at 50% 60%, hsla(30, 40%, 12%, 1) 0%, hsla(0, 0%, 5%, 1) 60%, hsla(0, 0%, 3%, 1) 100%)",
       }}
     >
-      {/* Top bar: Settings + Help */}
-      <div className="flex items-center justify-end p-4 pt-6">
+      {/* History Drawer */}
+      <div
+        className={cn(
+          "absolute inset-y-0 left-0 z-50 w-[280px] flex flex-col transition-transform duration-300 ease-in-out",
+          showHistory ? "translate-x-0" : "-translate-x-full"
+        )}
+        style={{
+          background: "linear-gradient(180deg, hsla(0, 0%, 8%, 0.98) 0%, hsla(0, 0%, 5%, 0.98) 100%)",
+          borderRight: "1px solid hsla(0, 0%, 100%, 0.08)",
+        }}
+      >
+        <div className="flex items-center justify-between p-4 pt-6">
+          <h3 className="text-foreground/90 text-base font-medium">Voice History</h3>
+          <button
+            onClick={() => setShowHistory(false)}
+            className="p-1.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 pb-4">
+          {loadingSessions ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-5 h-5 border-2 border-muted-foreground/30 border-t-foreground/70 rounded-full animate-spin" />
+            </div>
+          ) : sessions.length === 0 ? (
+            <div className="text-center py-12 px-4">
+              <Clock className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-muted-foreground/60 text-sm">No voice sessions yet</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {sessions.map((session) => (
+                <button
+                  key={session.id}
+                  className="w-full text-left px-3 py-3 rounded-lg hover:bg-foreground/5 transition-colors group"
+                >
+                  <p className="text-foreground/80 text-sm font-medium truncate group-hover:text-foreground transition-colors">
+                    {session.title || "Untitled Session"}
+                  </p>
+                  <p className="text-muted-foreground/50 text-xs mt-0.5">
+                    {formatSessionDate(session.created_at)}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Backdrop when drawer is open */}
+      {showHistory && (
+        <div
+          className="absolute inset-0 z-45 bg-black/40"
+          onClick={() => setShowHistory(false)}
+        />
+      )}
+
+      {/* Top bar: History + Settings */}
+      <div className="flex items-center justify-between p-4 pt-6 relative z-40">
+        <button
+          onClick={toggleHistory}
+          className="p-2 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <History className="h-5 w-5" />
+        </button>
         <button className="p-2 rounded-full text-muted-foreground hover:text-foreground transition-colors">
           <Settings className="h-5 w-5" />
         </button>
@@ -353,7 +484,6 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
 
       {/* Bottom controls */}
       <div className="flex items-center justify-center gap-6 pb-4 px-6">
-        {/* Close button */}
         <button
           onClick={handleClose}
           className="w-14 h-14 rounded-full flex items-center justify-center transition-all"
@@ -362,12 +492,10 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
           <X className="h-6 w-6 text-foreground" />
         </button>
 
-        {/* Status text */}
         <p className="text-muted-foreground text-base min-w-[120px] text-center">
           {getStatusLabel()}
         </p>
 
-        {/* Mute toggle */}
         <button
           onClick={toggleMute}
           className="w-14 h-14 rounded-full flex items-center justify-center transition-all"

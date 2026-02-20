@@ -34,6 +34,11 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
   final List<Map<String, String>> _conversationHistory = [];
   StreamSubscription? _streamSubscription;
 
+  // History drawer state
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  List<Map<String, dynamic>> _sessions = [];
+  bool _loadingSessions = false;
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +64,56 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     _voiceService.cancelListening();
     _ttsService.stop();
     super.dispose();
+  }
+
+  Future<void> _fetchSessions() async {
+    setState(() => _loadingSessions = true);
+    try {
+      final token = _supabase.auth.currentSession?.accessToken;
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null || token == null) {
+        setState(() {
+          _sessions = [];
+          _loadingSessions = false;
+        });
+        return;
+      }
+
+      final url = Uri.parse(
+        '${AppConfig.supabaseUrl}/rest/v1/voice_sessions'
+        '?select=id,title,transcript,created_at'
+        '&user_id=eq.$userId'
+        '&order=created_at.desc'
+        '&limit=50',
+      );
+
+      final res = await http.get(url, headers: {
+        'apikey': AppConfig.supabaseAnonKey,
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as List;
+        setState(() => _sessions = data.cast<Map<String, dynamic>>());
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch voice sessions: $e');
+    } finally {
+      if (mounted) setState(() => _loadingSessions = false);
+    }
+  }
+
+  String _formatSessionDate(String dateStr) {
+    final date = DateTime.tryParse(dateStr);
+    if (date == null) return '';
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${date.month}/${date.day}';
   }
 
   Future<void> _startListening() async {
@@ -235,139 +290,268 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      child: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0, 0.2),
-            radius: 1.2,
-            colors: [
-              Color(0xFF2D1F0D),
-              Color(0xFF0D0D0D),
-              Color(0xFF080808),
-            ],
-            stops: [0, 0.6, 1],
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: Colors.transparent,
+      drawer: _buildHistoryDrawer(),
+      drawerEnableOpenDragGesture: true,
+      body: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment(0, 0.2),
+              radius: 1.2,
+              colors: [
+                Color(0xFF2D1F0D),
+                Color(0xFF0D0D0D),
+                Color(0xFF080808),
+              ],
+              stops: [0, 0.6, 1],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Top bar: Settings
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.settings, color: AppTheme.muted, size: 22),
-                      onPressed: () {},
-                    ),
-                  ],
-                ),
-              ),
-
-              // Response / transcript at top
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 80, maxHeight: 200),
-                  child: SingleChildScrollView(
-                    child: _response.isNotEmpty
-                        ? Text(
-                            cleanMarkdown(_response),
-                            style: TextStyle(
-                              color: AppTheme.foreground.withOpacity(0.8),
-                              fontSize: 18,
-                              height: 1.5,
-                            ),
-                          )
-                        : _transcript.isNotEmpty
-                            ? Text(
-                                _transcript,
-                                style: TextStyle(
-                                  color: AppTheme.foreground.withOpacity(0.6),
-                                  fontSize: 18,
-                                ),
-                              )
-                            : const SizedBox.shrink(),
+          child: SafeArea(
+            child: Column(
+              children: [
+                // Top bar: History + Settings
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.history, color: AppTheme.muted, size: 22),
+                        onPressed: () {
+                          _fetchSessions();
+                          _scaffoldKey.currentState?.openDrawer();
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.settings, color: AppTheme.muted, size: 22),
+                        onPressed: () {},
+                      ),
+                    ],
                   ),
                 ),
-              ),
 
-              if (_error != null)
+                // Response / transcript at top
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Text(
-                    _error!,
-                    style: TextStyle(color: AppTheme.destructive.withOpacity(0.8), fontSize: 14),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 80, maxHeight: 200),
+                    child: SingleChildScrollView(
+                      child: _response.isNotEmpty
+                          ? Text(
+                              cleanMarkdown(_response),
+                              style: TextStyle(
+                                color: AppTheme.foreground.withOpacity(0.8),
+                                fontSize: 18,
+                                height: 1.5,
+                              ),
+                            )
+                          : _transcript.isNotEmpty
+                              ? Text(
+                                  _transcript,
+                                  style: TextStyle(
+                                    color: AppTheme.foreground.withOpacity(0.6),
+                                    fontSize: 18,
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                    ),
                   ),
                 ),
 
-              // Center sphere
-              Expanded(
-                child: Center(
-                  child: VoiceChatVisualizer(state: _voiceState, size: 180),
-                ),
-              ),
-
-              // Bottom controls with status in between
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16, left: 40, right: 40),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Close button
-                    GestureDetector(
-                      onTap: _handleClose,
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.1),
-                        ),
-                        child: const Icon(Icons.close, color: Colors.white, size: 24),
-                      ),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      _error!,
+                      style: TextStyle(color: AppTheme.destructive.withOpacity(0.8), fontSize: 14),
                     ),
+                  ),
 
-                    // Status text in the middle
-                    Expanded(
-                      child: Center(
-                        child: Text(
-                          _getStatusLabel(),
-                          style: TextStyle(
-                            color: AppTheme.muted,
-                            fontSize: 16,
+                // Center sphere
+                Expanded(
+                  child: Center(
+                    child: VoiceChatVisualizer(state: _voiceState, size: 180),
+                  ),
+                ),
+
+                // Bottom controls with status in between
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16, left: 40, right: 40),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Close button
+                      GestureDetector(
+                        onTap: _handleClose,
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(0.1),
+                          ),
+                          child: const Icon(Icons.close, color: Colors.white, size: 24),
+                        ),
+                      ),
+
+                      // Status text in the middle
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            _getStatusLabel(),
+                            style: TextStyle(
+                              color: AppTheme.muted,
+                              fontSize: 16,
+                            ),
                           ),
                         ),
                       ),
-                    ),
 
-                    // Mute toggle
-                    GestureDetector(
-                      onTap: _toggleMute,
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _isMuted
-                              ? Colors.red.withOpacity(0.9)
-                              : Colors.white.withOpacity(0.1),
-                        ),
-                        child: Icon(
-                          _isMuted ? Icons.mic_off : Icons.mic,
-                          color: Colors.white,
-                          size: 22,
+                      // Mute toggle
+                      GestureDetector(
+                        onTap: _toggleMute,
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _isMuted
+                                ? Colors.red.withOpacity(0.9)
+                                : Colors.white.withOpacity(0.1),
+                          ),
+                          child: Icon(
+                            _isMuted ? Icons.mic_off : Icons.mic,
+                            color: Colors.white,
+                            size: 22,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHistoryDrawer() {
+    return Drawer(
+      backgroundColor: const Color(0xFF111111),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topRight: Radius.circular(16),
+          bottomRight: Radius.circular(16),
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Voice History',
+                    style: TextStyle(
+                      color: AppTheme.foreground.withOpacity(0.9),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: AppTheme.muted, size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+
+            Divider(color: Colors.white.withOpacity(0.06), height: 1),
+
+            // Session list
+            Expanded(
+              child: _loadingSessions
+                  ? const Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white38,
+                        ),
+                      ),
+                    )
+                  : _sessions.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.access_time, color: AppTheme.muted.withOpacity(0.3), size: 32),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No voice sessions yet',
+                                style: TextStyle(
+                                  color: AppTheme.muted.withOpacity(0.5),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          itemCount: _sessions.length,
+                          itemBuilder: (context, index) {
+                            final session = _sessions[index];
+                            final title = session['title'] ?? 'Untitled Session';
+                            final createdAt = session['created_at'] ?? '';
+                            return InkWell(
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                // TODO: Load session transcript
+                              },
+                              borderRadius: BorderRadius.circular(10),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: AppTheme.foreground.withOpacity(0.8),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      _formatSessionDate(createdAt),
+                                      style: TextStyle(
+                                        color: AppTheme.muted.withOpacity(0.5),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+            ),
+          ],
         ),
       ),
     );
