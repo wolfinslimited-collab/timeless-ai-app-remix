@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, forwardRef } from "react";
 import { Mic, MicOff, X, Settings, History, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+
 import { supabase as timelessSupabase, TIMELESS_SUPABASE_URL, TIMELESS_ANON_KEY } from "@/lib/supabase";
 import { VoiceChatVisualizer } from "./VoiceChatVisualizer";
 
@@ -266,11 +266,11 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
     streamAbortRef.current = new AbortController();
     try {
       conversationRef.current.push({ role: "user", content: text });
-      const session = await supabase.auth.getSession();
+      const session = await timelessSupabase.auth.getSession();
       const token = session.data.session?.access_token;
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
+      const res = await fetch(`${TIMELESS_SUPABASE_URL}/functions/v1/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(token && { Authorization: `Bearer ${token}` }) },
+        headers: { "Content-Type": "application/json", "apikey": TIMELESS_ANON_KEY, ...(token && { Authorization: `Bearer ${token}` }) },
         body: JSON.stringify({ messages: conversationRef.current, model: VOICE_MODEL, webSearch: false }),
         signal: streamAbortRef.current.signal,
       });
