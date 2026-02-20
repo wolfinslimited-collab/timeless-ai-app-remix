@@ -235,9 +235,9 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      child: Container(
         decoration: const BoxDecoration(
           gradient: RadialGradient(
             center: Alignment(0, 0.2),
@@ -311,21 +311,9 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                 ),
               ),
 
-              // Status text
+              // Bottom controls with status in between
               Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Text(
-                  _getStatusLabel(),
-                  style: TextStyle(
-                    color: AppTheme.muted,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-
-              // Bottom controls
-              Padding(
-                padding: const EdgeInsets.only(bottom: 40, left: 40, right: 40),
+                padding: const EdgeInsets.only(bottom: 16, left: 40, right: 40),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -343,51 +331,36 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                       ),
                     ),
 
-                    const SizedBox(width: 32),
+                    // Status text in the middle
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          _getStatusLabel(),
+                          style: TextStyle(
+                            color: AppTheme.muted,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
 
-                    // Mic button (main)
+                    // Mute toggle
                     GestureDetector(
-                      onTap: () {
-                        if (_voiceState == VoiceState.processing) return;
-                        if (_voiceState == VoiceState.listening) {
-                          _stopListening();
-                        } else {
-                          _startListening();
-                        }
-                      },
+                      onTap: _toggleMute,
                       child: Container(
-                        width: 64,
-                        height: 64,
+                        width: 56,
+                        height: 56,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: _voiceState == VoiceState.listening
+                          color: _isMuted
                               ? Colors.red.withOpacity(0.9)
                               : Colors.white.withOpacity(0.1),
                         ),
                         child: Icon(
                           _isMuted ? Icons.mic_off : Icons.mic,
                           color: Colors.white,
-                          size: 28,
+                          size: 22,
                         ),
-                      ),
-                    ),
-
-                    const SizedBox(width: 32),
-
-                    // Keyboard button
-                    GestureDetector(
-                      onTap: () {
-                        _handleClose();
-                        // Could navigate to chat screen here
-                      },
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.1),
-                        ),
-                        child: const Icon(Icons.keyboard, color: Colors.white, size: 22),
                       ),
                     ),
                   ],
