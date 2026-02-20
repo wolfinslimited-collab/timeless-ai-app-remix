@@ -159,7 +159,10 @@ export function MobileProfile({ onNavigate }: MobileProfileProps) {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={signOut}
+              onClick={async () => {
+                await signOut();
+                window.location.href = "/auth";
+              }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete Account
