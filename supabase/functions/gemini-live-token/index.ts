@@ -86,7 +86,7 @@ serve(async (req) => {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
 
-      const { error: deductError } = await serviceClient.rpc("", {}).catch(() => ({ error: null }));
+      // Credits deducted via direct update below
       
       // Direct update since we don't have an RPC
       const { error: updateError } = await serviceClient
