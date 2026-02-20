@@ -10,11 +10,25 @@ import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/credits_provider.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
   static const String _appStoreId = '6740804440';
   static const String _playStoreId = 'com.wolfine.app';
+
+  static const List<String> _deleteReasons = [
+    'I no longer need the app',
+    'I found a better alternative',
+    'Too expensive',
+    'Privacy concerns',
+    'Too many bugs or issues',
+    'Other',
+  ];
 
   Future<void> _shareApp(BuildContext context) async {
     const String appStoreUrl =
@@ -205,56 +219,167 @@ class ProfileScreen extends StatelessWidget {
   }
 
   void _showDeleteAccountDialog(BuildContext context) {
-    showDialog(
+    String? selectedReason;
+    String otherText = '';
+
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.secondary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: AppTheme.border),
-        ),
-        title: const Text(
-          'Delete Account',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Text(
-          'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
-            fontSize: 14,
-            height: 1.4,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: Colors.white.withOpacity(0.7)),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final isValid = selectedReason != null &&
+              (selectedReason != 'Other' || otherText.trim().isNotEmpty);
+
+          return Container(
+            decoration: BoxDecoration(
+              color: AppTheme.secondary,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border.all(color: AppTheme.border),
             ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final auth = context.read<AuthProvider>();
-              Navigator.pop(context);
-              await auth.signOut();
-              if (context.mounted) {
-                context.go('/login');
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red[400],
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Why are you leaving?',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Please let us know why you\'d like to delete your account.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.6),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Reason options
+                ..._deleteReasons.map((reason) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: GestureDetector(
+                        onTap: () =>
+                            setModalState(() => selectedReason = reason),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: selectedReason == reason
+                                  ? AppTheme.primary
+                                  : AppTheme.border,
+                            ),
+                            color: selectedReason == reason
+                                ? AppTheme.primary.withOpacity(0.1)
+                                : Colors.transparent,
+                          ),
+                          child: Text(
+                            reason,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: selectedReason == reason
+                                  ? Colors.white
+                                  : Colors.white70,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )),
+                // Other text field
+                if (selectedReason == 'Other')
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: TextField(
+                      onChanged: (v) => setModalState(() => otherText = v),
+                      maxLines: 3,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'Tell us more...',
+                        hintStyle: TextStyle(color: Colors.white38),
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.05),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppTheme.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppTheme.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppTheme.primary),
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                // Delete button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: isValid
+                        ? () async {
+                            final auth = context.read<AuthProvider>();
+                            Navigator.pop(context);
+                            await auth.signOut();
+                            if (context.mounted) {
+                              context.go('/login');
+                            }
+                          }
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red[400],
+                      disabledBackgroundColor: Colors.red[400]?.withOpacity(0.3),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Delete Account',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Cancel
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white60,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('Cancel',
+                        style: TextStyle(fontSize: 15)),
+                  ),
+                ),
+              ],
             ),
-            child: const Text('Delete Account'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

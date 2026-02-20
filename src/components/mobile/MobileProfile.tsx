@@ -23,6 +23,17 @@ export function MobileProfile({ onNavigate }: MobileProfileProps) {
   const { credits, hasActiveSubscription } = useCredits();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showSignOutDialog, setShowSignOutDialog] = useState(false);
+  const [deleteReason, setDeleteReason] = useState<string | null>(null);
+  const [otherReason, setOtherReason] = useState("");
+
+  const deleteReasons = [
+    "I no longer need the app",
+    "I found a better alternative",
+    "Too expensive",
+    "Privacy concerns",
+    "Too many bugs or issues",
+    "Other",
+  ];
 
   const displayName = user?.email?.split("@")[0] || "User";
   const initials = displayName.charAt(0).toUpperCase();
@@ -147,15 +158,41 @@ export function MobileProfile({ onNavigate }: MobileProfileProps) {
         </button>
       </div>
 
-      {/* Delete Account Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className="bg-background border-border">
+      {/* Delete Account - Reason Selection Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={(open) => {
+        setShowDeleteDialog(open);
+        if (!open) { setDeleteReason(null); setOtherReason(""); }
+      }}>
+        <AlertDialogContent className="bg-background border-border max-w-sm">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Account</AlertDialogTitle>
+            <AlertDialogTitle>Why are you leaving?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.
+              Please let us know why you'd like to delete your account.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="flex flex-col gap-2 my-2">
+            {deleteReasons.map((reason) => (
+              <button
+                key={reason}
+                onClick={() => setDeleteReason(reason)}
+                className={`w-full text-left px-4 py-3 rounded-xl border text-sm transition-colors ${
+                  deleteReason === reason
+                    ? "border-primary bg-primary/10 text-foreground"
+                    : "border-border bg-secondary/50 text-muted-foreground hover:bg-secondary"
+                }`}
+              >
+                {reason}
+              </button>
+            ))}
+            {deleteReason === "Other" && (
+              <textarea
+                value={otherReason}
+                onChange={(e) => setOtherReason(e.target.value)}
+                placeholder="Tell us more..."
+                className="w-full px-4 py-3 rounded-xl border border-border bg-secondary/50 text-foreground text-sm resize-none h-20 focus:outline-none focus:border-primary"
+              />
+            )}
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -163,7 +200,8 @@ export function MobileProfile({ onNavigate }: MobileProfileProps) {
                 await signOut();
                 window.location.href = "/auth";
               }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!deleteReason || (deleteReason === "Other" && !otherReason.trim())}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
             >
               Delete Account
             </AlertDialogAction>
