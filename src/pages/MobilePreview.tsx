@@ -14,6 +14,7 @@ import { MobileAudioCreate } from "@/components/mobile/MobileAudioCreate";
 import { MobileVisualStyles } from "@/components/mobile/MobileVisualStyles";
 import { MobileApps } from "@/components/mobile/MobileApps";
 import { MobileChat } from "@/components/mobile/MobileChat";
+import VoiceChat from "@/components/mobile/VoiceChat";
 import { MobileLibrary } from "@/components/mobile/MobileLibrary";
 import { MobileProfile } from "@/components/mobile/MobileProfile";
 import { MobilePricing } from "@/components/mobile/MobilePricing";
@@ -33,6 +34,7 @@ import {
 
 export default function MobilePreview() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("home");
+  const [showVoiceChat, setShowVoiceChat] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [hasCheckedInitialAuth, setHasCheckedInitialAuth] = useState(false);
@@ -105,6 +107,14 @@ export default function MobilePreview() {
     }
   };
 
+  const handleNavigate = (screen: Screen) => {
+    if (screen === "chat") {
+      setShowVoiceChat(true);
+    } else {
+      setCurrentScreen(screen);
+    }
+  };
+
   const renderScreen = () => {
     // Show auth screen for non-logged in users
     if (showAuth) {
@@ -150,7 +160,7 @@ export default function MobilePreview() {
       case "apps":
         return <MobileApps onBack={() => setCurrentScreen("home")} onNavigate={setCurrentScreen} hasPremiumPlusAccess={hasPremiumPlusAccess} onUpgrade={() => setCurrentScreen("subscription")} />;
       case "chat":
-        return <MobileChat />;
+        return null; // Voice overlay handles this
       case "library":
         return <MobileLibrary />;
       case "profile":
@@ -226,8 +236,18 @@ export default function MobilePreview() {
             {/* Bottom Navigation - hide during auth/onboarding/subscription flows */}
             {!hideNav && (
               <MobileNav 
-                currentScreen={currentScreen} 
-                onNavigate={setCurrentScreen} 
+                currentScreen={showVoiceChat ? "chat" : currentScreen} 
+                onNavigate={handleNavigate} 
+              />
+            )}
+
+            {/* Voice Chat Overlay */}
+            {showVoiceChat && (
+              <VoiceChat
+                isOpen={showVoiceChat}
+                onClose={() => setShowVoiceChat(false)}
+                onSwitchToText={() => { setShowVoiceChat(false); }}
+                model="gemini-3-flash"
               />
             )}
           </div>

@@ -10,7 +10,7 @@ class VoiceChatVisualizer extends StatefulWidget {
   const VoiceChatVisualizer({
     super.key,
     required this.state,
-    this.size = 160,
+    this.size = 200,
   });
 
   @override
@@ -21,6 +21,8 @@ class _VoiceChatVisualizerState extends State<VoiceChatVisualizer>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   double _phase = 0;
+  final List<_Particle> _particles = [];
+  bool _initialized = false;
 
   @override
   void initState() {
@@ -32,9 +34,32 @@ class _VoiceChatVisualizerState extends State<VoiceChatVisualizer>
 
     _controller.addListener(() {
       setState(() {
-        _phase += 0.02;
+        _phase += 0.015;
       });
     });
+  }
+
+  void _initParticles(double size) {
+    if (_initialized) return;
+    _initialized = true;
+    final rng = Random();
+    final cx = size / 2;
+    final cy = size / 2;
+    final baseRadius = size * 0.28;
+    
+    for (int i = 0; i < 300; i++) {
+      final angle = rng.nextDouble() * pi * 2;
+      final r = rng.nextDouble() * baseRadius;
+      _particles.add(_Particle(
+        x: cx + cos(angle) * r,
+        y: cy + sin(angle) * r,
+        vx: (rng.nextDouble() - 0.5) * 0.5,
+        vy: (rng.nextDouble() - 0.5) * 0.5,
+        size: rng.nextDouble() * 2.5 + 0.5,
+        alpha: rng.nextDouble() * 0.8 + 0.2,
+        hue: 25 + rng.nextDouble() * 30,
+      ));
+    }
   }
 
   @override
@@ -45,224 +70,156 @@ class _VoiceChatVisualizerState extends State<VoiceChatVisualizer>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedOpacity(
-      opacity: widget.state == VoiceState.idle ? 0.6 : 1.0,
-      duration: const Duration(milliseconds: 500),
-      child: CustomPaint(
-        size: Size(widget.size, widget.size),
-        painter: _VoiceChatPainter(
-          state: widget.state,
-          phase: _phase,
-        ),
+    _initParticles(widget.size);
+    return CustomPaint(
+      size: Size(widget.size, widget.size),
+      painter: _VoiceSphereGoldenPainter(
+        state: widget.state,
+        phase: _phase,
+        particles: _particles,
       ),
     );
   }
 }
 
-class _VoiceChatPainter extends CustomPainter {
+class _Particle {
+  double x, y, vx, vy, size, alpha, hue;
+  _Particle({
+    required this.x,
+    required this.y,
+    required this.vx,
+    required this.vy,
+    required this.size,
+    required this.alpha,
+    required this.hue,
+  });
+}
+
+class _VoiceSphereGoldenPainter extends CustomPainter {
   final VoiceState state;
   final double phase;
+  final List<_Particle> particles;
 
-  _VoiceChatPainter({
+  _VoiceSphereGoldenPainter({
     required this.state,
     required this.phase,
+    required this.particles,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final centerX = size.width / 2;
-    final centerY = size.height / 2;
-    final baseRadius = size.width * 0.3;
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final baseRadius = size.width * 0.28;
 
-    switch (state) {
-      case VoiceState.idle:
-        _paintIdle(canvas, centerX, centerY, baseRadius);
-        break;
-      case VoiceState.listening:
-        _paintListening(canvas, centerX, centerY, baseRadius);
-        break;
-      case VoiceState.processing:
-        _paintProcessing(canvas, centerX, centerY, baseRadius);
-        break;
-      case VoiceState.speaking:
-        _paintSpeaking(canvas, centerX, centerY, baseRadius);
-        break;
-    }
-  }
-
-  void _paintIdle(Canvas canvas, double cx, double cy, double baseRadius) {
-    // Subtle breathing effect
-    final breathe = sin(phase * 0.5) * 3;
-
-    // Outer glow
-    final glowPaint = Paint()
+    // Background radial glow
+    final bgGlow = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFF8B5CF6).withOpacity(0.3),
-          const Color(0xFF8B5CF6).withOpacity(0.0),
+          const Color(0xFF4D3319).withOpacity(0.4),
+          const Color(0xFF1A0D00).withOpacity(0.2),
+          Colors.transparent,
         ],
-      ).createShader(Rect.fromCircle(
-        center: Offset(cx, cy),
-        radius: baseRadius + 20 + breathe,
-      ));
-    canvas.drawCircle(
-      Offset(cx, cy),
-      baseRadius + 20 + breathe,
-      glowPaint,
-    );
+        stops: const [0, 0.5, 1],
+      ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: size.width * 0.5));
+    canvas.drawCircle(Offset(cx, cy), size.width * 0.5, bgGlow);
 
-    // Main circle
-    final mainPaint = Paint()
-      ..color = const Color(0xFF1E1E2E)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(cx, cy), baseRadius + breathe, mainPaint);
-  }
-
-  void _paintListening(Canvas canvas, double cx, double cy, double baseRadius) {
-    // Dynamic pulsing rings
+    // Pulsing ring ripples
+    final pulseIntensity = state == VoiceState.listening ? 1.0
+        : state == VoiceState.speaking ? 0.7 : 0.3;
     for (int ring = 0; ring < 3; ring++) {
-      final ringPhase = phase * 2 + ring * 0.5;
-      final ringRadius = baseRadius + sin(ringPhase) * 8 + ring * 12;
-      final alpha = (0.3 - ring * 0.1).clamp(0.0, 1.0);
+      final ringPhase = phase * 1.5 + ring * 1.2;
+      final ringExpand = (sin(ringPhase) * 0.5 + 0.5);
+      final ringRadius = baseRadius + 20 + ringExpand * 30 + ring * 15;
+      final ringAlpha = (0.15 - ring * 0.04) * pulseIntensity * (1 - ringExpand * 0.5);
 
       final ringPaint = Paint()
-        ..color = const Color(0xFF22C55E).withOpacity(alpha)
+        ..color = Color.fromRGBO(200, 150, 50, ringAlpha.clamp(0.0, 1.0))
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2;
+        ..strokeWidth = 1.5;
       canvas.drawCircle(Offset(cx, cy), ringRadius, ringPaint);
     }
 
-    // Animated waveform around circle
-    final wavePath = Path();
-    final wavePaint = Paint()
-      ..color = const Color(0xFF22C55E)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
+    // Main sphere glow
+    final sphereGlow = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFFD4A030).withOpacity(0.25),
+          const Color(0xFF8B6914).withOpacity(0.1),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.6, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: baseRadius * 1.3));
+    canvas.drawCircle(Offset(cx, cy), baseRadius * 1.3, sphereGlow);
 
-    for (double angle = 0; angle < pi * 2; angle += 0.05) {
-      final wave = sin(angle * 8 + phase * 4) * 6;
-      final r = baseRadius + wave;
-      final x = cx + cos(angle) * r;
-      final y = cy + sin(angle) * r;
+    // Animate particles
+    final speedMultiplier = state == VoiceState.listening ? 2.5
+        : state == VoiceState.speaking ? 2.0
+        : state == VoiceState.processing ? 3.0 : 0.5;
+    final breathe = sin(phase * 0.8) * 5 * (state == VoiceState.idle ? 1.0 : 0.3);
+    final rng = Random(42);
 
-      if (angle == 0) {
-        wavePath.moveTo(x, y);
-      } else {
-        wavePath.lineTo(x, y);
+    for (final p in particles) {
+      p.x += p.vx * speedMultiplier;
+      p.y += p.vy * speedMultiplier;
+
+      final dx = p.x - cx;
+      final dy = p.y - cy;
+      final dist = sqrt(dx * dx + dy * dy);
+      final maxR = baseRadius + breathe;
+
+      if (dist > maxR) {
+        final angle = atan2(dy, dx);
+        p.x = cx + cos(angle) * (maxR - 2);
+        p.y = cy + sin(angle) * (maxR - 2);
+        p.vx = -p.vx * 0.8 + (rng.nextDouble() - 0.5) * 0.3;
+        p.vy = -p.vy * 0.8 + (rng.nextDouble() - 0.5) * 0.3;
       }
-    }
-    wavePath.close();
-    canvas.drawPath(wavePath, wavePaint);
 
-    // Inner glow
-    final innerPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          const Color(0xFF22C55E).withOpacity(0.2),
-          const Color(0xFF22C55E).withOpacity(0.05),
-        ],
-      ).createShader(Rect.fromCircle(
-        center: Offset(cx, cy),
-        radius: baseRadius,
-      ));
-    canvas.drawCircle(Offset(cx, cy), baseRadius, innerPaint);
-  }
+      p.vx += (rng.nextDouble() - 0.5) * 0.1;
+      p.vy += (rng.nextDouble() - 0.5) * 0.1;
+      p.vx *= 0.98;
+      p.vy *= 0.98;
 
-  void _paintProcessing(Canvas canvas, double cx, double cy, double baseRadius) {
-    // Spinning loader effect
-    const segments = 12;
-    for (int i = 0; i < segments; i++) {
-      final angle = (i / segments) * pi * 2 + phase * 3;
-      final alpha = ((i / segments) + sin(phase * 2)) % 1;
+      final alphaOsc = sin(phase * 2 + p.hue) * 0.3;
+      final finalAlpha = (p.alpha + alphaOsc).clamp(0.1, 1.0);
 
-      final arcPaint = Paint()
-        ..color = const Color(0xFFFACC15).withOpacity(alpha * 0.8)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 4
-        ..strokeCap = StrokeCap.round;
+      // Particle glow
+      final glowPaint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            HSLColor.fromAHSL(finalAlpha, p.hue, 0.9, 0.7).toColor(),
+            HSLColor.fromAHSL(finalAlpha * 0.4, p.hue, 0.8, 0.55).toColor(),
+            Colors.transparent,
+          ],
+          stops: const [0, 0.5, 1],
+        ).createShader(Rect.fromCircle(center: Offset(p.x, p.y), radius: p.size * 2.5));
+      canvas.drawCircle(Offset(p.x, p.y), p.size * 2.5, glowPaint);
 
-      canvas.drawArc(
-        Rect.fromCircle(center: Offset(cx, cy), radius: baseRadius),
-        angle,
-        0.3,
-        false,
-        arcPaint,
-      );
+      // Core bright dot
+      final corePaint = Paint()
+        ..color = HSLColor.fromAHSL(finalAlpha * 0.9, p.hue, 0.95, 0.85).toColor();
+      canvas.drawCircle(Offset(p.x, p.y), p.size * 0.6, corePaint);
     }
 
-    // Center dot
-    final centerPaint = Paint()
-      ..color = const Color(0xFFFACC15).withOpacity(0.5)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(cx, cy), 8, centerPaint);
-  }
-
-  void _paintSpeaking(Canvas canvas, double cx, double cy, double baseRadius) {
-    // Outer glow
-    final outerGlow = Paint()
+    // Sphere border glow
+    final borderGrad = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFF8B5CF6).withOpacity(0.4),
-          const Color(0xFF8B5CF6).withOpacity(0.0),
+          Colors.transparent,
+          Color.fromRGBO(200, 150, 50, 0.15 + sin(phase) * 0.05),
+          Colors.transparent,
         ],
+        stops: const [0, 0.5, 1],
       ).createShader(Rect.fromCircle(
         center: Offset(cx, cy),
-        radius: baseRadius + 30,
+        radius: baseRadius + 6 + breathe,
       ));
-    canvas.drawCircle(Offset(cx, cy), baseRadius + 30, outerGlow);
-
-    // Morphing blob shape
-    final blobPath = Path();
-    const points = 64;
-
-    for (int i = 0; i <= points; i++) {
-      final angle = (i / points) * pi * 2;
-      // Multiple sine waves for organic movement
-      final wave1 = sin(angle * 3 + phase * 2) * 8;
-      final wave2 = sin(angle * 5 - phase * 3) * 4;
-      final wave3 = sin(angle * 2 + phase) * 6;
-      final r = baseRadius + wave1 + wave2 + wave3;
-      final x = cx + cos(angle) * r;
-      final y = cy + sin(angle) * r;
-
-      if (i == 0) {
-        blobPath.moveTo(x, y);
-      } else {
-        blobPath.lineTo(x, y);
-      }
-    }
-    blobPath.close();
-
-    // Fill
-    final fillPaint = Paint()
-      ..color = const Color(0xFF8B5CF6).withOpacity(0.15)
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(blobPath, fillPaint);
-
-    // Stroke
-    final strokePaint = Paint()
-      ..color = const Color(0xFF8B5CF6)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-    canvas.drawPath(blobPath, strokePaint);
-
-    // Inner pulse
-    final pulseSize = 20 + sin(phase * 4) * 5;
-    final innerPulse = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          const Color(0xFFA78BFA).withOpacity(0.6),
-          const Color(0xFF8B5CF6).withOpacity(0.0),
-        ],
-      ).createShader(Rect.fromCircle(
-        center: Offset(cx, cy),
-        radius: pulseSize,
-      ));
-    canvas.drawCircle(Offset(cx, cy), pulseSize, innerPulse);
+    canvas.drawCircle(Offset(cx, cy), baseRadius + 6 + breathe, borderGrad);
   }
 
   @override
-  bool shouldRepaint(covariant _VoiceChatPainter oldDelegate) {
-    return oldDelegate.state != state || oldDelegate.phase != phase;
+  bool shouldRepaint(covariant _VoiceSphereGoldenPainter oldDelegate) {
+    return oldDelegate.phase != phase || oldDelegate.state != state;
   }
 }
