@@ -5,13 +5,23 @@ type VoiceState = "idle" | "listening" | "processing" | "speaking";
 
 interface VoiceChatVisualizerProps {
   state: VoiceState;
+  size?: number;
 }
 
 export const VoiceChatVisualizer = forwardRef<HTMLDivElement, VoiceChatVisualizerProps>(
-  ({ state }, ref) => {
+  ({ state, size = 200 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
   const phaseRef = useRef(0);
+  const particlesRef = useRef<Array<{
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    size: number;
+    alpha: number;
+    hue: number;
+  }>>([]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -20,157 +30,135 @@ export const VoiceChatVisualizer = forwardRef<HTMLDivElement, VoiceChatVisualize
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const size = 160;
-    canvas.width = size * 2; // For retina
-    canvas.height = size * 2;
+    const dpr = 2;
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
     canvas.style.width = `${size}px`;
     canvas.style.height = `${size}px`;
-    ctx.scale(2, 2);
+    ctx.scale(dpr, dpr);
 
-    const centerX = size / 2;
-    const centerY = size / 2;
-    const baseRadius = 50;
+    const cx = size / 2;
+    const cy = size / 2;
+    const baseRadius = size * 0.28;
+
+    // Initialize particles for the sphere
+    if (particlesRef.current.length === 0) {
+      for (let i = 0; i < 300; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const r = Math.random() * baseRadius;
+        particlesRef.current.push({
+          x: cx + Math.cos(angle) * r,
+          y: cy + Math.sin(angle) * r,
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: (Math.random() - 0.5) * 0.5,
+          size: Math.random() * 2.5 + 0.5,
+          alpha: Math.random() * 0.8 + 0.2,
+          hue: 25 + Math.random() * 30, // warm golden range
+        });
+      }
+    }
 
     const animate = () => {
       ctx.clearRect(0, 0, size, size);
-      phaseRef.current += 0.02;
+      phaseRef.current += 0.015;
+      const phase = phaseRef.current;
 
-      if (state === "idle") {
-        // Subtle breathing effect
-        const breathe = Math.sin(phaseRef.current * 0.5) * 3;
+      // Background radial glow (warm amber)
+      const bgGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * 0.5);
+      bgGlow.addColorStop(0, "hsla(30, 80%, 20%, 0.4)");
+      bgGlow.addColorStop(0.5, "hsla(25, 60%, 10%, 0.2)");
+      bgGlow.addColorStop(1, "hsla(0, 0%, 0%, 0)");
+      ctx.fillStyle = bgGlow;
+      ctx.fillRect(0, 0, size, size);
+
+      // Pulsing ring ripples (subtle)
+      const pulseIntensity = state === "listening" ? 1 : state === "speaking" ? 0.7 : 0.3;
+      for (let ring = 0; ring < 3; ring++) {
+        const ringPhase = phase * 1.5 + ring * 1.2;
+        const ringExpand = (Math.sin(ringPhase) * 0.5 + 0.5);
+        const ringRadius = baseRadius + 20 + ringExpand * 30 + ring * 15;
+        const ringAlpha = (0.15 - ring * 0.04) * pulseIntensity * (1 - ringExpand * 0.5);
         
-        // Outer glow
-        const gradient = ctx.createRadialGradient(
-          centerX, centerY, baseRadius - 10 + breathe,
-          centerX, centerY, baseRadius + 20 + breathe
-        );
-        gradient.addColorStop(0, "hsla(265, 90%, 65%, 0.3)");
-        gradient.addColorStop(1, "hsla(265, 90%, 65%, 0)");
-        ctx.fillStyle = gradient;
+        ctx.strokeStyle = `hsla(35, 80%, 50%, ${ringAlpha})`;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(centerX, centerY, baseRadius + 20 + breathe, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Main circle
-        ctx.fillStyle = "hsl(240, 10%, 16%)";
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, baseRadius + breathe, 0, Math.PI * 2);
-        ctx.fill();
-
-      } else if (state === "listening") {
-        // Dynamic pulsing rings
-        for (let ring = 0; ring < 3; ring++) {
-          const ringPhase = phaseRef.current * 2 + ring * 0.5;
-          const ringRadius = baseRadius + Math.sin(ringPhase) * 8 + ring * 12;
-          const alpha = 0.3 - ring * 0.1;
-          
-          ctx.strokeStyle = `hsla(142, 71%, 45%, ${alpha})`;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(centerX, centerY, ringRadius, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-
-        // Animated waveform around circle
-        ctx.strokeStyle = "hsl(142, 71%, 45%)";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        for (let angle = 0; angle < Math.PI * 2; angle += 0.05) {
-          const wave = Math.sin(angle * 8 + phaseRef.current * 4) * 6;
-          const r = baseRadius + wave;
-          const x = centerX + Math.cos(angle) * r;
-          const y = centerY + Math.sin(angle) * r;
-          if (angle === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
+        ctx.arc(cx, cy, ringRadius, 0, Math.PI * 2);
         ctx.stroke();
-
-        // Inner glow
-        const innerGlow = ctx.createRadialGradient(
-          centerX, centerY, 0,
-          centerX, centerY, baseRadius
-        );
-        innerGlow.addColorStop(0, "hsla(142, 71%, 45%, 0.2)");
-        innerGlow.addColorStop(1, "hsla(142, 71%, 45%, 0.05)");
-        ctx.fillStyle = innerGlow;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
-        ctx.fill();
-
-      } else if (state === "processing") {
-        // Spinning loader effect
-        const segments = 12;
-        for (let i = 0; i < segments; i++) {
-          const angle = (i / segments) * Math.PI * 2 + phaseRef.current * 3;
-          const alpha = ((i / segments) + Math.sin(phaseRef.current * 2)) % 1;
-          
-          ctx.strokeStyle = `hsla(45, 100%, 55%, ${alpha * 0.8})`;
-          ctx.lineWidth = 4;
-          ctx.lineCap = "round";
-          ctx.beginPath();
-          ctx.arc(centerX, centerY, baseRadius, angle, angle + 0.3);
-          ctx.stroke();
-        }
-
-        // Center dot
-        ctx.fillStyle = "hsla(45, 100%, 55%, 0.5)";
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, 8, 0, Math.PI * 2);
-        ctx.fill();
-
-      } else if (state === "speaking") {
-        // Smooth morphing blob effect
-        const points = 64;
-        
-        // Outer glow
-        const outerGlow = ctx.createRadialGradient(
-          centerX, centerY, baseRadius - 10,
-          centerX, centerY, baseRadius + 30
-        );
-        outerGlow.addColorStop(0, "hsla(265, 90%, 65%, 0.4)");
-        outerGlow.addColorStop(1, "hsla(265, 90%, 65%, 0)");
-        ctx.fillStyle = outerGlow;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, baseRadius + 30, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Morphing shape
-        ctx.fillStyle = "hsla(265, 90%, 65%, 0.15)";
-        ctx.strokeStyle = "hsl(265, 90%, 65%)";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        
-        for (let i = 0; i <= points; i++) {
-          const angle = (i / points) * Math.PI * 2;
-          // Multiple sine waves for organic movement
-          const wave1 = Math.sin(angle * 3 + phaseRef.current * 2) * 8;
-          const wave2 = Math.sin(angle * 5 - phaseRef.current * 3) * 4;
-          const wave3 = Math.sin(angle * 2 + phaseRef.current) * 6;
-          const r = baseRadius + wave1 + wave2 + wave3;
-          const x = centerX + Math.cos(angle) * r;
-          const y = centerY + Math.sin(angle) * r;
-          
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-
-        // Inner pulse
-        const pulseSize = 20 + Math.sin(phaseRef.current * 4) * 5;
-        const innerPulse = ctx.createRadialGradient(
-          centerX, centerY, 0,
-          centerX, centerY, pulseSize
-        );
-        innerPulse.addColorStop(0, "hsla(265, 90%, 75%, 0.6)");
-        innerPulse.addColorStop(1, "hsla(265, 90%, 65%, 0)");
-        ctx.fillStyle = innerPulse;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, pulseSize, 0, Math.PI * 2);
-        ctx.fill();
       }
+
+      // Main sphere glow
+      const sphereGlow = ctx.createRadialGradient(cx, cy, baseRadius * 0.3, cx, cy, baseRadius * 1.3);
+      sphereGlow.addColorStop(0, "hsla(35, 90%, 60%, 0.25)");
+      sphereGlow.addColorStop(0.6, "hsla(30, 80%, 40%, 0.1)");
+      sphereGlow.addColorStop(1, "hsla(25, 60%, 20%, 0)");
+      ctx.fillStyle = sphereGlow;
+      ctx.beginPath();
+      ctx.arc(cx, cy, baseRadius * 1.3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Animate particles within sphere
+      const speedMultiplier = state === "listening" ? 2.5 : state === "speaking" ? 2.0 : state === "processing" ? 3.0 : 0.5;
+      const breathe = Math.sin(phase * 0.8) * 5 * (state === "idle" ? 1 : 0.3);
+
+      particlesRef.current.forEach((p) => {
+        // Move particles
+        p.x += p.vx * speedMultiplier;
+        p.y += p.vy * speedMultiplier;
+
+        // Keep within sphere
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const maxR = baseRadius + breathe;
+        
+        if (dist > maxR) {
+          // Bounce back toward center
+          const angle = Math.atan2(dy, dx);
+          p.x = cx + Math.cos(angle) * (maxR - 2);
+          p.y = cy + Math.sin(angle) * (maxR - 2);
+          p.vx = -p.vx * 0.8 + (Math.random() - 0.5) * 0.3;
+          p.vy = -p.vy * 0.8 + (Math.random() - 0.5) * 0.3;
+        }
+
+        // Random jitter
+        p.vx += (Math.random() - 0.5) * 0.1;
+        p.vy += (Math.random() - 0.5) * 0.1;
+        
+        // Damping
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+
+        // Oscillate alpha
+        const alphaOsc = Math.sin(phase * 2 + p.hue) * 0.3;
+        const finalAlpha = Math.max(0.1, Math.min(1, p.alpha + alphaOsc));
+
+        // Draw particle with warm golden glow
+        const particleGlow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 2.5);
+        particleGlow.addColorStop(0, `hsla(${p.hue}, 90%, 70%, ${finalAlpha})`);
+        particleGlow.addColorStop(0.5, `hsla(${p.hue}, 80%, 55%, ${finalAlpha * 0.4})`);
+        particleGlow.addColorStop(1, `hsla(${p.hue}, 70%, 40%, 0)`);
+        
+        ctx.fillStyle = particleGlow;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core bright dot
+        ctx.fillStyle = `hsla(${p.hue}, 95%, 85%, ${finalAlpha * 0.9})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Sphere border glow
+      const borderGrad = ctx.createRadialGradient(cx, cy, baseRadius - 3 + breathe, cx, cy, baseRadius + 6 + breathe);
+      borderGrad.addColorStop(0, "hsla(35, 80%, 50%, 0)");
+      borderGrad.addColorStop(0.5, `hsla(35, 80%, 50%, ${0.15 + Math.sin(phase) * 0.05})`);
+      borderGrad.addColorStop(1, "hsla(35, 80%, 50%, 0)");
+      ctx.fillStyle = borderGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, baseRadius + 6 + breathe, 0, Math.PI * 2);
+      ctx.fill();
 
       animationRef.current = requestAnimationFrame(animate);
     };
@@ -180,17 +168,11 @@ export const VoiceChatVisualizer = forwardRef<HTMLDivElement, VoiceChatVisualize
     return () => {
       cancelAnimationFrame(animationRef.current);
     };
-  }, [state]);
+  }, [state, size]);
 
     return (
       <div ref={ref} className="relative flex items-center justify-center">
-        <canvas
-          ref={canvasRef}
-          className={cn(
-            "transition-opacity duration-500",
-            state === "idle" ? "opacity-60" : "opacity-100"
-          )}
-        />
+        <canvas ref={canvasRef} />
       </div>
     );
   }

@@ -11,7 +11,6 @@ import '../../services/text_to_speech_service.dart';
 import '../../utils/text_utils.dart';
 import '../../widgets/voice_chat/voice_chat_visualizer.dart';
 
-// Fast model for voice chat - optimized for low latency
 const String _voiceModel = 'gemini-3-flash';
 
 class VoiceChatScreen extends StatefulWidget {
@@ -35,6 +34,11 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
   final List<Map<String, String>> _conversationHistory = [];
   StreamSubscription? _streamSubscription;
 
+  // History drawer state
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  List<Map<String, dynamic>> _sessions = [];
+  bool _loadingSessions = false;
+
   @override
   void initState() {
     super.initState();
@@ -45,14 +49,10 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     await _voiceService.initialize();
     await _ttsService.initialize();
     
-    // Set up auto-restart listening after speaking completes
     _ttsService.setOnSpeakingComplete(() {
       if (mounted && _voiceState == VoiceState.speaking) {
-        // Small delay before restarting to feel natural
         Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            _startListening();
-          }
+          if (mounted) _startListening();
         });
       }
     });
@@ -64,6 +64,56 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     _voiceService.cancelListening();
     _ttsService.stop();
     super.dispose();
+  }
+
+  Future<void> _fetchSessions() async {
+    setState(() => _loadingSessions = true);
+    try {
+      final token = _supabase.auth.currentSession?.accessToken;
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null || token == null) {
+        setState(() {
+          _sessions = [];
+          _loadingSessions = false;
+        });
+        return;
+      }
+
+      final url = Uri.parse(
+        '${AppConfig.supabaseUrl}/rest/v1/voice_sessions'
+        '?select=id,title,transcript,created_at'
+        '&user_id=eq.$userId'
+        '&order=created_at.desc'
+        '&limit=50',
+      );
+
+      final res = await http.get(url, headers: {
+        'apikey': AppConfig.supabaseAnonKey,
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as List;
+        setState(() => _sessions = data.cast<Map<String, dynamic>>());
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch voice sessions: $e');
+    } finally {
+      if (mounted) setState(() => _loadingSessions = false);
+    }
+  }
+
+  String _formatSessionDate(String dateStr) {
+    final date = DateTime.tryParse(dateStr);
+    if (date == null) return '';
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${date.month}/${date.day}';
   }
 
   Future<void> _startListening() async {
@@ -78,17 +128,13 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       _voiceState = VoiceState.listening;
     });
 
-    // Stop any ongoing speech
     await _ttsService.stop();
-
     Timer? silenceTimer;
 
     await _voiceService.startListening(
       onResult: (text) {
         silenceTimer?.cancel();
         setState(() => _transcript = text);
-        
-        // Set a short silence timeout to detect end of speech
         silenceTimer = Timer(const Duration(milliseconds: 800), () {
           _voiceService.stopListening();
           _sendMessage(text.trim());
@@ -97,8 +143,6 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       onPartialResult: (text) {
         silenceTimer?.cancel();
         setState(() => _transcript = text);
-        
-        // Reset silence timer on partial results too
         silenceTimer = Timer(const Duration(milliseconds: 800), () {
           if (_transcript.isNotEmpty) {
             _voiceService.stopListening();
@@ -134,25 +178,20 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
     try {
       _conversationHistory.add({'role': 'user', 'content': text});
-
       final url = '${AppConfig.supabaseUrl}/functions/v1/chat';
       final request = http.Request('POST', Uri.parse(url));
-      
       final token = _supabase.auth.currentSession?.accessToken;
       request.headers.addAll({
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ${token ?? AppConfig.supabaseAnonKey}',
       });
-
-      final body = {
+      request.body = jsonEncode({
         'model': _voiceModel,
         'messages': _conversationHistory,
         'webSearch': false,
-      };
-      request.body = jsonEncode(body);
+      });
 
       final streamedResponse = await httpClient.send(request);
-
       if (streamedResponse.statusCode != 200) {
         throw Exception('Chat failed with status ${streamedResponse.statusCode}');
       }
@@ -163,48 +202,35 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
       await for (final chunk in streamedResponse.stream.transform(utf8.decoder)) {
         buffer += chunk;
-
-        // Process SSE events
         while (buffer.contains('\n')) {
           final newlineIndex = buffer.indexOf('\n');
           String line = buffer.substring(0, newlineIndex);
           buffer = buffer.substring(newlineIndex + 1);
-
           if (line.endsWith('\r')) line = line.substring(0, line.length - 1);
           if (line.startsWith(':') || line.trim().isEmpty) continue;
           if (!line.startsWith('data: ')) continue;
-
           final jsonStr = line.substring(6).trim();
           if (jsonStr == '[DONE]') break;
-
           try {
             final parsed = jsonDecode(jsonStr) as Map<String, dynamic>;
             final content = parsed['choices']?[0]?['delta']?['content'] as String?;
-            
             if (content != null) {
               fullResponse += content;
               setState(() => _response = fullResponse);
-
-              // Stream speech: queue smaller chunks for faster response
               sentenceBuffer += content;
-
-              // Speak after shorter phrases (comma, period, question, exclamation, or 60+ chars)
               final phraseMatch = RegExp(r'^(.*?[.!?,;:])\s*').firstMatch(sentenceBuffer);
               if (phraseMatch != null && phraseMatch.group(1)!.length > 10) {
                 final phrase = phraseMatch.group(1)!;
                 sentenceBuffer = sentenceBuffer.substring(phraseMatch.end);
-                
                 if (!_isMuted) {
                   setState(() => _voiceState = VoiceState.speaking);
                   _ttsService.queueSpeech(phrase);
                 }
               } else if (sentenceBuffer.length > 60) {
-                // Speak longer chunks even without punctuation
                 final words = sentenceBuffer.split(' ');
                 if (words.length > 5) {
                   final toSpeak = words.sublist(0, words.length - 1).join(' ');
                   sentenceBuffer = words.last;
-                  
                   if (!_isMuted) {
                     setState(() => _voiceState = VoiceState.speaking);
                     _ttsService.queueSpeech(toSpeak);
@@ -212,23 +238,16 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                 }
               }
             }
-          } catch (_) {
-            // Incomplete JSON, continue
-          }
+          } catch (_) {}
         }
       }
 
-      // Speak any remaining text
       if (sentenceBuffer.trim().isNotEmpty && !_isMuted) {
         _ttsService.queueSpeech(sentenceBuffer.trim());
       }
-
-      // Add to conversation history
       if (fullResponse.isNotEmpty) {
         _conversationHistory.add({'role': 'assistant', 'content': fullResponse});
       }
-
-      // If muted or nothing to speak, go back to idle
       if (_isMuted || !_ttsService.isSpeaking) {
         setState(() => _voiceState = VoiceState.idle);
       }
@@ -242,7 +261,6 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
   void _toggleMute() {
     setState(() => _isMuted = !_isMuted);
-    
     if (_isMuted) {
       _ttsService.stop();
       if (_voiceState == VoiceState.speaking) {
@@ -257,266 +275,283 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     Navigator.of(context).pop();
   }
 
+  String _getStatusLabel() {
+    switch (_voiceState) {
+      case VoiceState.listening:
+        return 'Listening...';
+      case VoiceState.processing:
+        return 'Thinking...';
+      case VoiceState.speaking:
+        return '';
+      case VoiceState.idle:
+        return 'Say something...';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            _buildHeader(),
-            
-            // Main content
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Visualization
-                  VoiceChatVisualizer(state: _voiceState),
-                  
-                  const SizedBox(height: 32),
-                  
-                  // Transcript / Response
-                  _buildTranscriptArea(),
-                  
-                  // Instructions
-                  if (_voiceState == VoiceState.idle && _transcript.isEmpty && _response.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 24),
-                      child: Text(
-                        'Tap the microphone to start talking',
-                        style: TextStyle(
-                          color: AppTheme.muted,
-                          fontSize: 14,
+      key: _scaffoldKey,
+      backgroundColor: Colors.transparent,
+      drawer: _buildHistoryDrawer(),
+      drawerEnableOpenDragGesture: true,
+      body: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment(0, 0.2),
+              radius: 1.2,
+              colors: [
+                Color(0xFF2D1F0D),
+                Color(0xFF0D0D0D),
+                Color(0xFF080808),
+              ],
+              stops: [0, 0.6, 1],
+            ),
+          ),
+          child: SafeArea(
+            child: Column(
+              children: [
+                // Top bar: History + Settings
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.history, color: AppTheme.muted, size: 22),
+                        onPressed: () {
+                          _fetchSessions();
+                          _scaffoldKey.currentState?.openDrawer();
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.settings, color: AppTheme.muted, size: 22),
+                        onPressed: () {},
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Response / transcript at top
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 80, maxHeight: 200),
+                    child: SingleChildScrollView(
+                      child: _response.isNotEmpty
+                          ? Text(
+                              cleanMarkdown(_response),
+                              style: TextStyle(
+                                color: AppTheme.foreground.withOpacity(0.8),
+                                fontSize: 18,
+                                height: 1.5,
+                              ),
+                            )
+                          : _transcript.isNotEmpty
+                              ? Text(
+                                  _transcript,
+                                  style: TextStyle(
+                                    color: AppTheme.foreground.withOpacity(0.6),
+                                    fontSize: 18,
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      _error!,
+                      style: TextStyle(color: AppTheme.destructive.withOpacity(0.8), fontSize: 14),
+                    ),
+                  ),
+
+                // Center sphere
+                Expanded(
+                  child: Center(
+                    child: VoiceChatVisualizer(state: _voiceState, size: 180),
+                  ),
+                ),
+
+                // Bottom controls with status in between
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16, left: 40, right: 40),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Close button
+                      GestureDetector(
+                        onTap: _handleClose,
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(0.1),
+                          ),
+                          child: const Icon(Icons.close, color: Colors.white, size: 24),
                         ),
                       ),
-                    ),
-                ],
-              ),
+
+                      // Status text in the middle
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            _getStatusLabel(),
+                            style: TextStyle(
+                              color: AppTheme.muted,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Mute toggle
+                      GestureDetector(
+                        onTap: _toggleMute,
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _isMuted
+                                ? Colors.red.withOpacity(0.9)
+                                : Colors.white.withOpacity(0.1),
+                          ),
+                          child: Icon(
+                            _isMuted ? Icons.mic_off : Icons.mic,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            
-            // Mic button
-            _buildMicButton(),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppTheme.border, width: 1),
+  Widget _buildHistoryDrawer() {
+    return Drawer(
+      backgroundColor: const Color(0xFF111111),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topRight: Radius.circular(16),
+          bottomRight: Radius.circular(16),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Status indicator
-          Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _getStatusColor(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                _getStatusText(),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '• Flash mode',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.muted,
-                ),
-              ),
-            ],
-          ),
-          
-          // Actions
-          Row(
-            children: [
-              IconButton(
-                icon: Icon(
-                  _isMuted ? Icons.volume_off : Icons.volume_up,
-                  size: 20,
-                ),
-                onPressed: _toggleMute,
-                tooltip: _isMuted ? 'Unmute' : 'Mute',
-              ),
-              IconButton(
-                icon: const Icon(Icons.close, size: 20),
-                onPressed: _handleClose,
-                tooltip: 'Close',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _getStatusColor() {
-    switch (_voiceState) {
-      case VoiceState.idle:
-        return AppTheme.muted;
-      case VoiceState.listening:
-        return Colors.green;
-      case VoiceState.processing:
-        return Colors.amber;
-      case VoiceState.speaking:
-        return AppTheme.primary;
-    }
-  }
-
-  String _getStatusText() {
-    switch (_voiceState) {
-      case VoiceState.idle:
-        return 'Ready';
-      case VoiceState.listening:
-        return 'Listening';
-      case VoiceState.processing:
-        return 'Processing';
-      case VoiceState.speaking:
-        return 'Speaking';
-    }
-  }
-
-  Widget _buildTranscriptArea() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-          if (_transcript.isNotEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: AppTheme.secondary.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'You said:',
+                    'Voice History',
                     style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.muted,
+                      color: AppTheme.foreground.withOpacity(0.9),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _transcript,
-                    style: const TextStyle(fontSize: 14),
+                  IconButton(
+                    icon: Icon(Icons.close, color: AppTheme.muted, size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
             ),
-          
-          if (_response.isNotEmpty)
-            Container(
-              width: double.infinity,
-              constraints: const BoxConstraints(maxHeight: 200),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'AI response:',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.muted,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      cleanMarkdown(_response),
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          
-          if (_error != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                _error!,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.red,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildMicButton() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: GestureDetector(
-        onTap: () {
-          if (_voiceState == VoiceState.processing) return;
-          
-          if (_voiceState == VoiceState.listening) {
-            _stopListening();
-          } else {
-            _startListening();
-          }
-        },
-        child: Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: _voiceState == VoiceState.listening
-                ? Colors.red
-                : _voiceState == VoiceState.speaking
-                    ? AppTheme.primary.withOpacity(0.5)
-                    : AppTheme.primary,
-            boxShadow: [
-              BoxShadow(
-                color: (_voiceState == VoiceState.listening
-                        ? Colors.red
-                        : AppTheme.primary)
-                    .withOpacity(0.3),
-                blurRadius: 20,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: Icon(
-            _voiceState == VoiceState.listening ? Icons.mic_off : Icons.mic,
-            color: Colors.white,
-            size: 28,
-          ),
+            Divider(color: Colors.white.withOpacity(0.06), height: 1),
+
+            // Session list
+            Expanded(
+              child: _loadingSessions
+                  ? const Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white38,
+                        ),
+                      ),
+                    )
+                  : _sessions.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.access_time, color: AppTheme.muted.withOpacity(0.3), size: 32),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No voice sessions yet',
+                                style: TextStyle(
+                                  color: AppTheme.muted.withOpacity(0.5),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          itemCount: _sessions.length,
+                          itemBuilder: (context, index) {
+                            final session = _sessions[index];
+                            final title = session['title'] ?? 'Untitled Session';
+                            final createdAt = session['created_at'] ?? '';
+                            return InkWell(
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                // TODO: Load session transcript
+                              },
+                              borderRadius: BorderRadius.circular(10),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: AppTheme.foreground.withOpacity(0.8),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      _formatSessionDate(createdAt),
+                                      style: TextStyle(
+                                        color: AppTheme.muted.withOpacity(0.5),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+            ),
+          ],
         ),
       ),
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
+import '../../screens/chat/voice_chat_screen.dart';
 
 class MainScaffold extends StatelessWidget {
   final Widget child;
@@ -51,7 +52,16 @@ class BottomNavBar extends StatelessWidget {
               context.go('/create');
               break;
             case 2:
-              context.go('/chat');
+              // Open voice chat as a non-opaque overlay that doesn't cover the nav bar
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => FractionallySizedBox(
+                  heightFactor: 0.88,
+                  child: const VoiceChatScreen(),
+                ),
+              );
               break;
             case 3:
               context.go('/apps');
@@ -73,9 +83,9 @@ class BottomNavBar extends StatelessWidget {
             label: 'Create',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            activeIcon: Icon(Icons.chat_bubble),
-            label: 'Chat',
+            icon: Icon(Icons.mic_none),
+            activeIcon: Icon(Icons.mic),
+            label: 'Ask AI',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.apps_outlined),

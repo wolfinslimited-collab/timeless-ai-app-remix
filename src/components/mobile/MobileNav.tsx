@@ -1,4 +1,4 @@
-import { Home, Sparkles, Grid2X2, MessageSquare, User } from "lucide-react";
+import { Home, Sparkles, Grid2X2, Mic, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type Screen = 
@@ -50,8 +50,8 @@ export function MobileNav({ currentScreen, onNavigate }: MobileNavProps) {
           onClick={() => onNavigate("create")}
         />
         <NavItem 
-          icon={MessageSquare} 
-          label="Chat" 
+          icon={Mic} 
+          label="Ask AI" 
           active={currentScreen === "chat"}
           onClick={() => onNavigate("chat")}
         />
