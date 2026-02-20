@@ -13,9 +13,10 @@ const APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys";
 // Google's public key endpoints
 const GOOGLE_KEYS_URL = "https://www.googleapis.com/oauth2/v3/certs";
 
-// Valid audience values for Apple tokens (bundle ID for native iOS)
+// Valid audience values for Apple tokens
 const VALID_APPLE_AUDIENCES = [
   "com.health.timelessApp", // iOS bundle ID (native Sign In with Apple)
+  "com.timeless.signin",    // Apple Services ID (Android web-based Apple Sign-In)
 ];
 
 // Valid audience values for Google tokens (OAuth Client IDs)
