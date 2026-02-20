@@ -63,6 +63,7 @@ import '../screens/profile/profile_screen.dart';
 import '../screens/downloads/downloads_screen.dart';
 import '../screens/favorites/favorites_screen.dart';
 import '../screens/character/character_screen.dart';
+import '../screens/agents/agents_screen.dart';
 import '../widgets/common/main_scaffold.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -331,6 +332,12 @@ final appRouter = GoRouter(
           path: '/character',
           pageBuilder: (context, state) => const NoTransitionPage(
             child: CharacterScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/agents',
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: AgentsScreen(),
           ),
         ),
         GoRoute(

@@ -25,9 +25,10 @@ class BottomNavBar extends StatelessWidget {
     if (location == '/') return 0;
     if (location.startsWith('/create')) return 1;
     if (location.startsWith('/chat')) return 2;
+    if (location.startsWith('/agents')) return 3;
     if (location.startsWith('/apps') || location.startsWith('/cinema'))
-      return 3;
-    if (location.startsWith('/profile')) return 4;
+      return 4;
+    if (location.startsWith('/profile')) return 5;
     return 0;
   }
 
@@ -64,9 +65,12 @@ class BottomNavBar extends StatelessWidget {
               );
               break;
             case 3:
-              context.go('/apps');
+              context.go('/agents');
               break;
             case 4:
+              context.go('/apps');
+              break;
+            case 5:
               context.go('/profile');
               break;
           }
@@ -86,6 +90,11 @@ class BottomNavBar extends StatelessWidget {
             icon: Icon(Icons.mic_none),
             activeIcon: Icon(Icons.mic),
             label: 'Ask AI',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.smart_toy_outlined),
+            activeIcon: Icon(Icons.smart_toy),
+            label: 'Agents',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.apps_outlined),
