@@ -129,6 +129,9 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
   const isPlayingRef = useRef(false);
   const isConnectedRef = useRef(false);
   const isListeningRef = useRef(false);
+  const keepaliveRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 3;
 
   // Fetch voice sessions
   const fetchSessions = useCallback(async () => {
@@ -302,6 +305,7 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
 
       ws.onopen = () => {
         console.log("[VoiceChat] WebSocket connected, sending setup");
+        reconnectAttemptsRef.current = 0;
         // Send setup message
         ws.send(JSON.stringify({
           setup: {
@@ -323,21 +327,54 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
             }
           }
         }));
+
+        // Start keepalive: send a silent audio chunk every 15s to prevent idle timeout
+        if (keepaliveRef.current) clearInterval(keepaliveRef.current);
+        keepaliveRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            // Send a tiny silent PCM16 chunk to keep the connection alive
+            const silence = new Float32Array(160); // 10ms of silence at 16kHz
+            const pcm = float32ToPcm16(silence);
+            const b64 = arrayBufferToBase64(pcm);
+            ws.send(JSON.stringify({
+              realtime_input: {
+                media_chunks: [{ data: b64, mime_type: "audio/pcm;rate=16000" }]
+              }
+            }));
+          }
+        }, 15000);
       };
 
       ws.onmessage = handleWsMessage;
 
       ws.onerror = (e) => {
         console.error("[VoiceChat] WebSocket error:", e);
-        setError("Connection error. Please try again.");
-        cleanupConnection();
-        setVoiceState("idle");
       };
 
       ws.onclose = (e) => {
         console.log("[VoiceChat] WebSocket closed:", e.code, e.reason);
         isConnectedRef.current = false;
-        if (isListeningRef.current) {
+        if (keepaliveRef.current) {
+          clearInterval(keepaliveRef.current);
+          keepaliveRef.current = null;
+        }
+
+        // Auto-reconnect if still listening
+        if (isListeningRef.current && reconnectAttemptsRef.current < maxReconnectAttempts) {
+          reconnectAttemptsRef.current++;
+          console.log(`[VoiceChat] Auto-reconnecting (attempt ${reconnectAttemptsRef.current})...`);
+          setError("Reconnecting...");
+          setVoiceState("processing");
+          // Clean up audio but keep mic stream alive for faster reconnect
+          if (processorRef.current) { processorRef.current.disconnect(); processorRef.current = null; }
+          if (sourceRef.current) { sourceRef.current.disconnect(); sourceRef.current = null; }
+          if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+            audioContextRef.current.close().catch(() => {});
+            audioContextRef.current = null;
+          }
+          interruptAI();
+          setTimeout(() => connectToGemini(), 1000);
+        } else if (isListeningRef.current) {
           setError("Connection closed. Tap to reconnect.");
           cleanupConnection();
           setVoiceState("idle");
@@ -435,6 +472,10 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
     isListeningRef.current = false;
     isConnectedRef.current = false;
 
+    if (keepaliveRef.current) {
+      clearInterval(keepaliveRef.current);
+      keepaliveRef.current = null;
+    }
     if (processorRef.current) {
       processorRef.current.disconnect();
       processorRef.current = null;
