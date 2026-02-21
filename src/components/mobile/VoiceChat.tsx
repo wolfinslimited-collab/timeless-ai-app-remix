@@ -254,11 +254,13 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
         return;
       }
 
-      const res = await fetch(`${TIMELESS_SUPABASE_URL}/functions/v1/gemini-live-token`, {
+      // Call the Lovable Cloud edge function, passing the external project's auth token
+      const cloudUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/gemini-live-token`;
+      const res = await fetch(cloudUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "apikey": TIMELESS_ANON_KEY,
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({ action: "get_token" }),
