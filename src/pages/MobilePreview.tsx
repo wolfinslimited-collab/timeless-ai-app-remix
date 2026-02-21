@@ -14,6 +14,7 @@ import { MobileAudioCreate } from "@/components/mobile/MobileAudioCreate";
 import { MobileVisualStyles } from "@/components/mobile/MobileVisualStyles";
 import { MobileApps } from "@/components/mobile/MobileApps";
 import { MobileChat } from "@/components/mobile/MobileChat";
+import { MobileAgents } from "@/components/mobile/MobileAgents";
 import VoiceChat from "@/components/mobile/VoiceChat";
 import { MobileLibrary } from "@/components/mobile/MobileLibrary";
 import { MobileProfile } from "@/components/mobile/MobileProfile";
@@ -159,6 +160,8 @@ export default function MobilePreview() {
         return <MobileVisualStyles onBack={() => setCurrentScreen("create")} />;
       case "apps":
         return <MobileApps onBack={() => setCurrentScreen("home")} onNavigate={setCurrentScreen} hasPremiumPlusAccess={hasPremiumPlusAccess} onUpgrade={() => setCurrentScreen("subscription")} />;
+      case "agents":
+        return <MobileAgents onAskAI={() => setShowVoiceChat(true)} />;
       case "chat":
         return null; // Voice overlay handles this
       case "library":
