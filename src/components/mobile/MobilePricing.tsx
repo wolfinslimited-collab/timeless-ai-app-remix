@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { ArrowLeft, Crown, Loader2, Check, Zap, Plus, Lock, Star, Award, Sparkles, Coins } from "lucide-react";
+import { useState, useRef, TouchEvent } from "react";
+import { ArrowLeft, Crown, Loader2, Check, Zap, Plus, Lock, Star, Award, Sparkles, Coins, Flame } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { supabase } from "@/lib/supabase";
@@ -27,6 +27,7 @@ interface SubscriptionPlan {
   bestValue?: boolean;
   icon: string;
   features: PlanFeature[];
+  displayOrder: number;
 }
 
 interface CreditPackage {
@@ -37,21 +38,23 @@ interface CreditPackage {
   priceId: string;
   popular?: boolean;
   icon: string;
+  displayOrder: number;
 }
 
-// Hardcoded plans matching Flutter app
+// Plans matching the create-checkout edge function price IDs
 const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     id: "premium-monthly",
     name: "Premium",
     period: "Monthly",
-    credits: 5000,
+    credits: 500,
     price: 9.99,
     priceId: "price_1SsTCRCpOaBygRMzaYvMeCVZ",
     popular: true,
     icon: "Crown",
+    displayOrder: 1,
     features: [
-      { text: "5,000 credits per month", included: true },
+      { text: "500 credits per month", included: true },
       { text: "Access to all AI tools", included: true },
       { text: "HD image generation", included: true },
       { text: "Priority processing", included: true },
@@ -59,16 +62,17 @@ const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     ],
   },
   {
-    id: "pro-monthly",
-    name: "Pro",
+    id: "premium-plus-monthly",
+    name: "Premium Plus",
     period: "Monthly",
-    credits: 15000,
+    credits: 1000,
     price: 19.99,
-    priceId: "price_pro_monthly",
+    priceId: "price_1SsTD3CpOaBygRMz4Zidlmny",
     bestValue: true,
     icon: "Star",
+    displayOrder: 2,
     features: [
-      { text: "15,000 credits per month", included: true },
+      { text: "1,000 credits per month", included: true },
       { text: "Access to all AI tools", included: true },
       { text: "4K image generation", included: true, badge: "New" },
       { text: "Priority processing", included: true },
@@ -83,13 +87,14 @@ const YEARLY_PLANS: SubscriptionPlan[] = [
     id: "premium-yearly",
     name: "Premium",
     period: "Yearly",
-    credits: 60000,
+    credits: 5000,
     price: 99.99,
-    priceId: "price_premium_yearly",
+    priceId: "price_1SsTCdCpOaBygRMzezP7vu5t",
     popular: true,
     icon: "Crown",
+    displayOrder: 1,
     features: [
-      { text: "60,000 credits per year", included: true },
+      { text: "5,000 credits per year", included: true },
       { text: "Access to all AI tools", included: true },
       { text: "HD image generation", included: true },
       { text: "Priority processing", included: true },
@@ -97,16 +102,17 @@ const YEARLY_PLANS: SubscriptionPlan[] = [
     ],
   },
   {
-    id: "pro-yearly",
-    name: "Pro",
+    id: "premium-plus-yearly",
+    name: "Premium Plus",
     period: "Yearly",
-    credits: 180000,
+    credits: 7500,
     price: 199.99,
-    priceId: "price_pro_yearly",
+    priceId: "price_1SsTDGCpOaBygRMzr08YAnjw",
     bestValue: true,
     icon: "Star",
+    displayOrder: 2,
     features: [
-      { text: "180,000 credits per year", included: true },
+      { text: "7,500 credits per year", included: true },
       { text: "Access to all AI tools", included: true },
       { text: "4K image generation", included: true, badge: "New" },
       { text: "Priority processing", included: true },
@@ -117,10 +123,12 @@ const YEARLY_PLANS: SubscriptionPlan[] = [
 ];
 
 const CREDIT_PACKAGES: CreditPackage[] = [
-  { id: "credits_500", name: "Starter Pack", credits: 500, price: 4.99, priceId: "price_credits_500", icon: "Coins" },
-  { id: "credits_1500", name: "Popular Pack", credits: 1500, price: 9.99, priceId: "price_credits_1500", popular: true, icon: "Sparkles" },
-  { id: "credits_5000", name: "Pro Pack", credits: 5000, price: 24.99, priceId: "price_credits_5000", icon: "Star" },
+  { id: "credits_350", name: "Starter", credits: 350, price: 4.99, priceId: "price_1SskytCpOaBygRMzKn3QRWI8", icon: "Coins", displayOrder: 1 },
+  { id: "credits_700", name: "Plus", credits: 700, price: 9.99, priceId: "price_1Sskz8CpOaBygRMzhfTitmx9", popular: true, icon: "Sparkles", displayOrder: 2 },
+  { id: "credits_1400", name: "Pro", credits: 1400, price: 19.99, priceId: "price_1SskzeCpOaBygRMzxFMSYoPK", icon: "Star", displayOrder: 3 },
 ];
+
+const ALL_PLANS = [...SUBSCRIPTION_PLANS, ...YEARLY_PLANS];
 
 function getIcon(iconName: string) {
   switch (iconName) {
@@ -134,26 +142,47 @@ function getIcon(iconName: string) {
   }
 }
 
+/** Get plan rank for upgrade/downgrade comparison. Higher = better. */
+function getPlanRank(planId: string): number {
+  const plan = ALL_PLANS.find(p => p.id.toLowerCase() === planId.toLowerCase());
+  if (!plan) return 0;
+  let rank = plan.displayOrder * 10;
+  if (plan.period === "Yearly") rank += 5;
+  return rank;
+}
+
+function isPlanDowngrade(currentPlanId: string, targetPlanId: string): boolean {
+  return getPlanRank(targetPlanId) < getPlanRank(currentPlanId);
+}
+
 export function MobilePricing({ onBack }: MobilePricingProps) {
   const [activeTab, setActiveTab] = useState<"subscriptions" | "credits">("subscriptions");
   const [isYearly, setIsYearly] = useState(false);
   const [loadingPackageId, setLoadingPackageId] = useState<string | null>(null);
-  
   const [currentPlanIndex, setCurrentPlanIndex] = useState(0);
+  const [isSubscribeLoading, setIsSubscribeLoading] = useState(false);
 
   const { user } = useAuth();
-  const { credits, hasActiveSubscription, refetch } = useCredits();
+  const { credits, hasActiveSubscription, currentPlan, refetch } = useCredits();
 
   const plans = isYearly ? YEARLY_PLANS : SUBSCRIPTION_PLANS;
 
-  const [isSubscribeLoading, setIsSubscribeLoading] = useState(false);
+  const isCurrentPlan = (planId: string) => {
+    if (!hasActiveSubscription || !currentPlan) return false;
+    return currentPlan.toLowerCase() === planId.toLowerCase();
+  };
+
+  const isDowngrade = (planId: string) => {
+    if (!hasActiveSubscription || !currentPlan) return false;
+    if (isCurrentPlan(planId)) return false;
+    return isPlanDowngrade(currentPlan, planId);
+  };
 
   const handleSubscribe = async (plan: SubscriptionPlan) => {
     if (!user) {
       toast.error("Please sign in to subscribe");
       return;
     }
-
     setIsSubscribeLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
@@ -175,7 +204,6 @@ export function MobilePricing({ onBack }: MobilePricingProps) {
       setActiveTab("subscriptions");
       return;
     }
-
     setLoadingPackageId(pkg.id);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
@@ -191,14 +219,6 @@ export function MobilePricing({ onBack }: MobilePricingProps) {
     }
   };
 
-
-  const isCurrentPlan = (planId: string) => {
-    // For web preview, we check if user has active subscription and match plan name
-    if (!hasActiveSubscription) return false;
-    // Default to premium-monthly being the current plan for active subscribers
-    return planId.toLowerCase().includes("premium");
-  };
-
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
@@ -211,7 +231,6 @@ export function MobilePricing({ onBack }: MobilePricingProps) {
         </button>
         <h1 className="text-foreground text-base font-semibold flex-1">Pricing</h1>
         
-        {/* Credits badge */}
         {!hasActiveSubscription && (
           <div className="px-2.5 py-1.5 bg-secondary rounded-full flex items-center gap-1.5">
             <Coins className="w-4 h-4 text-foreground" />
@@ -225,7 +244,6 @@ export function MobilePricing({ onBack }: MobilePricingProps) {
             <span className="text-[11px] font-semibold">Pro</span>
           </div>
         )}
-        
       </div>
 
       {/* Tab Bar */}
@@ -269,6 +287,7 @@ export function MobilePricing({ onBack }: MobilePricingProps) {
             setCurrentPlanIndex={setCurrentPlanIndex}
             isLoading={isSubscribeLoading}
             isCurrentPlan={isCurrentPlan}
+            isDowngrade={isDowngrade}
             onSubscribe={handleSubscribe}
           />
         ) : (
@@ -293,6 +312,7 @@ function SubscriptionsTab({
   setCurrentPlanIndex,
   isLoading,
   isCurrentPlan,
+  isDowngrade,
   onSubscribe,
 }: {
   plans: SubscriptionPlan[];
@@ -302,12 +322,27 @@ function SubscriptionsTab({
   setCurrentPlanIndex: (v: number) => void;
   isLoading: boolean;
   isCurrentPlan: (id: string) => boolean;
+  isDowngrade: (id: string) => boolean;
   onSubscribe: (plan: SubscriptionPlan) => void;
 }) {
   const plan = plans[currentPlanIndex] || plans[0];
-  const Icon = getIcon(plan?.icon || "Zap");
-  const isCurrent = isCurrentPlan(plan?.id || "");
-  const isHighlighted = plan?.popular || plan?.bestValue;
+  if (!plan) return null;
+  
+  const Icon = getIcon(plan.icon);
+  const isCurrent = isCurrentPlan(plan.id);
+  const isDown = isDowngrade(plan.id);
+  const isHighlighted = plan.popular || plan.bestValue;
+
+  // Touch swipe support
+  const touchStartX = useRef(0);
+  const handleTouchStart = (e: TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
+  const handleTouchEnd = (e: TouchEvent) => {
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0 && currentPlanIndex < plans.length - 1) setCurrentPlanIndex(currentPlanIndex + 1);
+      if (diff < 0 && currentPlanIndex > 0) setCurrentPlanIndex(currentPlanIndex - 1);
+    }
+  };
 
   return (
     <div className="px-4 pt-4 flex flex-col h-full">
@@ -318,7 +353,7 @@ function SubscriptionsTab({
             onClick={() => { setIsYearly(false); setCurrentPlanIndex(0); }}
             className={cn(
               "px-5 py-2.5 rounded-lg text-sm font-bold transition-all",
-              !isYearly ? "bg-white text-black" : "text-muted-foreground"
+              !isYearly ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
             )}
           >
             Monthly
@@ -327,7 +362,7 @@ function SubscriptionsTab({
             onClick={() => { setIsYearly(true); setCurrentPlanIndex(0); }}
             className={cn(
               "px-5 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all",
-              isYearly ? "bg-white text-black" : "text-muted-foreground"
+              isYearly ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
             )}
           >
             Yearly
@@ -338,9 +373,22 @@ function SubscriptionsTab({
         </div>
       </div>
 
-      {/* Plan Card */}
-      {plan && (
-        <div className="flex-1 overflow-y-auto pb-4">
+      {/* Swipeable Plan Card */}
+      <div
+        className="flex-1 overflow-y-auto pb-4"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className="relative">
+          {/* Current Plan Badge - positioned above card */}
+          {isCurrent && (
+            <div className="flex justify-center mb-2">
+              <div className="px-3.5 py-1.5 bg-green-500 text-white text-xs font-bold rounded-full">
+                Current Plan
+              </div>
+            </div>
+          )}
+
           <div
             className={cn(
               "rounded-[20px] p-5 border-2 transition-all",
@@ -351,15 +399,6 @@ function SubscriptionsTab({
                 : "border-border bg-card"
             )}
           >
-            {/* Current Plan Badge */}
-            {isCurrent && (
-              <div className="flex justify-center -mt-8 mb-3">
-                <div className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">
-                  Current Plan
-                </div>
-              </div>
-            )}
-
             {/* Header */}
             <div className="flex items-center gap-3 mb-4">
               <div
@@ -374,13 +413,13 @@ function SubscriptionsTab({
               </div>
               <div className="flex-1">
                 <div className="flex items-end gap-1">
-                  <span className="text-[22px] font-bold">${plan.price.toFixed(2)}</span>
+                  <span className="text-[22px] font-bold text-foreground">${plan.price.toFixed(2)}</span>
                   <span className="text-muted-foreground text-xs mb-1">
                     /{plan.period === "Monthly" ? "mo" : "yr"}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-lg font-bold">{plan.name}</span>
+                  <span className="text-lg font-bold text-foreground">{plan.name}</span>
                   {plan.popular && (
                     <span className="px-2 py-0.5 bg-gradient-to-r from-primary to-pink-500 text-white text-[10px] font-bold rounded-lg">
                       Popular
@@ -403,12 +442,12 @@ function SubscriptionsTab({
             </div>
 
             {/* Features */}
-            <div className="space-y-2 mb-5">
+            <div className="space-y-2.5 mb-5">
               {plan.features.map((feature, idx) => (
                 <div key={idx} className="flex items-center gap-2.5">
                   <div
                     className={cn(
-                      "w-5 h-5 rounded-full flex items-center justify-center",
+                      "w-5 h-5 rounded-full flex items-center justify-center shrink-0",
                       feature.included ? "bg-green-500/20" : "bg-red-500/20"
                     )}
                   >
@@ -435,13 +474,17 @@ function SubscriptionsTab({
               ))}
             </div>
 
-            {/* Subscribe Button */}
+            {/* Subscribe / Current Plan / Downgrade Button */}
             {isCurrent ? (
               <div className="w-full py-3.5 rounded-xl bg-green-500/15 border border-green-500/30 flex items-center justify-center gap-2">
                 <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
                   <Check className="w-3 h-3 text-white" />
                 </div>
                 <span className="text-green-500 font-bold text-[15px]">Your Current Plan</span>
+              </div>
+            ) : isDown ? (
+              <div className="w-full py-3.5 rounded-xl bg-secondary/50 border border-border/30 flex items-center justify-center">
+                <span className="text-muted-foreground font-medium text-sm">Current plan is higher</span>
               </div>
             ) : (
               <button
@@ -457,7 +500,7 @@ function SubscriptionsTab({
                 {isLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
-                  "Subscribe"
+                  `Upgrade to ${plan.name}`
                 )}
               </button>
             )}
@@ -468,7 +511,7 @@ function SubscriptionsTab({
             Payment will be charged to your account. Subscription automatically renews unless auto-renew is turned off at least 24-hours before the end of the current period.
           </p>
         </div>
-      )}
+      </div>
 
       {/* Plan Indicators */}
       {plans.length > 1 && (
@@ -510,7 +553,7 @@ function CreditPacksTab({
           <div className="p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-pink-500/10 border border-primary/30 mb-6">
             <div className="flex flex-col items-center text-center">
               <Lock className="w-8 h-8 text-primary mb-3" />
-              <h3 className="text-lg font-bold mb-2">Premium Required</h3>
+              <h3 className="text-lg font-bold text-foreground mb-2">Premium Required</h3>
               <p className="text-muted-foreground text-sm mb-4">
                 Subscribe to a premium plan to unlock credit purchases.
               </p>
@@ -541,13 +584,15 @@ function CreditPacksTab({
           const Icon = getIcon(pkg.icon);
           const isThisLoading = loadingPackageId === pkg.id;
           const anyLoading = loadingPackageId !== null;
+          const isPopular = pkg.popular;
+
           return (
             <div
               key={pkg.id}
               className={cn(
                 "p-4 rounded-2xl border transition-all",
                 !hasActiveSubscription ? "opacity-50 pointer-events-none" : "",
-                pkg.popular
+                isPopular
                   ? "border-primary bg-gradient-to-r from-primary/10 to-pink-500/10"
                   : "border-border bg-card"
               )}
@@ -556,18 +601,19 @@ function CreditPacksTab({
                 <div
                   className={cn(
                     "w-12 h-12 rounded-xl flex items-center justify-center",
-                    pkg.popular
+                    isPopular
                       ? "bg-gradient-to-br from-primary to-pink-500"
                       : "bg-secondary"
                   )}
                 >
-                  <Icon className={cn("w-6 h-6", pkg.popular ? "text-white" : "text-primary")} />
+                  <Icon className={cn("w-6 h-6", isPopular ? "text-white" : "text-primary")} />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold">{pkg.name}</span>
-                    {pkg.popular && (
-                      <span className="px-2 py-0.5 bg-gradient-to-r from-primary to-pink-500 text-white text-[10px] font-bold rounded-lg">
+                    <span className="font-bold text-foreground">{pkg.name}</span>
+                    {isPopular && (
+                      <span className="px-2 py-0.5 bg-gradient-to-r from-primary to-pink-500 text-white text-[9px] font-bold rounded-lg flex items-center gap-1">
+                        <Flame className="w-2.5 h-2.5" />
                         Popular
                       </span>
                     )}
@@ -576,38 +622,18 @@ function CreditPacksTab({
                     {pkg.credits.toLocaleString()} credits
                   </span>
                 </div>
+                {/* Gradient buy button for all packages (matching Flutter) */}
                 <button
                   onClick={() => onPurchase(pkg)}
                   disabled={anyLoading || !hasActiveSubscription}
                   className={cn(
-                    "min-w-[68px] px-4 py-2 rounded-xl font-semibold text-sm transition-all flex items-center justify-center",
-                    pkg.popular
-                      ? "bg-gradient-to-r from-primary to-pink-500 text-white"
-                      : "bg-secondary text-foreground",
+                    "min-w-[72px] px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center",
+                    "bg-gradient-to-r from-primary to-pink-500 text-white",
                     anyLoading && !isThisLoading ? "opacity-50" : ""
                   )}
                 >
                   {isThisLoading ? (
-                    <svg
-                      className="animate-spin h-4 w-4"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                      />
-                    </svg>
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     `$${pkg.price.toFixed(2)}`
                   )}
