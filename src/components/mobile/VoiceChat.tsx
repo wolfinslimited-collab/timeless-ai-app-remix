@@ -198,9 +198,16 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
   }, []);
 
   // Handle incoming WebSocket messages from Gemini
-  const handleWsMessage = useCallback((event: MessageEvent) => {
+  const handleWsMessage = useCallback(async (event: MessageEvent) => {
     try {
-      const msg = JSON.parse(event.data);
+      // Gemini may send Blob or string messages
+      let rawData: string;
+      if (event.data instanceof Blob) {
+        rawData = await event.data.text();
+      } else {
+        rawData = event.data;
+      }
+      const msg = JSON.parse(rawData);
 
       // Handle server content with audio
       if (msg.serverContent) {
