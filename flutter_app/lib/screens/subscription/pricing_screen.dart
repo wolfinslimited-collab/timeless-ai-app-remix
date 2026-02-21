@@ -215,6 +215,26 @@ class _PricingScreenState extends State<PricingScreen>
     }
   }
 
+  /// Determine plan rank for upgrade/downgrade comparison.
+  /// Higher rank = better plan. Yearly > Monthly for same tier.
+  int _getPlanRank(String planId, List<SubscriptionPlan> allPlans) {
+    // Find the plan's display_order (lower display_order = lower tier)
+    final plan = allPlans.where((p) => p.id.toLowerCase() == planId).firstOrNull;
+    if (plan == null) return 0;
+    
+    // Use displayOrder as base rank, add bonus for yearly
+    int rank = plan.displayOrder * 10;
+    if (plan.period == 'Yearly') rank += 5;
+    return rank;
+  }
+
+  /// Returns true if switching from currentPlanId to targetPlanId is a downgrade
+  bool _isPlanDowngrade(String currentPlanId, String targetPlanId, List<SubscriptionPlan> allPlans) {
+    final currentRank = _getPlanRank(currentPlanId, allPlans);
+    final targetRank = _getPlanRank(targetPlanId, allPlans);
+    return targetRank < currentRank;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -477,20 +497,22 @@ class _PricingScreenState extends State<PricingScreen>
                       itemCount: plans.length,
                       itemBuilder: (context, index) {
                         final plan = plans[index];
-                        // Check if this is the user's current plan
-                        // Match by exact plan.id (e.g., "premium-monthly") or exact plan name
-                        // The userPlan from DB should be the exact plan ID (e.g., "premium-monthly")
+                        // Match current plan ONLY by exact plan ID
+                        // The userPlan from DB stores the exact plan ID (e.g., "premium-monthly")
                         final userPlan =
                             creditsProvider.currentPlan?.toLowerCase() ?? '';
                         final planId = plan.id.toLowerCase();
-                        final planName = plan.name.toLowerCase();
 
-                        // Only match if:
-                        // 1. User has active subscription AND
-                        // 2. Either exact match on plan ID or plan name
+                        // Only match if user has active subscription AND exact ID match
                         final isCurrentPlan =
                             creditsProvider.hasActiveSubscription &&
-                                (userPlan == planId || userPlan == planName);
+                                userPlan == planId;
+
+                        // Determine if this plan is a downgrade (not allowed)
+                        final isDowngrade = creditsProvider.hasActiveSubscription &&
+                            !isCurrentPlan &&
+                            _isPlanDowngrade(userPlan, planId, _subscriptionPlans);
+
                         return SingleChildScrollView(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Padding(
@@ -502,6 +524,7 @@ class _PricingScreenState extends State<PricingScreen>
                                   iconData: _getIconData(plan.icon),
                                   isPurchasing: iapProvider.isPurchasing,
                                   isCurrentPlan: isCurrentPlan,
+                                  isDowngrade: isDowngrade,
                                   onPurchase: () =>
                                       _handleSubscriptionPurchase(plan),
                                 ),
@@ -700,6 +723,7 @@ class _SubscriptionPlanCard extends StatelessWidget {
   final IconData iconData;
   final bool isPurchasing;
   final bool isCurrentPlan;
+  final bool isDowngrade;
   final VoidCallback onPurchase;
 
   const _SubscriptionPlanCard({
@@ -707,6 +731,7 @@ class _SubscriptionPlanCard extends StatelessWidget {
     required this.iconData,
     required this.isPurchasing,
     required this.isCurrentPlan,
+    this.isDowngrade = false,
     required this.onPurchase,
   });
 
@@ -964,46 +989,65 @@ class _SubscriptionPlanCard extends StatelessWidget {
                           ],
                         ),
                       )
-                    : Container(
-                        decoration: BoxDecoration(
-                          gradient: isHighlighted
-                              ? const LinearGradient(
-                                  colors: [AppTheme.primary, Color(0xFFEC4899)])
-                              : null,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: ElevatedButton(
-                          onPressed: isPurchasing ? null : onPurchase,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isHighlighted
-                                ? Colors.transparent
-                                : AppTheme.secondary,
-                            foregroundColor:
-                                isHighlighted ? Colors.white : null,
-                            shadowColor: Colors.transparent,
+                    : isDowngrade
+                        ? Container(
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
+                            decoration: BoxDecoration(
+                              color: AppTheme.secondary.withOpacity(0.5),
                               borderRadius: BorderRadius.circular(12),
-                              side: isHighlighted
-                                  ? BorderSide.none
-                                  : BorderSide(color: AppTheme.border),
+                              border: Border.all(color: AppTheme.border.withOpacity(0.3)),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                'Current plan is higher',
+                                style: TextStyle(
+                                  color: AppTheme.muted,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          )
+                        : Container(
+                            decoration: BoxDecoration(
+                              gradient: isHighlighted
+                                  ? const LinearGradient(
+                                      colors: [AppTheme.primary, Color(0xFFEC4899)])
+                                  : null,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: ElevatedButton(
+                              onPressed: isPurchasing ? null : onPurchase,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isHighlighted
+                                    ? Colors.transparent
+                                    : AppTheme.secondary,
+                                foregroundColor:
+                                    isHighlighted ? Colors.white : null,
+                                shadowColor: Colors.transparent,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: isHighlighted
+                                      ? BorderSide.none
+                                      : BorderSide(color: AppTheme.border),
+                                ),
+                              ),
+                              child: isPurchasing
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : Text(
+                                      'Upgrade to ${plan.name}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15),
+                                    ),
                             ),
                           ),
-                          child: isPurchasing
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white),
-                                )
-                              : Text(
-                                  'Upgrade to ${plan.name}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15),
-                                ),
-                        ),
-                      ),
               ),
             ],
           ),
