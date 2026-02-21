@@ -11,14 +11,6 @@ import '../chat/voice_chat_screen.dart';
 import 'agent_chat_screen.dart';
 import 'create_agent_screen.dart';
 import 'edit_agent_screen.dart';
-import '../../models/agent_model.dart';
-import '../../services/agent_service.dart';
-import '../../providers/credits_provider.dart';
-import '../../widgets/agents/agent_card_widget.dart';
-import '../../widgets/agents/delete_agent_dialog.dart';
-import 'agent_chat_screen.dart';
-import 'create_agent_screen.dart';
-import 'edit_agent_screen.dart';
 
 class AgentsScreen extends StatefulWidget {
   const AgentsScreen({super.key});

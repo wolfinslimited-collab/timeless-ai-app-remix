@@ -256,6 +256,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       request.headers.addAll({
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
+        'apikey': AppConfig.supabaseAnonKey,
       });
       request.body = jsonEncode({
         'model': _voiceModel,
