@@ -189,6 +189,16 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
             if (result.isFinal) finalTranscript += result[0].transcript;
             else interimTranscript += result[0].transcript;
           }
+          // If user speaks while AI is talking, interrupt AI immediately
+          if ((finalTranscript || interimTranscript) && isSpeakingRef.current) {
+            window.speechSynthesis?.cancel();
+            speechQueueRef.current = [];
+            isSpeakingRef.current = false;
+            currentUtteranceRef.current = null;
+            shouldAutoRestartRef.current = false;
+            streamAbortRef.current?.abort();
+            setVoiceState("listening");
+          }
           setTranscript(finalTranscript || interimTranscript);
           if (finalTranscript) {
             silenceTimeoutRef.current = setTimeout(() => {
@@ -324,16 +334,29 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
     }
   };
 
-  const startListening = useCallback(() => {
-    if (!recognitionRef.current) { setError("Speech recognition not available"); return; }
-    setError(null);
-    setTranscript("");
-    setVoiceState("listening");
+  const interruptAI = useCallback(() => {
+    // Stop TTS playback
     window.speechSynthesis?.cancel();
     speechQueueRef.current = [];
     isSpeakingRef.current = false;
-    try { recognitionRef.current.start(); } catch { setVoiceState("idle"); }
+    currentUtteranceRef.current = null;
+    shouldAutoRestartRef.current = false;
+    // Abort any ongoing stream
+    streamAbortRef.current?.abort();
   }, []);
+
+  const startListening = useCallback(() => {
+    if (!recognitionRef.current) { setError("Speech recognition not available"); return; }
+    // If AI is speaking or processing, interrupt it first
+    if (voiceState === "speaking" || voiceState === "processing") {
+      interruptAI();
+    }
+    setError(null);
+    setTranscript("");
+    setResponse("");
+    setVoiceState("listening");
+    try { recognitionRef.current.start(); } catch { setVoiceState("idle"); }
+  }, [interruptAI, voiceState]);
 
   const stopListening = useCallback(() => {
     if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
@@ -481,7 +504,7 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
       <div className="flex-1 flex items-center justify-center">
         <button
           onClick={voiceState === "listening" ? stopListening : startListening}
-          disabled={voiceState === "processing" || voiceState === "speaking"}
+          disabled={voiceState === "processing"}
           className="focus:outline-none disabled:opacity-50"
         >
           <VoiceChatVisualizer state={voiceState} size={180} />
