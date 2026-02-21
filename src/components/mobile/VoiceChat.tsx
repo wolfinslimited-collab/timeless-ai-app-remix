@@ -289,8 +289,12 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
       }
 
       const tokenData = await res.json();
-      const wsUrl = tokenData.websocket_url;
-      if (!wsUrl) throw new Error(`No WebSocket URL returned. Response: ${JSON.stringify(tokenData).slice(0, 200)}`);
+      // The external function returns { apiKey: "..." } — construct the WebSocket URL
+      const apiKey = tokenData.apiKey || tokenData.websocket_url;
+      if (!apiKey) throw new Error(`No API key returned. Response: ${JSON.stringify(tokenData).slice(0, 200)}`);
+      const wsUrl = apiKey.startsWith("wss://")
+        ? apiKey
+        : `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
 
       // Open WebSocket
       const ws = new WebSocket(wsUrl);
