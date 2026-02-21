@@ -261,6 +261,7 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
           "apikey": TIMELESS_ANON_KEY,
           "Authorization": `Bearer ${token}`,
         },
+        body: JSON.stringify({ action: "get_token" }),
       });
 
       if (!res.ok) {
@@ -268,11 +269,13 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
         throw new Error(errData.error || `Failed to get token: ${res.status}`);
       }
 
-      const { websocket_url } = await res.json();
-      if (!websocket_url) throw new Error("No WebSocket URL returned");
+      const tokenData = await res.json();
+      console.log("[VoiceChat] Token response keys:", Object.keys(tokenData));
+      const wsUrl = tokenData.websocket_url;
+      if (!wsUrl) throw new Error(`No WebSocket URL returned. Response: ${JSON.stringify(tokenData).slice(0, 200)}`);
 
       // Open WebSocket
-      const ws = new WebSocket(websocket_url);
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
