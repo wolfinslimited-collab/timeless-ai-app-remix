@@ -23,7 +23,8 @@ export type Screen =
   | "skin-ai"
   | "financial-ai"
   | "calorie-ai"
-  | "fingerprint-ai";
+  | "fingerprint-ai"
+  | "agents";
 
 interface MobileNavProps {
   currentScreen: Screen;
@@ -49,12 +50,28 @@ export function MobileNav({ currentScreen, onNavigate }: MobileNavProps) {
           active={isCreateActive}
           onClick={() => onNavigate("create")}
         />
-        <NavItem 
-          icon={Mic} 
-          label="Ask AI" 
-          active={currentScreen === "chat"}
-          onClick={() => onNavigate("chat")}
-        />
+
+        {/* Center Timeless Logo Button */}
+        <button
+          onClick={() => onNavigate("agents")}
+          className={cn(
+            "flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-all -mt-5"
+          )}
+        >
+          <div className={cn(
+            "h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg transition-all",
+            currentScreen === "agents"
+              ? "bg-gradient-to-br from-primary to-accent shadow-primary/30"
+              : "bg-gradient-to-br from-primary/80 to-accent/60 shadow-primary/20"
+          )}>
+            <span className="text-lg font-black text-primary-foreground tracking-tighter" style={{ fontFamily: "system-ui" }}>T</span>
+          </div>
+          <span className={cn(
+            "text-[9px] font-semibold",
+            currentScreen === "agents" ? "text-primary" : "text-muted-foreground"
+          )}>Timeless</span>
+        </button>
+
         <NavItem 
           icon={Grid2X2} 
           label="Apps" 
