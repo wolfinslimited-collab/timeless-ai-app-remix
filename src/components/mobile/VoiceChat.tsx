@@ -245,25 +245,42 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
     setVoiceState("processing");
 
     try {
-      // Get WebSocket URL from edge function
+      // Get auth session
       const session = await timelessSupabase.auth.getSession();
       const token = session.data.session?.access_token;
-      if (!token) {
+      const userId = session.data.session?.user?.id;
+      if (!token || !userId) {
         setError("Please sign in to use voice chat");
         setVoiceState("idle");
         return;
       }
 
-      // Call the Lovable Cloud edge function, passing the external project's auth token
-      const cloudUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/gemini-live-token`;
-      const res = await fetch(cloudUrl, {
+      // Check credits via REST API
+      const creditsRes = await fetch(
+        `${TIMELESS_SUPABASE_URL}/rest/v1/profiles?select=credits&user_id=eq.${userId}`,
+        {
+          headers: {
+            "apikey": TIMELESS_ANON_KEY,
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/json",
+          },
+        }
+      );
+      if (!creditsRes.ok) throw new Error("Failed to check credits");
+      const creditsData = await creditsRes.json();
+      if (!creditsData?.[0] || creditsData[0].credits < 1) {
+        setError("Insufficient credits");
+        setVoiceState("idle");
+        return;
+      }
+
+      // Call external edge function directly with bearer token
+      const res = await fetch(`${TIMELESS_SUPABASE_URL}/functions/v1/gemini-live-token`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           "Authorization": `Bearer ${token}`,
         },
-        body: JSON.stringify({ action: "get_token" }),
       });
 
       if (!res.ok) {
@@ -272,7 +289,6 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
       }
 
       const tokenData = await res.json();
-      console.log("[VoiceChat] Token response keys:", Object.keys(tokenData));
       const wsUrl = tokenData.websocket_url;
       if (!wsUrl) throw new Error(`No WebSocket URL returned. Response: ${JSON.stringify(tokenData).slice(0, 200)}`);
 
