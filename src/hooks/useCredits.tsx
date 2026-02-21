@@ -101,12 +101,14 @@ export const useCredits = () => {
   const { user } = useAuth();
   const [credits, setCredits] = useState<number | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchCredits = async () => {
     if (!user) {
       setCredits(null);
       setSubscriptionStatus(null);
+      setCurrentPlan(null);
       setLoading(false);
       return;
     }
@@ -114,17 +116,19 @@ export const useCredits = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("credits, subscription_status")
+        .select("credits, subscription_status, plan")
         .eq("user_id", user.id)
         .maybeSingle();
 
       if (error) throw error;
       setCredits(data?.credits ?? 0);
       setSubscriptionStatus(data?.subscription_status ?? null);
+      setCurrentPlan(data?.plan ?? null);
     } catch (error) {
       console.error("Error fetching credits:", error);
       setCredits(0);
       setSubscriptionStatus(null);
+      setCurrentPlan(null);
     } finally {
       setLoading(false);
     }
@@ -164,5 +168,6 @@ export const useCredits = () => {
     MODEL_CREDITS,
     subscriptionStatus,
     hasActiveSubscription,
+    currentPlan,
   };
 };
