@@ -200,13 +200,42 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     });
 
     try {
+      final token = _supabase.auth.currentSession?.accessToken;
+      final userId = _supabase.auth.currentUser?.id;
+      if (token == null || userId == null) {
+        setState(() {
+          _error = 'Please sign in to use voice chat';
+          _voiceState = VoiceState.idle;
+        });
+        return;
+      }
+
+      // Check credits via REST API
+      final creditsUrl = Uri.parse(
+        '${AppConfig.supabaseUrl}/rest/v1/profiles?select=credits&user_id=eq.$userId',
+      );
+      final creditsRes = await http.get(creditsUrl, headers: {
+        'apikey': AppConfig.supabaseAnonKey,
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+      if (creditsRes.statusCode == 200) {
+        final creditsData = jsonDecode(creditsRes.body) as List;
+        if (creditsData.isEmpty || (creditsData[0]['credits'] as int) < 1) {
+          setState(() {
+            _error = 'Insufficient credits';
+            _voiceState = VoiceState.idle;
+          });
+          return;
+        }
+      }
+
       _conversationHistory.add({'role': 'user', 'content': text});
       final url = '${AppConfig.supabaseUrl}/functions/v1/chat';
       final request = http.Request('POST', Uri.parse(url));
-      final token = _supabase.auth.currentSession?.accessToken;
       request.headers.addAll({
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${token ?? AppConfig.supabaseAnonKey}',
+        'Authorization': 'Bearer $token',
       });
       request.body = jsonEncode({
         'model': _voiceModel,
