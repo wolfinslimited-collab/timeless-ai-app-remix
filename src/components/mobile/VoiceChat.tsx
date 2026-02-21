@@ -116,6 +116,7 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
   const [showHistory, setShowHistory] = useState(false);
   const [sessions, setSessions] = useState<VoiceSession[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<VoiceSession | null>(null);
 
   // Audio & WebSocket refs
   const wsRef = useRef<WebSocket | null>(null);
@@ -543,7 +544,20 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
               {sessions.map((session) => (
                 <button
                   key={session.id}
-                  className="w-full text-left px-3 py-3 rounded-lg hover:bg-foreground/5 transition-colors group"
+                  onClick={() => {
+                    setSelectedSession(session);
+                    setShowHistory(false);
+                    // Stop any active session
+                    cleanupConnection();
+                    setVoiceState("idle");
+                    setTranscript("");
+                    setResponse("");
+                    setError(null);
+                  }}
+                  className={cn(
+                    "w-full text-left px-3 py-3 rounded-lg hover:bg-foreground/5 transition-colors group",
+                    selectedSession?.id === session.id && "bg-foreground/10"
+                  )}
                 >
                   <p className="text-foreground/80 text-sm font-medium truncate group-hover:text-foreground transition-colors">
                     {session.title || "Untitled Session"}
@@ -580,8 +594,28 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
       </div>
 
       {/* Response area */}
-      <div className="flex-shrink-0 px-6 min-h-[80px]">
-        {response ? (
+      <div className="flex-shrink-0 px-6 min-h-[80px] max-h-[50%] overflow-y-auto">
+        {selectedSession ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-foreground/90 text-sm font-medium">{selectedSession.title || "Untitled Session"}</p>
+              <button
+                onClick={() => setSelectedSession(null)}
+                className="text-muted-foreground/60 text-xs hover:text-foreground transition-colors"
+              >
+                ✕ Close
+              </button>
+            </div>
+            <div className="space-y-2">
+              {Array.isArray(selectedSession.transcript) && (selectedSession.transcript as Array<{ role: string; text: string }>).map((msg, i) => (
+                <div key={i} className={cn("text-sm", msg.role === "user" ? "text-foreground/70" : "text-foreground/90")}>
+                  <span className="text-muted-foreground/50 text-xs mr-1.5">{msg.role === "user" ? "You:" : "AI:"}</span>
+                  {msg.text}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : response ? (
           <p className="text-foreground/80 text-lg leading-relaxed max-h-[200px] overflow-y-auto">
             {cleanMarkdown(response)}
           </p>
