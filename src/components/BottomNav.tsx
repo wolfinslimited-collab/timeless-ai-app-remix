@@ -51,7 +51,7 @@ const BottomNav = () => {
         />
         <NavItem 
           icon={<Plus className="h-5 w-5" />} 
-          label="Create" 
+          label="AI Studio" 
           active={location.pathname === "/create"}
           onClick={() => navigate("/create?type=image")}
           accent

@@ -7,6 +7,15 @@ import '../../services/agent_service.dart';
 import '../../providers/credits_provider.dart';
 import '../../widgets/agents/agent_card_widget.dart';
 import '../../widgets/agents/delete_agent_dialog.dart';
+import '../chat/voice_chat_screen.dart';
+import 'agent_chat_screen.dart';
+import 'create_agent_screen.dart';
+import 'edit_agent_screen.dart';
+import '../../models/agent_model.dart';
+import '../../services/agent_service.dart';
+import '../../providers/credits_provider.dart';
+import '../../widgets/agents/agent_card_widget.dart';
+import '../../widgets/agents/delete_agent_dialog.dart';
 import 'agent_chat_screen.dart';
 import 'create_agent_screen.dart';
 import 'edit_agent_screen.dart';
@@ -195,13 +204,76 @@ class _AgentsScreenState extends State<AgentsScreen>
         title: const Text('Agents', style: TextStyle(fontWeight: FontWeight.bold)),
         automaticallyImplyLeading: false,
       ),
-      body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.primary),
-            )
-          : _agents.isEmpty
-              ? _buildEmpty()
-              : _buildGrid(),
+      body: Column(
+        children: [
+          // Ask AI Banner
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: GestureDetector(
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => FractionallySizedBox(
+                    heightFactor: 0.88,
+                    child: const VoiceChatScreen(),
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.primary.withOpacity(0.2),
+                      AppTheme.accent.withOpacity(0.1),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.primary.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      height: 40,
+                      width: 40,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.mic, color: AppTheme.primary, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Ask AI', style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.foreground,
+                          )),
+                          Text('Tap to start a voice conversation', style: TextStyle(
+                            fontSize: 11, color: AppTheme.muted,
+                          )),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.auto_awesome, color: AppTheme.primary, size: 18),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Agent list
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
+                : _agents.isEmpty
+                    ? _buildEmpty()
+                    : _buildGrid(),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _handleNewAgent,
         backgroundColor: AppTheme.foreground,

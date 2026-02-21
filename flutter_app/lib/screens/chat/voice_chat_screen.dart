@@ -116,15 +116,56 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     return '${date.month}/${date.day}';
   }
 
+  /// Check if user has enough credits before sending
+  Future<bool> _checkCredits() async {
+    final token = _supabase.auth.currentSession?.accessToken;
+    final userId = _supabase.auth.currentUser?.id;
+    if (token == null || userId == null) return false;
+
+    try {
+      final creditsUrl = Uri.parse(
+        '${AppConfig.supabaseUrl}/rest/v1/profiles?select=credits&user_id=eq.$userId',
+      );
+      final creditsRes = await http.get(creditsUrl, headers: {
+        'apikey': AppConfig.supabaseAnonKey,
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+      if (creditsRes.statusCode == 200) {
+        final creditsData = jsonDecode(creditsRes.body) as List;
+        if (creditsData.isEmpty || (creditsData[0]['credits'] as int) < 1) {
+          return false;
+        }
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Credit check failed: $e');
+    }
+    return false;
+  }
+
+  /// Interrupt AI: stop TTS, clear queue, abort stream
+  void _interruptAI() {
+    _ttsService.stop();
+    _streamSubscription?.cancel();
+    _streamSubscription = null;
+  }
+
   Future<void> _startListening() async {
     if (!_voiceService.isInitialized) {
       setState(() => _error = 'Voice recognition not available');
       return;
     }
 
+    // If AI is speaking or processing, interrupt first
+    if (_voiceState == VoiceState.speaking || _voiceState == VoiceState.processing) {
+      _interruptAI();
+    }
+
     setState(() {
       _error = null;
       _transcript = '';
+      _response = '';
       _voiceState = VoiceState.listening;
     });
 
@@ -134,6 +175,11 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     await _voiceService.startListening(
       onResult: (text) {
         silenceTimer?.cancel();
+        // If AI is still speaking when user talks, interrupt
+        if (_voiceState == VoiceState.speaking) {
+          _interruptAI();
+          setState(() => _voiceState = VoiceState.listening);
+        }
         setState(() => _transcript = text);
         silenceTimer = Timer(const Duration(milliseconds: 800), () {
           _voiceService.stopListening();
@@ -142,6 +188,11 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       },
       onPartialResult: (text) {
         silenceTimer?.cancel();
+        // If AI is still speaking when user talks, interrupt
+        if (_voiceState == VoiceState.speaking) {
+          _interruptAI();
+          setState(() => _voiceState = VoiceState.listening);
+        }
         setState(() => _transcript = text);
         silenceTimer = Timer(const Duration(milliseconds: 800), () {
           if (_transcript.isNotEmpty) {
@@ -177,13 +228,34 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     });
 
     try {
+      final token = _supabase.auth.currentSession?.accessToken;
+      final userId = _supabase.auth.currentUser?.id;
+      if (token == null || userId == null) {
+        setState(() {
+          _error = 'Please sign in to use voice chat';
+          _voiceState = VoiceState.idle;
+        });
+        return;
+      }
+
+      // Check credits via REST API
+      final hasCredits = await _checkCredits();
+      if (!hasCredits) {
+        setState(() {
+          _error = 'Insufficient credits';
+          _voiceState = VoiceState.idle;
+        });
+        return;
+      }
+
       _conversationHistory.add({'role': 'user', 'content': text});
+      
+      // Call external chat endpoint directly
       final url = '${AppConfig.supabaseUrl}/functions/v1/chat';
       final request = http.Request('POST', Uri.parse(url));
-      final token = _supabase.auth.currentSession?.accessToken;
       request.headers.addAll({
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${token ?? AppConfig.supabaseAnonKey}',
+        'Authorization': 'Bearer $token',
       });
       request.body = jsonEncode({
         'model': _voiceModel,
@@ -242,6 +314,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
         }
       }
 
+      // Flush remaining sentence buffer
       if (sentenceBuffer.trim().isNotEmpty && !_isMuted) {
         _ttsService.queueSpeech(sentenceBuffer.trim());
       }
@@ -371,10 +444,22 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                     ),
                   ),
 
-                // Center sphere
+                // Center sphere - tappable to start/interrupt
                 Expanded(
                   child: Center(
-                    child: VoiceChatVisualizer(state: _voiceState, size: 180),
+                    child: GestureDetector(
+                      onTap: () {
+                        if (_voiceState == VoiceState.listening) {
+                          _stopListening();
+                        } else if (_voiceState == VoiceState.speaking) {
+                          // Interrupt AI and start listening
+                          _startListening();
+                        } else if (_voiceState == VoiceState.idle) {
+                          _startListening();
+                        }
+                      },
+                      child: VoiceChatVisualizer(state: _voiceState, size: 180),
+                    ),
                   ),
                 ),
 
