@@ -84,7 +84,7 @@ class BottomNavBar extends StatelessWidget {
           BottomNavigationBarItem(
             icon: Icon(Icons.add_circle_outline),
             activeIcon: Icon(Icons.add_circle),
-            label: 'Create',
+            label: 'AI Studio',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.mic_none),

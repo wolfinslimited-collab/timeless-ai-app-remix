@@ -45,7 +45,7 @@ export function MobileNav({ currentScreen, onNavigate }: MobileNavProps) {
         />
         <NavItem 
           icon={Sparkles} 
-          label="Create" 
+          label="AI Studio" 
           active={isCreateActive}
           onClick={() => onNavigate("create")}
         />
