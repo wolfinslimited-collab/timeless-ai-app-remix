@@ -309,7 +309,7 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
         // Send setup message
         ws.send(JSON.stringify({
           setup: {
-            model: "models/gemini-2.5-flash-preview-native-audio-dialog",
+            model: "models/gemini-2.0-flash-live-001",
             generation_config: {
               response_modalities: ["AUDIO"],
               speech_config: {
@@ -359,8 +359,10 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
           keepaliveRef.current = null;
         }
 
-        // Auto-reconnect if still listening
-        if (isListeningRef.current && reconnectAttemptsRef.current < maxReconnectAttempts) {
+        // Don't auto-reconnect on non-recoverable errors (1008 = model not found, 1003 = unsupported)
+        const nonRecoverable = e.code === 1008 || e.code === 1003 || e.code === 1002;
+        // Auto-reconnect if still listening and error is recoverable
+        if (isListeningRef.current && !nonRecoverable && reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectAttemptsRef.current++;
           console.log(`[VoiceChat] Auto-reconnecting (attempt ${reconnectAttemptsRef.current})...`);
           setError("Reconnecting...");
