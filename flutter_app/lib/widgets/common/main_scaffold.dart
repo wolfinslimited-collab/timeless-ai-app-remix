@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
-import '../../screens/chat/voice_chat_screen.dart';
 
 class MainScaffold extends StatelessWidget {
   final Widget child;
@@ -24,11 +23,9 @@ class BottomNavBar extends StatelessWidget {
     final location = GoRouterState.of(context).matchedLocation;
     if (location == '/') return 0;
     if (location.startsWith('/create')) return 1;
-    if (location.startsWith('/chat')) return 2;
-    if (location.startsWith('/agents')) return 3;
-    if (location.startsWith('/apps') || location.startsWith('/cinema'))
-      return 4;
-    if (location.startsWith('/profile')) return 5;
+    if (location.startsWith('/agents')) return 2;
+    if (location.startsWith('/apps') || location.startsWith('/cinema')) return 3;
+    if (location.startsWith('/profile')) return 4;
     return 0;
   }
 
@@ -42,69 +39,158 @@ class BottomNavBar extends StatelessWidget {
           top: BorderSide(color: AppTheme.border, width: 1),
         ),
       ),
-      child: BottomNavigationBar(
-        currentIndex: currentIndex,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              context.go('/');
-              break;
-            case 1:
-              context.go('/create');
-              break;
-            case 2:
-              // Open voice chat as a non-opaque overlay that doesn't cover the nav bar
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (context) => FractionallySizedBox(
-                  heightFactor: 0.88,
-                  child: const VoiceChatScreen(),
+      child: SafeArea(
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NavItem(
+                icon: Icons.home_outlined,
+                activeIcon: Icons.home,
+                label: 'Home',
+                active: currentIndex == 0,
+                onTap: () => context.go('/'),
+              ),
+              _NavItem(
+                icon: Icons.add_circle_outline,
+                activeIcon: Icons.add_circle,
+                label: 'AI Studio',
+                active: currentIndex == 1,
+                onTap: () => context.go('/create'),
+              ),
+              // Center Timeless Logo
+              _TimelessLogoItem(
+                active: currentIndex == 2,
+                onTap: () => context.go('/agents'),
+              ),
+              _NavItem(
+                icon: Icons.apps_outlined,
+                activeIcon: Icons.apps,
+                label: 'Apps',
+                active: currentIndex == 3,
+                onTap: () => context.go('/apps'),
+              ),
+              _NavItem(
+                icon: Icons.person_outline,
+                activeIcon: Icons.person,
+                label: 'Profile',
+                active: currentIndex == 4,
+                onTap: () => context.go('/profile'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _NavItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: 60,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              active ? activeIcon : icon,
+              size: 22,
+              color: active ? AppTheme.primary : AppTheme.muted,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: active ? AppTheme.primary : AppTheme.muted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TimelessLogoItem extends StatelessWidget {
+  final bool active;
+  final VoidCallback onTap;
+
+  const _TimelessLogoItem({required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Transform.translate(
+            offset: const Offset(0, -8),
+            child: Container(
+              height: 48,
+              width: 48,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: active
+                      ? [AppTheme.primary, AppTheme.accent]
+                      : [AppTheme.primary.withOpacity(0.8), AppTheme.accent.withOpacity(0.6)],
                 ),
-              );
-              break;
-            case 3:
-              context.go('/agents');
-              break;
-            case 4:
-              context.go('/apps');
-              break;
-            case 5:
-              context.go('/profile');
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primary.withOpacity(active ? 0.3 : 0.2),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Center(
+                child: Text(
+                  'T',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: -1,
+                  ),
+                ),
+              ),
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle_outline),
-            activeIcon: Icon(Icons.add_circle),
-            label: 'AI Studio',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.mic_none),
-            activeIcon: Icon(Icons.mic),
-            label: 'Ask AI',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.smart_toy_outlined),
-            activeIcon: Icon(Icons.smart_toy),
-            label: 'Agents',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.apps_outlined),
-            activeIcon: Icon(Icons.apps),
-            label: 'Apps',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profile',
+          Transform.translate(
+            offset: const Offset(0, -6),
+            child: Text(
+              'Timeless',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                color: active ? AppTheme.primary : AppTheme.muted,
+              ),
+            ),
           ),
         ],
       ),
