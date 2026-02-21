@@ -130,12 +130,15 @@ serve(async (req) => {
     }
 
     // Default: return the API key and WebSocket URL for Gemini Live
+    // Handles action === "get_token" or no action specified
     const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${googleApiKey}`;
+
+    console.log("Returning websocket_url for user:", userId);
 
     return new Response(
       JSON.stringify({
         websocket_url: wsUrl,
-        model: "models/gemini-2.5-flash-native-audio-preview-12-2025",
+        model: "models/gemini-2.5-flash-preview-native-audio-dialog",
         user_id: userId,
         credits: profile.credits,
       }),
