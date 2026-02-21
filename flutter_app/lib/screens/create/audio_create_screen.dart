@@ -12,6 +12,7 @@ import 'tools/stems_tool_screen.dart';
 import 'tools/remix_tool_screen.dart';
 import 'tools/vocals_tool_screen.dart';
 import 'tools/mastering_tool_screen.dart';
+import '../../widgets/report_content_dialog.dart';
 import 'tools/sound_effects_tool_screen.dart';
 import 'tools/audio_enhance_tool_screen.dart';
 import 'tools/tempo_pitch_tool_screen.dart';
@@ -1727,14 +1728,26 @@ class _InlineAudioToolContentState extends State<_InlineAudioToolContent> {
               children: [
                 const Text('Result',
                     style: TextStyle(fontWeight: FontWeight.w600)),
-                GestureDetector(
-                    onTap: () => setState(() {
-                          _inputUrl = null;
-                          _outputUrl = null;
-                        }),
-                    child: const Text('Reset',
-                        style:
-                            TextStyle(color: AppTheme.primary, fontSize: 13))),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: () => ReportContentDialog.show(context, contentType: 'audio'),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Icon(Icons.flag_outlined, size: 18, color: Colors.white54),
+                      ),
+                    ),
+                    GestureDetector(
+                        onTap: () => setState(() {
+                              _inputUrl = null;
+                              _outputUrl = null;
+                            }),
+                        child: const Text('Reset',
+                            style:
+                                TextStyle(color: AppTheme.primary, fontSize: 13))),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 12),

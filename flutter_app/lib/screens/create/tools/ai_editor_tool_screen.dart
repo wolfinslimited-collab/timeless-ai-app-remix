@@ -13,6 +13,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../../widgets/report_content_dialog.dart';
 import '../../../core/theme.dart';
 import 'widgets/text_edit_panel.dart';
 import 'ai_editor/project_storage.dart';
@@ -5043,6 +5044,18 @@ class _AIEditorToolScreenState extends State<AIEditorToolScreen> with SingleTick
                     const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 16),
                   ],
                 ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => ReportContentDialog.show(context, contentType: 'video'),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.flag_outlined, color: Colors.white70, size: 14),
               ),
             ),
             const SizedBox(width: 8),

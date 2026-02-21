@@ -5,6 +5,7 @@ import '../../models/download_model.dart';
 import '../../providers/download_provider.dart';
 import '../../providers/favorites_provider.dart';
 import 'smart_media_image.dart';
+import '../report_content_dialog.dart';
 
 /// A full-screen image viewer with zoom, pan, and action buttons
 class FullScreenImageViewer extends StatefulWidget {
@@ -300,6 +301,11 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
                               label: 'Recreate',
                               onTap: _handleRecreate,
                             ),
+                          _ActionButton(
+                            icon: Icons.flag_outlined,
+                            label: 'Report',
+                            onTap: () => ReportContentDialog.show(context, contentType: 'image'),
+                          ),
                         ],
                       ),
                     ],

@@ -6,6 +6,7 @@ import '../services/audio_player_service.dart';
 import '../providers/download_provider.dart';
 import '../providers/favorites_provider.dart';
 import '../models/download_model.dart';
+import 'report_content_dialog.dart';
 
 class MusicPlayerSheet extends StatelessWidget {
   const MusicPlayerSheet({super.key});
@@ -303,6 +304,11 @@ class MusicPlayerSheet extends StatelessWidget {
                           );
                         }
                       },
+                    ),
+                    _buildActionButton(
+                      icon: Icons.flag_outlined,
+                      label: 'Report',
+                      onTap: () => ReportContentDialog.show(context, contentType: 'music'),
                     ),
                   ],
                 ),

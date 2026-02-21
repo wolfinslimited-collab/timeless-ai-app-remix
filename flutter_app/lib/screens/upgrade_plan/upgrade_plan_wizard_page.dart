@@ -136,7 +136,7 @@ class _UpgradePlanWizardPageState extends State<UpgradePlanWizardPage> {
   void _goToPlans() {
     if (widget.isFromWelcome) {
       // Navigate to pricing/subscription after wizard
-      context.go('/pricing');
+      context.push('/pricing');
     } else {
       // Just go back if opened from subscription page
       context.pop();

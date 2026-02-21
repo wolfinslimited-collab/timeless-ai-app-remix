@@ -49,6 +49,7 @@ import '../screens/apps/apps_screen.dart';
 import '../screens/cinema/cinema_studio_screen.dart';
 import '../screens/subscription/subscription_screen.dart';
 import '../screens/subscription/pricing_screen.dart';
+import '../screens/subscription/credit_packages_screen.dart';
 import '../screens/skin_analyze/skin_analyze_screen.dart';
 import '../screens/calorie/calorie_wrapper_screen.dart';
 import '../screens/calorie/calorie_onboarding_screen.dart';
@@ -148,6 +149,53 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final isFromWelcome = state.extra as bool? ?? false;
         return UpgradePlanWizardPage(isFromWelcome: isFromWelcome);
+      },
+    ),
+
+    // Pricing & credits — modal bottom sheets (no bottom nav)
+    GoRoute(
+      path: '/pricing',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) {
+        final tab = state.uri.queryParameters['tab'];
+        return CustomTransitionPage(
+          key: state.pageKey,
+          child: PricingScreen(initialTab: tab == 'credits' ? 1 : 0),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 1),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              )),
+              child: child,
+            );
+          },
+        );
+      },
+    ),
+    GoRoute(
+      path: '/credits',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) {
+        return CustomTransitionPage(
+          key: state.pageKey,
+          child: const CreditPackagesScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 1),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              )),
+              child: child,
+            );
+          },
+        );
       },
     ),
 
@@ -351,15 +399,6 @@ final appRouter = GoRouter(
           pageBuilder: (context, state) => const NoTransitionPage(
             child: SubscriptionScreen(),
           ),
-        ),
-        GoRoute(
-          path: '/pricing',
-          builder: (context, state) {
-            final tab = state.uri.queryParameters['tab'];
-            return PricingScreen(
-              initialTab: tab == 'credits' ? 1 : 0,
-            );
-          },
         ),
         // AI Apps routes
         GoRoute(

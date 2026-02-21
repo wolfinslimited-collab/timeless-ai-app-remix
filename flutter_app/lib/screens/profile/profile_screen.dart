@@ -664,7 +664,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ],
                         ),
                         GestureDetector(
-                          onTap: () => context.push('/pricing?tab=credits'),
+                          onTap: () => context.push('/credits'),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,

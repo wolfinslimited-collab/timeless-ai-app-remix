@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../core/http_client.dart';
 import '../../providers/credits_provider.dart';
 import '../../widgets/add_credits_dialog.dart';
+import '../../widgets/report_content_dialog.dart';
 
 class CinemaStudioScreen extends StatefulWidget {
   const CinemaStudioScreen({super.key});
@@ -312,6 +313,22 @@ class _CinemaStudioScreenState extends State<CinemaStudioScreen> {
                                       SizedBox(height: 16),
                                       Text('Generating...', style: TextStyle(color: Colors.white)),
                                     ],
+                                  ),
+                                ),
+                              ),
+                            if (_resultUrl != null && !_isGenerating)
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: IconButton(
+                                  onPressed: () => ReportContentDialog.show(context, contentType: 'video'),
+                                  icon: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black54,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.flag_outlined, color: Colors.white, size: 20),
                                   ),
                                 ),
                               ),

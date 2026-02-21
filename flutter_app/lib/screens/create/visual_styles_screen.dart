@@ -11,6 +11,7 @@ import '../../providers/generation_provider.dart';
 import '../../providers/credits_provider.dart';
 import '../../widgets/add_credits_dialog.dart';
 import '../../widgets/common/smart_media_image.dart';
+import '../../widgets/report_content_dialog.dart';
 
 // Trending style model matching web
 class TrendStyle {
@@ -860,22 +861,35 @@ class _VisualStylesScreenState extends State<VisualStylesScreen> {
                 ],
               )
             : _generatedImages.isNotEmpty
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(19),
-                    child: GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: _generatedImages.length == 1 ? 1 : (_generatedImages.length <= 4 ? 2 : 3),
-                        mainAxisSpacing: 2,
-                        crossAxisSpacing: 2,
+                ? Column(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(19),
+                        child: GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: _generatedImages.length == 1 ? 1 : (_generatedImages.length <= 4 ? 2 : 3),
+                            mainAxisSpacing: 2,
+                            crossAxisSpacing: 2,
+                          ),
+                          itemCount: _generatedImages.length,
+                          itemBuilder: (context, index) => SmartMediaImage(
+                            imageUrl: _generatedImages[index],
+                            fit: BoxFit.cover,
+                          ),
+                        ),
                       ),
-                      itemCount: _generatedImages.length,
-                      itemBuilder: (context, index) => SmartMediaImage(
-                        imageUrl: _generatedImages[index],
-                        fit: BoxFit.cover,
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: IconButton(
+                          onPressed: () => ReportContentDialog.show(context, contentType: 'image'),
+                          icon: const Icon(Icons.flag_outlined, color: Colors.white54, size: 20),
+                          tooltip: 'Report content',
+                        ),
                       ),
-                    ),
+                    ],
                   )
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,

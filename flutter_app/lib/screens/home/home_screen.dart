@@ -67,7 +67,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             actions: [
               CreditBadge(
-                onTap: () => context.go('/pricing'),
+                onTap: () => context.push('/pricing'),
               ),
               const SizedBox(width: 8),
               IconButton(

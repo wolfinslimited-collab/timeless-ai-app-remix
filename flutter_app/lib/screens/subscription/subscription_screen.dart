@@ -27,7 +27,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         await SubscriptionService().openCustomerPortal();
       } else {
         // Navigate to pricing for new subscription
-        if (mounted) context.go('/pricing');
+        if (mounted) context.push('/pricing');
       }
     } catch (e) {
       if (mounted) {

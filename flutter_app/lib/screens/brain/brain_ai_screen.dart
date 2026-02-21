@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../services/brain_service.dart';
 import 'brain_onboarding.dart';
@@ -296,7 +297,7 @@ class _BrainAIScreenState extends State<BrainAIScreen>
               ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
-                onPressed: () => Navigator.pushNamed(context, '/pricing'),
+                onPressed: () => context.push('/pricing'),
                 icon: const Icon(Icons.auto_awesome),
                 label: const Text('View Subscription Plans'),
               ),

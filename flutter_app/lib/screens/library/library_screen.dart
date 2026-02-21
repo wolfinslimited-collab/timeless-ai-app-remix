@@ -54,94 +54,95 @@ class _LibraryScreenState extends State<LibraryScreen> {
         children: [
           Column(
             children: [
-          // Filter Tabs
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _FilterChip(
-                    label: 'All',
-                    isSelected: _filter == 'all',
-                    onTap: () => setState(() => _filter = 'all'),
+              // Filter Tabs
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _FilterChip(
+                        label: 'All',
+                        isSelected: _filter == 'all',
+                        onTap: () => setState(() => _filter = 'all'),
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: 'Images',
+                        isSelected: _filter == 'image',
+                        onTap: () => setState(() => _filter = 'image'),
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: 'Videos',
+                        isSelected: _filter == 'video',
+                        onTap: () => setState(() => _filter = 'video'),
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: 'Music',
+                        isSelected: _filter == 'music',
+                        onTap: () => setState(() => _filter = 'music'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  _FilterChip(
-                    label: 'Images',
-                    isSelected: _filter == 'image',
-                    onTap: () => setState(() => _filter = 'image'),
-                  ),
-                  const SizedBox(width: 8),
-                  _FilterChip(
-                    label: 'Videos',
-                    isSelected: _filter == 'video',
-                    onTap: () => setState(() => _filter = 'video'),
-                  ),
-                  const SizedBox(width: 8),
-                  _FilterChip(
-                    label: 'Music',
-                    isSelected: _filter == 'music',
-                    onTap: () => setState(() => _filter = 'music'),
-                  ),
-                ],
+                ),
               ),
-            ),
+
+              // Grid
+              Expanded(
+                child: Consumer<GenerationProvider>(
+                  builder: (context, provider, child) {
+                    final filteredGenerations = _filter == 'all'
+                        ? provider.generations
+                        : provider.generations.where((g) {
+                            switch (_filter) {
+                              case 'image':
+                                return g.type == GenerationType.image;
+                              case 'video':
+                                return g.type == GenerationType.video;
+                              case 'music':
+                                return g.type == GenerationType.music;
+                              default:
+                                return true;
+                            }
+                          }).toList();
+
+                    if (filteredGenerations.isEmpty) {
+                      return _buildEmptyState();
+                    }
+
+                    return RefreshIndicator(
+                      onRefresh: _handleRefresh,
+                      child: GridView.builder(
+                        padding: const EdgeInsets.all(12),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: 1,
+                        ),
+                        itemCount: filteredGenerations.length,
+                        itemBuilder: (context, index) {
+                          return _GenerationCard(
+                              generation: filteredGenerations[index]);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-
-          // Grid
-          Expanded(
-            child: Consumer<GenerationProvider>(
-              builder: (context, provider, child) {
-                final filteredGenerations = _filter == 'all'
-                    ? provider.generations
-                    : provider.generations.where((g) {
-                        switch (_filter) {
-                          case 'image':
-                            return g.type == GenerationType.image;
-                          case 'video':
-                            return g.type == GenerationType.video;
-                          case 'music':
-                            return g.type == GenerationType.music;
-                          default:
-                            return true;
-                        }
-                      }).toList();
-
-                if (filteredGenerations.isEmpty) {
-                  return _buildEmptyState();
-                }
-
-                return RefreshIndicator(
-                  onRefresh: _handleRefresh,
-                  child: GridView.builder(
-                    padding: const EdgeInsets.all(12),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 1,
-                    ),
-                    itemCount: filteredGenerations.length,
-                    itemBuilder: (context, index) {
-                      return _GenerationCard(
-                          generation: filteredGenerations[index]);
-                    },
-                  ),
-                );
-              },
-            ),
+          // Bottom music player bar
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: const MusicPlayerBar(),
           ),
-          ],
-        ),
-        // Bottom music player bar
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: const MusicPlayerBar(),
-        ),
         ],
       ),
     );
@@ -267,22 +268,24 @@ class _GenerationCard extends StatelessWidget {
                         CircularProgressIndicator(strokeWidth: 2),
                         SizedBox(height: 8),
                         Text('Processing...',
-                            style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+                            style:
+                                TextStyle(color: AppTheme.muted, fontSize: 12)),
                       ],
                     ),
                   )
                 else if (generation.isFailed)
                   const Center(
                     child: Text('Failed',
-                        style:
-                            TextStyle(color: AppTheme.destructive, fontSize: 12)),
+                        style: TextStyle(
+                            color: AppTheme.destructive, fontSize: 12)),
                   )
                 else if (isMusic)
                   Consumer<AudioPlayerService>(
                     builder: (context, player, _) {
-                      final isCurrentTrack = player.currentUrl == generation.outputUrl;
+                      final isCurrentTrack =
+                          player.currentUrl == generation.outputUrl;
                       final isPlaying = isCurrentTrack && player.isPlaying;
-                      
+
                       return GestureDetector(
                         onTap: () {
                           if (generation.outputUrl != null) {
@@ -294,8 +297,8 @@ class _GenerationCard extends StatelessWidget {
                           }
                         },
                         child: Container(
-                          color: isCurrentTrack 
-                              ? const Color(0xFF10B981).withOpacity(0.2) 
+                          color: isCurrentTrack
+                              ? const Color(0xFF10B981).withOpacity(0.2)
                               : AppTheme.card,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -307,7 +310,10 @@ class _GenerationCard extends StatelessWidget {
                                   gradient: LinearGradient(
                                     colors: isCurrentTrack
                                         ? [const Color(0xFF10B981), Colors.teal]
-                                        : [const Color(0xFF10B981), const Color(0xFF059669)],
+                                        : [
+                                            const Color(0xFF10B981),
+                                            const Color(0xFF059669)
+                                          ],
                                   ),
                                   borderRadius: BorderRadius.circular(24),
                                 ),
@@ -320,13 +326,15 @@ class _GenerationCard extends StatelessWidget {
                               const SizedBox(height: 8),
                               if (isCurrentTrack)
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12),
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(2),
                                     child: LinearProgressIndicator(
                                       value: player.progress,
                                       backgroundColor: AppTheme.border,
-                                      valueColor: const AlwaysStoppedAnimation(Color(0xFF10B981)),
+                                      valueColor: const AlwaysStoppedAnimation(
+                                          Color(0xFF10B981)),
                                       minHeight: 3,
                                     ),
                                   ),
@@ -335,11 +343,13 @@ class _GenerationCard extends StatelessWidget {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: List.generate(12, (i) {
-                                    final height = 8.0 + (i % 3) * 6.0 + (i % 2) * 4.0;
+                                    final height =
+                                        8.0 + (i % 3) * 6.0 + (i % 2) * 4.0;
                                     return Container(
                                       width: 3,
                                       height: height,
-                                      margin: const EdgeInsets.symmetric(horizontal: 1),
+                                      margin: const EdgeInsets.symmetric(
+                                          horizontal: 1),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFF10B981),
                                         borderRadius: BorderRadius.circular(2),
@@ -349,7 +359,8 @@ class _GenerationCard extends StatelessWidget {
                                 ),
                               const SizedBox(height: 8),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8),
                                 child: Text(
                                   generation.title ?? generation.prompt,
                                   style: const TextStyle(fontSize: 11),
@@ -366,44 +377,47 @@ class _GenerationCard extends StatelessWidget {
                   )
                 else if (imageUrl != null)
                   isVideo
-                    ? Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          // Use thumbnail if available, otherwise show placeholder
-                          if (generation.thumbnailUrl != null && generation.thumbnailUrl!.isNotEmpty)
-                            SmartMediaImage(
-                              imageUrl: generation.thumbnailUrl,
-                              fit: BoxFit.cover,
-                              isVideo: true,
-                            )
-                          else if (generation.outputUrl != null)
-                            // Use CachedVideoPlayer to show first frame
-                            CachedVideoPlayer(
-                              videoUrl: generation.outputUrl!,
-                              autoPlay: false,
-                              looping: false,
-                              muted: true,
-                              fit: BoxFit.cover,
-                              placeholder: Container(
+                      ? Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            // Use thumbnail if available, otherwise show placeholder
+                            if (generation.thumbnailUrl != null &&
+                                generation.thumbnailUrl!.isNotEmpty)
+                              SmartMediaImage(
+                                imageUrl: generation.thumbnailUrl,
+                                fit: BoxFit.cover,
+                                isVideo: true,
+                              )
+                            else if (generation.outputUrl != null)
+                              // Use CachedVideoPlayer to show first frame
+                              CachedVideoPlayer(
+                                videoUrl: generation.outputUrl!,
+                                autoPlay: false,
+                                looping: false,
+                                muted: true,
+                                fit: BoxFit.cover,
+                                placeholder: Container(
+                                  color: AppTheme.secondary,
+                                  child: const Center(
+                                    child: Icon(Icons.videocam_outlined,
+                                        color: AppTheme.muted, size: 32),
+                                  ),
+                                ),
+                              )
+                            else
+                              Container(
                                 color: AppTheme.secondary,
                                 child: const Center(
-                                  child: Icon(Icons.videocam_outlined, color: AppTheme.muted, size: 32),
+                                  child: Icon(Icons.videocam_outlined,
+                                      color: AppTheme.muted, size: 32),
                                 ),
                               ),
-                            )
-                          else
-                            Container(
-                              color: AppTheme.secondary,
-                              child: const Center(
-                                child: Icon(Icons.videocam_outlined, color: AppTheme.muted, size: 32),
-                              ),
-                            ),
-                        ],
-                      )
-                    : SmartMediaImage(
-                        imageUrl: imageUrl,
-                        fit: BoxFit.cover,
-                      )
+                          ],
+                        )
+                      : SmartMediaImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.cover,
+                        )
                 else
                   Center(
                     child: Icon(
@@ -419,8 +433,8 @@ class _GenerationCard extends StatelessWidget {
                     child: Container(
                       color: Colors.black26,
                       child: const Center(
-                        child:
-                            Icon(Icons.play_arrow, color: Colors.white, size: 32),
+                        child: Icon(Icons.play_arrow,
+                            color: Colors.white, size: 32),
                       ),
                     ),
                   ),
@@ -430,7 +444,8 @@ class _GenerationCard extends StatelessWidget {
                   bottom: 8,
                   left: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.black54,
                       borderRadius: BorderRadius.circular(12),
@@ -456,11 +471,13 @@ class _GenerationCard extends StatelessWidget {
                         title: generation.title,
                         prompt: generation.prompt,
                       );
-                      
+
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            isFavorite ? 'Removed from favorites' : 'Added to favorites',
+                            isFavorite
+                                ? 'Removed from favorites'
+                                : 'Added to favorites',
                           ),
                           duration: const Duration(seconds: 2),
                         ),
@@ -527,9 +544,10 @@ class _GenerationCard extends StatelessWidget {
                   // Audio player preview
                   Consumer<AudioPlayerService>(
                     builder: (context, player, _) {
-                      final isCurrentTrack = player.currentUrl == generation.outputUrl;
+                      final isCurrentTrack =
+                          player.currentUrl == generation.outputUrl;
                       final isPlaying = isCurrentTrack && player.isPlaying;
-                      
+
                       return GestureDetector(
                         onTap: () {
                           if (generation.outputUrl != null) {
@@ -568,29 +586,42 @@ class _GenerationCard extends StatelessWidget {
                               // Progress bar
                               if (isCurrentTrack)
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24),
                                   child: Column(
                                     children: [
                                       ClipRRect(
                                         borderRadius: BorderRadius.circular(2),
                                         child: LinearProgressIndicator(
                                           value: player.progress,
-                                          backgroundColor: Colors.white.withOpacity(0.3),
-                                          valueColor: const AlwaysStoppedAnimation(Colors.white),
+                                          backgroundColor:
+                                              Colors.white.withOpacity(0.3),
+                                          valueColor:
+                                              const AlwaysStoppedAnimation(
+                                                  Colors.white),
                                           minHeight: 4,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
-                                            player.formatDuration(player.position),
-                                            style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10),
+                                            player.formatDuration(
+                                                player.position),
+                                            style: TextStyle(
+                                                color: Colors.white
+                                                    .withOpacity(0.8),
+                                                fontSize: 10),
                                           ),
                                           Text(
-                                            player.formatDuration(player.duration),
-                                            style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10),
+                                            player.formatDuration(
+                                                player.duration),
+                                            style: TextStyle(
+                                                color: Colors.white
+                                                    .withOpacity(0.8),
+                                                fontSize: 10),
                                           ),
                                         ],
                                       ),
@@ -602,11 +633,13 @@ class _GenerationCard extends StatelessWidget {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: List.generate(20, (i) {
-                                    final height = 8.0 + (i % 3) * 8.0 + (i % 2) * 4.0;
+                                    final height =
+                                        8.0 + (i % 3) * 8.0 + (i % 2) * 4.0;
                                     return Container(
                                       width: 3,
                                       height: height,
-                                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                                      margin: const EdgeInsets.symmetric(
+                                          horizontal: 2),
                                       decoration: BoxDecoration(
                                         color: Colors.white.withOpacity(0.8),
                                         borderRadius: BorderRadius.circular(2),
@@ -624,11 +657,11 @@ class _GenerationCard extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: generation.type == GenerationType.video
-                      ? _VideoPlayerWidget(videoUrl: generation.outputUrl!)
-                      : SmartMediaImage(
-                          imageUrl: generation.outputUrl!,
-                          fit: BoxFit.contain,
-                        ),
+                        ? _VideoPlayerWidget(videoUrl: generation.outputUrl!)
+                        : SmartMediaImage(
+                            imageUrl: generation.outputUrl!,
+                            fit: BoxFit.contain,
+                          ),
                   ),
                 const SizedBox(height: 16),
 
@@ -706,12 +739,15 @@ class _GenerationCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     IconButton(
-                      onPressed: () => ReportContentDialog.show(context, contentType: 'AI Content'),
-                      icon: const Icon(Icons.flag_outlined, color: AppTheme.muted),
+                      onPressed: () => ReportContentDialog.show(context,
+                          contentType: 'AI Content'),
+                      icon: const Icon(Icons.flag_outlined,
+                          color: AppTheme.muted),
                       tooltip: 'Report',
                       style: IconButton.styleFrom(
                         side: const BorderSide(color: AppTheme.border),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
                   ],
@@ -867,7 +903,11 @@ class _DetailSection extends StatelessWidget {
           for (int i = 0; i < rows.length; i++) ...[
             rows[i],
             if (i < rows.length - 1)
-              Divider(height: 1, color: AppTheme.border.withOpacity(0.4), indent: 16, endIndent: 16),
+              Divider(
+                  height: 1,
+                  color: AppTheme.border.withOpacity(0.4),
+                  indent: 16,
+                  endIndent: 16),
           ],
         ],
       ),
@@ -876,9 +916,12 @@ class _DetailSection extends StatelessWidget {
 
   String _typeLabel(GenerationType type) {
     switch (type) {
-      case GenerationType.video: return 'Video';
-      case GenerationType.music: return 'Music';
-      default: return 'Image';
+      case GenerationType.video:
+        return 'Video';
+      case GenerationType.music:
+        return 'Music';
+      default:
+        return 'Image';
     }
   }
 
@@ -886,16 +929,32 @@ class _DetailSection extends StatelessWidget {
       s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
   String _formatDate(DateTime dt) {
-    final months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
 
   Color _statusColor(GenerationStatus status) {
     switch (status) {
-      case GenerationStatus.completed: return const Color(0xFF10B981);
-      case GenerationStatus.failed: return AppTheme.destructive;
+      case GenerationStatus.completed:
+        return const Color(0xFF10B981);
+      case GenerationStatus.failed:
+        return AppTheme.destructive;
       case GenerationStatus.pending:
-      case GenerationStatus.processing: return const Color(0xFFF59E0B);
+      case GenerationStatus.processing:
+        return const Color(0xFFF59E0B);
     }
   }
 }
@@ -923,7 +982,8 @@ class _DetailRow extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
             label,
-            style: const TextStyle(color: AppTheme.mutedForeground, fontSize: 13),
+            style:
+                const TextStyle(color: AppTheme.mutedForeground, fontSize: 13),
           ),
           const Spacer(),
           Flexible(
@@ -968,7 +1028,7 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
 
   Future<void> _initializeVideo() async {
     _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
-    
+
     try {
       await _controller.initialize();
       _controller.setLooping(true);
@@ -1024,7 +1084,8 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
             children: [
               Icon(Icons.error_outline, color: AppTheme.muted, size: 40),
               SizedBox(height: 8),
-              Text('Video unavailable', style: TextStyle(color: AppTheme.muted)),
+              Text('Video unavailable',
+                  style: TextStyle(color: AppTheme.muted)),
             ],
           ),
         ),
@@ -1057,7 +1118,7 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
           alignment: Alignment.center,
           children: [
             VideoPlayer(_controller),
-            
+
             // Play/Pause overlay
             AnimatedOpacity(
               opacity: _showControls ? 1.0 : 0.0,
@@ -1071,7 +1132,9 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
                 ),
                 child: IconButton(
                   icon: Icon(
-                    _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                    _controller.value.isPlaying
+                        ? Icons.pause
+                        : Icons.play_arrow,
                     color: Colors.white,
                     size: 32,
                   ),
@@ -1079,7 +1142,7 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
                 ),
               ),
             ),
-            
+
             // Progress indicator
             Positioned(
               bottom: 0,

@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../providers/credits_provider.dart';
 import '../../providers/iap_provider.dart';
 import '../../services/pricing_service.dart';
+import '../upgrade_plan/upgrade_plan_wizard_content.dart';
 
 class PricingScreen extends StatefulWidget {
   final int initialTab;
@@ -15,59 +18,130 @@ class PricingScreen extends StatefulWidget {
   State<PricingScreen> createState() => _PricingScreenState();
 }
 
-class _PricingScreenState extends State<PricingScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  late PageController _plansPageController;
-  bool _isYearly = false;
+class _PricingScreenState extends State<PricingScreen> {
   bool _isLoading = true;
-  int _plansPageIndex = 0;
-  String? _purchasingPackageId;
-
+  int _selectedTierIndex = 0; // 0 = first tier, 1 = second tier
+  int? _selectedPlanIndex;
   List<SubscriptionPlan> _subscriptionPlans = [];
-  List<CreditPackage> _creditPackages = [];
   final PricingService _pricingService = PricingService();
 
-  List<SubscriptionPlan> get _monthlyPlans =>
-      _subscriptionPlans.where((p) => p.period == 'Monthly').toList();
-  List<SubscriptionPlan> get _yearlyPlans =>
-      _subscriptionPlans.where((p) => p.period == 'Yearly').toList();
-  List<SubscriptionPlan> get _currentPlans =>
-      _isYearly ? _yearlyPlans : _monthlyPlans;
+  /// Unique tier names sorted by displayOrder
+  List<String> get _tierNames {
+    final seen = <String>{};
+    final tiers = <String>[];
+    final sorted = List<SubscriptionPlan>.from(_subscriptionPlans)
+      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+    for (final p in sorted) {
+      if (seen.add(p.name)) tiers.add(p.name);
+    }
+    return tiers;
+  }
+
+  /// Plans for the currently selected tier
+  List<SubscriptionPlan> get _currentTierPlans {
+    final tiers = _tierNames;
+    if (tiers.isEmpty || _selectedTierIndex >= tiers.length) return [];
+    final tierName = tiers[_selectedTierIndex];
+    final plans = _subscriptionPlans.where((p) => p.name == tierName).toList();
+    plans.sort((a, b) {
+      final rankA = a.displayOrder * 10 + (a.period == 'Yearly' ? 5 : 0);
+      final rankB = b.displayOrder * 10 + (b.period == 'Yearly' ? 5 : 0);
+      return rankA.compareTo(rankB);
+    });
+    return plans;
+  }
+
+  /// Merged features from the currently selected tier
+  List<PlanFeature> get _currentTierFeatures {
+    final plans = _currentTierPlans;
+    if (plans.isEmpty) return [];
+    // Use the features from the first plan of this tier (they share the same feature set)
+    return plans.first.features;
+  }
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(
-      length: 2,
-      vsync: this,
-      initialIndex: widget.initialTab,
-    );
-    _plansPageController = PageController();
     _fetchPricing();
     _setupIAPCallbacks();
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    _plansPageController.dispose();
-    super.dispose();
-  }
-
   Future<void> _fetchPricing() async {
     setState(() => _isLoading = true);
-
     try {
       final pricing = await _pricingService.fetchPricing();
+      if (!mounted) return;
+      final creditsProvider = context.read<CreditsProvider>();
+      final userPlan = creditsProvider.currentPlan?.toLowerCase() ?? '';
+      final hasActive = creditsProvider.hasActiveSubscription;
+
       setState(() {
         _subscriptionPlans = pricing.subscriptionPlans;
-        _creditPackages = pricing.creditPackages;
         _isLoading = false;
       });
+
+      _preselectTierAndPlan(userPlan, hasActive);
     } catch (e) {
       debugPrint('Error fetching pricing: $e');
       setState(() => _isLoading = false);
+    }
+  }
+
+  void _preselectTierAndPlan(String userPlan, bool hasActive) {
+    final tiers = _tierNames;
+    if (tiers.isEmpty) return;
+
+    if (hasActive && userPlan.isNotEmpty) {
+      // Find which tier and plan the user is on
+      final currentPlan = _subscriptionPlans
+          .where((p) => p.id.toLowerCase() == userPlan)
+          .firstOrNull;
+      if (currentPlan != null) {
+        final tierIdx = tiers.indexOf(currentPlan.name);
+        // Select the NEXT tier if possible (upgrade path), otherwise current tier
+        final upgradeTierIdx =
+            tierIdx + 1 < tiers.length ? tierIdx + 1 : tierIdx;
+        setState(() => _selectedTierIndex = upgradeTierIdx);
+      }
+    } else {
+      setState(() => _selectedTierIndex = 0);
+    }
+
+    // After tier is set, preselect a plan within that tier
+    _preselectPlanInTier(userPlan, hasActive);
+  }
+
+  void _preselectPlanInTier(String userPlan, bool hasActive) {
+    final plans = _currentTierPlans;
+    if (plans.isEmpty) {
+      setState(() => _selectedPlanIndex = null);
+      return;
+    }
+
+    if (hasActive && userPlan.isNotEmpty) {
+      final currentRank = _getPlanRank(userPlan);
+      // Select the best upgrade option
+      int bestIdx = -1;
+      int bestRank = 999999;
+      for (int i = 0; i < plans.length; i++) {
+        final rank = _getPlanRank(plans[i].id.toLowerCase());
+        if (rank > currentRank && rank < bestRank) {
+          bestRank = rank;
+          bestIdx = i;
+        }
+      }
+      // If no upgrade available in this tier, select yearly (if exists) or first
+      if (bestIdx < 0) {
+        bestIdx = plans.indexWhere((p) => p.period == 'Yearly');
+        if (bestIdx < 0) bestIdx = 0;
+      }
+      setState(() => _selectedPlanIndex = bestIdx);
+    } else {
+      // Default: select yearly or popular
+      int idx = plans.indexWhere((p) => p.bestValue || p.popular);
+      if (idx < 0) idx = plans.indexWhere((p) => p.period == 'Yearly');
+      if (idx < 0) idx = 0;
+      setState(() => _selectedPlanIndex = idx);
     }
   }
 
@@ -90,291 +164,189 @@ class _PricingScreenState extends State<PricingScreen>
     iapProvider.onVerificationError = (message) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(message), backgroundColor: Colors.red),
         );
         iapProvider.clearError();
       }
     };
   }
 
-  Future<void> _handleSubscriptionPurchase(SubscriptionPlan plan) async {
-    final iapProvider = context.read<IAPProvider>();
-
-    final productId = plan.platformProductId;
-    if (productId == null || productId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Product not available for this platform'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (!iapProvider.isAvailable) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('In-app purchases are not available on this device'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    final success = await iapProvider.purchase(productId);
-
-    if (!success && iapProvider.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(iapProvider.error!),
-          backgroundColor: Colors.red,
-        ),
-      );
-      iapProvider.clearError();
-    }
-  }
-
-  Future<void> _handleCreditPurchase(CreditPackage package) async {
-    if (_purchasingPackageId != null) return;
-
-    final creditsProvider = context.read<CreditsProvider>();
-    final iapProvider = context.read<IAPProvider>();
-
-    if (!creditsProvider.hasActiveSubscription) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content:
-              Text('A premium subscription is required to purchase credits'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      // Switch to subscriptions tab
-      _tabController.animateTo(0);
-      return;
-    }
-
-    final productId = package.platformProductId;
-    if (productId == null || productId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Product not available for this platform'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (!iapProvider.isAvailable) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('In-app purchases are not available on this device'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _purchasingPackageId = package.id);
-
-    final success = await iapProvider.purchase(productId);
-
-    if (mounted) setState(() => _purchasingPackageId = null);
-
-    if (!success && iapProvider.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(iapProvider.error!),
-          backgroundColor: Colors.red,
-        ),
-      );
-      iapProvider.clearError();
-    }
-  }
-
-  IconData _getIconData(String iconName) {
-    switch (iconName) {
-      case 'Zap':
-        return Icons.flash_on;
-      case 'Calendar':
-        return Icons.calendar_today;
-      case 'Crown':
-        return Icons.workspace_premium;
-      case 'Award':
-        return Icons.emoji_events;
-      case 'Sparkles':
-        return Icons.auto_awesome;
-      case 'Star':
-        return Icons.star;
-      case 'Coins':
-        return Icons.toll;
-      default:
-        return Icons.flash_on;
-    }
-  }
-
-  /// Determine plan rank for upgrade/downgrade comparison.
-  /// Higher rank = better plan. Yearly > Monthly for same tier.
-  int _getPlanRank(String planId, List<SubscriptionPlan> allPlans) {
-    // Find the plan's display_order (lower display_order = lower tier)
-    final plan = allPlans.where((p) => p.id.toLowerCase() == planId).firstOrNull;
+  int _getPlanRank(String planId) {
+    final plan = _subscriptionPlans
+        .where((p) => p.id.toLowerCase() == planId.toLowerCase())
+        .firstOrNull;
     if (plan == null) return 0;
-    
-    // Use displayOrder as base rank, add bonus for yearly
     int rank = plan.displayOrder * 10;
     if (plan.period == 'Yearly') rank += 5;
     return rank;
   }
 
-  /// Returns true if switching from currentPlanId to targetPlanId is a downgrade
-  bool _isPlanDowngrade(String currentPlanId, String targetPlanId, List<SubscriptionPlan> allPlans) {
-    final currentRank = _getPlanRank(currentPlanId, allPlans);
-    final targetRank = _getPlanRank(targetPlanId, allPlans);
-    return targetRank < currentRank;
+  bool _isUpgrade(String currentPlanId, String targetPlanId) {
+    return _getPlanRank(targetPlanId) > _getPlanRank(currentPlanId);
+  }
+
+  Future<void> _handleContinue() async {
+    if (_selectedPlanIndex == null) return;
+    final plans = _currentTierPlans;
+    if (_selectedPlanIndex! >= plans.length) return;
+
+    final plan = plans[_selectedPlanIndex!];
+    final iapProvider = context.read<IAPProvider>();
+
+    final productId = plan.platformProductId;
+    if (productId == null || productId.isEmpty) {
+      _showError('Product not available for this platform');
+      return;
+    }
+
+    if (!iapProvider.isAvailable) {
+      _showError('In-app purchases are not available on this device');
+      return;
+    }
+
+    final success = await iapProvider.purchase(productId);
+    if (!success && iapProvider.error != null) {
+      if (!mounted) return;
+      _showError(iapProvider.error!);
+      iapProvider.clearError();
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pricing'),
-        actions: [
-          // Credits & subscriber in top right
-          Consumer<CreditsProvider>(
-            builder: (context, credits, _) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 8, top: 12, bottom: 12),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!credits.hasActiveSubscription)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppTheme.secondary,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.toll,
-                                size: 18,
-                                color: Theme.of(context).colorScheme.onSurface),
-                            const SizedBox(width: 6),
-                            Text(
-                              credits.hasActiveSubscription
-                                  ? '∞'
-                                  : '${credits.credits}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (credits.hasActiveSubscription) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppTheme.primary.withOpacity(0.3),
-                              const Color(0xFFEC4899).withOpacity(0.3),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.workspace_premium,
-                                size: 14, color: Color(0xFFFBBF24)),
-                            SizedBox(width: 4),
-                            Text(
-                              'Pro',
-                              style: TextStyle(
-                                  fontSize: 11, fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
+      backgroundColor: Colors.black,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Consumer<IAPProvider>(
-              builder: (context, iapProvider, child) {
-                return Column(
+          : Consumer2<IAPProvider, CreditsProvider>(
+              builder: (context, iapProvider, creditsProvider, _) {
+                final userPlan =
+                    creditsProvider.currentPlan?.toLowerCase() ?? '';
+                final hasActive = creditsProvider.hasActiveSubscription;
+                final tiers = _tierNames;
+                final tierPlans = _currentTierPlans;
+                final tierFeatures = _currentTierFeatures;
+
+                return Stack(
+                  fit: StackFit.expand,
                   children: [
-                    // Tab bar — user selects by tap only
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.secondary,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: TabBar(
-                        controller: _tabController,
-                        indicator: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [AppTheme.primary, Color(0xFFEC4899)],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        indicatorSize: TabBarIndicatorSize.tab,
-                        labelColor: Colors.white,
-                        unselectedLabelColor: AppTheme.muted,
-                        dividerColor: Colors.transparent,
-                        tabs: const [
-                          Tab(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.workspace_premium, size: 18),
-                                SizedBox(width: 6),
-                                Text('Subscriptions'),
-                              ],
+                    SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          // Auto-scrolling image carousel
+                          const _ImageCarousel(),
+
+                          // Title
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(24, 24, 24, 0),
+                            child: Text(
+                              'Timeless Premium',
+                              style: TextStyle(
+                                fontFamily: 'BebasNeue',
+                                fontSize: 38,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 1.5,
+                                height: 1.0,
+                              ),
                             ),
                           ),
-                          Tab(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.add, size: 18),
-                                SizedBox(width: 6),
-                                Text('Credit Packs'),
-                              ],
+                          const SizedBox(height: 6),
+                          Text(
+                            'Unlock the full power of AI',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.5),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
+                          const SizedBox(height: 20),
+
+                          // Current plan & credits section
+                          if (hasActive)
+                            _CurrentPlanBadge(
+                              planName:
+                                  creditsProvider.currentPlan ?? 'Premium',
+                              credits: creditsProvider.credits,
+                            ),
+                          if (hasActive) const SizedBox(height: 20),
+
+                          // Tier toggle (Premium / Premium Plus)
+                          if (tiers.length > 1)
+                            _TierToggle(
+                              tiers: tiers,
+                              selectedIndex: _selectedTierIndex,
+                              onChanged: (i) {
+                                setState(() => _selectedTierIndex = i);
+                                _preselectPlanInTier(userPlan, hasActive);
+                              },
+                            ),
+                          if (tiers.length > 1) const SizedBox(height: 20),
+
+                          // Animated feature list
+                          _AnimatedFeatureList(
+                            key: ValueKey('features_$_selectedTierIndex'),
+                            features: tierFeatures,
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Plan radio selector
+                          _buildPlanSelector(tierPlans, userPlan, hasActive),
+                          const SizedBox(height: 22),
+
+                          // Continue button
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: _ContinueButton(
+                              onTap: _handleContinue,
+                              isPurchasing: iapProvider.isPurchasing,
+                              isEnabled: _selectedPlanIndex != null,
+                            ),
+                          ),
+
+                          // Footer
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(32, 14, 32, 8),
+                            child: Text(
+                              Platform.isIOS
+                                  ? 'Payment will be charged to your Apple ID account. Subscription automatically renews unless auto-renew is turned off at least 24-hours before the end of the current period.'
+                                  : 'Payment will be charged to your Google Play account. Subscription automatically renews unless cancelled.',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.3),
+                                fontSize: 10,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+
+                          const SizedBox(height: 48),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
 
-                    // Tab content — switch with tab buttons only (no swipe)
-                    Expanded(
-                      child: TabBarView(
-                        controller: _tabController,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children: [
-                          // Subscriptions tab
-                          _buildSubscriptionsTab(iapProvider),
-                          // Credit packs tab
-                          _buildCreditPacksTab(iapProvider),
-                        ],
+                    // Top bar overlay
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: _TopBar(
+                        onClose: () {
+                          if (context.canPop()) {
+                            context.pop();
+                          } else {
+                            context.go('/');
+                          }
+                        },
+                        hasActivePlan: hasActive,
+                        onBuyCredits: hasActive
+                            ? () => context.push('/credits')
+                            : null,
                       ),
                     ),
                   ],
@@ -384,876 +356,785 @@ class _PricingScreenState extends State<PricingScreen>
     );
   }
 
-  Widget _buildSubscriptionsTab(IAPProvider iapProvider) {
-    final plans = _currentPlans;
-    return Column(
-      children: [
-        // Monthly / Yearly toggle — user select only (no pager between them)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: AppTheme.secondary,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    if (_isYearly) {
-                      setState(() {
-                        _isYearly = false;
-                        _plansPageIndex = 0;
-                      });
-                      _plansPageController.jumpToPage(0);
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: !_isYearly ? Colors.white : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'Monthly',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: !_isYearly ? Colors.black : AppTheme.muted,
-                      ),
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    if (!_isYearly) {
-                      setState(() {
-                        _isYearly = true;
-                        _plansPageIndex = 0;
-                      });
-                      _plansPageController.jumpToPage(0);
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: _isYearly ? Colors.white : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Text(
-                          'Yearly',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: _isYearly ? Colors.black : AppTheme.muted,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text(
-                            'Save 17%',
-                            style: TextStyle(
-                                fontSize: 9,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+  Widget _buildPlanSelector(
+    List<SubscriptionPlan> plans,
+    String userPlan,
+    bool hasActive,
+  ) {
+    if (plans.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          'No plans available',
+          style: TextStyle(color: Colors.white.withOpacity(0.4)),
         ),
-        const SizedBox(height: 16),
+      );
+    }
 
-        // Pager between plan items (one card per page for selected period)
-        Expanded(
-          child: plans.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No plans available',
-                    style: TextStyle(color: AppTheme.muted),
-                  ),
-                )
-              : Consumer<CreditsProvider>(
-                  builder: (context, creditsProvider, child) {
-                    return PageView.builder(
-                      controller: _plansPageController,
-                      onPageChanged: (index) {
-                        setState(() => _plansPageIndex = index);
-                      },
-                      itemCount: plans.length,
-                      itemBuilder: (context, index) {
-                        final plan = plans[index];
-                        // Match current plan ONLY by exact plan ID
-                        // The userPlan from DB stores the exact plan ID (e.g., "premium-monthly")
-                        final userPlan =
-                            creditsProvider.currentPlan?.toLowerCase() ?? '';
-                        final planId = plan.id.toLowerCase();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        children: List.generate(plans.length, (index) {
+          final plan = plans[index];
+          final planId = plan.id.toLowerCase();
+          final isCurrentPlan = hasActive && userPlan == planId;
+          final isDowngrade =
+              hasActive && !isCurrentPlan && !_isUpgrade(userPlan, planId);
+          final isSelected = _selectedPlanIndex == index;
 
-                        // Only match if user has active subscription AND exact ID match
-                        final isCurrentPlan =
-                            creditsProvider.hasActiveSubscription &&
-                                userPlan == planId;
+          return _PlanOptionTile(
+            plan: plan,
+            isSelected: isSelected,
+            isCurrentPlan: isCurrentPlan,
+            isDowngrade: isDowngrade,
+            savingsLabel: plan.period == 'Yearly' ? 'Save 17%' : null,
+            onTap: (isCurrentPlan || isDowngrade)
+                ? null
+                : () => setState(() => _selectedPlanIndex = index),
+          );
+        }),
+      ),
+    );
+  }
 
-                        // Determine if this plan is a downgrade (not allowed)
-                        final isDowngrade = creditsProvider.hasActiveSubscription &&
-                            !isCurrentPlan &&
-                            _isPlanDowngrade(userPlan, planId, _subscriptionPlans);
+}
 
-                        return SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 24),
-                            child: Column(
-                              children: [
-                                _SubscriptionPlanCard(
-                                  plan: plan,
-                                  iconData: _getIconData(plan.icon),
-                                  isPurchasing: iapProvider.isPurchasing,
-                                  isCurrentPlan: isCurrentPlan,
-                                  isDowngrade: isDowngrade,
-                                  onPurchase: () =>
-                                      _handleSubscriptionPurchase(plan),
-                                ),
+// ---------------------------------------------------------------------------
+// Top bar
+// ---------------------------------------------------------------------------
+class _TopBar extends StatelessWidget {
+  final VoidCallback onClose;
+  final bool hasActivePlan;
+  final VoidCallback? onBuyCredits;
 
-                                // Footer text
-                                Padding(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                                  child: Text(
-                                    Platform.isIOS
-                                        ? 'Payment will be charged to your Apple ID account. Subscription automatically renews unless auto-renew is turned off at least 24-hours before the end of the current period.'
-                                        : 'Payment will be charged to your Google Play account. Subscription automatically renews unless cancelled.',
-                                    style: const TextStyle(
-                                        color: AppTheme.muted, fontSize: 11),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
+  const _TopBar({
+    required this.onClose,
+    required this.hasActivePlan,
+    this.onBuyCredits,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+    return Container(
+      padding: EdgeInsets.only(
+        top: topPadding + 8,
+        left: 12,
+        right: 12,
+        bottom: 12,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.black.withOpacity(0.9),
+            Colors.black.withOpacity(0.0),
+          ],
         ),
-
-        // Page indicator for plan items
-        if (plans.length > 1) ...[
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              plans.length,
-              (index) => AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                width: _plansPageIndex == index ? 20 : 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  color: _plansPageIndex == index
-                      ? AppTheme.primary
-                      : AppTheme.border,
-                ),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: onClose,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                shape: BoxShape.circle,
               ),
+              child: const Icon(Icons.close, color: Colors.white, size: 20),
             ),
           ),
-          const SizedBox(height: 8),
+          const Spacer(),
+          if (hasActivePlan && onBuyCredits != null)
+            _pillButton(
+                'Buy More Credits', Icons.add_circle_outline, onBuyCredits!),
         ],
-      ],
+      ),
     );
   }
 
-  Widget _buildCreditPacksTab(IAPProvider iapProvider) {
-    return Consumer<CreditsProvider>(
-      builder: (context, creditsProvider, child) {
-        final hasActiveSubscription = creditsProvider.hasActiveSubscription;
-
-        return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            children: [
-              // Show subscription required message if user is not premium
-              if (!hasActiveSubscription) ...[
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppTheme.primary.withOpacity(0.1),
-                        const Color(0xFFEC4899).withOpacity(0.1),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppTheme.primary.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.lock_outline,
-                        color: AppTheme.primary,
-                        size: 32,
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Premium Required',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Subscribe to a premium plan to unlock credit purchases.',
-                        style: TextStyle(
-                          color: AppTheme.muted,
-                          fontSize: 14,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [AppTheme.primary, Color(0xFFEC4899)],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ElevatedButton(
-                            onPressed: () {
-                              // Switch to subscriptions tab
-                              _tabController.animateTo(0);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text(
-                              'View Subscription Plans',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Credit packs available after subscribing:',
-                  style: TextStyle(color: AppTheme.muted, fontSize: 14),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                // Show credit packages as disabled previews
-                ..._creditPackages.map((pkg) => Opacity(
-                      opacity: 0.5,
-                      child: IgnorePointer(
-                        child: _CreditPackageCard(
-                          package: pkg,
-                          iconData: _getIconData(pkg.icon),
-                          isPurchasing: false,
-                          onPurchase: () {},
-                          isAnyPurchasing: true,
-                        ),
-                      ),
-                    )),
-              ] else ...[
-                const Text(
-                  'One-time credit purchases for Pro members.',
-                  style: TextStyle(color: AppTheme.muted, fontSize: 14),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-
-                ..._creditPackages.map((pkg) => _CreditPackageCard(
-                      package: pkg,
-                      iconData: _getIconData(pkg.icon),
-                      isPurchasing: _purchasingPackageId == pkg.id,
-                      isAnyPurchasing: _purchasingPackageId != null,
-                      onPurchase: () => _handleCreditPurchase(pkg),
-                    )),
-              ],
-
-              const SizedBox(height: 24),
-
-              // Footer
-              const Text(
-                'Credits never expire and can be used for any generation.',
-                style: TextStyle(color: AppTheme.muted, fontSize: 11),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 100),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _SubscriptionPlanCard extends StatelessWidget {
-  final SubscriptionPlan plan;
-  final IconData iconData;
-  final bool isPurchasing;
-  final bool isCurrentPlan;
-  final bool isDowngrade;
-  final VoidCallback onPurchase;
-
-  const _SubscriptionPlanCard({
-    required this.plan,
-    required this.iconData,
-    required this.isPurchasing,
-    required this.isCurrentPlan,
-    this.isDowngrade = false,
-    required this.onPurchase,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isHighlighted = plan.popular || plan.bestValue;
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          margin: EdgeInsets.only(bottom: 16, top: isCurrentPlan ? 12 : 0),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: isHighlighted && !isCurrentPlan
-                ? LinearGradient(
-                    colors: [
-                      AppTheme.primary.withOpacity(0.2),
-                      const Color(0xFFEC4899).withOpacity(0.2),
-                    ],
-                  )
-                : null,
-            color: isHighlighted && !isCurrentPlan ? null : AppTheme.card,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isCurrentPlan
-                  ? Colors.green
-                  : (isHighlighted ? AppTheme.primary : AppTheme.border),
-              width: isCurrentPlan ? 2 : (isHighlighted ? 2 : 1),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header row
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: isHighlighted
-                          ? const LinearGradient(
-                              colors: [AppTheme.primary, Color(0xFFEC4899)])
-                          : null,
-                      color: isHighlighted ? null : AppTheme.secondary,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      iconData,
-                      color: isHighlighted ? Colors.white : AppTheme.primary,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              '\$${plan.price.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              '/${plan.period == 'Monthly' ? 'mo' : 'yr'}',
-                              style: const TextStyle(
-                                  color: AppTheme.muted, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            Text(
-                              plan.name,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            if (plan.popular) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      AppTheme.primary,
-                                      Color(0xFFEC4899)
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Text(
-                                  'Popular',
-                                  style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
-                            if (plan.bestValue && !plan.popular) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFFF59E0B),
-                                      Color(0xFFF97316)
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Text(
-                                  'Best Value',
-                                  style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        // Text(
-                        //   plan.period,
-                        //   style:
-                        //       const TextStyle(color: AppTheme.muted, fontSize: 13),
-                        // ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Credits badge
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppTheme.secondary,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    '${plan.credits.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')} credits',
-                    style: TextStyle(
-                      color: AppTheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Features
-              ...plan.features.map((feature) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: feature.included
-                                ? Colors.green.withOpacity(0.2)
-                                : Colors.red.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            feature.included ? Icons.check : Icons.close,
-                            size: 12,
-                            color: feature.included ? Colors.green : Colors.red,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            feature.text,
-                            style: TextStyle(
-                              color: feature.included ? null : AppTheme.muted,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                        if (feature.badge != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primary.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              feature.badge!,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: AppTheme.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  )),
-              const SizedBox(height: 20),
-
-              // Subscribe button
-              SizedBox(
-                width: double.infinity,
-                child: isCurrentPlan
-                    ? Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(12),
-                          border:
-                              Border.all(color: Colors.green.withOpacity(0.3)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: Colors.green,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.check,
-                                size: 14,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Your Current Plan',
-                              style: TextStyle(
-                                color: Colors.green,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : isDowngrade
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            decoration: BoxDecoration(
-                              color: AppTheme.secondary.withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppTheme.border.withOpacity(0.3)),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                'Current plan is higher',
-                                style: TextStyle(
-                                  color: AppTheme.muted,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                          )
-                        : Container(
-                            decoration: BoxDecoration(
-                              gradient: isHighlighted
-                                  ? const LinearGradient(
-                                      colors: [AppTheme.primary, Color(0xFFEC4899)])
-                                  : null,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: ElevatedButton(
-                              onPressed: isPurchasing ? null : onPurchase,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isHighlighted
-                                    ? Colors.transparent
-                                    : AppTheme.secondary,
-                                foregroundColor:
-                                    isHighlighted ? Colors.white : null,
-                                shadowColor: Colors.transparent,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  side: isHighlighted
-                                      ? BorderSide.none
-                                      : BorderSide(color: AppTheme.border),
-                                ),
-                              ),
-                              child: isPurchasing
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2, color: Colors.white),
-                                    )
-                                  : Text(
-                                      'Upgrade to ${plan.name}',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15),
-                                    ),
-                            ),
-                          ),
-              ),
-            ],
-          ),
+  Widget _pillButton(String label, IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(20),
         ),
-        // "Current Plan" badge at the top
-        if (isCurrentPlan)
-          Positioned(
-            top: -2,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'Current Plan',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: Colors.white.withOpacity(0.8)),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.85),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ),
-      ],
-    );
-  }
-}
-
-class _CreditPackageCard extends StatelessWidget {
-  final CreditPackage package;
-  final IconData iconData;
-  final bool isPurchasing;
-  final bool isAnyPurchasing;
-  final VoidCallback onPurchase;
-
-  const _CreditPackageCard({
-    required this.package,
-    required this.iconData,
-    required this.isPurchasing,
-    required this.isAnyPurchasing,
-    required this.onPurchase,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isPopular = package.popular;
-
-    return IgnorePointer(
-      ignoring: isAnyPurchasing && !isPurchasing,
-      child: GestureDetector(
-        onTap: isPurchasing ? null : onPurchase,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: isPopular
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.primary.withOpacity(0.18),
-                      const Color(0xFFEC4899).withOpacity(0.12),
-                    ],
-                  )
-                : null,
-            color: isPopular ? null : AppTheme.card,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isPopular ? AppTheme.primary : AppTheme.border,
-              width: isPopular ? 1.5 : 1,
-            ),
-            boxShadow: isPopular
-                ? [
-                    BoxShadow(
-                      color: AppTheme.primary.withOpacity(0.15),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: isPopular
-                      ? const LinearGradient(
-                          colors: [AppTheme.primary, Color(0xFFEC4899)])
-                      : null,
-                  color: isPopular ? null : AppTheme.secondary,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  iconData,
-                  color: isPopular ? Colors.white : AppTheme.primary,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            package.name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (isPopular) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 3),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [AppTheme.primary, Color(0xFFEC4899)],
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.local_fire_department,
-                                    size: 10, color: Colors.white),
-                                SizedBox(width: 3),
-                                Text(
-                                  'Popular',
-                                  style: TextStyle(
-                                      fontSize: 9,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${package.credits.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')} credits',
-                      style: const TextStyle(
-                        color: AppTheme.primary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppTheme.primary, Color(0xFFEC4899)],
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: ElevatedButton(
-                  onPressed: isPurchasing ? null : onPurchase,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.transparent,
-                    disabledForegroundColor: Colors.white70,
-                    shadowColor: Colors.transparent,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: isPurchasing
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text(
-                          '\$${package.price.toStringAsFixed(2)}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                ),
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Auto-scrolling image carousel — taller, no titles, black gradient fade
+// ---------------------------------------------------------------------------
+class _ImageCarousel extends StatefulWidget {
+  const _ImageCarousel();
+
+  @override
+  State<_ImageCarousel> createState() => _ImageCarouselState();
+}
+
+class _ImageCarouselState extends State<_ImageCarousel> {
+  late final ScrollController _scrollController;
+  Timer? _scrollTimer;
+  bool _didPrecache = false;
+
+  static const double _itemWidth = 150.0;
+  static const double _itemSpacing = 10.0;
+  static const double _carouselHeight = 280.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startAutoScroll());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didPrecache) {
+      _didPrecache = true;
+      for (final step in wizardSteps) {
+        precacheImage(AssetImage(step.imagePath), context);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollTimer?.cancel();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _startAutoScroll() {
+    _scrollTimer?.cancel();
+    _scrollTimer = Timer.periodic(const Duration(milliseconds: 30), (_) {
+      if (!_scrollController.hasClients) return;
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      final current = _scrollController.offset;
+      if (current >= maxScroll) {
+        _scrollController.jumpTo(0);
+      } else {
+        _scrollController.jumpTo(current + 0.5);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [...wizardSteps, ...wizardSteps, ...wizardSteps];
+
+    return SizedBox(
+      height: _carouselHeight,
+      child: Stack(
+        children: [
+          ListView.builder(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: items.length,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            itemBuilder: (context, index) {
+              final step = items[index];
+              return Padding(
+                padding: EdgeInsets.only(right: _itemSpacing),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SizedBox(
+                    width: _itemWidth,
+                    height: _carouselHeight,
+                    child: Image.asset(
+                      step.imagePath,
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.medium,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: AppTheme.card,
+                        child: const Center(
+                          child: Icon(Icons.image_outlined,
+                              color: Colors.white24, size: 32),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          // Bottom black gradient fade
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 80,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black,
+                    Colors.black.withOpacity(0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Current plan badge
+// ---------------------------------------------------------------------------
+class _CurrentPlanBadge extends StatelessWidget {
+  final String planName;
+  final int credits;
+
+  const _CurrentPlanBadge({required this.planName, required this.credits});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppTheme.primary.withOpacity(0.12),
+              const Color(0xFFEC4899).withOpacity(0.08),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppTheme.primary.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.workspace_premium,
+                  color: AppTheme.primary, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Current Plan',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _formatPlanName(planName),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.toll, color: AppTheme.primary, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    _formatNumber(credits),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    ' credits',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _formatPlanName(String id) {
+    return id
+        .replaceAll('-', ' ')
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
+
+  static String _formatNumber(int n) {
+    return n.toString().replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]},',
+        );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tier toggle (Premium / Premium Plus)
+// ---------------------------------------------------------------------------
+class _TierToggle extends StatelessWidget {
+  final List<String> tiers;
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+
+  const _TierToggle({
+    required this.tiers,
+    required this.selectedIndex,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: List.generate(tiers.length, (index) {
+            final isActive = index == selectedIndex;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(index),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOut,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    gradient: isActive
+                        ? const LinearGradient(
+                            colors: [AppTheme.primary, Color(0xFFEC4899)],
+                          )
+                        : null,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    tiers[index],
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: isActive
+                          ? Colors.white
+                          : Colors.white.withOpacity(0.45),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Animated feature list
+// ---------------------------------------------------------------------------
+class _AnimatedFeatureList extends StatelessWidget {
+  final List<PlanFeature> features;
+
+  const _AnimatedFeatureList({super.key, required this.features});
+
+  @override
+  Widget build(BuildContext context) {
+    if (features.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        children: List.generate(features.length, (index) {
+          final feature = features[index];
+          return TweenAnimationBuilder<double>(
+            key: ValueKey('${feature.text}_${feature.included}'),
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: Duration(milliseconds: 300 + (index * 60)),
+            curve: Curves.easeOut,
+            builder: (context, value, child) {
+              return Opacity(
+                opacity: value,
+                child: Transform.translate(
+                  offset: Offset(0, 12 * (1 - value)),
+                  child: child,
+                ),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Row(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: feature.included
+                          ? Colors.green.withOpacity(0.15)
+                          : Colors.white.withOpacity(0.05),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      feature.included ? Icons.check : Icons.close,
+                      size: 13,
+                      color: feature.included
+                          ? Colors.green
+                          : Colors.white.withOpacity(0.2),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 250),
+                      style: TextStyle(
+                        color: feature.included
+                            ? Colors.white.withOpacity(0.85)
+                            : Colors.white.withOpacity(0.3),
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w500,
+                        height: 1.4,
+                        decoration: feature.included
+                            ? TextDecoration.none
+                            : TextDecoration.lineThrough,
+                        decorationColor: Colors.white.withOpacity(0.15),
+                      ),
+                      child: Text(feature.text),
+                    ),
+                  ),
+                  if (feature.badge != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        feature.badge!,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppTheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Plan option tile (radio-style)
+// ---------------------------------------------------------------------------
+class _PlanOptionTile extends StatelessWidget {
+  final SubscriptionPlan plan;
+  final bool isSelected;
+  final bool isCurrentPlan;
+  final bool isDowngrade;
+  final String? savingsLabel;
+  final VoidCallback? onTap;
+
+  const _PlanOptionTile({
+    required this.plan,
+    required this.isSelected,
+    required this.isCurrentPlan,
+    required this.isDowngrade,
+    this.savingsLabel,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDisabled = isCurrentPlan || isDowngrade;
+    final borderColor = isCurrentPlan
+        ? Colors.green.withOpacity(0.5)
+        : isSelected
+            ? Colors.white.withOpacity(0.5)
+            : Colors.white.withOpacity(0.1);
+    final bgColor = isSelected && !isDisabled
+        ? Colors.white.withOpacity(0.05)
+        : Colors.transparent;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor, width: isSelected ? 2 : 1),
+        ),
+        child: Row(
+          children: [
+            // Radio dot
+            _RadioDot(
+              isSelected: isSelected && !isDisabled,
+              isCurrentPlan: isCurrentPlan,
+            ),
+            const SizedBox(width: 14),
+            // Plan info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        plan.period,
+                        style: TextStyle(
+                          color: isDisabled
+                              ? Colors.white.withOpacity(0.35)
+                              : Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (isCurrentPlan) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: Colors.green.withOpacity(0.3)),
+                          ),
+                          child: const Text(
+                            'Your Plan',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (isDowngrade && !isCurrentPlan) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          'Current plan is higher',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.25),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '\$${plan.price.toStringAsFixed(2)}/${plan.period == 'Monthly' ? 'month' : plan.period == 'Yearly' ? 'year' : 'week'}. Cancel anytime',
+                    style: TextStyle(
+                      color: isDisabled
+                          ? Colors.white.withOpacity(0.2)
+                          : Colors.white.withOpacity(0.5),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Credits + savings
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (savingsLabel != null && !isCurrentPlan)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      savingsLabel!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                Text(
+                  '${_formatNumber(plan.credits)} credits',
+                  style: TextStyle(
+                    color: isDisabled
+                        ? Colors.white.withOpacity(0.3)
+                        : AppTheme.primary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _formatNumber(int n) {
+    return n.toString().replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]},',
+        );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Radio dot
+// ---------------------------------------------------------------------------
+class _RadioDot extends StatelessWidget {
+  final bool isSelected;
+  final bool isCurrentPlan;
+
+  const _RadioDot({required this.isSelected, required this.isCurrentPlan});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: isCurrentPlan
+              ? Colors.green
+              : isSelected
+                  ? Colors.white
+                  : Colors.white.withOpacity(0.25),
+          width: 2,
+        ),
+      ),
+      child: isSelected || isCurrentPlan
+          ? Center(
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isCurrentPlan ? Colors.green : Colors.white,
+                ),
+              ),
+            )
+          : null,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Continue button
+// ---------------------------------------------------------------------------
+class _ContinueButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final bool isPurchasing;
+  final bool isEnabled;
+
+  const _ContinueButton({
+    required this.onTap,
+    required this.isPurchasing,
+    required this.isEnabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isEnabled && !isPurchasing ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: isEnabled ? Colors.white : Colors.white.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(30),
+        ),
+        child: Center(
+          child: isPurchasing
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Colors.black,
+                  ),
+                )
+              : Text(
+                  'Continue',
+                  style: TextStyle(
+                    color: isEnabled ? Colors.black : Colors.white30,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+

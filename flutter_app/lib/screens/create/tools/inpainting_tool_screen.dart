@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../../widgets/common/smart_media_image.dart';
+import '../../../widgets/report_content_dialog.dart';
 
 class InpaintingToolScreen extends StatefulWidget {
   final String mode;
@@ -767,19 +768,28 @@ class _InpaintingToolScreenState extends State<InpaintingToolScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _downloadOutput,
-                    icon: const Icon(Icons.download),
-                    label: const Text('Download'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _downloadOutput,
+                        icon: const Icon(Icons.download),
+                        label: const Text('Download'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: () => ReportContentDialog.show(context, contentType: 'image'),
+                      icon: const Icon(Icons.flag_outlined, color: Colors.white70),
+                      tooltip: 'Report',
+                    ),
+                  ],
                 ),
               ],
             )

@@ -9,6 +9,7 @@ import '../../../core/theme.dart';
 import '../../../models/download_model.dart';
 import '../../../services/download_service.dart';
 import '../../../widgets/common/smart_media_image.dart';
+import '../../../widgets/report_content_dialog.dart';
 
 const List<Map<String, dynamic>> LIGHT_DIRECTIONS = [
   {'id': 'top', 'label': 'Top'},
@@ -351,17 +352,34 @@ class _RelightToolScreenState extends State<RelightToolScreen> {
                       Positioned(
                         top: 8,
                         right: 8,
-                        child: IconButton(
-                          onPressed: _downloadImage,
-                          icon: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              onPressed: () => ReportContentDialog.show(context, contentType: 'image'),
+                              icon: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.flag_outlined,
+                                    color: Colors.white, size: 20),
+                              ),
                             ),
-                            child: const Icon(Icons.download,
-                                color: Colors.white, size: 20),
-                          ),
+                            IconButton(
+                              onPressed: _downloadImage,
+                              icon: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.download,
+                                    color: Colors.white, size: 20),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     Positioned(

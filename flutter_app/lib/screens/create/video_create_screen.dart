@@ -13,6 +13,7 @@ import '../../providers/generation_provider.dart';
 import '../../providers/credits_provider.dart';
 import '../../providers/download_provider.dart';
 import '../../models/download_model.dart';
+import '../../widgets/report_content_dialog.dart';
 import '../../models/generation_model.dart';
 import '../../widgets/common/smart_media_image.dart';
 import '../../widgets/add_credits_dialog.dart';
@@ -1285,6 +1286,12 @@ class _VideoCreateScreenState extends State<VideoCreateScreen> {
                       Icons.share,
                       'Share',
                       _shareGeneratedVideo,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildVideoActionButton(
+                      Icons.flag_outlined,
+                      'Report',
+                      () => ReportContentDialog.show(context, contentType: 'video'),
                     ),
                   ],
                 ),

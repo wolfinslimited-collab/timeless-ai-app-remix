@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../providers/favorites_provider.dart';
 import '../../widgets/common/smart_media_image.dart';
+import '../../widgets/report_content_dialog.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
@@ -571,6 +572,23 @@ class _FavoriteCard extends StatelessWidget {
                     style: TextStyle(color: Colors.white.withOpacity(0.7)),
                   ),
                 ],
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => ReportContentDialog.show(context, contentType: favorite.type),
+                        icon: const Icon(Icons.flag_outlined, size: 18),
+                        label: const Text('Report'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white70,
+                          side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           );
