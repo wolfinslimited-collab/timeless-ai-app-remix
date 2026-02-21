@@ -166,15 +166,25 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
     if (next) fetchSessions();
   };
 
-  // Play queued audio chunks through Web Audio API
+  // Play queued audio chunks through Web Audio API with seamless scheduling
+  const nextPlayTimeRef = useRef(0);
+  
   const playNextAudioChunk = useCallback(() => {
-    if (isPlayingRef.current || audioQueueRef.current.length === 0) return;
+    if (audioQueueRef.current.length === 0) {
+      isPlayingRef.current = false;
+      // AI finished speaking, auto-restart listening
+      if (isConnectedRef.current && isListeningRef.current) {
+        setVoiceState("listening");
+      }
+      return;
+    }
 
     isPlayingRef.current = true;
     const samples = audioQueueRef.current.shift()!;
 
     if (!playbackContextRef.current || playbackContextRef.current.state === "closed") {
       playbackContextRef.current = new AudioContext({ sampleRate: 24000 });
+      nextPlayTimeRef.current = 0;
     }
     const ctx = playbackContextRef.current;
     const audioBuffer = ctx.createBuffer(1, samples.length, 24000);
@@ -182,18 +192,15 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
     const source = ctx.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(ctx.destination);
+    
+    // Schedule seamlessly to avoid clicks between chunks
+    const startTime = Math.max(ctx.currentTime, nextPlayTimeRef.current);
+    nextPlayTimeRef.current = startTime + audioBuffer.duration;
+    
     source.onended = () => {
-      isPlayingRef.current = false;
-      if (audioQueueRef.current.length > 0) {
-        playNextAudioChunk();
-      } else {
-        // AI finished speaking, auto-restart listening
-        if (isConnectedRef.current && isListeningRef.current) {
-          setVoiceState("listening");
-        }
-      }
+      playNextAudioChunk();
     };
-    source.start();
+    source.start(startTime);
     setVoiceState("speaking");
   }, []);
 
@@ -452,7 +459,12 @@ const VoiceChat = forwardRef<HTMLDivElement, VoiceChatProps>(({ isOpen, onClose,
       };
 
       source.connect(processor);
-      processor.connect(audioContext.destination); // Required for ScriptProcessorNode to work
+      // Connect to a silent destination (required for ScriptProcessorNode to fire)
+      // Do NOT connect to ctx.destination — that would play mic audio back through speakers
+      const silentGain = audioContext.createGain();
+      silentGain.gain.value = 0;
+      processor.connect(silentGain);
+      silentGain.connect(audioContext.destination);
 
       isListeningRef.current = true;
       console.log("[VoiceChat] Mic capture started at", actualSampleRate, "Hz, resampling to 16kHz");
