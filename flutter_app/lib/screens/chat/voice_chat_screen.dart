@@ -116,15 +116,28 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     return '${date.month}/${date.day}';
   }
 
+  /// Interrupt AI: stop TTS, clear queue, abort stream
+  void _interruptAI() {
+    _ttsService.stop();
+    _streamSubscription?.cancel();
+    _streamSubscription = null;
+  }
+
   Future<void> _startListening() async {
     if (!_voiceService.isInitialized) {
       setState(() => _error = 'Voice recognition not available');
       return;
     }
 
+    // If AI is speaking or processing, interrupt first
+    if (_voiceState == VoiceState.speaking || _voiceState == VoiceState.processing) {
+      _interruptAI();
+    }
+
     setState(() {
       _error = null;
       _transcript = '';
+      _response = '';
       _voiceState = VoiceState.listening;
     });
 
@@ -134,6 +147,11 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     await _voiceService.startListening(
       onResult: (text) {
         silenceTimer?.cancel();
+        // If AI is still speaking when user talks, interrupt
+        if (_voiceState == VoiceState.speaking) {
+          _interruptAI();
+          setState(() => _voiceState = VoiceState.listening);
+        }
         setState(() => _transcript = text);
         silenceTimer = Timer(const Duration(milliseconds: 800), () {
           _voiceService.stopListening();
@@ -142,6 +160,11 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       },
       onPartialResult: (text) {
         silenceTimer?.cancel();
+        // If AI is still speaking when user talks, interrupt
+        if (_voiceState == VoiceState.speaking) {
+          _interruptAI();
+          setState(() => _voiceState = VoiceState.listening);
+        }
         setState(() => _transcript = text);
         silenceTimer = Timer(const Duration(milliseconds: 800), () {
           if (_transcript.isNotEmpty) {
@@ -371,10 +394,22 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                     ),
                   ),
 
-                // Center sphere
+                // Center sphere - tappable to start/interrupt
                 Expanded(
                   child: Center(
-                    child: VoiceChatVisualizer(state: _voiceState, size: 180),
+                    child: GestureDetector(
+                      onTap: () {
+                        if (_voiceState == VoiceState.listening) {
+                          _stopListening();
+                        } else if (_voiceState == VoiceState.speaking) {
+                          // Interrupt AI and start listening
+                          _startListening();
+                        } else if (_voiceState == VoiceState.idle) {
+                          _startListening();
+                        }
+                      },
+                      child: VoiceChatVisualizer(state: _voiceState, size: 180),
+                    ),
                   ),
                 ),
 
