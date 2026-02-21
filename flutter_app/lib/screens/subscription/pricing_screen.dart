@@ -9,6 +9,8 @@ import '../../providers/iap_provider.dart';
 import '../../services/pricing_service.dart';
 import '../upgrade_plan/upgrade_plan_wizard_content.dart';
 
+enum _ContinueButtonState { upgrade, currentPlan, downgrade, noSelection }
+
 class PricingScreen extends StatefulWidget {
   final int initialTab;
 
@@ -80,6 +82,12 @@ class _PricingScreenState extends State<PricingScreen> {
         _isLoading = false;
       });
 
+      debugPrint('[Pricing] Loaded ${_subscriptionPlans.length} plans');
+      for (final p in _subscriptionPlans) {
+        debugPrint('[Pricing]   id=${p.id}, name=${p.name}, period=${p.period}, displayOrder=${p.displayOrder}');
+      }
+      debugPrint('[Pricing] userPlan="$userPlan", hasActive=$hasActive');
+
       _preselectTierAndPlan(userPlan, hasActive);
     } catch (e) {
       debugPrint('Error fetching pricing: $e');
@@ -89,25 +97,25 @@ class _PricingScreenState extends State<PricingScreen> {
 
   void _preselectTierAndPlan(String userPlan, bool hasActive) {
     final tiers = _tierNames;
+    debugPrint('[Pricing] _preselectTierAndPlan: tiers=$tiers, userPlan="$userPlan", hasActive=$hasActive');
     if (tiers.isEmpty) return;
 
     if (hasActive && userPlan.isNotEmpty) {
-      // Find which tier and plan the user is on
       final currentPlan = _subscriptionPlans
           .where((p) => p.id.toLowerCase() == userPlan)
           .firstOrNull;
+      debugPrint('[Pricing]   currentPlan found: ${currentPlan?.id} (name=${currentPlan?.name})');
       if (currentPlan != null) {
         final tierIdx = tiers.indexOf(currentPlan.name);
-        // Select the NEXT tier if possible (upgrade path), otherwise current tier
         final upgradeTierIdx =
             tierIdx + 1 < tiers.length ? tierIdx + 1 : tierIdx;
+        debugPrint('[Pricing]   tierIdx=$tierIdx, upgradeTierIdx=$upgradeTierIdx');
         setState(() => _selectedTierIndex = upgradeTierIdx);
       }
     } else {
       setState(() => _selectedTierIndex = 0);
     }
 
-    // After tier is set, preselect a plan within that tier
     _preselectPlanInTier(userPlan, hasActive);
   }
 
@@ -175,9 +183,13 @@ class _PricingScreenState extends State<PricingScreen> {
     final plan = _subscriptionPlans
         .where((p) => p.id.toLowerCase() == planId.toLowerCase())
         .firstOrNull;
-    if (plan == null) return 0;
+    if (plan == null) {
+      debugPrint('[Pricing] _getPlanRank: planId="$planId" NOT FOUND in ${_subscriptionPlans.map((p) => p.id).toList()}');
+      return 0;
+    }
     int rank = plan.displayOrder * 10;
     if (plan.period == 'Yearly') rank += 5;
+    debugPrint('[Pricing] _getPlanRank: planId="$planId" => rank=$rank (displayOrder=${plan.displayOrder}, period=${plan.period})');
     return rank;
   }
 
@@ -210,6 +222,34 @@ class _PricingScreenState extends State<PricingScreen> {
       _showError(iapProvider.error!);
       iapProvider.clearError();
     }
+  }
+
+  _ContinueButtonState _getButtonState(
+    List<SubscriptionPlan> plans,
+    String userPlan,
+    bool hasActive,
+  ) {
+    debugPrint('[Pricing] _getButtonState: _selectedPlanIndex=$_selectedPlanIndex, plans.length=${plans.length}, userPlan="$userPlan", hasActive=$hasActive');
+    if (_selectedPlanIndex == null || _selectedPlanIndex! >= plans.length) {
+      debugPrint('[Pricing]   => noSelection');
+      return _ContinueButtonState.noSelection;
+    }
+    final plan = plans[_selectedPlanIndex!];
+    final planId = plan.id.toLowerCase();
+    debugPrint('[Pricing]   selected planId="$planId"');
+
+    if (hasActive && userPlan == planId) {
+      debugPrint('[Pricing]   => currentPlan (exact match)');
+      return _ContinueButtonState.currentPlan;
+    }
+    if (hasActive && !_isUpgrade(userPlan, planId)) {
+      final userRank = _getPlanRank(userPlan);
+      final targetRank = _getPlanRank(planId);
+      debugPrint('[Pricing]   => downgrade (userRank=$userRank, targetRank=$targetRank)');
+      return _ContinueButtonState.downgrade;
+    }
+    debugPrint('[Pricing]   => upgrade');
+    return _ContinueButtonState.upgrade;
   }
 
   void _showError(String message) {
@@ -303,11 +343,15 @@ class _PricingScreenState extends State<PricingScreen> {
                           // Continue button
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: _ContinueButton(
-                              onTap: _handleContinue,
-                              isPurchasing: iapProvider.isPurchasing,
-                              isEnabled: _selectedPlanIndex != null,
-                            ),
+                            child: Builder(builder: (_) {
+                              final btnState = _getButtonState(
+                                  tierPlans, userPlan, hasActive);
+                              return _ContinueButton(
+                                onTap: _handleContinue,
+                                isPurchasing: iapProvider.isPurchasing,
+                                state: btnState,
+                              );
+                            }),
                           ),
 
                           // Footer
@@ -371,6 +415,7 @@ class _PricingScreenState extends State<PricingScreen> {
       );
     }
 
+    debugPrint('[Pricing] _buildPlanSelector: ${plans.length} plans, userPlan="$userPlan", hasActive=$hasActive, _selectedPlanIndex=$_selectedPlanIndex');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -382,15 +427,17 @@ class _PricingScreenState extends State<PricingScreen> {
               hasActive && !isCurrentPlan && !_isUpgrade(userPlan, planId);
           final isSelected = _selectedPlanIndex == index;
 
+          debugPrint('[Pricing]   [$index] planId="$planId", isCurrentPlan=$isCurrentPlan, isDowngrade=$isDowngrade, isSelected=$isSelected');
           return _PlanOptionTile(
             plan: plan,
             isSelected: isSelected,
             isCurrentPlan: isCurrentPlan,
             isDowngrade: isDowngrade,
             savingsLabel: plan.period == 'Yearly' ? 'Save 17%' : null,
-            onTap: (isCurrentPlan || isDowngrade)
-                ? null
-                : () => setState(() => _selectedPlanIndex = index),
+            onTap: () {
+              debugPrint('[Pricing] Tapped plan index=$index, planId="$planId"');
+              setState(() => _selectedPlanIndex = index);
+            },
           );
         }),
       ),
@@ -1089,50 +1136,115 @@ class _RadioDot extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Continue button
+// Continue button — adapts to upgrade / current plan / downgrade states
 // ---------------------------------------------------------------------------
 class _ContinueButton extends StatelessWidget {
   final VoidCallback onTap;
   final bool isPurchasing;
-  final bool isEnabled;
+  final _ContinueButtonState state;
 
   const _ContinueButton({
     required this.onTap,
     required this.isPurchasing,
-    required this.isEnabled,
+    required this.state,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bool canTap = state == _ContinueButtonState.upgrade;
+
+    Color bgColor;
+    Color textColor;
+    Widget content;
+
+    switch (state) {
+      case _ContinueButtonState.currentPlan:
+        bgColor = Colors.green;
+        textColor = Colors.white;
+        content = Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 22,
+              height: 22,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check, size: 14, color: Colors.green),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Your Current Plan',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        );
+        break;
+      case _ContinueButtonState.downgrade:
+        bgColor = Colors.white.withOpacity(0.08);
+        textColor = Colors.white38;
+        content = Text(
+          'Downgrade not available',
+          style: TextStyle(
+            color: textColor,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        );
+        break;
+      case _ContinueButtonState.upgrade:
+        bgColor = Colors.white;
+        textColor = Colors.black;
+        content = isPurchasing
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.black,
+                ),
+              )
+            : Text(
+                'Continue',
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
+              );
+        break;
+      case _ContinueButtonState.noSelection:
+        bgColor = Colors.white.withOpacity(0.12);
+        textColor = Colors.white30;
+        content = Text(
+          'Select a plan',
+          style: TextStyle(
+            color: textColor,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+          ),
+        );
+        break;
+    }
+
     return GestureDetector(
-      onTap: isEnabled && !isPurchasing ? onTap : null,
+      onTap: canTap && !isPurchasing ? onTap : null,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: isEnabled ? Colors.white : Colors.white.withOpacity(0.12),
+          color: bgColor,
           borderRadius: BorderRadius.circular(30),
         ),
-        child: Center(
-          child: isPurchasing
-              ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: Colors.black,
-                  ),
-                )
-              : Text(
-                  'Continue',
-                  style: TextStyle(
-                    color: isEnabled ? Colors.black : Colors.white30,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-        ),
+        child: Center(child: content),
       ),
     );
   }
