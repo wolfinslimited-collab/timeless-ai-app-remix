@@ -26,6 +26,7 @@ class _PricingScreenState extends State<PricingScreen> {
   int? _selectedPlanIndex;
   List<SubscriptionPlan> _subscriptionPlans = [];
   final PricingService _pricingService = PricingService();
+  bool _hasPreselected = false;
 
   /// Unique tier names sorted by displayOrder
   List<String> get _tierNames {
@@ -82,13 +83,32 @@ class _PricingScreenState extends State<PricingScreen> {
         _isLoading = false;
       });
 
+      debugPrint('[Pricing] ======= FETCH COMPLETE =======');
       debugPrint('[Pricing] Loaded ${_subscriptionPlans.length} plans');
       for (final p in _subscriptionPlans) {
-        debugPrint('[Pricing]   id=${p.id}, name=${p.name}, period=${p.period}, displayOrder=${p.displayOrder}');
+        debugPrint(
+            '[Pricing]   id="${p.id}", name="${p.name}", period=${p.period}, displayOrder=${p.displayOrder}');
       }
-      debugPrint('[Pricing] userPlan="$userPlan", hasActive=$hasActive');
+      debugPrint(
+          '[Pricing] creditsProvider.currentPlan (raw)="${creditsProvider.currentPlan}"');
+      debugPrint(
+          '[Pricing] creditsProvider.hasActiveSubscription=${creditsProvider.hasActiveSubscription}');
+      debugPrint(
+          '[Pricing] creditsProvider.isLoading=${creditsProvider.isLoading}');
+      debugPrint(
+          '[Pricing] userPlan (lowercased)="$userPlan", hasActive=$hasActive');
+      debugPrint('[Pricing] Plan ID matching check:');
+      for (final p in _subscriptionPlans) {
+        final matches = userPlan == p.id.toLowerCase();
+        debugPrint(
+            '[Pricing]   "$userPlan" == "${p.id.toLowerCase()}" => $matches');
+      }
+      debugPrint('[Pricing] ============================');
 
       _preselectTierAndPlan(userPlan, hasActive);
+      if (hasActive && userPlan.isNotEmpty) {
+        _hasPreselected = true;
+      }
     } catch (e) {
       debugPrint('Error fetching pricing: $e');
       setState(() => _isLoading = false);
@@ -97,19 +117,22 @@ class _PricingScreenState extends State<PricingScreen> {
 
   void _preselectTierAndPlan(String userPlan, bool hasActive) {
     final tiers = _tierNames;
-    debugPrint('[Pricing] _preselectTierAndPlan: tiers=$tiers, userPlan="$userPlan", hasActive=$hasActive');
+    debugPrint(
+        '[Pricing] _preselectTierAndPlan: tiers=$tiers, userPlan="$userPlan", hasActive=$hasActive');
     if (tiers.isEmpty) return;
 
     if (hasActive && userPlan.isNotEmpty) {
       final currentPlan = _subscriptionPlans
           .where((p) => p.id.toLowerCase() == userPlan)
           .firstOrNull;
-      debugPrint('[Pricing]   currentPlan found: ${currentPlan?.id} (name=${currentPlan?.name})');
+      debugPrint(
+          '[Pricing]   currentPlan found: ${currentPlan?.id} (name=${currentPlan?.name})');
       if (currentPlan != null) {
         final tierIdx = tiers.indexOf(currentPlan.name);
         final upgradeTierIdx =
             tierIdx + 1 < tiers.length ? tierIdx + 1 : tierIdx;
-        debugPrint('[Pricing]   tierIdx=$tierIdx, upgradeTierIdx=$upgradeTierIdx');
+        debugPrint(
+            '[Pricing]   tierIdx=$tierIdx, upgradeTierIdx=$upgradeTierIdx');
         setState(() => _selectedTierIndex = upgradeTierIdx);
       }
     } else {
@@ -184,12 +207,14 @@ class _PricingScreenState extends State<PricingScreen> {
         .where((p) => p.id.toLowerCase() == planId.toLowerCase())
         .firstOrNull;
     if (plan == null) {
-      debugPrint('[Pricing] _getPlanRank: planId="$planId" NOT FOUND in ${_subscriptionPlans.map((p) => p.id).toList()}');
+      debugPrint(
+          '[Pricing] _getPlanRank: planId="$planId" NOT FOUND in ${_subscriptionPlans.map((p) => p.id).toList()}');
       return 0;
     }
     int rank = plan.displayOrder * 10;
     if (plan.period == 'Yearly') rank += 5;
-    debugPrint('[Pricing] _getPlanRank: planId="$planId" => rank=$rank (displayOrder=${plan.displayOrder}, period=${plan.period})');
+    debugPrint(
+        '[Pricing] _getPlanRank: planId="$planId" => rank=$rank (displayOrder=${plan.displayOrder}, period=${plan.period})');
     return rank;
   }
 
@@ -229,7 +254,8 @@ class _PricingScreenState extends State<PricingScreen> {
     String userPlan,
     bool hasActive,
   ) {
-    debugPrint('[Pricing] _getButtonState: _selectedPlanIndex=$_selectedPlanIndex, plans.length=${plans.length}, userPlan="$userPlan", hasActive=$hasActive');
+    debugPrint(
+        '[Pricing] _getButtonState: _selectedPlanIndex=$_selectedPlanIndex, plans.length=${plans.length}, userPlan="$userPlan", hasActive=$hasActive');
     if (_selectedPlanIndex == null || _selectedPlanIndex! >= plans.length) {
       debugPrint('[Pricing]   => noSelection');
       return _ContinueButtonState.noSelection;
@@ -245,7 +271,8 @@ class _PricingScreenState extends State<PricingScreen> {
     if (hasActive && !_isUpgrade(userPlan, planId)) {
       final userRank = _getPlanRank(userPlan);
       final targetRank = _getPlanRank(planId);
-      debugPrint('[Pricing]   => downgrade (userRank=$userRank, targetRank=$targetRank)');
+      debugPrint(
+          '[Pricing]   => downgrade (userRank=$userRank, targetRank=$targetRank)');
       return _ContinueButtonState.downgrade;
     }
     debugPrint('[Pricing]   => upgrade');
@@ -272,6 +299,23 @@ class _PricingScreenState extends State<PricingScreen> {
                 final tiers = _tierNames;
                 final tierPlans = _currentTierPlans;
                 final tierFeatures = _currentTierFeatures;
+
+                debugPrint(
+                    '[Pricing] BUILD: creditsProvider.currentPlan="${creditsProvider.currentPlan}", userPlan="$userPlan", hasActive=$hasActive, creditsLoading=${creditsProvider.isLoading}, tiers=$tiers, tierPlans=${tierPlans.map((p) => p.id).toList()}, selectedTier=$_selectedTierIndex, selectedPlan=$_selectedPlanIndex, _hasPreselected=$_hasPreselected');
+
+                // Re-run preselection if credits provider loaded after initial fetch
+                if (!_hasPreselected &&
+                    !creditsProvider.isLoading &&
+                    hasActive &&
+                    userPlan.isNotEmpty &&
+                    _subscriptionPlans.isNotEmpty) {
+                  debugPrint(
+                      '[Pricing] Late preselection triggered: userPlan="$userPlan"');
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _preselectTierAndPlan(userPlan, hasActive);
+                    _hasPreselected = true;
+                  });
+                }
 
                 return Stack(
                   fit: StackFit.expand,
@@ -388,9 +432,8 @@ class _PricingScreenState extends State<PricingScreen> {
                           }
                         },
                         hasActivePlan: hasActive,
-                        onBuyCredits: hasActive
-                            ? () => context.push('/credits')
-                            : null,
+                        onBuyCredits:
+                            hasActive ? () => context.push('/credits') : null,
                       ),
                     ),
                   ],
@@ -415,7 +458,8 @@ class _PricingScreenState extends State<PricingScreen> {
       );
     }
 
-    debugPrint('[Pricing] _buildPlanSelector: ${plans.length} plans, userPlan="$userPlan", hasActive=$hasActive, _selectedPlanIndex=$_selectedPlanIndex');
+    debugPrint(
+        '[Pricing] _buildPlanSelector: ${plans.length} plans, userPlan="$userPlan", hasActive=$hasActive, _selectedPlanIndex=$_selectedPlanIndex');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -427,7 +471,8 @@ class _PricingScreenState extends State<PricingScreen> {
               hasActive && !isCurrentPlan && !_isUpgrade(userPlan, planId);
           final isSelected = _selectedPlanIndex == index;
 
-          debugPrint('[Pricing]   [$index] planId="$planId", isCurrentPlan=$isCurrentPlan, isDowngrade=$isDowngrade, isSelected=$isSelected');
+          debugPrint(
+              '[Pricing]   [$index] planId="$planId", isCurrentPlan=$isCurrentPlan, isDowngrade=$isDowngrade, isSelected=$isSelected');
           return _PlanOptionTile(
             plan: plan,
             isSelected: isSelected,
@@ -435,7 +480,8 @@ class _PricingScreenState extends State<PricingScreen> {
             isDowngrade: isDowngrade,
             savingsLabel: plan.period == 'Yearly' ? 'Save 17%' : null,
             onTap: () {
-              debugPrint('[Pricing] Tapped plan index=$index, planId="$planId"');
+              debugPrint(
+                  '[Pricing] Tapped plan index=$index, planId="$planId"');
               setState(() => _selectedPlanIndex = index);
             },
           );
@@ -443,7 +489,6 @@ class _PricingScreenState extends State<PricingScreen> {
       ),
     );
   }
-
 }
 
 // ---------------------------------------------------------------------------
@@ -1249,4 +1294,3 @@ class _ContinueButton extends StatelessWidget {
     );
   }
 }
-

@@ -73,6 +73,7 @@ class CreditsProvider extends ChangeNotifier {
         _credits = response['credits'] as int? ?? 0;
         _hasActiveSubscription = response['subscription_status'] == 'active';
         _currentPlan = response['plan'] as String?;
+        debugPrint('[CreditsProvider] DB response: credits=$_credits, subscription_status=${response['subscription_status']}, plan=${response['plan']}, hasActive=$_hasActiveSubscription, currentPlan=$_currentPlan');
       } else {
         _credits = 0;
         _hasActiveSubscription = false;

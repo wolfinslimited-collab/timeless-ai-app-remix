@@ -20,7 +20,7 @@ class GenerationProvider extends ChangeNotifier {
 
   List<Generation> get images =>
       _generations.where((g) => g.type == GenerationType.image).toList();
-  
+
   List<Generation> get videos =>
       _generations.where((g) => g.type == GenerationType.video).toList();
 
@@ -29,7 +29,8 @@ class GenerationProvider extends ChangeNotifier {
 
   Future<void> loadGenerations({String? type, int limit = 50}) async {
     try {
-      _generations = await _generationService.getGenerations(type: type, limit: limit);
+      _generations =
+          await _generationService.getGenerations(type: type, limit: limit);
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -75,14 +76,14 @@ class GenerationProvider extends ChangeNotifier {
       if (type == 'image') {
         final resultData = result['result'] as Map<String, dynamic>?;
         final outputUrl = resultData?['output_url'] as String?;
-        
+
         if (outputUrl != null) {
           _isGenerating = false;
           notifyListeners();
-          
+
           // Reload generations to get the saved record
           await loadGenerations();
-          
+
           // Return a generation object with the output URL
           return Generation(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -102,15 +103,15 @@ class GenerationProvider extends ChangeNotifier {
       if (type == 'video') {
         final taskId = result['taskId'] as String?;
         final generationId = result['generationId'] as String?;
-        
+
         // For background video generation, return a pending generation
         if (taskId != null) {
           _isGenerating = false;
           notifyListeners();
-          
+
           // Reload to get the pending generation from DB
           await loadGenerations();
-          
+
           // Return generation with the actual DB ID for proper polling
           return Generation(
             id: generationId ?? taskId,
@@ -129,13 +130,13 @@ class GenerationProvider extends ChangeNotifier {
       if (type == 'music') {
         final resultData = result['result'] as Map<String, dynamic>?;
         final outputUrl = resultData?['output_url'] as String?;
-        
+
         if (outputUrl != null) {
           _isGenerating = false;
           notifyListeners();
-          
+
           await loadGenerations();
-          
+
           return Generation(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             prompt: prompt,
