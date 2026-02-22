@@ -8,7 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/io.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../../core/config.dart';
@@ -41,7 +41,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
   bool _isInitializing = true;
 
   // WebSocket
-  WebSocketChannel? _wsChannel;
+  IOWebSocketChannel? _wsChannel;
   StreamSubscription? _wsSubscription;
   bool _isConnected = false;
   bool _isListening = false;
@@ -186,12 +186,19 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
         throw Exception('No WebSocket URL returned');
       }
 
-      debugPrint('[VoiceChat] Connecting to Gemini Live WebSocket: ${wsUrl.substring(0, 80)}...');
+      debugPrint('[VoiceChat] Connecting to Gemini Live WebSocket...');
 
-      // Open WebSocket
-      _wsChannel = WebSocketChannel.connect(Uri.parse(wsUrl));
+      // Use IOWebSocketChannel with custom headers to avoid "not upgraded" error
+      final wsUri = Uri.parse(wsUrl);
+      _wsChannel = IOWebSocketChannel.connect(
+        wsUri,
+        headers: {
+          'User-Agent': 'Flutter/TimelessAI',
+          'Origin': 'https://timelessappai.lovable.app',
+        },
+      );
 
-      // CRITICAL: Wait for WebSocket to actually connect before sending setup
+      // Wait for connection to be established
       try {
         await _wsChannel!.ready;
       } catch (e) {
