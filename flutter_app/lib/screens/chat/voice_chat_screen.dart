@@ -31,12 +31,18 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
   VoiceState _voiceState = VoiceState.idle;
   String _transcript = '';
   String _response = '';
+  String _displayedResponse = ''; // Progressive word-by-word reveal
   String? _error;
   bool _isMuted = false;
   bool _isInitializing = true;
+  bool _hasPendingSpeech = false; // Track if TTS has queued/active speech
   
   final List<Map<String, String>> _conversationHistory = [];
   StreamSubscription? _streamSubscription;
+  
+  // Word-by-word reveal
+  final List<String> _wordsToReveal = [];
+  Timer? _revealTimer;
 
   // History drawer state
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -57,10 +63,17 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       await _ttsService.initialize();
       
       _ttsService.setOnSpeakingComplete(() {
+        _hasPendingSpeech = false;
         if (mounted && _voiceState == VoiceState.speaking) {
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted) _startListening();
-          });
+          setState(() => _voiceState = VoiceState.idle);
+          // Auto-restart listening after AI finishes speaking
+          if (!_isMuted) {
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted && _voiceState == VoiceState.idle) {
+                _startListening(isAutoRestart: true);
+              }
+            });
+          }
         }
       });
 
@@ -92,6 +105,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
   @override
   void dispose() {
+    _revealTimer?.cancel();
     _streamSubscription?.cancel();
     _voiceService.cancelListening();
     _ttsService.stop();
@@ -179,12 +193,48 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
   /// Interrupt AI: stop TTS, clear queue, abort stream
   void _interruptAI() {
+    _revealTimer?.cancel();
+    _revealTimer = null;
+    _wordsToReveal.clear();
+    _hasPendingSpeech = false;
     _ttsService.stop();
     _streamSubscription?.cancel();
     _streamSubscription = null;
   }
 
-  Future<void> _startListening() async {
+  /// Queue speech AND add words for progressive text reveal
+  void _queueSpeechWithReveal(String phrase) {
+    _hasPendingSpeech = true;
+    _ttsService.queueSpeech(phrase);
+    // Add cleaned words for progressive reveal
+    final cleaned = cleanMarkdown(phrase);
+    final words = cleaned.split(RegExp(r'\s+'));
+    _wordsToReveal.addAll(words.where((w) => w.isNotEmpty));
+    _startRevealTimer();
+  }
+
+  void _startRevealTimer() {
+    if (_revealTimer != null && _revealTimer!.isActive) return;
+    // ~200ms per word approximates natural speech pace
+    _revealTimer = Timer.periodic(const Duration(milliseconds: 180), (timer) {
+      if (_wordsToReveal.isEmpty) {
+        timer.cancel();
+        _revealTimer = null;
+        return;
+      }
+      if (!mounted) {
+        timer.cancel();
+        _revealTimer = null;
+        return;
+      }
+      final word = _wordsToReveal.removeAt(0);
+      setState(() {
+        _displayedResponse += (_displayedResponse.isEmpty ? '' : ' ') + word;
+      });
+    });
+  }
+
+  Future<void> _startListening({bool isAutoRestart = false}) async {
     if (_isInitializing) return;
     
     if (!_voiceService.isInitialized) {
@@ -197,8 +247,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       }
     }
 
-    // If AI is speaking or processing, interrupt first
-    if (_voiceState == VoiceState.speaking || _voiceState == VoiceState.processing) {
+    // If AI is speaking or processing, interrupt first (only on explicit user action)
+    if (!isAutoRestart && (_voiceState == VoiceState.speaking || _voiceState == VoiceState.processing)) {
       _interruptAI();
     }
 
@@ -206,10 +256,14 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       _error = null;
       _transcript = '';
       _response = '';
+      _displayedResponse = '';
       _voiceState = VoiceState.listening;
     });
 
-    await _ttsService.stop();
+    // Only stop TTS on explicit user action, not auto-restart
+    if (!isAutoRestart) {
+      await _ttsService.stop();
+    }
     Timer? silenceTimer;
 
     await _voiceService.startListening(
@@ -281,6 +335,11 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     setState(() {
       _voiceState = VoiceState.processing;
       _response = '';
+      _displayedResponse = '';
+      _wordsToReveal.clear();
+      _revealTimer?.cancel();
+      _revealTimer = null;
+      _hasPendingSpeech = false;
       _error = null;
     });
 
@@ -359,7 +418,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                   sentenceBuffer = sentenceBuffer.substring(phraseMatch.end);
                   if (!_isMuted) {
                     if (mounted) setState(() => _voiceState = VoiceState.speaking);
-                    _ttsService.queueSpeech(phrase);
+                    _queueSpeechWithReveal(phrase);
                   }
                 } else if (sentenceBuffer.length > 60) {
                   final words = sentenceBuffer.split(' ');
@@ -368,7 +427,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                     sentenceBuffer = words.last;
                     if (!_isMuted) {
                       if (mounted) setState(() => _voiceState = VoiceState.speaking);
-                      _ttsService.queueSpeech(toSpeak);
+                      _queueSpeechWithReveal(toSpeak);
                     }
                   }
                 }
@@ -379,22 +438,24 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
         onDone: () {
           // Flush remaining sentence buffer
           if (sentenceBuffer.trim().isNotEmpty && !_isMuted) {
-            _ttsService.queueSpeech(sentenceBuffer.trim());
+            _queueSpeechWithReveal(sentenceBuffer.trim());
           }
           if (fullResponse.isNotEmpty) {
             _conversationHistory.add({'role': 'assistant', 'content': fullResponse});
           }
-          if (_isMuted || !_ttsService.isSpeaking) {
+          // If TTS is active/queued, let onSpeakingComplete handle state transition
+          // Do NOT restart listening here — it kills TTS
+          if (_isMuted || !_hasPendingSpeech) {
             if (mounted) setState(() => _voiceState = VoiceState.idle);
-            // Auto-restart listening after response if not muted
             if (!_isMuted && mounted) {
               Future.delayed(const Duration(milliseconds: 800), () {
                 if (mounted && _voiceState == VoiceState.idle) {
-                  _startListening();
+                  _startListening(isAutoRestart: true);
                 }
               });
             }
           }
+          // else: onSpeakingComplete callback will handle transition
           completer.complete();
         },
         onError: (e) {
@@ -520,24 +581,33 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(minHeight: 80, maxHeight: 200),
                     child: SingleChildScrollView(
-                      child: _response.isNotEmpty
-                          ? Text(
-                              cleanMarkdown(_response),
-                              style: TextStyle(
-                                color: AppTheme.foreground.withOpacity(0.8),
-                                fontSize: 18,
-                                height: 1.5,
-                              ),
-                            )
-                          : _transcript.isNotEmpty
-                              ? Text(
-                                  _transcript,
-                                  style: TextStyle(
-                                    color: AppTheme.foreground.withOpacity(0.6),
-                                    fontSize: 18,
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
+                    child: _voiceState == VoiceState.speaking && _displayedResponse.isNotEmpty
+                        ? Text(
+                            _displayedResponse,
+                            style: TextStyle(
+                              color: AppTheme.foreground.withOpacity(0.8),
+                              fontSize: 18,
+                              height: 1.5,
+                            ),
+                          )
+                        : _response.isNotEmpty && _voiceState != VoiceState.listening
+                            ? Text(
+                                cleanMarkdown(_response),
+                                style: TextStyle(
+                                  color: AppTheme.foreground.withOpacity(0.8),
+                                  fontSize: 18,
+                                  height: 1.5,
+                                ),
+                              )
+                            : _transcript.isNotEmpty
+                                ? Text(
+                                    _transcript,
+                                    style: TextStyle(
+                                      color: AppTheme.foreground.withOpacity(0.6),
+                                      fontSize: 18,
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
                     ),
                   ),
                 ),
