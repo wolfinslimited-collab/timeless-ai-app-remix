@@ -284,7 +284,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
   // ─── WebSocket Message Handling (matches web ws.onmessage) ───
 
-  void _handleWsMessage(dynamic rawMessage) {
+  void _handleWsMessage(dynamic rawMessage) async {
     try {
       final String data;
       if (rawMessage is String) {
