@@ -396,7 +396,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
         // Play accumulated audio
         if (_turnAudioChunks.isNotEmpty) {
-          _playTurnAudio();
+          await _playTurnAudio();
         } else if (!_isPlaying) {
           if (_isConnected && _isListening) {
             setState(() {
@@ -508,7 +508,13 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     }
     _turnAudioChunks.clear();
 
-    debugPrint('[VoiceChat] Playing turn audio: $totalLen bytes (${totalLen ~/ 48000} seconds @ 24kHz)');
+    final durationEstimate = totalLen ~/ (24000 * 2); // 24kHz, 16-bit = 2 bytes/sample
+    debugPrint('[VoiceChat] Playing turn audio: $totalLen bytes (~${durationEstimate}s)');
+
+    if (totalLen < 100) {
+      debugPrint('[VoiceChat] Audio too short, skipping playback');
+      return;
+    }
 
     _isPlaying = true;
     if (mounted) {
@@ -518,57 +524,53 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       });
     }
 
-    // Stop mic before playback — on mobile, AudioPlayer and Record fight
-    // over the audio session. The mic stream stalls after playback otherwise.
-    debugPrint('[VoiceChat] Pausing mic for playback...');
-    _micSubscription?.cancel();
-    _micSubscription = null;
-    try { await _recorder.stop(); } catch (_) {}
-
     try {
       final wavData = _pcmToWav(combined, sampleRate: 24000);
       debugPrint('[VoiceChat] WAV created: ${wavData.length} bytes');
 
-      // Write to temp file — BytesSource is unreliable on mobile
+      // Write to temp file
       final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/gemini_voice_${DateTime.now().millisecondsSinceEpoch}.wav');
+      final filePath = '${tempDir.path}/gemini_${DateTime.now().millisecondsSinceEpoch}.wav';
+      final tempFile = File(filePath);
       await tempFile.writeAsBytes(wavData);
-      debugPrint('[VoiceChat] WAV written to: ${tempFile.path}');
+      debugPrint('[VoiceChat] WAV file written: $filePath');
 
+      // Create fresh player each time
       _audioPlayer?.dispose();
-      _audioPlayer = AudioPlayer();
+      final player = AudioPlayer();
+      _audioPlayer = player;
 
-      // Set audio context for playback (important after stopping recorder)
-      await _audioPlayer!.setAudioContext(AudioContext(
-        iOS: AudioContextIOS(
-          category: AVAudioSessionCategory.playAndRecord,
-          options: {
-            AVAudioSessionOptions.defaultToSpeaker,
-            AVAudioSessionOptions.allowBluetooth,
-          },
-        ),
-        android: AudioContextAndroid(
-          isSpeakerphoneOn: true,
-          audioMode: AndroidAudioMode.normal,
-          contentType: AndroidContentType.speech,
-          usageType: AndroidUsageType.media,
-        ),
-      ));
+      // Set source first, then play
+      await player.setSourceDeviceFile(filePath);
+      debugPrint('[VoiceChat] Source set, now playing...');
+      await player.resume();
+      debugPrint('[VoiceChat] resume() called');
 
-      await _audioPlayer!.play(DeviceFileSource(tempFile.path));
-      debugPrint('[VoiceChat] AudioPlayer.play() called successfully');
+      // Wait for completion
+      final completer = Completer<void>();
+      late StreamSubscription sub;
+      sub = player.onPlayerComplete.listen((_) {
+        debugPrint('[VoiceChat] Playback completed via onPlayerComplete');
+        if (!completer.isCompleted) completer.complete();
+        sub.cancel();
+      });
+      // Also listen for errors
+      late StreamSubscription errSub;
+      errSub = player.onLog.listen((log) {
+        debugPrint('[VoiceChat] AudioPlayer log: $log');
+      });
 
-      // Wait for playback to complete
-      await _audioPlayer!.onPlayerComplete.first.timeout(
-        const Duration(seconds: 120),
+      // Timeout fallback
+      await completer.future.timeout(
+        Duration(seconds: durationEstimate + 30),
         onTimeout: () {
-          debugPrint('[VoiceChat] Playback timeout after 120s');
-          return null;
+          debugPrint('[VoiceChat] Playback timeout');
+          sub.cancel();
         },
       );
-      debugPrint('[VoiceChat] Playback completed');
+      errSub.cancel();
 
-      // Clean up temp file
+      // Clean up
       try { await tempFile.delete(); } catch (_) {}
     } catch (e, stack) {
       debugPrint('[VoiceChat] Playback error: $e\n$stack');
@@ -578,10 +580,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     _audioPlayer = null;
     _isPlaying = false;
 
-    // Restart mic capture after playback so listening actually works
     if (_isConnected && _isListening && mounted) {
-      debugPrint('[VoiceChat] Restarting mic after playback...');
-      await _startMicCapture();
       setState(() {
         _voiceState = VoiceState.listening;
         _statusText = 'Listening…';
