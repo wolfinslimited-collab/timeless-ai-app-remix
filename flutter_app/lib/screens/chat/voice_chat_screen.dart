@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
@@ -41,7 +42,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
   bool _isInitializing = true;
 
   // WebSocket
-  IOWebSocketChannel? _wsChannel;
+  WebSocketChannel? _wsChannel;
   StreamSubscription? _wsSubscription;
   bool _isConnected = false;
   bool _isListening = false;
@@ -188,22 +189,14 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
       debugPrint('[VoiceChat] Connecting to Gemini Live WebSocket...');
 
-      // Use IOWebSocketChannel with custom headers to avoid "not upgraded" error
-      final wsUri = Uri.parse(wsUrl);
-      _wsChannel = IOWebSocketChannel.connect(
-        wsUri,
-        headers: {
-          'User-Agent': 'Flutter/TimelessAI',
-          'Origin': 'https://timelessappai.lovable.app',
-        },
-      );
-
-      // Wait for connection to be established
+      // Use dart:io WebSocket.connect directly for mobile - no Origin header needed
+      // IOWebSocketChannel wraps it properly for stream-based usage
       try {
-        await _wsChannel!.ready;
+        final rawWs = await WebSocket.connect(wsUrl);
+        _wsChannel = IOWebSocketChannel(rawWs);
       } catch (e) {
         debugPrint('[VoiceChat] WebSocket failed to connect: $e');
-        throw Exception('Failed to connect to voice service');
+        throw Exception('Failed to connect to voice service: $e');
       }
 
       debugPrint('[VoiceChat] WebSocket connected, sending setup');
