@@ -518,6 +518,13 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       });
     }
 
+    // Stop mic before playback — on mobile, AudioPlayer and Record fight
+    // over the audio session. The mic stream stalls after playback otherwise.
+    debugPrint('[VoiceChat] Pausing mic for playback...');
+    _micSubscription?.cancel();
+    _micSubscription = null;
+    try { await _recorder.stop(); } catch (_) {}
+
     try {
       final wavData = _pcmToWav(combined, sampleRate: 24000);
       debugPrint('[VoiceChat] WAV created: ${wavData.length} bytes');
@@ -542,8 +549,14 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       debugPrint('[VoiceChat] Playback error: $e');
     }
 
+    _audioPlayer?.dispose();
+    _audioPlayer = null;
     _isPlaying = false;
+
+    // Restart mic capture after playback so listening actually works
     if (_isConnected && _isListening && mounted) {
+      debugPrint('[VoiceChat] Restarting mic after playback...');
+      await _startMicCapture();
       setState(() {
         _voiceState = VoiceState.listening;
         _statusText = 'Listening…';
