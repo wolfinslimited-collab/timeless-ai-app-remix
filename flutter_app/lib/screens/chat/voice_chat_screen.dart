@@ -186,10 +186,20 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
         throw Exception('No WebSocket URL returned');
       }
 
-      debugPrint('[VoiceChat] Connecting to Gemini Live WebSocket');
+      debugPrint('[VoiceChat] Connecting to Gemini Live WebSocket: ${wsUrl.substring(0, 80)}...');
 
       // Open WebSocket
       _wsChannel = WebSocketChannel.connect(Uri.parse(wsUrl));
+
+      // CRITICAL: Wait for WebSocket to actually connect before sending setup
+      try {
+        await _wsChannel!.ready;
+      } catch (e) {
+        debugPrint('[VoiceChat] WebSocket failed to connect: $e');
+        throw Exception('Failed to connect to voice service');
+      }
+
+      debugPrint('[VoiceChat] WebSocket connected, sending setup');
 
       _wsSubscription = _wsChannel!.stream.listen(
         _handleWsMessage,
@@ -228,7 +238,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       // Send setup message (matching web implementation)
       _wsChannel!.sink.add(jsonEncode({
         'setup': {
-          'model': 'models/gemini-2.5-flash-preview-native-audio-dialog',
+          'model': 'models/gemini-2.5-flash-native-audio-preview-12-2025',
           'generation_config': {
             'response_modalities': ['AUDIO'],
             'speech_config': {
