@@ -14,7 +14,10 @@ import '../../widgets/voice_chat/voice_chat_visualizer.dart';
 const String _voiceModel = 'gemini-3-flash';
 
 class VoiceChatScreen extends StatefulWidget {
-  const VoiceChatScreen({super.key});
+  /// If true, auto-starts listening on open (for bottom sheet usage)
+  final bool autoStart;
+
+  const VoiceChatScreen({super.key, this.autoStart = true});
 
   @override
   State<VoiceChatScreen> createState() => _VoiceChatScreenState();
@@ -30,6 +33,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
   String _response = '';
   String? _error;
   bool _isMuted = false;
+  bool _isInitializing = true;
   
   final List<Map<String, String>> _conversationHistory = [];
   StreamSubscription? _streamSubscription;
@@ -46,16 +50,44 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
   }
 
   Future<void> _initServices() async {
-    await _voiceService.initialize();
-    await _ttsService.initialize();
+    setState(() => _isInitializing = true);
     
-    _ttsService.setOnSpeakingComplete(() {
-      if (mounted && _voiceState == VoiceState.speaking) {
-        Future.delayed(const Duration(milliseconds: 500), () {
+    try {
+      final voiceReady = await _voiceService.initialize();
+      await _ttsService.initialize();
+      
+      _ttsService.setOnSpeakingComplete(() {
+        if (mounted && _voiceState == VoiceState.speaking) {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) _startListening();
+          });
+        }
+      });
+
+      if (mounted) {
+        setState(() => _isInitializing = false);
+        
+        // Auto-start listening if voice is available
+        if (widget.autoStart && voiceReady) {
+          // Small delay to let the UI render first
+          await Future.delayed(const Duration(milliseconds: 300));
           if (mounted) _startListening();
+        } else if (!voiceReady) {
+          setState(() {
+            _error = _voiceService.lastError.isNotEmpty 
+                ? _voiceService.lastError 
+                : 'Voice recognition not available on this device';
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+          _error = 'Failed to initialize: $e';
         });
       }
-    });
+    }
   }
 
   @override
@@ -124,7 +156,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
     try {
       final creditsUrl = Uri.parse(
-        '${AppConfig.supabaseUrl}/rest/v1/profiles?select=credits&user_id=eq.$userId',
+        '${AppConfig.supabaseUrl}/rest/v1/profiles?select=credits,subscription_status&user_id=eq.$userId',
       );
       final creditsRes = await http.get(creditsUrl, headers: {
         'apikey': AppConfig.supabaseAnonKey,
@@ -133,9 +165,10 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       });
       if (creditsRes.statusCode == 200) {
         final creditsData = jsonDecode(creditsRes.body) as List;
-        if (creditsData.isEmpty || (creditsData[0]['credits'] as int) < 1) {
-          return false;
-        }
+        if (creditsData.isEmpty) return false;
+        // Allow if subscribed or has credits
+        if (creditsData[0]['subscription_status'] == 'active') return true;
+        if ((creditsData[0]['credits'] as int? ?? 0) < 1) return false;
         return true;
       }
     } catch (e) {
@@ -152,9 +185,16 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
   }
 
   Future<void> _startListening() async {
+    if (_isInitializing) return;
+    
     if (!_voiceService.isInitialized) {
-      setState(() => _error = 'Voice recognition not available');
-      return;
+      final success = await _voiceService.initialize();
+      if (!success) {
+        setState(() => _error = _voiceService.lastError.isNotEmpty 
+            ? _voiceService.lastError 
+            : 'Voice recognition not available');
+        return;
+      }
     }
 
     // If AI is speaking or processing, interrupt first
@@ -181,9 +221,11 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
           setState(() => _voiceState = VoiceState.listening);
         }
         setState(() => _transcript = text);
-        silenceTimer = Timer(const Duration(milliseconds: 800), () {
+        silenceTimer = Timer(const Duration(milliseconds: 1200), () {
           _voiceService.stopListening();
-          _sendMessage(text.trim());
+          if (text.trim().isNotEmpty) {
+            _sendMessage(text.trim());
+          }
         });
       },
       onPartialResult: (text) {
@@ -194,17 +236,27 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
           setState(() => _voiceState = VoiceState.listening);
         }
         setState(() => _transcript = text);
-        silenceTimer = Timer(const Duration(milliseconds: 800), () {
+        silenceTimer = Timer(const Duration(milliseconds: 1200), () {
           if (_transcript.isNotEmpty) {
             _voiceService.stopListening();
             _sendMessage(_transcript.trim());
           }
         });
       },
+      onListeningStarted: () {
+        debugPrint('[VoiceChat] Listening started');
+      },
       onListeningStopped: () {
         silenceTimer?.cancel();
-        if (mounted && _voiceState == VoiceState.listening) {
-          setState(() => _voiceState = VoiceState.idle);
+        debugPrint('[VoiceChat] Listening stopped, state: $_voiceState');
+        // Only go idle if we're still in listening state (not transitioning to processing)
+        if (mounted && _voiceState == VoiceState.listening && _transcript.isEmpty) {
+          // Re-start listening automatically if no speech detected
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted && _voiceState == VoiceState.listening) {
+              _startListening();
+            }
+          });
         }
       },
     );
@@ -212,7 +264,12 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
   void _stopListening() {
     _voiceService.stopListening();
-    setState(() => _voiceState = VoiceState.idle);
+    _interruptAI();
+    setState(() {
+      _voiceState = VoiceState.idle;
+      _transcript = '';
+      _response = '';
+    });
   }
 
   Future<void> _sendMessage(String text) async {
@@ -266,6 +323,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
       final streamedResponse = await httpClient.send(request);
       if (streamedResponse.statusCode != 200) {
+        final body = await streamedResponse.stream.bytesToString();
+        debugPrint('[VoiceChat] Chat API error ${streamedResponse.statusCode}: $body');
         throw Exception('Chat failed with status ${streamedResponse.statusCode}');
       }
 
@@ -273,63 +332,93 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       String fullResponse = '';
       String sentenceBuffer = '';
 
-      await for (final chunk in streamedResponse.stream.transform(utf8.decoder)) {
-        buffer += chunk;
-        while (buffer.contains('\n')) {
-          final newlineIndex = buffer.indexOf('\n');
-          String line = buffer.substring(0, newlineIndex);
-          buffer = buffer.substring(newlineIndex + 1);
-          if (line.endsWith('\r')) line = line.substring(0, line.length - 1);
-          if (line.startsWith(':') || line.trim().isEmpty) continue;
-          if (!line.startsWith('data: ')) continue;
-          final jsonStr = line.substring(6).trim();
-          if (jsonStr == '[DONE]') break;
-          try {
-            final parsed = jsonDecode(jsonStr) as Map<String, dynamic>;
-            final content = parsed['choices']?[0]?['delta']?['content'] as String?;
-            if (content != null) {
-              fullResponse += content;
-              setState(() => _response = fullResponse);
-              sentenceBuffer += content;
-              final phraseMatch = RegExp(r'^(.*?[.!?,;:])\s*').firstMatch(sentenceBuffer);
-              if (phraseMatch != null && phraseMatch.group(1)!.length > 10) {
-                final phrase = phraseMatch.group(1)!;
-                sentenceBuffer = sentenceBuffer.substring(phraseMatch.end);
-                if (!_isMuted) {
-                  setState(() => _voiceState = VoiceState.speaking);
-                  _ttsService.queueSpeech(phrase);
-                }
-              } else if (sentenceBuffer.length > 60) {
-                final words = sentenceBuffer.split(' ');
-                if (words.length > 5) {
-                  final toSpeak = words.sublist(0, words.length - 1).join(' ');
-                  sentenceBuffer = words.last;
+      final completer = Completer<void>();
+      
+      _streamSubscription = streamedResponse.stream.transform(utf8.decoder).listen(
+        (chunk) {
+          buffer += chunk;
+          while (buffer.contains('\n')) {
+            final newlineIndex = buffer.indexOf('\n');
+            String line = buffer.substring(0, newlineIndex);
+            buffer = buffer.substring(newlineIndex + 1);
+            if (line.endsWith('\r')) line = line.substring(0, line.length - 1);
+            if (line.startsWith(':') || line.trim().isEmpty) continue;
+            if (!line.startsWith('data: ')) continue;
+            final jsonStr = line.substring(6).trim();
+            if (jsonStr == '[DONE]') continue;
+            try {
+              final parsed = jsonDecode(jsonStr) as Map<String, dynamic>;
+              final content = parsed['choices']?[0]?['delta']?['content'] as String?;
+              if (content != null) {
+                fullResponse += content;
+                if (mounted) setState(() => _response = fullResponse);
+                sentenceBuffer += content;
+                final phraseMatch = RegExp(r'^(.*?[.!?,;:])\s*').firstMatch(sentenceBuffer);
+                if (phraseMatch != null && phraseMatch.group(1)!.length > 10) {
+                  final phrase = phraseMatch.group(1)!;
+                  sentenceBuffer = sentenceBuffer.substring(phraseMatch.end);
                   if (!_isMuted) {
-                    setState(() => _voiceState = VoiceState.speaking);
-                    _ttsService.queueSpeech(toSpeak);
+                    if (mounted) setState(() => _voiceState = VoiceState.speaking);
+                    _ttsService.queueSpeech(phrase);
+                  }
+                } else if (sentenceBuffer.length > 60) {
+                  final words = sentenceBuffer.split(' ');
+                  if (words.length > 5) {
+                    final toSpeak = words.sublist(0, words.length - 1).join(' ');
+                    sentenceBuffer = words.last;
+                    if (!_isMuted) {
+                      if (mounted) setState(() => _voiceState = VoiceState.speaking);
+                      _ttsService.queueSpeech(toSpeak);
+                    }
                   }
                 }
               }
+            } catch (_) {}
+          }
+        },
+        onDone: () {
+          // Flush remaining sentence buffer
+          if (sentenceBuffer.trim().isNotEmpty && !_isMuted) {
+            _ttsService.queueSpeech(sentenceBuffer.trim());
+          }
+          if (fullResponse.isNotEmpty) {
+            _conversationHistory.add({'role': 'assistant', 'content': fullResponse});
+          }
+          if (_isMuted || !_ttsService.isSpeaking) {
+            if (mounted) setState(() => _voiceState = VoiceState.idle);
+            // Auto-restart listening after response if not muted
+            if (!_isMuted && mounted) {
+              Future.delayed(const Duration(milliseconds: 800), () {
+                if (mounted && _voiceState == VoiceState.idle) {
+                  _startListening();
+                }
+              });
             }
-          } catch (_) {}
-        }
-      }
+          }
+          completer.complete();
+        },
+        onError: (e) {
+          debugPrint('[VoiceChat] Stream error: $e');
+          if (mounted) {
+            setState(() {
+              _error = 'Connection error. Tap to retry.';
+              _voiceState = VoiceState.idle;
+            });
+          }
+          completer.completeError(e);
+        },
+        cancelOnError: true,
+      );
 
-      // Flush remaining sentence buffer
-      if (sentenceBuffer.trim().isNotEmpty && !_isMuted) {
-        _ttsService.queueSpeech(sentenceBuffer.trim());
-      }
-      if (fullResponse.isNotEmpty) {
-        _conversationHistory.add({'role': 'assistant', 'content': fullResponse});
-      }
-      if (_isMuted || !_ttsService.isSpeaking) {
-        setState(() => _voiceState = VoiceState.idle);
-      }
+      await completer.future;
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _voiceState = VoiceState.idle;
-      });
+      debugPrint('[VoiceChat] Send error: $e');
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to get response. Tap sphere to retry.';
+          _voiceState = VoiceState.idle;
+        });
+      }
     }
   }
 
@@ -346,10 +435,12 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
   void _handleClose() {
     _voiceService.cancelListening();
     _ttsService.stop();
+    _streamSubscription?.cancel();
     Navigator.of(context).pop();
   }
 
   String _getStatusLabel() {
+    if (_isInitializing) return 'Initializing...';
     switch (_voiceState) {
       case VoiceState.listening:
         return 'Listening...';
@@ -358,7 +449,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       case VoiceState.speaking:
         return '';
       case VoiceState.idle:
-        return 'Say something...';
+        return _error != null ? 'Tap to retry' : 'Tap to speak';
     }
   }
 
@@ -400,6 +491,21 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                           _scaffoldKey.currentState?.openDrawer();
                         },
                       ),
+                      // Model indicator
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'Gemini Flash',
+                          style: TextStyle(
+                            color: AppTheme.muted.withOpacity(0.6),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                       IconButton(
                         icon: Icon(Icons.settings, color: AppTheme.muted, size: 22),
                         onPressed: () {},
@@ -408,7 +514,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                   ),
                 ),
 
-                // Response / transcript at top
+                // Response / transcript display
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: ConstrainedBox(
@@ -438,9 +544,10 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
                 if (_error != null)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
                     child: Text(
                       _error!,
+                      textAlign: TextAlign.center,
                       style: TextStyle(color: AppTheme.destructive.withOpacity(0.8), fontSize: 14),
                     ),
                   ),
@@ -450,16 +557,29 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                   child: Center(
                     child: GestureDetector(
                       onTap: () {
+                        if (_isInitializing) return;
                         if (_voiceState == VoiceState.listening) {
                           _stopListening();
                         } else if (_voiceState == VoiceState.speaking) {
                           // Interrupt AI and start listening
                           _startListening();
                         } else if (_voiceState == VoiceState.idle) {
+                          setState(() => _error = null);
                           _startListening();
                         }
                       },
-                      child: VoiceChatVisualizer(state: _voiceState, size: 180),
+                      child: _isInitializing
+                          ? SizedBox(
+                              width: 180,
+                              height: 180,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: const Color(0xFFD4A030),
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : VoiceChatVisualizer(state: _voiceState, size: 180),
                     ),
                   ),
                 ),
