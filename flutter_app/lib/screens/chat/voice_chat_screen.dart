@@ -529,11 +529,33 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       final wavData = _pcmToWav(combined, sampleRate: 24000);
       debugPrint('[VoiceChat] WAV created: ${wavData.length} bytes');
 
+      // Write to temp file — BytesSource is unreliable on mobile
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/gemini_voice_${DateTime.now().millisecondsSinceEpoch}.wav');
+      await tempFile.writeAsBytes(wavData);
+      debugPrint('[VoiceChat] WAV written to: ${tempFile.path}');
+
       _audioPlayer?.dispose();
       _audioPlayer = AudioPlayer();
 
-      // Use BytesSource to play from memory (more reliable than temp files)
-      await _audioPlayer!.play(BytesSource(wavData));
+      // Set audio context for playback (important after stopping recorder)
+      await _audioPlayer!.setAudioContext(AudioContext(
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.playAndRecord,
+          options: {
+            AVAudioSessionOptions.defaultToSpeaker,
+            AVAudioSessionOptions.allowBluetooth,
+          },
+        ),
+        android: AudioContextAndroid(
+          isSpeakerphoneOn: true,
+          audioMode: AndroidAudioMode.normal,
+          contentType: AndroidContentType.speech,
+          usageType: AndroidUsageType.media,
+        ),
+      ));
+
+      await _audioPlayer!.play(DeviceFileSource(tempFile.path));
       debugPrint('[VoiceChat] AudioPlayer.play() called successfully');
 
       // Wait for playback to complete
@@ -545,8 +567,11 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
         },
       );
       debugPrint('[VoiceChat] Playback completed');
-    } catch (e) {
-      debugPrint('[VoiceChat] Playback error: $e');
+
+      // Clean up temp file
+      try { await tempFile.delete(); } catch (_) {}
+    } catch (e, stack) {
+      debugPrint('[VoiceChat] Playback error: $e\n$stack');
     }
 
     _audioPlayer?.dispose();
