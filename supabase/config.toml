@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.video-tools]
 verify_jwt = false
+
+[functions.gemini-live-token]
+verify_jwt = false
