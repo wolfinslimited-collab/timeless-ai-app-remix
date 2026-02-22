@@ -442,14 +442,10 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       _micSubscription = stream.listen((data) {
         if (!_isListening || _isMuted || _wsChannel == null || !_isConnected) return;
 
-        // If AI is speaking and user talks, interrupt (matches web tap-to-interrupt)
-        if (_voiceState == VoiceState.speaking && _hasSignificantAudio(Uint8List.fromList(data))) {
-          _stopAllAudio();
-          setState(() {
-            _voiceState = VoiceState.listening;
-            _statusText = 'Listening…';
-          });
-        }
+        // Do NOT do client-side interrupt detection — the web relies on
+        // Gemini's server-side interruption (serverContent.interrupted).
+        // Client-side detection picks up the AI's own speaker output and
+        // kills playback before it even starts.
 
         // Send PCM audio to Gemini (matches web processor.onaudioprocess)
         final b64 = base64Encode(data);
@@ -512,7 +508,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     }
     _turnAudioChunks.clear();
 
-    debugPrint('[VoiceChat] Playing $totalLen bytes of audio');
+    debugPrint('[VoiceChat] Playing turn audio: $totalLen bytes (${totalLen ~/ 48000} seconds @ 24kHz)');
 
     _isPlaying = true;
     if (mounted) {
@@ -524,21 +520,24 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
     try {
       final wavData = _pcmToWav(combined, sampleRate: 24000);
-      final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.wav');
-      await tempFile.writeAsBytes(wavData);
+      debugPrint('[VoiceChat] WAV created: ${wavData.length} bytes');
 
       _audioPlayer?.dispose();
       _audioPlayer = AudioPlayer();
-      await _audioPlayer!.play(DeviceFileSource(tempFile.path));
+
+      // Use BytesSource to play from memory (more reliable than temp files)
+      await _audioPlayer!.play(BytesSource(wavData));
+      debugPrint('[VoiceChat] AudioPlayer.play() called successfully');
 
       // Wait for playback to complete
       await _audioPlayer!.onPlayerComplete.first.timeout(
-        const Duration(seconds: 60),
-        onTimeout: () => null,
+        const Duration(seconds: 120),
+        onTimeout: () {
+          debugPrint('[VoiceChat] Playback timeout after 120s');
+          return null;
+        },
       );
-
-      try { await tempFile.delete(); } catch (_) {}
+      debugPrint('[VoiceChat] Playback completed');
     } catch (e) {
       debugPrint('[VoiceChat] Playback error: $e');
     }
