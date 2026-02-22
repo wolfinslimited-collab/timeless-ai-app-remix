@@ -11,7 +11,8 @@ class CreditsProvider extends ChangeNotifier {
 
   int _credits = 0;
   bool _hasActiveSubscription = false;
-  String? _currentPlan; // The user's current plan name (e.g., "Basic", "Premium", "Pro")
+  String?
+      _currentPlan; // The user's current plan name (e.g., "Basic", "Premium", "Pro")
   bool _isLoading = true;
 
   int get credits => _credits;
@@ -19,10 +20,11 @@ class CreditsProvider extends ChangeNotifier {
   String? get currentPlan => _currentPlan;
   bool get isLoading => _isLoading;
   bool get isUnlimited => _hasActiveSubscription;
- 
-   /// Check if user has Premium Plus access
-   bool get hasPremiumPlusAccess => 
-       _hasActiveSubscription && (_currentPlan?.startsWith('premium-plus') ?? false);
+
+  /// Check if user has Premium Plus access
+  bool get hasPremiumPlusAccess =>
+      _hasActiveSubscription &&
+      (_currentPlan?.startsWith('premium-plus') ?? false);
 
   CreditsProvider() {
     _init();
@@ -73,7 +75,8 @@ class CreditsProvider extends ChangeNotifier {
         _credits = response['credits'] as int? ?? 0;
         _hasActiveSubscription = response['subscription_status'] == 'active';
         _currentPlan = response['plan'] as String?;
-        debugPrint('[CreditsProvider] DB response: credits=$_credits, subscription_status=${response['subscription_status']}, plan=${response['plan']}, hasActive=$_hasActiveSubscription, currentPlan=$_currentPlan');
+        debugPrint(
+            '[CreditsProvider] DB response: credits=$_credits, subscription_status=${response['subscription_status']}, plan=${response['plan']}, hasActive=$_hasActiveSubscription, currentPlan=$_currentPlan');
       } else {
         _credits = 0;
         _hasActiveSubscription = false;
