@@ -53,7 +53,7 @@ class _CachedVideoPlayerState extends State<CachedVideoPlayer> {
   VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _hasError = false;
-  bool _isLoading = true;
+  bool _isDownloading = false;
 
   @override
   void initState() {
@@ -74,31 +74,30 @@ class _CachedVideoPlayerState extends State<CachedVideoPlayer> {
     if (!mounted) return;
     
     setState(() {
-      _isLoading = true;
       _hasError = false;
       _isInitialized = false;
+      _isDownloading = false;
     });
 
     try {
-      // Try to get from cache first, download if not cached
       final fileInfo = await VideoCacheManager.instance.getFileFromCache(widget.videoUrl);
       
       File videoFile;
       if (fileInfo != null) {
-        // Use cached file
         videoFile = fileInfo.file;
-        debugPrint('CachedVideoPlayer: Using cached video for ${widget.videoUrl}');
       } else {
-        // Download and cache
-        debugPrint('CachedVideoPlayer: Downloading video ${widget.videoUrl}');
+        if (mounted) {
+          setState(() => _isDownloading = true);
+        }
         final file = await VideoCacheManager.instance.getSingleFile(widget.videoUrl);
         videoFile = file;
-        debugPrint('CachedVideoPlayer: Video cached successfully');
+        if (mounted) {
+          setState(() => _isDownloading = false);
+        }
       }
 
       if (!mounted) return;
 
-      // Initialize from local file
       _controller = VideoPlayerController.file(
         videoFile,
         videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
@@ -120,14 +119,13 @@ class _CachedVideoPlayerState extends State<CachedVideoPlayer> {
 
       setState(() {
         _isInitialized = true;
-        _isLoading = false;
       });
     } catch (e) {
       debugPrint('CachedVideoPlayer: Error loading video: $e');
       if (mounted) {
         setState(() {
           _hasError = true;
-          _isLoading = false;
+          _isDownloading = false;
         });
       }
     }
@@ -147,28 +145,30 @@ class _CachedVideoPlayerState extends State<CachedVideoPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return widget.placeholder ?? _buildLoadingWidget();
-    }
-
     if (_hasError) {
       return widget.errorWidget ?? _buildErrorWidget();
     }
 
-    if (!_isInitialized || _controller == null) {
+    if (_isInitialized && _controller != null) {
+      return ClipRect(
+        child: FittedBox(
+          fit: widget.fit,
+          child: SizedBox(
+            width: _controller!.value.size.width,
+            height: _controller!.value.size.height,
+            child: VideoPlayer(_controller!),
+          ),
+        ),
+      );
+    }
+
+    // Only show spinner when actively downloading from network
+    if (_isDownloading) {
       return widget.placeholder ?? _buildLoadingWidget();
     }
 
-    return ClipRect(
-      child: FittedBox(
-        fit: widget.fit,
-        child: SizedBox(
-          width: _controller!.value.size.width,
-          height: _controller!.value.size.height,
-          child: VideoPlayer(_controller!),
-        ),
-      ),
-    );
+    // Initializing from cache — show quiet placeholder (no spinner)
+    return _buildCachePlaceholder();
   }
 
   Widget _buildLoadingWidget() {
@@ -180,6 +180,12 @@ class _CachedVideoPlayerState extends State<CachedVideoPlayer> {
           color: AppTheme.primary,
         ),
       ),
+    );
+  }
+
+  Widget _buildCachePlaceholder() {
+    return Container(
+      color: AppTheme.secondary,
     );
   }
 

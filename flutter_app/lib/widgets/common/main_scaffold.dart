@@ -24,7 +24,8 @@ class BottomNavBar extends StatelessWidget {
     if (location == '/') return 0;
     if (location.startsWith('/create')) return 1;
     if (location.startsWith('/agents')) return 2;
-    if (location.startsWith('/apps') || location.startsWith('/cinema')) return 3;
+    if (location.startsWith('/apps') || location.startsWith('/cinema'))
+      return 3;
     if (location.startsWith('/profile')) return 4;
     return 0;
   }
@@ -157,7 +158,10 @@ class _TimelessLogoItem extends StatelessWidget {
                   end: Alignment.bottomRight,
                   colors: active
                       ? [AppTheme.primary, AppTheme.accent]
-                      : [AppTheme.primary.withOpacity(0.8), AppTheme.accent.withOpacity(0.6)],
+                      : [
+                          AppTheme.primary.withOpacity(0.8),
+                          AppTheme.accent.withOpacity(0.6)
+                        ],
                 ),
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
@@ -168,15 +172,20 @@ class _TimelessLogoItem extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Center(
-                child: Text(
-                  'T',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    letterSpacing: -1,
-                  ),
+              child: Center(
+                // child: Text(
+                //   'T',
+                //   style: TextStyle(
+                //     fontSize: 20,
+                //     fontWeight: FontWeight.w900,
+                //     color: Colors.white,
+                //     letterSpacing: -1,
+                //   ),
+                // ),
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Image.asset('assets/logos/logo.png',
+                      color: Colors.white70),
                 ),
               ),
             ),
