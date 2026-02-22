@@ -54,10 +54,12 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
   final AudioRecorder _recorder = AudioRecorder();
   StreamSubscription<List<int>>? _micSubscription;
 
-  // Audio playback
-  final List<Uint8List> _audioQueue = [];
+  // Audio playback - buffer chunks for smooth playback
+  final List<Uint8List> _audioChunkBuffer = [];
+  Timer? _audioBufferTimer;
   bool _isPlaying = false;
   AudioPlayer? _audioPlayer;
+  static const int _audioBufferMs = 300; // Buffer 300ms of chunks before playing
 
   // History
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -113,6 +115,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     _isConnected = false;
     _keepaliveTimer?.cancel();
     _keepaliveTimer = null;
+    _audioBufferTimer?.cancel();
+    _audioBufferTimer = null;
     _micSubscription?.cancel();
     _micSubscription = null;
     _wsSubscription?.cancel();
@@ -124,7 +128,10 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
   }
 
   void _interruptAI() {
-    _audioQueue.clear();
+    _audioChunkBuffer.clear();
+    _playQueue.clear();
+    _audioBufferTimer?.cancel();
+    _audioBufferTimer = null;
     _isPlaying = false;
     _audioPlayer?.stop();
   }
@@ -313,32 +320,40 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
           final parts = modelTurn['parts'] as List<dynamic>?;
           if (parts != null) {
             for (final part in parts) {
-              // Audio response
+              // Audio response - buffer chunks for smooth playback
               final inlineData = part['inlineData'] as Map<String, dynamic>?;
               if (inlineData != null) {
                 final mimeType = inlineData['mimeType']?.toString() ?? '';
                 if (mimeType.startsWith('audio/pcm')) {
                   final audioB64 = inlineData['data'] as String;
                   final audioBytes = base64Decode(audioB64);
-                  _audioQueue.add(Uint8List.fromList(audioBytes));
-                  if (!_isPlaying) _playNextAudioChunk();
+                  _audioChunkBuffer.add(Uint8List.fromList(audioBytes));
+                  
+                  // Start buffer timer if not already running
+                  if (_audioBufferTimer == null && !_isPlaying) {
+                    setState(() => _voiceState = VoiceState.speaking);
+                    _audioBufferTimer = Timer(Duration(milliseconds: _audioBufferMs), () {
+                      _audioBufferTimer = null;
+                      _flushAndPlayBuffer();
+                    });
+                  }
                 }
               }
 
-              // Text response (transcript from AI)
-              if (part['text'] != null) {
-                setState(() {
-                  _transcript += part['text'].toString();
-                });
-              }
+              // IGNORE text parts - in audio-only mode, text contains
+              // model's internal reasoning/thinking, not actual transcript
             }
           }
         }
 
-        // Turn complete
+        // Turn complete - flush any remaining buffered audio
         if (serverContent['turnComplete'] == true) {
           debugPrint('[VoiceChat] Turn complete');
-          if (_audioQueue.isEmpty && !_isPlaying) {
+          _audioBufferTimer?.cancel();
+          _audioBufferTimer = null;
+          if (_audioChunkBuffer.isNotEmpty) {
+            _flushAndPlayBuffer();
+          } else if (!_isPlaying) {
             if (_isConnected && _isListening) {
               setState(() => _voiceState = VoiceState.listening);
             }
@@ -440,52 +455,75 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
   // ─── Audio Playback ───
 
-  Future<void> _playNextAudioChunk() async {
-    if (_audioQueue.isEmpty) {
+  /// Combine all buffered chunks into one WAV and play it
+  void _flushAndPlayBuffer() {
+    if (_audioChunkBuffer.isEmpty) return;
+
+    // Combine all buffered PCM chunks into one
+    int totalLen = 0;
+    for (final c in _audioChunkBuffer) {
+      totalLen += c.length;
+    }
+    final combined = Uint8List(totalLen);
+    int offset = 0;
+    for (final c in _audioChunkBuffer) {
+      combined.setRange(offset, offset + c.length, c);
+      offset += c.length;
+    }
+    _audioChunkBuffer.clear();
+
+    _playPcmData(combined);
+  }
+
+  /// Queue to play combined PCM data
+  final List<Uint8List> _playQueue = [];
+
+  Future<void> _playPcmData(Uint8List pcmData) async {
+    _playQueue.add(pcmData);
+    if (_isPlaying) return; // Already playing, will chain
+    _isPlaying = true;
+    if (mounted) setState(() => _voiceState = VoiceState.speaking);
+    _playNextFromQueue();
+  }
+
+  Future<void> _playNextFromQueue() async {
+    if (_playQueue.isEmpty) {
       _isPlaying = false;
-      // AI finished speaking, go back to listening
+      // Also flush any remaining buffer chunks that arrived during playback
+      if (_audioChunkBuffer.isNotEmpty) {
+        _flushAndPlayBuffer();
+        return;
+      }
       if (_isConnected && _isListening && mounted) {
         setState(() => _voiceState = VoiceState.listening);
       }
       return;
     }
 
-    _isPlaying = true;
-    if (mounted) setState(() => _voiceState = VoiceState.speaking);
-
-    final pcmData = _audioQueue.removeAt(0);
+    final pcmData = _playQueue.removeAt(0);
 
     try {
-      // Convert PCM16 24kHz to WAV for playback
       final wavData = _pcmToWav(pcmData, sampleRate: 24000);
-
-      // Write to temp file and play
       final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/voice_chunk_${DateTime.now().millisecondsSinceEpoch}.wav');
+      final tempFile = File('${tempDir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.wav');
       await tempFile.writeAsBytes(wavData);
 
       _audioPlayer?.dispose();
       _audioPlayer = AudioPlayer();
-
       await _audioPlayer!.play(DeviceFileSource(tempFile.path));
 
-      // Wait for playback to complete
       await _audioPlayer!.onPlayerComplete.first.timeout(
         const Duration(seconds: 30),
         onTimeout: () => null,
       );
 
-      // Clean up temp file
-      try {
-        await tempFile.delete();
-      } catch (_) {}
+      try { await tempFile.delete(); } catch (_) {}
 
-      // Play next chunk
-      if (mounted) _playNextAudioChunk();
+      if (mounted) _playNextFromQueue();
     } catch (e) {
       debugPrint('[VoiceChat] Playback error: $e');
       _isPlaying = false;
-      if (mounted) _playNextAudioChunk(); // Try next chunk
+      if (mounted) _playNextFromQueue();
     }
   }
 
