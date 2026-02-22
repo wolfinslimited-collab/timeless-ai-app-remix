@@ -238,7 +238,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       // Send setup message (matching web implementation)
       _wsChannel!.sink.add(jsonEncode({
         'setup': {
-          'model': 'models/gemini-2.5-flash-native-audio-preview-12-2025',
+          'model': 'models/gemini-2.5-flash-preview-native-audio-dialog',
           'generation_config': {
             'response_modalities': ['AUDIO'],
             'speech_config': {
@@ -299,44 +299,72 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       } else if (rawMessage is List<int>) {
         data = utf8.decode(rawMessage);
       } else {
+        debugPrint('[VoiceChat] Unknown message type: ${rawMessage.runtimeType}');
         return;
       }
 
+      // Log raw message (truncated for readability)
+      final truncated = data.length > 200 ? '${data.substring(0, 200)}...' : data;
+      debugPrint('[VoiceChat] WS message: $truncated');
+
       final msg = jsonDecode(data) as Map<String, dynamic>;
+      debugPrint('[VoiceChat] Message keys: ${msg.keys.toList()}');
 
       // Handle server content with audio
       if (msg.containsKey('serverContent')) {
         final serverContent = msg['serverContent'] as Map<String, dynamic>;
+        debugPrint('[VoiceChat] serverContent keys: ${serverContent.keys.toList()}');
+        
         final modelTurn = serverContent['modelTurn'] as Map<String, dynamic>?;
 
         if (modelTurn != null) {
           final parts = modelTurn['parts'] as List<dynamic>?;
+          debugPrint('[VoiceChat] modelTurn has ${parts?.length ?? 0} parts');
+          
           if (parts != null) {
             for (final part in parts) {
-              final inlineData = part['inlineData'] as Map<String, dynamic>?;
+              final partMap = part as Map<String, dynamic>;
+              debugPrint('[VoiceChat] Part keys: ${partMap.keys.toList()}');
+              
+              final inlineData = partMap['inlineData'] as Map<String, dynamic>?;
               if (inlineData != null) {
                 final mimeType = inlineData['mimeType']?.toString() ?? '';
+                final dataStr = inlineData['data']?.toString() ?? '';
+                debugPrint('[VoiceChat] inlineData mimeType=$mimeType, dataLen=${dataStr.length}');
+                
                 if (mimeType.startsWith('audio/pcm')) {
-                  final audioB64 = inlineData['data'] as String;
-                  final audioBytes = base64Decode(audioB64);
+                  final audioBytes = base64Decode(dataStr);
+                  debugPrint('[VoiceChat] Audio chunk: ${audioBytes.length} bytes');
                   _turnAudioChunks.add(Uint8List.fromList(audioBytes));
-                  // Show speaking state as soon as we get audio data
                   if (_voiceState != VoiceState.speaking) {
                     setState(() => _voiceState = VoiceState.speaking);
                   }
+                } else {
+                  debugPrint('[VoiceChat] Non-PCM inlineData: $mimeType');
                 }
               }
-              // IGNORE text parts - in audio mode, text is internal reasoning
+              
+              // Log text parts for debugging (but don't display them)
+              if (partMap.containsKey('text')) {
+                final text = partMap['text']?.toString() ?? '';
+                debugPrint('[VoiceChat] Text part (ignored): ${text.substring(0, text.length > 100 ? 100 : text.length)}');
+              }
             }
           }
+        } else {
+          debugPrint('[VoiceChat] No modelTurn in serverContent');
         }
 
-        // Turn complete - combine ALL chunks and play as single WAV
-        if (serverContent['turnComplete'] == true) {
-          debugPrint('[VoiceChat] Turn complete, chunks: ${_turnAudioChunks.length}');
+        // Turn complete
+        final turnComplete = serverContent['turnComplete'];
+        debugPrint('[VoiceChat] turnComplete=$turnComplete, buffered chunks=${_turnAudioChunks.length}');
+        
+        if (turnComplete == true) {
+          debugPrint('[VoiceChat] === TURN COMPLETE === chunks: ${_turnAudioChunks.length}');
           if (_turnAudioChunks.isNotEmpty) {
             _playTurnAudio();
           } else if (!_isPlaying) {
+            debugPrint('[VoiceChat] No audio chunks to play, back to listening');
             if (_isConnected && _isListening) {
               setState(() => _voiceState = VoiceState.listening);
             }
@@ -346,14 +374,20 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
       // Setup complete
       if (msg.containsKey('setupComplete')) {
-        debugPrint('[VoiceChat] Setup complete, starting mic capture');
+        debugPrint('[VoiceChat] ✓ Setup complete, starting mic capture');
         _isConnected = true;
         _isListening = true;
         setState(() => _voiceState = VoiceState.listening);
         _startMicCapture();
       }
-    } catch (e) {
+      
+      // Log any other message types
+      if (!msg.containsKey('serverContent') && !msg.containsKey('setupComplete')) {
+        debugPrint('[VoiceChat] Unknown message type: ${msg.keys.toList()}');
+      }
+    } catch (e, stack) {
       debugPrint('[VoiceChat] Failed to parse WS message: $e');
+      debugPrint('[VoiceChat] Stack: $stack');
     }
   }
 
