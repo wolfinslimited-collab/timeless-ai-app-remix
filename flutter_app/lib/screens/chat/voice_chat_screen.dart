@@ -1,20 +1,28 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:record/record.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import '../../core/config.dart';
 import '../../core/theme.dart';
-import '../../core/http_client.dart';
-import '../../services/voice_input_service.dart';
-import '../../services/text_to_speech_service.dart';
-import '../../utils/text_utils.dart';
 import '../../widgets/voice_chat/voice_chat_visualizer.dart';
 
-const String _voiceModel = 'gemini-3-flash';
+/// Flutter implementation of Ask AI voice chat using Gemini Live WebSocket
+/// Mirrors the web VoiceChat.tsx: bidirectional PCM audio streaming
+/// - Captures mic audio as PCM16 16kHz mono
+/// - Streams to Gemini Live via WebSocket
+/// - Receives PCM16 24kHz audio responses and plays them back
+/// - Supports any language natively (Gemini handles it)
 
 class VoiceChatScreen extends StatefulWidget {
-  /// If true, auto-starts listening on open (for bottom sheet usage)
   final bool autoStart;
 
   const VoiceChatScreen({super.key, this.autoStart = true});
@@ -24,27 +32,33 @@ class VoiceChatScreen extends StatefulWidget {
 }
 
 class _VoiceChatScreenState extends State<VoiceChatScreen> {
-  final VoiceInputService _voiceService = VoiceInputService();
-  final TextToSpeechService _ttsService = TextToSpeechService();
   final _supabase = Supabase.instance.client;
 
   VoiceState _voiceState = VoiceState.idle;
   String _transcript = '';
-  String _response = '';
-  String _displayedResponse = ''; // Progressive word-by-word reveal
   String? _error;
   bool _isMuted = false;
   bool _isInitializing = true;
-  bool _hasPendingSpeech = false; // Track if TTS has queued/active speech
-  
-  final List<Map<String, String>> _conversationHistory = [];
-  StreamSubscription? _streamSubscription;
-  
-  // Word-by-word reveal
-  final List<String> _wordsToReveal = [];
-  Timer? _revealTimer;
 
-  // History drawer state
+  // WebSocket
+  WebSocketChannel? _wsChannel;
+  StreamSubscription? _wsSubscription;
+  bool _isConnected = false;
+  bool _isListening = false;
+  Timer? _keepaliveTimer;
+  int _reconnectAttempts = 0;
+  static const int _maxReconnectAttempts = 3;
+
+  // Mic recording
+  final AudioRecorder _recorder = AudioRecorder();
+  StreamSubscription<List<int>>? _micSubscription;
+
+  // Audio playback
+  final List<Uint8List> _audioQueue = [];
+  bool _isPlaying = false;
+  AudioPlayer? _audioPlayer;
+
+  // History
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   List<Map<String, dynamic>> _sessions = [];
   bool _loadingSessions = false;
@@ -52,46 +66,28 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
   @override
   void initState() {
     super.initState();
-    _initServices();
+    _init();
   }
 
-  Future<void> _initServices() async {
+  Future<void> _init() async {
     setState(() => _isInitializing = true);
-    
-    try {
-      final voiceReady = await _voiceService.initialize();
-      await _ttsService.initialize();
-      
-      _ttsService.setOnSpeakingComplete(() {
-        _hasPendingSpeech = false;
-        if (mounted && _voiceState == VoiceState.speaking) {
-          setState(() => _voiceState = VoiceState.idle);
-          // Auto-restart listening after AI finishes speaking
-          if (!_isMuted) {
-            Future.delayed(const Duration(milliseconds: 500), () {
-              if (mounted && _voiceState == VoiceState.idle) {
-                _startListening(isAutoRestart: true);
-              }
-            });
-          }
-        }
-      });
 
-      if (mounted) {
-        setState(() => _isInitializing = false);
-        
-        // Auto-start listening if voice is available
-        if (widget.autoStart && voiceReady) {
-          // Small delay to let the UI render first
-          await Future.delayed(const Duration(milliseconds: 300));
-          if (mounted) _startListening();
-        } else if (!voiceReady) {
-          setState(() {
-            _error = _voiceService.lastError.isNotEmpty 
-                ? _voiceService.lastError 
-                : 'Voice recognition not available on this device';
-          });
-        }
+    try {
+      // Request mic permission
+      final status = await Permission.microphone.request();
+      if (status != PermissionStatus.granted) {
+        setState(() {
+          _isInitializing = false;
+          _error = 'Microphone permission denied';
+        });
+        return;
+      }
+
+      setState(() => _isInitializing = false);
+
+      if (widget.autoStart) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (mounted) _connectToGemini();
       }
     } catch (e) {
       if (mounted) {
@@ -105,12 +101,453 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
   @override
   void dispose() {
-    _revealTimer?.cancel();
-    _streamSubscription?.cancel();
-    _voiceService.cancelListening();
-    _ttsService.stop();
+    _cleanup();
+    _recorder.dispose();
+    _audioPlayer?.dispose();
     super.dispose();
   }
+
+  void _cleanup() {
+    _isListening = false;
+    _isConnected = false;
+    _keepaliveTimer?.cancel();
+    _keepaliveTimer = null;
+    _micSubscription?.cancel();
+    _micSubscription = null;
+    _wsSubscription?.cancel();
+    _wsSubscription = null;
+    _wsChannel?.sink.close();
+    _wsChannel = null;
+    _recorder.stop();
+    _interruptAI();
+  }
+
+  void _interruptAI() {
+    _audioQueue.clear();
+    _isPlaying = false;
+    _audioPlayer?.stop();
+  }
+
+  // ─── Gemini Live WebSocket Connection ───
+
+  Future<void> _connectToGemini() async {
+    setState(() {
+      _error = null;
+      _voiceState = VoiceState.processing;
+      _transcript = '';
+    });
+
+    try {
+      final token = _supabase.auth.currentSession?.accessToken;
+      final userId = _supabase.auth.currentUser?.id;
+      if (token == null || userId == null) {
+        setState(() {
+          _error = 'Please sign in to use voice chat';
+          _voiceState = VoiceState.idle;
+        });
+        return;
+      }
+
+      // Check credits
+      final hasCredits = await _checkCredits(token, userId);
+      if (!hasCredits) {
+        setState(() {
+          _error = 'Insufficient credits';
+          _voiceState = VoiceState.idle;
+        });
+        return;
+      }
+
+      // Get WebSocket URL from edge function
+      final res = await http.post(
+        Uri.parse('${AppConfig.supabaseUrl}/functions/v1/gemini-live-token'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (res.statusCode != 200) {
+        final errData = jsonDecode(res.body);
+        throw Exception(errData['error'] ?? 'Failed to get token: ${res.statusCode}');
+      }
+
+      final tokenData = jsonDecode(res.body);
+      String? wsUrl = tokenData['websocket_url'];
+      final apiKey = tokenData['apiKey'];
+
+      if (wsUrl == null && apiKey != null) {
+        wsUrl = apiKey.toString().startsWith('wss://')
+            ? apiKey
+            : 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=$apiKey';
+      }
+
+      if (wsUrl == null) {
+        throw Exception('No WebSocket URL returned');
+      }
+
+      debugPrint('[VoiceChat] Connecting to Gemini Live WebSocket');
+
+      // Open WebSocket
+      _wsChannel = WebSocketChannel.connect(Uri.parse(wsUrl));
+
+      _wsSubscription = _wsChannel!.stream.listen(
+        _handleWsMessage,
+        onError: (e) {
+          debugPrint('[VoiceChat] WebSocket error: $e');
+        },
+        onDone: () {
+          debugPrint('[VoiceChat] WebSocket closed');
+          _isConnected = false;
+          _keepaliveTimer?.cancel();
+
+          // Auto-reconnect
+          if (_isListening && _reconnectAttempts < _maxReconnectAttempts) {
+            _reconnectAttempts++;
+            debugPrint('[VoiceChat] Auto-reconnecting (attempt $_reconnectAttempts)...');
+            setState(() {
+              _error = 'Reconnecting...';
+              _voiceState = VoiceState.processing;
+            });
+            _micSubscription?.cancel();
+            _recorder.stop();
+            _interruptAI();
+            Future.delayed(const Duration(seconds: 1), () {
+              if (mounted) _connectToGemini();
+            });
+          } else if (_isListening) {
+            setState(() {
+              _error = 'Connection closed. Tap to reconnect.';
+              _voiceState = VoiceState.idle;
+            });
+            _cleanup();
+          }
+        },
+      );
+
+      // Send setup message (matching web implementation)
+      _wsChannel!.sink.add(jsonEncode({
+        'setup': {
+          'model': 'models/gemini-2.5-flash-preview-native-audio-dialog',
+          'generation_config': {
+            'response_modalities': ['AUDIO'],
+            'speech_config': {
+              'voice_config': {
+                'prebuilt_voice_config': {
+                  'voice_name': 'Aoede',
+                }
+              }
+            }
+          },
+          'system_instruction': {
+            'parts': [
+              {
+                'text':
+                    'You are a helpful, friendly AI assistant. Keep responses concise and conversational. Respond naturally as in a spoken conversation.'
+              }
+            ]
+          }
+        }
+      }));
+
+      // Start keepalive: send silent audio every 15s
+      _keepaliveTimer?.cancel();
+      _keepaliveTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+        if (_wsChannel != null && _isConnected) {
+          // 10ms of silence at 16kHz = 160 samples * 2 bytes = 320 bytes
+          final silence = Uint8List(320);
+          final b64 = base64Encode(silence);
+          _wsChannel!.sink.add(jsonEncode({
+            'realtime_input': {
+              'media_chunks': [
+                {'data': b64, 'mime_type': 'audio/pcm;rate=16000'}
+              ]
+            }
+          }));
+        }
+      });
+
+      _reconnectAttempts = 0;
+    } catch (e) {
+      debugPrint('[VoiceChat] Connection error: $e');
+      if (mounted) {
+        setState(() {
+          _error = e.toString().replaceAll('Exception: ', '');
+          _voiceState = VoiceState.idle;
+        });
+      }
+    }
+  }
+
+  // ─── WebSocket Message Handling ───
+
+  void _handleWsMessage(dynamic rawMessage) {
+    try {
+      final String data;
+      if (rawMessage is String) {
+        data = rawMessage;
+      } else if (rawMessage is List<int>) {
+        data = utf8.decode(rawMessage);
+      } else {
+        return;
+      }
+
+      final msg = jsonDecode(data) as Map<String, dynamic>;
+
+      // Handle server content with audio
+      if (msg.containsKey('serverContent')) {
+        final serverContent = msg['serverContent'] as Map<String, dynamic>;
+        final modelTurn = serverContent['modelTurn'] as Map<String, dynamic>?;
+
+        if (modelTurn != null) {
+          final parts = modelTurn['parts'] as List<dynamic>?;
+          if (parts != null) {
+            for (final part in parts) {
+              // Audio response
+              final inlineData = part['inlineData'] as Map<String, dynamic>?;
+              if (inlineData != null) {
+                final mimeType = inlineData['mimeType']?.toString() ?? '';
+                if (mimeType.startsWith('audio/pcm')) {
+                  final audioB64 = inlineData['data'] as String;
+                  final audioBytes = base64Decode(audioB64);
+                  _audioQueue.add(Uint8List.fromList(audioBytes));
+                  if (!_isPlaying) _playNextAudioChunk();
+                }
+              }
+
+              // Text response (transcript from AI)
+              if (part['text'] != null) {
+                setState(() {
+                  _transcript += part['text'].toString();
+                });
+              }
+            }
+          }
+        }
+
+        // Turn complete
+        if (serverContent['turnComplete'] == true) {
+          debugPrint('[VoiceChat] Turn complete');
+          if (_audioQueue.isEmpty && !_isPlaying) {
+            if (_isConnected && _isListening) {
+              setState(() => _voiceState = VoiceState.listening);
+            }
+          }
+        }
+      }
+
+      // Setup complete
+      if (msg.containsKey('setupComplete')) {
+        debugPrint('[VoiceChat] Setup complete, starting mic capture');
+        _isConnected = true;
+        _isListening = true;
+        setState(() => _voiceState = VoiceState.listening);
+        _startMicCapture();
+      }
+    } catch (e) {
+      debugPrint('[VoiceChat] Failed to parse WS message: $e');
+    }
+  }
+
+  // ─── Microphone Capture ───
+
+  Future<void> _startMicCapture() async {
+    try {
+      final hasPermission = await _recorder.hasPermission();
+      if (!hasPermission) {
+        setState(() => _error = 'Microphone access denied');
+        _cleanup();
+        setState(() => _voiceState = VoiceState.idle);
+        return;
+      }
+
+      // Start streaming PCM16 at 16kHz mono
+      final stream = await _recorder.startStream(
+        const RecordConfig(
+          encoder: AudioEncoder.pcm16bits,
+          sampleRate: 16000,
+          numChannels: 1,
+          autoGain: true,
+          echoCancel: true,
+          noiseSuppress: true,
+        ),
+      );
+
+      _micSubscription = stream.listen((data) {
+        if (!_isListening || _isMuted || _wsChannel == null || !_isConnected) return;
+
+        // If AI is speaking and user starts talking, interrupt
+        if (_voiceState == VoiceState.speaking) {
+          // Check if there's actual audio (not silence)
+          if (_hasSignificantAudio(Uint8List.fromList(data))) {
+            _interruptAI();
+            setState(() => _voiceState = VoiceState.listening);
+          }
+        }
+
+        // Send PCM audio to Gemini via WebSocket
+        final b64 = base64Encode(data);
+        try {
+          _wsChannel?.sink.add(jsonEncode({
+            'realtime_input': {
+              'media_chunks': [
+                {'data': b64, 'mime_type': 'audio/pcm;rate=16000'}
+              ]
+            }
+          }));
+        } catch (e) {
+          debugPrint('[VoiceChat] Failed to send audio: $e');
+        }
+      });
+
+      debugPrint('[VoiceChat] Mic capture started at 16kHz PCM16');
+    } catch (e) {
+      debugPrint('[VoiceChat] Mic error: $e');
+      setState(() {
+        _error = 'Microphone access failed';
+        _voiceState = VoiceState.idle;
+      });
+      _cleanup();
+    }
+  }
+
+  /// Check if audio data contains significant signal (not silence)
+  bool _hasSignificantAudio(Uint8List data) {
+    if (data.length < 4) return false;
+    // Read PCM16 samples and check RMS
+    double sum = 0;
+    int count = 0;
+    for (int i = 0; i < data.length - 1; i += 2) {
+      int sample = data[i] | (data[i + 1] << 8);
+      if (sample > 32767) sample -= 65536; // Convert to signed
+      sum += (sample * sample).toDouble();
+      count++;
+    }
+    if (count == 0) return false;
+    final rms = sqrt(sum / count);
+    return rms > 500; // Threshold for "significant" audio
+  }
+
+  // ─── Audio Playback ───
+
+  Future<void> _playNextAudioChunk() async {
+    if (_audioQueue.isEmpty) {
+      _isPlaying = false;
+      // AI finished speaking, go back to listening
+      if (_isConnected && _isListening && mounted) {
+        setState(() => _voiceState = VoiceState.listening);
+      }
+      return;
+    }
+
+    _isPlaying = true;
+    if (mounted) setState(() => _voiceState = VoiceState.speaking);
+
+    final pcmData = _audioQueue.removeAt(0);
+
+    try {
+      // Convert PCM16 24kHz to WAV for playback
+      final wavData = _pcmToWav(pcmData, sampleRate: 24000);
+
+      // Write to temp file and play
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/voice_chunk_${DateTime.now().millisecondsSinceEpoch}.wav');
+      await tempFile.writeAsBytes(wavData);
+
+      _audioPlayer?.dispose();
+      _audioPlayer = AudioPlayer();
+
+      await _audioPlayer!.play(DeviceFileSource(tempFile.path));
+
+      // Wait for playback to complete
+      await _audioPlayer!.onPlayerComplete.first.timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => null,
+      );
+
+      // Clean up temp file
+      try {
+        await tempFile.delete();
+      } catch (_) {}
+
+      // Play next chunk
+      if (mounted) _playNextAudioChunk();
+    } catch (e) {
+      debugPrint('[VoiceChat] Playback error: $e');
+      _isPlaying = false;
+      if (mounted) _playNextAudioChunk(); // Try next chunk
+    }
+  }
+
+  /// Convert raw PCM16 LE data to WAV format
+  Uint8List _pcmToWav(Uint8List pcmData, {int sampleRate = 24000, int channels = 1, int bitsPerSample = 16}) {
+    final dataSize = pcmData.length;
+    final fileSize = 36 + dataSize;
+    final byteRate = sampleRate * channels * (bitsPerSample ~/ 8);
+    final blockAlign = channels * (bitsPerSample ~/ 8);
+
+    final header = ByteData(44);
+    // RIFF header
+    header.setUint8(0, 0x52); // R
+    header.setUint8(1, 0x49); // I
+    header.setUint8(2, 0x46); // F
+    header.setUint8(3, 0x46); // F
+    header.setUint32(4, fileSize, Endian.little);
+    header.setUint8(8, 0x57); // W
+    header.setUint8(9, 0x41); // A
+    header.setUint8(10, 0x56); // V
+    header.setUint8(11, 0x45); // E
+    // fmt chunk
+    header.setUint8(12, 0x66); // f
+    header.setUint8(13, 0x6D); // m
+    header.setUint8(14, 0x74); // t
+    header.setUint8(15, 0x20); // (space)
+    header.setUint32(16, 16, Endian.little); // chunk size
+    header.setUint16(20, 1, Endian.little); // PCM format
+    header.setUint16(22, channels, Endian.little);
+    header.setUint32(24, sampleRate, Endian.little);
+    header.setUint32(28, byteRate, Endian.little);
+    header.setUint16(32, blockAlign, Endian.little);
+    header.setUint16(34, bitsPerSample, Endian.little);
+    // data chunk
+    header.setUint8(36, 0x64); // d
+    header.setUint8(37, 0x61); // a
+    header.setUint8(38, 0x74); // t
+    header.setUint8(39, 0x61); // a
+    header.setUint32(40, dataSize, Endian.little);
+
+    final wav = Uint8List(44 + dataSize);
+    wav.setRange(0, 44, header.buffer.asUint8List());
+    wav.setRange(44, 44 + dataSize, pcmData);
+    return wav;
+  }
+
+  // ─── Credits ───
+
+  Future<bool> _checkCredits(String token, String userId) async {
+    try {
+      final url = Uri.parse(
+        '${AppConfig.supabaseUrl}/rest/v1/profiles?select=credits,subscription_status&user_id=eq.$userId',
+      );
+      final res = await http.get(url, headers: {
+        'apikey': AppConfig.supabaseAnonKey,
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as List;
+        if (data.isEmpty) return false;
+        if (data[0]['subscription_status'] == 'active') return true;
+        if ((data[0]['credits'] as int? ?? 0) < 1) return false;
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Credit check failed: $e');
+    }
+    return false;
+  }
+
+  // ─── Sessions ───
 
   Future<void> _fetchSessions() async {
     setState(() => _loadingSessions = true);
@@ -162,341 +599,35 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     return '${date.month}/${date.day}';
   }
 
-  /// Check if user has enough credits before sending
-  Future<bool> _checkCredits() async {
-    final token = _supabase.auth.currentSession?.accessToken;
-    final userId = _supabase.auth.currentUser?.id;
-    if (token == null || userId == null) return false;
+  // ─── User Actions ───
 
-    try {
-      final creditsUrl = Uri.parse(
-        '${AppConfig.supabaseUrl}/rest/v1/profiles?select=credits,subscription_status&user_id=eq.$userId',
-      );
-      final creditsRes = await http.get(creditsUrl, headers: {
-        'apikey': AppConfig.supabaseAnonKey,
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      });
-      if (creditsRes.statusCode == 200) {
-        final creditsData = jsonDecode(creditsRes.body) as List;
-        if (creditsData.isEmpty) return false;
-        // Allow if subscribed or has credits
-        if (creditsData[0]['subscription_status'] == 'active') return true;
-        if ((creditsData[0]['credits'] as int? ?? 0) < 1) return false;
-        return true;
-      }
-    } catch (e) {
-      debugPrint('Credit check failed: $e');
-    }
-    return false;
-  }
-
-  /// Interrupt AI: stop TTS, clear queue, abort stream
-  void _interruptAI() {
-    _revealTimer?.cancel();
-    _revealTimer = null;
-    _wordsToReveal.clear();
-    _hasPendingSpeech = false;
-    _ttsService.stop();
-    _streamSubscription?.cancel();
-    _streamSubscription = null;
-  }
-
-  /// Queue speech AND add words for progressive text reveal
-  void _queueSpeechWithReveal(String phrase) {
-    _hasPendingSpeech = true;
-    _ttsService.queueSpeech(phrase);
-    // Add cleaned words for progressive reveal
-    final cleaned = cleanMarkdown(phrase);
-    final words = cleaned.split(RegExp(r'\s+'));
-    _wordsToReveal.addAll(words.where((w) => w.isNotEmpty));
-    _startRevealTimer();
-  }
-
-  void _startRevealTimer() {
-    if (_revealTimer != null && _revealTimer!.isActive) return;
-    // ~200ms per word approximates natural speech pace
-    _revealTimer = Timer.periodic(const Duration(milliseconds: 180), (timer) {
-      if (_wordsToReveal.isEmpty) {
-        timer.cancel();
-        _revealTimer = null;
-        return;
-      }
-      if (!mounted) {
-        timer.cancel();
-        _revealTimer = null;
-        return;
-      }
-      final word = _wordsToReveal.removeAt(0);
-      setState(() {
-        _displayedResponse += (_displayedResponse.isEmpty ? '' : ' ') + word;
-      });
-    });
-  }
-
-  Future<void> _startListening({bool isAutoRestart = false}) async {
-    if (_isInitializing) return;
-    
-    if (!_voiceService.isInitialized) {
-      final success = await _voiceService.initialize();
-      if (!success) {
-        setState(() => _error = _voiceService.lastError.isNotEmpty 
-            ? _voiceService.lastError 
-            : 'Voice recognition not available');
-        return;
-      }
-    }
-
-    // If AI is speaking or processing, interrupt first (only on explicit user action)
-    if (!isAutoRestart && (_voiceState == VoiceState.speaking || _voiceState == VoiceState.processing)) {
+  void _startListening() {
+    if (_voiceState == VoiceState.speaking) {
       _interruptAI();
+      setState(() => _voiceState = VoiceState.listening);
+      return;
     }
-
     setState(() {
-      _error = null;
       _transcript = '';
-      _response = '';
-      _displayedResponse = '';
-      _voiceState = VoiceState.listening;
+      _error = null;
     });
-
-    // Only stop TTS on explicit user action, not auto-restart
-    if (!isAutoRestart) {
-      await _ttsService.stop();
-    }
-    Timer? silenceTimer;
-
-    await _voiceService.startListening(
-      onResult: (text) {
-        silenceTimer?.cancel();
-        // If AI is still speaking when user talks, interrupt
-        if (_voiceState == VoiceState.speaking) {
-          _interruptAI();
-          setState(() => _voiceState = VoiceState.listening);
-        }
-        setState(() => _transcript = text);
-        silenceTimer = Timer(const Duration(milliseconds: 1200), () {
-          _voiceService.stopListening();
-          if (text.trim().isNotEmpty) {
-            _sendMessage(text.trim());
-          }
-        });
-      },
-      onPartialResult: (text) {
-        silenceTimer?.cancel();
-        // If AI is still speaking when user talks, interrupt
-        if (_voiceState == VoiceState.speaking) {
-          _interruptAI();
-          setState(() => _voiceState = VoiceState.listening);
-        }
-        setState(() => _transcript = text);
-        silenceTimer = Timer(const Duration(milliseconds: 1200), () {
-          if (_transcript.isNotEmpty) {
-            _voiceService.stopListening();
-            _sendMessage(_transcript.trim());
-          }
-        });
-      },
-      onListeningStarted: () {
-        debugPrint('[VoiceChat] Listening started');
-      },
-      onListeningStopped: () {
-        silenceTimer?.cancel();
-        debugPrint('[VoiceChat] Listening stopped, state: $_voiceState');
-        // Only go idle if we're still in listening state (not transitioning to processing)
-        if (mounted && _voiceState == VoiceState.listening && _transcript.isEmpty) {
-          // Re-start listening automatically if no speech detected
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted && _voiceState == VoiceState.listening) {
-              _startListening();
-            }
-          });
-        }
-      },
-    );
+    _connectToGemini();
   }
 
   void _stopListening() {
-    _voiceService.stopListening();
-    _interruptAI();
-    setState(() {
-      _voiceState = VoiceState.idle;
-      _transcript = '';
-      _response = '';
-    });
-  }
-
-  Future<void> _sendMessage(String text) async {
-    if (text.isEmpty) {
-      setState(() => _voiceState = VoiceState.idle);
-      return;
-    }
-
-    setState(() {
-      _voiceState = VoiceState.processing;
-      _response = '';
-      _displayedResponse = '';
-      _wordsToReveal.clear();
-      _revealTimer?.cancel();
-      _revealTimer = null;
-      _hasPendingSpeech = false;
-      _error = null;
-    });
-
-    try {
-      final token = _supabase.auth.currentSession?.accessToken;
-      final userId = _supabase.auth.currentUser?.id;
-      if (token == null || userId == null) {
-        setState(() {
-          _error = 'Please sign in to use voice chat';
-          _voiceState = VoiceState.idle;
-        });
-        return;
-      }
-
-      // Check credits via REST API
-      final hasCredits = await _checkCredits();
-      if (!hasCredits) {
-        setState(() {
-          _error = 'Insufficient credits';
-          _voiceState = VoiceState.idle;
-        });
-        return;
-      }
-
-      _conversationHistory.add({'role': 'user', 'content': text});
-      
-      // Call external chat endpoint directly
-      final url = '${AppConfig.supabaseUrl}/functions/v1/chat';
-      final request = http.Request('POST', Uri.parse(url));
-      request.headers.addAll({
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-        'apikey': AppConfig.supabaseAnonKey,
-      });
-      request.body = jsonEncode({
-        'model': _voiceModel,
-        'messages': _conversationHistory,
-        'webSearch': false,
-      });
-
-      final streamedResponse = await httpClient.send(request);
-      if (streamedResponse.statusCode != 200) {
-        final body = await streamedResponse.stream.bytesToString();
-        debugPrint('[VoiceChat] Chat API error ${streamedResponse.statusCode}: $body');
-        throw Exception('Chat failed with status ${streamedResponse.statusCode}');
-      }
-
-      String buffer = '';
-      String fullResponse = '';
-      String sentenceBuffer = '';
-
-      final completer = Completer<void>();
-      
-      _streamSubscription = streamedResponse.stream.transform(utf8.decoder).listen(
-        (chunk) {
-          buffer += chunk;
-          while (buffer.contains('\n')) {
-            final newlineIndex = buffer.indexOf('\n');
-            String line = buffer.substring(0, newlineIndex);
-            buffer = buffer.substring(newlineIndex + 1);
-            if (line.endsWith('\r')) line = line.substring(0, line.length - 1);
-            if (line.startsWith(':') || line.trim().isEmpty) continue;
-            if (!line.startsWith('data: ')) continue;
-            final jsonStr = line.substring(6).trim();
-            if (jsonStr == '[DONE]') continue;
-            try {
-              final parsed = jsonDecode(jsonStr) as Map<String, dynamic>;
-              final content = parsed['choices']?[0]?['delta']?['content'] as String?;
-              if (content != null) {
-                fullResponse += content;
-                if (mounted) setState(() => _response = fullResponse);
-                sentenceBuffer += content;
-                final phraseMatch = RegExp(r'^(.*?[.!?,;:])\s*').firstMatch(sentenceBuffer);
-                if (phraseMatch != null && phraseMatch.group(1)!.length > 10) {
-                  final phrase = phraseMatch.group(1)!;
-                  sentenceBuffer = sentenceBuffer.substring(phraseMatch.end);
-                  if (!_isMuted) {
-                    if (mounted) setState(() => _voiceState = VoiceState.speaking);
-                    _queueSpeechWithReveal(phrase);
-                  }
-                } else if (sentenceBuffer.length > 60) {
-                  final words = sentenceBuffer.split(' ');
-                  if (words.length > 5) {
-                    final toSpeak = words.sublist(0, words.length - 1).join(' ');
-                    sentenceBuffer = words.last;
-                    if (!_isMuted) {
-                      if (mounted) setState(() => _voiceState = VoiceState.speaking);
-                      _queueSpeechWithReveal(toSpeak);
-                    }
-                  }
-                }
-              }
-            } catch (_) {}
-          }
-        },
-        onDone: () {
-          // Flush remaining sentence buffer
-          if (sentenceBuffer.trim().isNotEmpty && !_isMuted) {
-            _queueSpeechWithReveal(sentenceBuffer.trim());
-          }
-          if (fullResponse.isNotEmpty) {
-            _conversationHistory.add({'role': 'assistant', 'content': fullResponse});
-          }
-          // If TTS is active/queued, let onSpeakingComplete handle state transition
-          // Do NOT restart listening here — it kills TTS
-          if (_isMuted || !_hasPendingSpeech) {
-            if (mounted) setState(() => _voiceState = VoiceState.idle);
-            if (!_isMuted && mounted) {
-              Future.delayed(const Duration(milliseconds: 800), () {
-                if (mounted && _voiceState == VoiceState.idle) {
-                  _startListening(isAutoRestart: true);
-                }
-              });
-            }
-          }
-          // else: onSpeakingComplete callback will handle transition
-          completer.complete();
-        },
-        onError: (e) {
-          debugPrint('[VoiceChat] Stream error: $e');
-          if (mounted) {
-            setState(() {
-              _error = 'Connection error. Tap to retry.';
-              _voiceState = VoiceState.idle;
-            });
-          }
-          completer.completeError(e);
-        },
-        cancelOnError: true,
-      );
-
-      await completer.future;
-    } catch (e) {
-      debugPrint('[VoiceChat] Send error: $e');
-      if (mounted) {
-        setState(() {
-          _error = 'Failed to get response. Tap sphere to retry.';
-          _voiceState = VoiceState.idle;
-        });
-      }
-    }
+    _cleanup();
+    setState(() => _voiceState = VoiceState.idle);
   }
 
   void _toggleMute() {
     setState(() => _isMuted = !_isMuted);
     if (_isMuted) {
-      _ttsService.stop();
-      if (_voiceState == VoiceState.speaking) {
-        setState(() => _voiceState = VoiceState.idle);
-      }
+      _interruptAI();
     }
   }
 
   void _handleClose() {
-    _voiceService.cancelListening();
-    _ttsService.stop();
-    _streamSubscription?.cancel();
+    _cleanup();
     Navigator.of(context).pop();
   }
 
@@ -506,13 +637,15 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       case VoiceState.listening:
         return 'Listening...';
       case VoiceState.processing:
-        return 'Thinking...';
+        return 'Connecting...';
       case VoiceState.speaking:
         return '';
       case VoiceState.idle:
-        return _error != null ? 'Tap to retry' : 'Tap to speak';
+        return _error != null ? 'Tap to retry' : 'Tap to start';
     }
   }
+
+  // ─── Build ───
 
   @override
   Widget build(BuildContext context) {
@@ -539,7 +672,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
           child: SafeArea(
             child: Column(
               children: [
-                // Top bar: History + Settings
+                // Top bar
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
@@ -552,7 +685,6 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                           _scaffoldKey.currentState?.openDrawer();
                         },
                       ),
-                      // Model indicator
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
@@ -560,7 +692,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          'Gemini Flash',
+                          'Gemini Live',
                           style: TextStyle(
                             color: AppTheme.muted.withOpacity(0.6),
                             fontSize: 12,
@@ -575,39 +707,22 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                   ),
                 ),
 
-                // Response / transcript display
+                // Transcript display
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(minHeight: 80, maxHeight: 200),
                     child: SingleChildScrollView(
-                    child: _voiceState == VoiceState.speaking && _displayedResponse.isNotEmpty
-                        ? Text(
-                            _displayedResponse,
-                            style: TextStyle(
-                              color: AppTheme.foreground.withOpacity(0.8),
-                              fontSize: 18,
-                              height: 1.5,
-                            ),
-                          )
-                        : _response.isNotEmpty && _voiceState != VoiceState.listening
-                            ? Text(
-                                cleanMarkdown(_response),
-                                style: TextStyle(
-                                  color: AppTheme.foreground.withOpacity(0.8),
-                                  fontSize: 18,
-                                  height: 1.5,
-                                ),
-                              )
-                            : _transcript.isNotEmpty
-                                ? Text(
-                                    _transcript,
-                                    style: TextStyle(
-                                      color: AppTheme.foreground.withOpacity(0.6),
-                                      fontSize: 18,
-                                    ),
-                                  )
-                                : const SizedBox.shrink(),
+                      child: _transcript.isNotEmpty
+                          ? Text(
+                              _transcript,
+                              style: TextStyle(
+                                color: AppTheme.foreground.withOpacity(0.8),
+                                fontSize: 18,
+                                height: 1.5,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
                   ),
                 ),
@@ -622,17 +737,14 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                     ),
                   ),
 
-                // Center sphere - tappable to start/interrupt
+                // Center sphere
                 Expanded(
                   child: Center(
                     child: GestureDetector(
                       onTap: () {
                         if (_isInitializing) return;
-                        if (_voiceState == VoiceState.listening) {
+                        if (_voiceState == VoiceState.listening || _voiceState == VoiceState.speaking) {
                           _stopListening();
-                        } else if (_voiceState == VoiceState.speaking) {
-                          // Interrupt AI and start listening
-                          _startListening();
                         } else if (_voiceState == VoiceState.idle) {
                           setState(() => _error = null);
                           _startListening();
@@ -654,13 +766,12 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                   ),
                 ),
 
-                // Bottom controls with status in between
+                // Bottom controls
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16, left: 40, right: 40),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Close button
                       GestureDetector(
                         onTap: _handleClose,
                         child: Container(
@@ -673,8 +784,6 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                           child: const Icon(Icons.close, color: Colors.white, size: 24),
                         ),
                       ),
-
-                      // Status text in the middle
                       Expanded(
                         child: Center(
                           child: Text(
@@ -686,8 +795,6 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                           ),
                         ),
                       ),
-
-                      // Mute toggle
                       GestureDetector(
                         onTap: _toggleMute,
                         child: Container(
@@ -730,7 +837,6 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
               child: Row(
@@ -751,10 +857,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                 ],
               ),
             ),
-
             Divider(color: Colors.white.withOpacity(0.06), height: 1),
-
-            // Session list
             Expanded(
               child: _loadingSessions
                   ? const Center(
@@ -794,7 +897,6 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                             return InkWell(
                               onTap: () {
                                 Navigator.of(context).pop();
-                                // TODO: Load session transcript
                               },
                               borderRadius: BorderRadius.circular(10),
                               child: Padding(
