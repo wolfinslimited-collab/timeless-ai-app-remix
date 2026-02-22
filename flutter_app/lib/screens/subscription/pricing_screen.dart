@@ -28,6 +28,43 @@ class _PricingScreenState extends State<PricingScreen> {
   final PricingService _pricingService = PricingService();
   bool _hasPreselected = false;
 
+  /// Resolve a DB plan value (e.g. "premium") to an actual plan ID
+  /// (e.g. "premium-monthly"). The DB often stores just the tier name without
+  /// the billing period suffix, so we match against plan names and fall back
+  /// to the lowest-rank plan in that tier.
+  String _resolveUserPlanId(String rawPlan) {
+    if (rawPlan.isEmpty) return rawPlan;
+
+    // Exact match on plan ID — already resolved
+    if (_subscriptionPlans.any((p) => p.id.toLowerCase() == rawPlan)) {
+      return rawPlan;
+    }
+
+    // Match by plan name (DB stores "premium", plan.name is "Premium")
+    var matching = _subscriptionPlans
+        .where((p) => p.name.toLowerCase() == rawPlan)
+        .toList();
+
+    // Also try with dash-to-space normalization ("premium-plus" → "premium plus")
+    if (matching.isEmpty) {
+      matching = _subscriptionPlans
+          .where((p) =>
+              p.name.toLowerCase().replaceAll(' ', '-') == rawPlan)
+          .toList();
+    }
+
+    if (matching.isNotEmpty) {
+      // Return the lowest-rank (monthly) plan in the tier
+      matching.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      final resolved = matching.first.id.toLowerCase();
+      debugPrint('[Pricing] _resolveUserPlanId: "$rawPlan" => "$resolved"');
+      return resolved;
+    }
+
+    debugPrint('[Pricing] _resolveUserPlanId: "$rawPlan" => NO MATCH, returning as-is');
+    return rawPlan;
+  }
+
   /// Unique tier names sorted by displayOrder
   List<String> get _tierNames {
     final seen = <String>{};
@@ -75,7 +112,7 @@ class _PricingScreenState extends State<PricingScreen> {
       final pricing = await _pricingService.fetchPricing();
       if (!mounted) return;
       final creditsProvider = context.read<CreditsProvider>();
-      final userPlan = creditsProvider.currentPlan?.toLowerCase() ?? '';
+      final rawPlan = creditsProvider.currentPlan?.toLowerCase() ?? '';
       final hasActive = creditsProvider.hasActiveSubscription;
 
       setState(() {
@@ -83,26 +120,14 @@ class _PricingScreenState extends State<PricingScreen> {
         _isLoading = false;
       });
 
+      final userPlan = _resolveUserPlanId(rawPlan);
+
       debugPrint('[Pricing] ======= FETCH COMPLETE =======');
       debugPrint('[Pricing] Loaded ${_subscriptionPlans.length} plans');
       for (final p in _subscriptionPlans) {
-        debugPrint(
-            '[Pricing]   id="${p.id}", name="${p.name}", period=${p.period}, displayOrder=${p.displayOrder}');
+        debugPrint('[Pricing]   id="${p.id}", name="${p.name}", period=${p.period}, displayOrder=${p.displayOrder}');
       }
-      debugPrint(
-          '[Pricing] creditsProvider.currentPlan (raw)="${creditsProvider.currentPlan}"');
-      debugPrint(
-          '[Pricing] creditsProvider.hasActiveSubscription=${creditsProvider.hasActiveSubscription}');
-      debugPrint(
-          '[Pricing] creditsProvider.isLoading=${creditsProvider.isLoading}');
-      debugPrint(
-          '[Pricing] userPlan (lowercased)="$userPlan", hasActive=$hasActive');
-      debugPrint('[Pricing] Plan ID matching check:');
-      for (final p in _subscriptionPlans) {
-        final matches = userPlan == p.id.toLowerCase();
-        debugPrint(
-            '[Pricing]   "$userPlan" == "${p.id.toLowerCase()}" => $matches');
-      }
+      debugPrint('[Pricing] raw DB plan="$rawPlan", resolved="$userPlan", hasActive=$hasActive');
       debugPrint('[Pricing] ============================');
 
       _preselectTierAndPlan(userPlan, hasActive);
@@ -117,22 +142,19 @@ class _PricingScreenState extends State<PricingScreen> {
 
   void _preselectTierAndPlan(String userPlan, bool hasActive) {
     final tiers = _tierNames;
-    debugPrint(
-        '[Pricing] _preselectTierAndPlan: tiers=$tiers, userPlan="$userPlan", hasActive=$hasActive');
+    debugPrint('[Pricing] _preselectTierAndPlan: tiers=$tiers, userPlan="$userPlan", hasActive=$hasActive');
     if (tiers.isEmpty) return;
 
     if (hasActive && userPlan.isNotEmpty) {
       final currentPlan = _subscriptionPlans
           .where((p) => p.id.toLowerCase() == userPlan)
           .firstOrNull;
-      debugPrint(
-          '[Pricing]   currentPlan found: ${currentPlan?.id} (name=${currentPlan?.name})');
+      debugPrint('[Pricing]   currentPlan found: ${currentPlan?.id} (name=${currentPlan?.name})');
       if (currentPlan != null) {
         final tierIdx = tiers.indexOf(currentPlan.name);
         final upgradeTierIdx =
             tierIdx + 1 < tiers.length ? tierIdx + 1 : tierIdx;
-        debugPrint(
-            '[Pricing]   tierIdx=$tierIdx, upgradeTierIdx=$upgradeTierIdx');
+        debugPrint('[Pricing]   tierIdx=$tierIdx, upgradeTierIdx=$upgradeTierIdx');
         setState(() => _selectedTierIndex = upgradeTierIdx);
       }
     } else {
@@ -293,15 +315,16 @@ class _PricingScreenState extends State<PricingScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Consumer2<IAPProvider, CreditsProvider>(
               builder: (context, iapProvider, creditsProvider, _) {
-                final userPlan =
+                final rawPlan =
                     creditsProvider.currentPlan?.toLowerCase() ?? '';
+                final userPlan = _resolveUserPlanId(rawPlan);
                 final hasActive = creditsProvider.hasActiveSubscription;
                 final tiers = _tierNames;
                 final tierPlans = _currentTierPlans;
                 final tierFeatures = _currentTierFeatures;
 
                 debugPrint(
-                    '[Pricing] BUILD: creditsProvider.currentPlan="${creditsProvider.currentPlan}", userPlan="$userPlan", hasActive=$hasActive, creditsLoading=${creditsProvider.isLoading}, tiers=$tiers, tierPlans=${tierPlans.map((p) => p.id).toList()}, selectedTier=$_selectedTierIndex, selectedPlan=$_selectedPlanIndex, _hasPreselected=$_hasPreselected');
+                    '[Pricing] BUILD: raw="$rawPlan", resolved="$userPlan", hasActive=$hasActive, tierPlans=${tierPlans.map((p) => p.id).toList()}, selectedTier=$_selectedTierIndex, selectedPlan=$_selectedPlanIndex');
 
                 // Re-run preselection if credits provider loaded after initial fetch
                 if (!_hasPreselected &&
