@@ -47,10 +47,10 @@ serve(async (req) => {
     // Use service role client for data operations on the external project
     const serviceClient = createClient(TIMELESS_URL, TIMELESS_SERVICE_KEY || TIMELESS_ANON_KEY);
 
-    // Check user has credits
+    // Check user has credits OR active subscription
     const { data: profile, error: profileError } = await serviceClient
       .from("profiles")
-      .select("credits")
+      .select("credits, subscription_status, plan")
       .eq("user_id", userId)
       .single();
 
@@ -62,7 +62,9 @@ serve(async (req) => {
       });
     }
 
-    if (profile.credits < 1) {
+    // Premium users bypass credit check
+    const isPremium = profile.subscription_status === "active" || profile.plan === "premium";
+    if (!isPremium && profile.credits < 1) {
       return new Response(JSON.stringify({ error: "Insufficient credits" }), {
         status: 402,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -125,15 +127,12 @@ serve(async (req) => {
       );
     }
 
-    // Default: return WebSocket URL for Gemini Live
-    const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${googleApiKey}`;
-
-    console.log("Returning websocket_url for user:", userId);
+    // Default: return API key for client-side WebSocket connection
+    console.log("Returning apiKey for user:", userId);
 
     return new Response(
       JSON.stringify({
-        websocket_url: wsUrl,
-        model: "models/gemini-2.5-flash-preview-native-audio-dialog",
+        apiKey: googleApiKey,
         user_id: userId,
         credits: profile.credits,
       }),

@@ -17,11 +17,14 @@ import '../../core/theme.dart';
 import '../../widgets/voice_chat/voice_chat_visualizer.dart';
 
 /// Flutter implementation of Ask AI voice chat using Gemini Live WebSocket
-/// Mirrors the web VoiceChat.tsx: bidirectional PCM audio streaming
-/// - Captures mic audio as PCM16 16kHz mono
-/// - Streams to Gemini Live via WebSocket
-/// - Receives PCM16 24kHz audio responses and plays them back
-/// - Supports any language natively (Gemini handles it)
+/// Mirrors the web AskAI.tsx exactly:
+/// - Gets apiKey from edge function
+/// - Connects directly to Gemini Live WebSocket
+/// - Streams PCM16 16kHz mic audio
+/// - Receives PCM16 24kHz audio and plays back with buffered WAV approach
+
+const String _geminiWsUrl =
+    'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
 
 class VoiceChatScreen extends StatefulWidget {
   final bool autoStart;
@@ -36,7 +39,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
   final _supabase = Supabase.instance.client;
 
   VoiceState _voiceState = VoiceState.idle;
-  String _transcript = '';
+  String _statusText = 'Tap to start';
   String? _error;
   bool _isMuted = false;
   bool _isInitializing = true;
@@ -54,10 +57,15 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
   final AudioRecorder _recorder = AudioRecorder();
   StreamSubscription<List<int>>? _micSubscription;
 
-  // Audio playback - accumulate all chunks per turn, play as single WAV
+  // Audio playback - buffer chunks per turn, play as single WAV on turnComplete
   final List<Uint8List> _turnAudioChunks = [];
   bool _isPlaying = false;
   AudioPlayer? _audioPlayer;
+
+  // Transcript (matching web: liveUserText, liveAIText, transcript entries)
+  final List<Map<String, String>> _transcriptEntries = [];
+  String _liveUserText = '';
+  String _liveAIText = '';
 
   // History
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -72,9 +80,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
   Future<void> _init() async {
     setState(() => _isInitializing = true);
-
     try {
-      // Request mic permission
       final status = await Permission.microphone.request();
       if (status != PermissionStatus.granted) {
         setState(() {
@@ -83,12 +89,10 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
         });
         return;
       }
-
       setState(() => _isInitializing = false);
-
       if (widget.autoStart) {
         await Future.delayed(const Duration(milliseconds: 300));
-        if (mounted) _connectToGemini();
+        if (mounted) _startSession();
       }
     } catch (e) {
       if (mounted) {
@@ -120,87 +124,73 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     _wsChannel?.sink.close();
     _wsChannel = null;
     _recorder.stop();
-    _interruptAI();
+    _stopAllAudio();
   }
 
-  void _interruptAI() {
+  void _stopAllAudio() {
     _turnAudioChunks.clear();
     _isPlaying = false;
     _audioPlayer?.stop();
   }
 
-  // ─── Gemini Live WebSocket Connection ───
+  // ─── Start Session (matches web startSession) ───
 
-  Future<void> _connectToGemini() async {
+  Future<void> _startSession() async {
+    final token = _supabase.auth.currentSession?.accessToken;
+    final userId = _supabase.auth.currentUser?.id;
+    if (token == null || userId == null) {
+      setState(() {
+        _error = 'Please sign in to use voice chat';
+        _voiceState = VoiceState.idle;
+        _statusText = 'Tap to start';
+      });
+      return;
+    }
+
     setState(() {
       _error = null;
       _voiceState = VoiceState.processing;
-      _transcript = '';
+      _statusText = 'Connecting…';
     });
 
     try {
-      final token = _supabase.auth.currentSession?.accessToken;
-      final userId = _supabase.auth.currentUser?.id;
-      if (token == null || userId == null) {
-        setState(() {
-          _error = 'Please sign in to use voice chat';
-          _voiceState = VoiceState.idle;
-        });
-        return;
-      }
-
-      // Check credits
-      final hasCredits = await _checkCredits(token, userId);
-      if (!hasCredits) {
-        setState(() {
-          _error = 'Insufficient credits';
-          _voiceState = VoiceState.idle;
-        });
-        return;
-      }
-
-      // Get WebSocket URL from edge function
-      final res = await http.post(
+      // Step 1: Get API key from edge function (same as web)
+      debugPrint('[VoiceChat] Requesting API key from edge function...');
+      final tokenResp = await http.post(
         Uri.parse('${AppConfig.supabaseUrl}/functions/v1/gemini-live-token'),
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'apikey': AppConfig.supabaseAnonKey,
+          'Content-Type': 'application/json',
         },
       );
 
-      if (res.statusCode != 200) {
-        final errData = jsonDecode(res.body);
-        throw Exception(errData['error'] ?? 'Failed to get token: ${res.statusCode}');
+      if (tokenResp.statusCode != 200) {
+        final errData = jsonDecode(tokenResp.body);
+        throw Exception(errData['error'] ?? 'Failed to get API key: ${tokenResp.statusCode}');
       }
 
-      final tokenData = jsonDecode(res.body);
-      String? wsUrl = tokenData['websocket_url'];
+      final tokenData = jsonDecode(tokenResp.body);
       final apiKey = tokenData['apiKey'];
-
-      if (wsUrl == null && apiKey != null) {
-        wsUrl = apiKey.toString().startsWith('wss://')
-            ? apiKey
-            : 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=$apiKey';
+      if (apiKey == null) {
+        throw Exception('No API key returned');
       }
+      debugPrint('[VoiceChat] Got API key, opening WebSocket...');
 
-      if (wsUrl == null) {
-        throw Exception('No WebSocket URL returned');
-      }
+      // Step 2: Connect WebSocket directly to Gemini (same as web)
+      final wsUrl = '$_geminiWsUrl?key=$apiKey';
 
-      debugPrint('[VoiceChat] Connecting to Gemini Live WebSocket...');
-
-      // Use dart:io WebSocket.connect directly for mobile - no Origin header needed
-      // IOWebSocketChannel wraps it properly for stream-based usage
       try {
         final rawWs = await WebSocket.connect(wsUrl);
         _wsChannel = IOWebSocketChannel(rawWs);
       } catch (e) {
-        debugPrint('[VoiceChat] WebSocket failed to connect: $e');
+        debugPrint('[VoiceChat] WebSocket connect failed: $e');
         throw Exception('Failed to connect to voice service: $e');
       }
 
-      debugPrint('[VoiceChat] WebSocket connected, sending setup');
+      debugPrint('[VoiceChat] WebSocket connected, sending setup...');
 
+      // Step 3: Listen for messages
       _wsSubscription = _wsChannel!.stream.listen(
         _handleWsMessage,
         onError: (e) {
@@ -210,62 +200,64 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
           debugPrint('[VoiceChat] WebSocket closed');
           _isConnected = false;
           _keepaliveTimer?.cancel();
+          _stopAllAudio();
 
-          // Auto-reconnect
           if (_isListening && _reconnectAttempts < _maxReconnectAttempts) {
             _reconnectAttempts++;
             debugPrint('[VoiceChat] Auto-reconnecting (attempt $_reconnectAttempts)...');
             setState(() {
               _error = 'Reconnecting...';
               _voiceState = VoiceState.processing;
+              _statusText = 'Reconnecting…';
             });
             _micSubscription?.cancel();
             _recorder.stop();
-            _interruptAI();
             Future.delayed(const Duration(seconds: 1), () {
-              if (mounted) _connectToGemini();
+              if (mounted) _startSession();
             });
           } else if (_isListening) {
             setState(() {
               _error = 'Connection closed. Tap to reconnect.';
               _voiceState = VoiceState.idle;
+              _statusText = 'Tap to retry';
             });
             _cleanup();
           }
         },
       );
 
-      // Send setup message (matching web implementation)
-      _wsChannel!.sink.add(jsonEncode({
+      // Step 4: Send setup message (EXACTLY matching web)
+      final setupMsg = {
         'setup': {
-          'model': 'models/gemini-2.5-flash-preview-native-audio-dialog',
+          'model': 'models/gemini-2.5-flash-native-audio-preview-12-2025',
           'generation_config': {
             'response_modalities': ['AUDIO'],
             'speech_config': {
               'voice_config': {
-                'prebuilt_voice_config': {
-                  'voice_name': 'Aoede',
-                }
-              }
-            }
+                'prebuilt_voice_config': {'voice_name': 'Aoede'},
+              },
+            },
           },
+          'input_audio_transcription': {},
+          'output_audio_transcription': {},
           'system_instruction': {
             'parts': [
               {
                 'text':
-                    'You are a helpful, friendly AI assistant. Keep responses concise and conversational. Respond naturally as in a spoken conversation.'
+                    'You are a helpful AI voice assistant. Keep your responses concise, natural, and conversational. Respond in the same language the user speaks.'
               }
-            ]
-          }
-        }
-      }));
+            ],
+          },
+        },
+      };
+      debugPrint('[VoiceChat] Sending setup with model: ${setupMsg['setup']!['model']}');
+      _wsChannel!.sink.add(jsonEncode(setupMsg));
 
-      // Start keepalive: send silent audio every 15s
+      // Step 5: Start keepalive (15s silent audio, same as web)
       _keepaliveTimer?.cancel();
       _keepaliveTimer = Timer.periodic(const Duration(seconds: 15), (_) {
         if (_wsChannel != null && _isConnected) {
-          // 10ms of silence at 16kHz = 160 samples * 2 bytes = 320 bytes
-          final silence = Uint8List(320);
+          final silence = Uint8List(320); // 10ms of silence at 16kHz
           final b64 = base64Encode(silence);
           _wsChannel!.sink.add(jsonEncode({
             'realtime_input': {
@@ -279,17 +271,18 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
       _reconnectAttempts = 0;
     } catch (e) {
-      debugPrint('[VoiceChat] Connection error: $e');
+      debugPrint('[VoiceChat] Start session error: $e');
       if (mounted) {
         setState(() {
           _error = e.toString().replaceAll('Exception: ', '');
           _voiceState = VoiceState.idle;
+          _statusText = 'Tap to retry';
         });
       }
     }
   }
 
-  // ─── WebSocket Message Handling ───
+  // ─── WebSocket Message Handling (matches web ws.onmessage) ───
 
   void _handleWsMessage(dynamic rawMessage) {
     try {
@@ -299,111 +292,141 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       } else if (rawMessage is List<int>) {
         data = utf8.decode(rawMessage);
       } else {
-        debugPrint('[VoiceChat] Unknown message type: ${rawMessage.runtimeType}');
         return;
       }
 
-      // Log raw message (truncated for readability)
-      final truncated = data.length > 200 ? '${data.substring(0, 200)}...' : data;
-      debugPrint('[VoiceChat] WS message: $truncated');
-
       final msg = jsonDecode(data) as Map<String, dynamic>;
-      debugPrint('[VoiceChat] Message keys: ${msg.keys.toList()}');
+      final keys = msg.keys.toList();
+      debugPrint('[VoiceChat] WS msg keys: $keys');
 
-      // Handle server content with audio
-      if (msg.containsKey('serverContent')) {
-        final serverContent = msg['serverContent'] as Map<String, dynamic>;
-        debugPrint('[VoiceChat] serverContent keys: ${serverContent.keys.toList()}');
-        
-        final modelTurn = serverContent['modelTurn'] as Map<String, dynamic>?;
-
-        if (modelTurn != null) {
-          final parts = modelTurn['parts'] as List<dynamic>?;
-          debugPrint('[VoiceChat] modelTurn has ${parts?.length ?? 0} parts');
-          
-          if (parts != null) {
-            for (final part in parts) {
-              final partMap = part as Map<String, dynamic>;
-              debugPrint('[VoiceChat] Part keys: ${partMap.keys.toList()}');
-              
-              final inlineData = partMap['inlineData'] as Map<String, dynamic>?;
-              if (inlineData != null) {
-                final mimeType = inlineData['mimeType']?.toString() ?? '';
-                final dataStr = inlineData['data']?.toString() ?? '';
-                debugPrint('[VoiceChat] inlineData mimeType=$mimeType, dataLen=${dataStr.length}');
-                
-                if (mimeType.startsWith('audio/pcm')) {
-                  final audioBytes = base64Decode(dataStr);
-                  debugPrint('[VoiceChat] Audio chunk: ${audioBytes.length} bytes');
-                  _turnAudioChunks.add(Uint8List.fromList(audioBytes));
-                  if (_voiceState != VoiceState.speaking) {
-                    setState(() => _voiceState = VoiceState.speaking);
-                  }
-                } else {
-                  debugPrint('[VoiceChat] Non-PCM inlineData: $mimeType');
-                }
-              }
-              
-              // Log text parts for debugging (but don't display them)
-              if (partMap.containsKey('text')) {
-                final text = partMap['text']?.toString() ?? '';
-                debugPrint('[VoiceChat] Text part (ignored): ${text.substring(0, text.length > 100 ? 100 : text.length)}');
-              }
-            }
-          }
-        } else {
-          debugPrint('[VoiceChat] No modelTurn in serverContent');
-        }
-
-        // Turn complete
-        final turnComplete = serverContent['turnComplete'];
-        debugPrint('[VoiceChat] turnComplete=$turnComplete, buffered chunks=${_turnAudioChunks.length}');
-        
-        if (turnComplete == true) {
-          debugPrint('[VoiceChat] === TURN COMPLETE === chunks: ${_turnAudioChunks.length}');
-          if (_turnAudioChunks.isNotEmpty) {
-            _playTurnAudio();
-          } else if (!_isPlaying) {
-            debugPrint('[VoiceChat] No audio chunks to play, back to listening');
-            if (_isConnected && _isListening) {
-              setState(() => _voiceState = VoiceState.listening);
-            }
-          }
-        }
-      }
-
-      // Setup complete
+      // setupComplete - start mic pipeline
       if (msg.containsKey('setupComplete')) {
-        debugPrint('[VoiceChat] ✓ Setup complete, starting mic capture');
+        debugPrint('[VoiceChat] ✓ setupComplete! Starting mic pipeline.');
         _isConnected = true;
         _isListening = true;
-        setState(() => _voiceState = VoiceState.listening);
+        setState(() {
+          _voiceState = VoiceState.listening;
+          _statusText = 'Listening…';
+        });
         _startMicCapture();
+        return;
       }
-      
-      // Log any other message types
-      if (!msg.containsKey('serverContent') && !msg.containsKey('setupComplete')) {
-        debugPrint('[VoiceChat] Unknown message type: ${msg.keys.toList()}');
+
+      if (!msg.containsKey('serverContent')) return;
+
+      final serverContent = msg['serverContent'] as Map<String, dynamic>;
+
+      // Handle interrupted (matches web: msg?.serverContent?.interrupted)
+      if (serverContent['interrupted'] == true) {
+        debugPrint('[VoiceChat] AI interrupted');
+        _stopAllAudio();
+        // Commit any live AI text
+        if (_liveAIText.isNotEmpty) {
+          _transcriptEntries.add({'role': 'assistant', 'text': _liveAIText});
+          _liveAIText = '';
+        }
+        if (mounted) setState(() {});
+        return;
+      }
+
+      // Handle model turn parts (audio + transcription)
+      final modelTurn = serverContent['modelTurn'] as Map<String, dynamic>?;
+      if (modelTurn != null) {
+        final parts = modelTurn['parts'] as List<dynamic>?;
+        if (parts != null) {
+          bool gotAudio = false;
+          for (final part in parts) {
+            final partMap = part as Map<String, dynamic>;
+
+            // Audio data
+            final inlineData = partMap['inlineData'] as Map<String, dynamic>?;
+            if (inlineData != null) {
+              final mimeType = inlineData['mimeType']?.toString() ?? '';
+              if (mimeType.startsWith('audio/') && inlineData['data'] != null) {
+                final audioBytes = base64Decode(inlineData['data'] as String);
+                _turnAudioChunks.add(Uint8List.fromList(audioBytes));
+                gotAudio = true;
+              }
+            }
+            // Ignore text parts in audio mode (they contain internal thinking)
+          }
+          if (gotAudio && _voiceState != VoiceState.speaking) {
+            setState(() {
+              _voiceState = VoiceState.speaking;
+              _statusText = 'Speaking…';
+            });
+          }
+        }
+      }
+
+      // Handle output transcription (AI speech → text)
+      final outputT = serverContent['outputTranscription'] as Map<String, dynamic>?;
+      if (outputT != null && outputT['text'] != null) {
+        _liveAIText += outputT['text'] as String;
+        if (mounted) setState(() {});
+      }
+
+      // Handle input transcription (user speech → text)
+      final inputT = serverContent['inputTranscription'] as Map<String, dynamic>?;
+      if (inputT != null && inputT['text'] != null) {
+        _liveUserText += inputT['text'] as String;
+        if (mounted) setState(() {});
+      }
+      // Commit user text when finished
+      if (inputT != null && inputT['finished'] == true && _liveUserText.isNotEmpty) {
+        _transcriptEntries.add({'role': 'user', 'text': _liveUserText});
+        _liveUserText = '';
+        if (mounted) setState(() {});
+      }
+
+      // Turn complete (matches web: msg?.serverContent?.turnComplete)
+      if (serverContent['turnComplete'] == true) {
+        debugPrint('[VoiceChat] Turn complete, chunks: ${_turnAudioChunks.length}');
+
+        // Commit live user text
+        if (_liveUserText.isNotEmpty) {
+          _transcriptEntries.add({'role': 'user', 'text': _liveUserText});
+          _liveUserText = '';
+        }
+        // Commit live AI text
+        if (_liveAIText.isNotEmpty) {
+          _transcriptEntries.add({'role': 'assistant', 'text': _liveAIText});
+          _liveAIText = '';
+        }
+
+        // Play accumulated audio
+        if (_turnAudioChunks.isNotEmpty) {
+          _playTurnAudio();
+        } else if (!_isPlaying) {
+          if (_isConnected && _isListening) {
+            setState(() {
+              _voiceState = VoiceState.listening;
+              _statusText = 'Listening…';
+            });
+          }
+        }
+        if (mounted) setState(() {});
       }
     } catch (e, stack) {
-      debugPrint('[VoiceChat] Failed to parse WS message: $e');
-      debugPrint('[VoiceChat] Stack: $stack');
+      debugPrint('[VoiceChat] WS message error: $e\n$stack');
     }
   }
 
-  // ─── Microphone Capture ───
+  // ─── Microphone Capture (matches web startMicPipeline) ───
 
   Future<void> _startMicCapture() async {
     try {
       final hasPermission = await _recorder.hasPermission();
       if (!hasPermission) {
-        setState(() => _error = 'Microphone access denied');
+        setState(() {
+          _error = 'Microphone access denied';
+          _voiceState = VoiceState.idle;
+          _statusText = 'Tap to start';
+        });
         _cleanup();
-        setState(() => _voiceState = VoiceState.idle);
         return;
       }
 
-      // Start streaming PCM16 at 16kHz mono
       final stream = await _recorder.startStream(
         const RecordConfig(
           encoder: AudioEncoder.pcm16bits,
@@ -415,19 +438,20 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
         ),
       );
 
+      int chunkCount = 0;
       _micSubscription = stream.listen((data) {
         if (!_isListening || _isMuted || _wsChannel == null || !_isConnected) return;
 
-        // If AI is speaking and user starts talking, interrupt
-        if (_voiceState == VoiceState.speaking) {
-          // Check if there's actual audio (not silence)
-          if (_hasSignificantAudio(Uint8List.fromList(data))) {
-            _interruptAI();
-            setState(() => _voiceState = VoiceState.listening);
-          }
+        // If AI is speaking and user talks, interrupt (matches web tap-to-interrupt)
+        if (_voiceState == VoiceState.speaking && _hasSignificantAudio(Uint8List.fromList(data))) {
+          _stopAllAudio();
+          setState(() {
+            _voiceState = VoiceState.listening;
+            _statusText = 'Listening…';
+          });
         }
 
-        // Send PCM audio to Gemini via WebSocket
+        // Send PCM audio to Gemini (matches web processor.onaudioprocess)
         final b64 = base64Encode(data);
         try {
           _wsChannel?.sink.add(jsonEncode({
@@ -437,6 +461,10 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
               ]
             }
           }));
+          chunkCount++;
+          if (chunkCount % 50 == 1) {
+            debugPrint('[VoiceChat] Mic: sent $chunkCount chunks');
+          }
         } catch (e) {
           debugPrint('[VoiceChat] Failed to send audio: $e');
         }
@@ -448,39 +476,34 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       setState(() {
         _error = 'Microphone access failed';
         _voiceState = VoiceState.idle;
+        _statusText = 'Tap to start';
       });
       _cleanup();
     }
   }
 
-  /// Check if audio data contains significant signal (not silence)
   bool _hasSignificantAudio(Uint8List data) {
     if (data.length < 4) return false;
-    // Read PCM16 samples and check RMS
     double sum = 0;
     int count = 0;
     for (int i = 0; i < data.length - 1; i += 2) {
       int sample = data[i] | (data[i + 1] << 8);
-      if (sample > 32767) sample -= 65536; // Convert to signed
+      if (sample > 32767) sample -= 65536;
       sum += (sample * sample).toDouble();
       count++;
     }
     if (count == 0) return false;
-    final rms = sqrt(sum / count);
-    return rms > 500; // Threshold for "significant" audio
+    return sqrt(sum / count) > 500;
   }
 
   // ─── Audio Playback ───
 
-  /// Combine all turn audio chunks into one WAV and play it
   Future<void> _playTurnAudio() async {
     if (_turnAudioChunks.isEmpty) return;
 
-    // Combine all PCM chunks into one buffer
+    // Combine all PCM chunks
     int totalLen = 0;
-    for (final c in _turnAudioChunks) {
-      totalLen += c.length;
-    }
+    for (final c in _turnAudioChunks) totalLen += c.length;
     final combined = Uint8List(totalLen);
     int offset = 0;
     for (final c in _turnAudioChunks) {
@@ -489,15 +512,20 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     }
     _turnAudioChunks.clear();
 
-    debugPrint('[VoiceChat] Playing ${totalLen} bytes of audio as single WAV');
+    debugPrint('[VoiceChat] Playing $totalLen bytes of audio');
 
     _isPlaying = true;
-    if (mounted) setState(() => _voiceState = VoiceState.speaking);
+    if (mounted) {
+      setState(() {
+        _voiceState = VoiceState.speaking;
+        _statusText = 'Speaking…';
+      });
+    }
 
     try {
       final wavData = _pcmToWav(combined, sampleRate: 24000);
       final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/voice_turn_${DateTime.now().millisecondsSinceEpoch}.wav');
+      final tempFile = File('${tempDir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.wav');
       await tempFile.writeAsBytes(wavData);
 
       _audioPlayer?.dispose();
@@ -516,13 +544,14 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     }
 
     _isPlaying = false;
-    // Return to listening after playback
     if (_isConnected && _isListening && mounted) {
-      setState(() => _voiceState = VoiceState.listening);
+      setState(() {
+        _voiceState = VoiceState.listening;
+        _statusText = 'Listening…';
+      });
     }
   }
 
-  /// Convert raw PCM16 LE data to WAV format
   Uint8List _pcmToWav(Uint8List pcmData, {int sampleRate = 24000, int channels = 1, int bitsPerSample = 16}) {
     final dataSize = pcmData.length;
     final fileSize = 36 + dataSize;
@@ -530,33 +559,18 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     final blockAlign = channels * (bitsPerSample ~/ 8);
 
     final header = ByteData(44);
-    // RIFF header
-    header.setUint8(0, 0x52); // R
-    header.setUint8(1, 0x49); // I
-    header.setUint8(2, 0x46); // F
-    header.setUint8(3, 0x46); // F
+    header.setUint8(0, 0x52); header.setUint8(1, 0x49); header.setUint8(2, 0x46); header.setUint8(3, 0x46);
     header.setUint32(4, fileSize, Endian.little);
-    header.setUint8(8, 0x57); // W
-    header.setUint8(9, 0x41); // A
-    header.setUint8(10, 0x56); // V
-    header.setUint8(11, 0x45); // E
-    // fmt chunk
-    header.setUint8(12, 0x66); // f
-    header.setUint8(13, 0x6D); // m
-    header.setUint8(14, 0x74); // t
-    header.setUint8(15, 0x20); // (space)
-    header.setUint32(16, 16, Endian.little); // chunk size
-    header.setUint16(20, 1, Endian.little); // PCM format
+    header.setUint8(8, 0x57); header.setUint8(9, 0x41); header.setUint8(10, 0x56); header.setUint8(11, 0x45);
+    header.setUint8(12, 0x66); header.setUint8(13, 0x6D); header.setUint8(14, 0x74); header.setUint8(15, 0x20);
+    header.setUint32(16, 16, Endian.little);
+    header.setUint16(20, 1, Endian.little);
     header.setUint16(22, channels, Endian.little);
     header.setUint32(24, sampleRate, Endian.little);
     header.setUint32(28, byteRate, Endian.little);
     header.setUint16(32, blockAlign, Endian.little);
     header.setUint16(34, bitsPerSample, Endian.little);
-    // data chunk
-    header.setUint8(36, 0x64); // d
-    header.setUint8(37, 0x61); // a
-    header.setUint8(38, 0x74); // t
-    header.setUint8(39, 0x61); // a
+    header.setUint8(36, 0x64); header.setUint8(37, 0x61); header.setUint8(38, 0x74); header.setUint8(39, 0x61);
     header.setUint32(40, dataSize, Endian.little);
 
     final wav = Uint8List(44 + dataSize);
@@ -565,29 +579,41 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     return wav;
   }
 
-  // ─── Credits ───
+  // ─── User Actions ───
 
-  Future<bool> _checkCredits(String token, String userId) async {
-    try {
-      final url = Uri.parse(
-        '${AppConfig.supabaseUrl}/rest/v1/profiles?select=credits,subscription_status&user_id=eq.$userId',
-      );
-      final res = await http.get(url, headers: {
-        'apikey': AppConfig.supabaseAnonKey,
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      });
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body) as List;
-        if (data.isEmpty) return false;
-        if (data[0]['subscription_status'] == 'active') return true;
-        if ((data[0]['credits'] as int? ?? 0) < 1) return false;
-        return true;
-      }
-    } catch (e) {
-      debugPrint('Credit check failed: $e');
+  void _handleOrbTap() {
+    if (_isInitializing) return;
+    if (_voiceState == VoiceState.listening || _voiceState == VoiceState.speaking) {
+      _stopListening();
+    } else if (_voiceState == VoiceState.idle) {
+      setState(() => _error = null);
+      _startSession();
     }
-    return false;
+  }
+
+  void _stopListening() {
+    _cleanup();
+    setState(() {
+      _voiceState = VoiceState.idle;
+      _statusText = 'Tap to start';
+    });
+  }
+
+  void _toggleMute() {
+    setState(() {
+      _isMuted = !_isMuted;
+      if (_isMuted) {
+        _statusText = 'Muted';
+        _stopAllAudio();
+      } else if (_voiceState == VoiceState.listening) {
+        _statusText = 'Listening…';
+      }
+    });
+  }
+
+  void _handleClose() {
+    _cleanup();
+    Navigator.of(context).pop();
   }
 
   // ─── Sessions ───
@@ -598,10 +624,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       final token = _supabase.auth.currentSession?.accessToken;
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null || token == null) {
-        setState(() {
-          _sessions = [];
-          _loadingSessions = false;
-        });
+        setState(() { _sessions = []; _loadingSessions = false; });
         return;
       }
 
@@ -633,8 +656,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
   String _formatSessionDate(String dateStr) {
     final date = DateTime.tryParse(dateStr);
     if (date == null) return '';
-    final now = DateTime.now();
-    final diff = now.difference(date);
+    final diff = DateTime.now().difference(date);
     if (diff.inMinutes < 1) return 'Just now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';
@@ -642,56 +664,12 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     return '${date.month}/${date.day}';
   }
 
-  // ─── User Actions ───
-
-  void _startListening() {
-    if (_voiceState == VoiceState.speaking) {
-      _interruptAI();
-      setState(() => _voiceState = VoiceState.listening);
-      return;
-    }
-    setState(() {
-      _transcript = '';
-      _error = null;
-    });
-    _connectToGemini();
-  }
-
-  void _stopListening() {
-    _cleanup();
-    setState(() => _voiceState = VoiceState.idle);
-  }
-
-  void _toggleMute() {
-    setState(() => _isMuted = !_isMuted);
-    if (_isMuted) {
-      _interruptAI();
-    }
-  }
-
-  void _handleClose() {
-    _cleanup();
-    Navigator.of(context).pop();
-  }
-
-  String _getStatusLabel() {
-    if (_isInitializing) return 'Initializing...';
-    switch (_voiceState) {
-      case VoiceState.listening:
-        return 'Listening...';
-      case VoiceState.processing:
-        return 'Connecting...';
-      case VoiceState.speaking:
-        return '';
-      case VoiceState.idle:
-        return _error != null ? 'Tap to retry' : 'Tap to start';
-    }
-  }
-
   // ─── Build ───
 
   @override
   Widget build(BuildContext context) {
+    final hasTranscript = _transcriptEntries.isNotEmpty || _liveUserText.isNotEmpty || _liveAIText.isNotEmpty;
+
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.transparent,
@@ -704,11 +682,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
             gradient: RadialGradient(
               center: Alignment(0, 0.2),
               radius: 1.2,
-              colors: [
-                Color(0xFF2D1F0D),
-                Color(0xFF0D0D0D),
-                Color(0xFF080808),
-              ],
+              colors: [Color(0xFF2D1F0D), Color(0xFF0D0D0D), Color(0xFF080808)],
               stops: [0, 0.6, 1],
             ),
           ),
@@ -736,10 +710,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                         ),
                         child: Text(
                           'Gemini Live',
-                          style: TextStyle(
-                            color: AppTheme.muted.withOpacity(0.6),
-                            fontSize: 12,
-                          ),
+                          style: TextStyle(color: AppTheme.muted.withOpacity(0.6), fontSize: 12),
                         ),
                       ),
                       IconButton(
@@ -750,25 +721,73 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                   ),
                 ),
 
-                // Transcript display
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 80, maxHeight: 200),
-                    child: SingleChildScrollView(
-                      child: _transcript.isNotEmpty
-                          ? Text(
-                              _transcript,
-                              style: TextStyle(
-                                color: AppTheme.foreground.withOpacity(0.8),
-                                fontSize: 18,
-                                height: 1.5,
+                // Transcript area
+                if (hasTranscript)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      child: SingleChildScrollView(
+                        reverse: true,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ..._transcriptEntries.map((e) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    e['role'] == 'user' ? 'You' : 'AI',
+                                    style: TextStyle(
+                                      color: e['role'] == 'user'
+                                          ? AppTheme.primary.withOpacity(0.7)
+                                          : AppTheme.muted.withOpacity(0.7),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    e['text'] ?? '',
+                                    style: TextStyle(
+                                      color: AppTheme.foreground.withOpacity(0.8),
+                                      fontSize: 14,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            )
-                          : const SizedBox.shrink(),
+                            )),
+                            if (_liveUserText.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('You', style: TextStyle(color: AppTheme.primary.withOpacity(0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+                                    const SizedBox(height: 2),
+                                    Text(_liveUserText, style: TextStyle(color: AppTheme.foreground.withOpacity(0.6), fontSize: 14, height: 1.4)),
+                                  ],
+                                ),
+                              ),
+                            if (_liveAIText.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('AI', style: TextStyle(color: AppTheme.muted.withOpacity(0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+                                    const SizedBox(height: 2),
+                                    Text(_liveAIText, style: TextStyle(color: AppTheme.foreground.withOpacity(0.6), fontSize: 14, height: 1.4)),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
 
                 if (_error != null)
                   Padding(
@@ -784,28 +803,23 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                 Expanded(
                   child: Center(
                     child: GestureDetector(
-                      onTap: () {
-                        if (_isInitializing) return;
-                        if (_voiceState == VoiceState.listening || _voiceState == VoiceState.speaking) {
-                          _stopListening();
-                        } else if (_voiceState == VoiceState.idle) {
-                          setState(() => _error = null);
-                          _startListening();
-                        }
-                      },
+                      onTap: _handleOrbTap,
                       child: _isInitializing
-                          ? SizedBox(
-                              width: 180,
-                              height: 180,
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  color: const Color(0xFFD4A030),
-                                  strokeWidth: 2,
-                                ),
-                              ),
+                          ? const SizedBox(
+                              width: 180, height: 180,
+                              child: Center(child: CircularProgressIndicator(color: Color(0xFFD4A030), strokeWidth: 2)),
                             )
                           : VoiceChatVisualizer(state: _voiceState, size: 180),
                     ),
+                  ),
+                ),
+
+                // Status text
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    _statusText,
+                    style: TextStyle(color: AppTheme.muted, fontSize: 16),
                   ),
                 ),
 
@@ -818,42 +832,21 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                       GestureDetector(
                         onTap: _handleClose,
                         child: Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withOpacity(0.1),
-                          ),
+                          width: 56, height: 56,
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.1)),
                           child: const Icon(Icons.close, color: Colors.white, size: 24),
                         ),
                       ),
-                      Expanded(
-                        child: Center(
-                          child: Text(
-                            _getStatusLabel(),
-                            style: TextStyle(
-                              color: AppTheme.muted,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                      ),
+                      const Spacer(),
                       GestureDetector(
                         onTap: _toggleMute,
                         child: Container(
-                          width: 56,
-                          height: 56,
+                          width: 56, height: 56,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: _isMuted
-                                ? Colors.red.withOpacity(0.9)
-                                : Colors.white.withOpacity(0.1),
+                            color: _isMuted ? Colors.red.withOpacity(0.9) : Colors.white.withOpacity(0.1),
                           ),
-                          child: Icon(
-                            _isMuted ? Icons.mic_off : Icons.mic,
-                            color: Colors.white,
-                            size: 22,
-                          ),
+                          child: Icon(_isMuted ? Icons.mic_off : Icons.mic, color: Colors.white, size: 22),
                         ),
                       ),
                     ],
@@ -871,10 +864,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     return Drawer(
       backgroundColor: const Color(0xFF111111),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topRight: Radius.circular(16),
-          bottomRight: Radius.circular(16),
-        ),
+        borderRadius: BorderRadius.only(topRight: Radius.circular(16), bottomRight: Radius.circular(16)),
       ),
       child: SafeArea(
         child: Column(
@@ -885,34 +875,15 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Voice History',
-                    style: TextStyle(
-                      color: AppTheme.foreground.withOpacity(0.9),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close, color: AppTheme.muted, size: 20),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
+                  Text('Voice History', style: TextStyle(color: AppTheme.foreground.withOpacity(0.9), fontSize: 16, fontWeight: FontWeight.w600)),
+                  IconButton(icon: Icon(Icons.close, color: AppTheme.muted, size: 20), onPressed: () => Navigator.of(context).pop()),
                 ],
               ),
             ),
             Divider(color: Colors.white.withOpacity(0.06), height: 1),
             Expanded(
               child: _loadingSessions
-                  ? const Center(
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white38,
-                        ),
-                      ),
-                    )
+                  ? const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white38)))
                   : _sessions.isEmpty
                       ? Center(
                           child: Column(
@@ -920,13 +891,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                             children: [
                               Icon(Icons.access_time, color: AppTheme.muted.withOpacity(0.3), size: 32),
                               const SizedBox(height: 12),
-                              Text(
-                                'No voice sessions yet',
-                                style: TextStyle(
-                                  color: AppTheme.muted.withOpacity(0.5),
-                                  fontSize: 14,
-                                ),
-                              ),
+                              Text('No voice sessions yet', style: TextStyle(color: AppTheme.muted.withOpacity(0.5), fontSize: 14)),
                             ],
                           ),
                         )
@@ -935,12 +900,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                           itemCount: _sessions.length,
                           itemBuilder: (context, index) {
                             final session = _sessions[index];
-                            final title = session['title'] ?? 'Untitled Session';
-                            final createdAt = session['created_at'] ?? '';
                             return InkWell(
-                              onTap: () {
-                                Navigator.of(context).pop();
-                              },
+                              onTap: () => Navigator.of(context).pop(),
                               borderRadius: BorderRadius.circular(10),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -948,22 +909,14 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: AppTheme.foreground.withOpacity(0.8),
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                      session['title'] ?? 'Untitled',
+                                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(color: AppTheme.foreground.withOpacity(0.8), fontSize: 14, fontWeight: FontWeight.w500),
                                     ),
                                     const SizedBox(height: 3),
                                     Text(
-                                      _formatSessionDate(createdAt),
-                                      style: TextStyle(
-                                        color: AppTheme.muted.withOpacity(0.5),
-                                        fontSize: 12,
-                                      ),
+                                      _formatSessionDate(session['created_at'] ?? ''),
+                                      style: TextStyle(color: AppTheme.muted.withOpacity(0.5), fontSize: 12),
                                     ),
                                   ],
                                 ),
