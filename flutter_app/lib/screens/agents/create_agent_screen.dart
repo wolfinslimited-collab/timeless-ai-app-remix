@@ -4,24 +4,24 @@ import '../../models/agent_model.dart';
 import '../../services/agent_service.dart';
 
 const _rolePresets = [
-  {'label': 'Marketing', 'value': 'marketing', 'prompt': 'You are an expert marketing strategist. Help users design campaigns, write copy, and grow their brand.'},
-  {'label': 'Developer', 'value': 'developer', 'prompt': 'You are a senior software developer. Help users write code, debug issues, and architect solutions.'},
-  {'label': 'Writer', 'value': 'writer', 'prompt': 'You are a creative writer and editor. Help users write compelling content, stories, and copy.'},
-  {'label': 'Analyst', 'value': 'analyst', 'prompt': 'You are a data analyst. Help users interpret data, build reports, and find insights.'},
-  {'label': 'Designer', 'value': 'designer', 'prompt': 'You are a UX/UI designer. Help users create beautiful, usable interfaces and design systems.'},
-  {'label': 'Trader', 'value': 'trader', 'prompt': 'You are an expert trader and market analyst. Help users analyze charts, identify trading opportunities, and manage risk.'},
-  {'label': 'Financial', 'value': 'financial', 'prompt': 'You are a financial advisor and planner. Help users with budgeting, financial planning, and wealth management.'},
-  {'label': 'Investor', 'value': 'investor', 'prompt': 'You are a seasoned investor. Help users evaluate investment opportunities and build portfolios.'},
-  {'label': 'Researcher', 'value': 'researcher', 'prompt': 'You are an AI researcher. Help users find information, summarize papers, and conduct deep research.'},
-  {'label': 'Coach', 'value': 'coach', 'prompt': 'You are a personal development coach. Help users set goals, build habits, and unlock their potential.'},
-  {'label': 'Support', 'value': 'support', 'prompt': 'You are a customer support specialist. Help users resolve issues and provide excellent service.'},
-  {'label': 'Custom', 'value': 'custom', 'prompt': ''},
+  {'label': 'Marketing', 'value': 'marketing', 'icon': Icons.campaign, 'prompt': 'You are an expert marketing strategist. Help users design campaigns, write copy, and grow their brand.'},
+  {'label': 'Developer', 'value': 'developer', 'icon': Icons.code, 'prompt': 'You are a senior software developer. Help users write code, debug issues, and architect solutions.'},
+  {'label': 'Writer', 'value': 'writer', 'icon': Icons.edit_note, 'prompt': 'You are a creative writer and editor. Help users write compelling content, stories, and copy.'},
+  {'label': 'Analyst', 'value': 'analyst', 'icon': Icons.analytics, 'prompt': 'You are a data analyst. Help users interpret data, build reports, and find insights.'},
+  {'label': 'Designer', 'value': 'designer', 'icon': Icons.palette, 'prompt': 'You are a UX/UI designer. Help users create beautiful, usable interfaces and design systems.'},
+  {'label': 'Trader', 'value': 'trader', 'icon': Icons.candlestick_chart, 'prompt': 'You are an expert trader and market analyst. Help users analyze charts, identify trading opportunities, and manage risk.'},
+  {'label': 'Financial', 'value': 'financial', 'icon': Icons.account_balance, 'prompt': 'You are a financial advisor and planner. Help users with budgeting, financial planning, and wealth management.'},
+  {'label': 'Investor', 'value': 'investor', 'icon': Icons.trending_up, 'prompt': 'You are a seasoned investor. Help users evaluate investment opportunities and build portfolios.'},
+  {'label': 'Researcher', 'value': 'researcher', 'icon': Icons.science, 'prompt': 'You are an AI researcher. Help users find information, summarize papers, and conduct deep research.'},
+  {'label': 'Coach', 'value': 'coach', 'icon': Icons.emoji_events, 'prompt': 'You are a personal development coach. Help users set goals, build habits, and unlock their potential.'},
+  {'label': 'Support', 'value': 'support', 'icon': Icons.support_agent, 'prompt': 'You are a customer support specialist. Help users resolve issues and provide excellent service.'},
+  {'label': 'Custom', 'value': 'custom', 'icon': Icons.tune, 'prompt': ''},
 ];
 
 const _gpuTemplates = [
-  {'id': 'easy', 'label': 'Economy', 'description': 'RTX A4000 · Mistral 7B', 'price': '\$0.05/hr'},
-  {'id': 'medium', 'label': 'Medium', 'description': 'RTX 3090 · Llama 3.1 8B', 'price': '\$0.15/hr'},
-  {'id': 'powerful', 'label': 'Pro', 'description': 'RTX A5000 · Llama 3.1 70B', 'price': '\$0.35/hr'},
+  {'id': 'easy', 'label': 'Economy', 'description': 'RTX A4000 · Mistral 7B', 'price': '\$0.05/hr', 'icon': Icons.bolt},
+  {'id': 'medium', 'label': 'Standard', 'description': 'RTX 3090 · Llama 3.1 8B', 'price': '\$0.15/hr', 'icon': Icons.memory},
+  {'id': 'powerful', 'label': 'Pro', 'description': 'RTX A5000 · Llama 3.1 70B', 'price': '\$0.35/hr', 'icon': Icons.rocket_launch},
 ];
 
 const _aiModels = [
@@ -72,7 +72,7 @@ class _CreateAgentScreenState extends State<CreateAgentScreen> {
     setState(() => _selectedRole = value);
     final preset = _rolePresets.firstWhere((r) => r['value'] == value, orElse: () => {});
     if (value != 'custom' && preset.isNotEmpty) {
-      _promptController.text = preset['prompt']!;
+      _promptController.text = preset['prompt'] as String;
     }
   }
 
@@ -93,7 +93,6 @@ class _CreateAgentScreenState extends State<CreateAgentScreen> {
 
       if (agent == null) throw Exception('Failed to create agent');
 
-      // Try RunPod provisioning (non-blocking)
       try {
         setState(() => _provisioningStatus = 'Provisioning GPU endpoint...');
         await _agentService.createRunpodEndpoint(agent.id, _selectedTemplate);
@@ -123,6 +122,12 @@ class _CreateAgentScreenState extends State<CreateAgentScreen> {
   @override
   Widget build(BuildContext context) {
     final stepTitles = ['Identity', 'Role', 'GPU Tier', 'AI Model'];
+    final stepSubtitles = [
+      'Give your agent a name and personality',
+      'Choose a specialization for your agent',
+      'Select compute power for your agent',
+      'Pick the AI model to power your agent',
+    ];
 
     return Scaffold(
       appBar: AppBar(
@@ -130,50 +135,53 @@ class _CreateAgentScreenState extends State<CreateAgentScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: _step == 0 ? () => Navigator.pop(context) : () => setState(() => _step--),
         ),
-        title: Row(
-          children: [
-            const Icon(Icons.terminal, size: 16, color: AppTheme.muted),
-            const SizedBox(width: 8),
-            Text('agent-wizard', style: const TextStyle(fontSize: 13, fontFamily: 'monospace', color: AppTheme.mutedForeground)),
-            const SizedBox(width: 8),
-            Text('step ${_step + 1}/$_totalSteps',
-                style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: AppTheme.muted)),
-          ],
-        ),
+        title: const Text('Create Agent', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
         actions: [
-          // Progress dots
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: Row(
-              children: List.generate(_totalSteps, (i) {
-                return Container(
-                  height: 6,
-                  width: i <= _step ? 20 : 6,
-                  margin: const EdgeInsets.only(left: 4),
-                  decoration: BoxDecoration(
-                    color: i < _step
-                        ? AppTheme.foreground
-                        : i == _step
-                            ? AppTheme.foreground.withOpacity(0.5)
-                            : AppTheme.muted.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                );
-              }),
+            child: Center(
+              child: Text(
+                '${_step + 1} of $_totalSteps',
+                style: const TextStyle(fontSize: 13, color: AppTheme.muted),
+              ),
             ),
           ),
         ],
       ),
       body: Column(
         children: [
+          // Progress bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: (_step + 1) / _totalSteps,
+                backgroundColor: AppTheme.secondary,
+                valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                minHeight: 3,
+              ),
+            ),
+          ),
+
           // Step header
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 stepTitles[_step],
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.foreground),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.foreground),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                stepSubtitles[_step],
+                style: const TextStyle(fontSize: 14, color: AppTheme.muted),
               ),
             ),
           ),
@@ -193,50 +201,61 @@ class _CreateAgentScreenState extends State<CreateAgentScreen> {
               MediaQuery.of(context).padding.bottom + 12,
             ),
             decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: AppTheme.border.withOpacity(0.2))),
+              color: AppTheme.background,
+              border: Border(top: BorderSide(color: AppTheme.border.withOpacity(0.3))),
             ),
             child: _isSubmitting
                 ? Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.foreground),
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
                       ),
                       const SizedBox(width: 12),
                       Text(_provisioningStatus,
-                          style: const TextStyle(fontSize: 12, fontFamily: 'monospace', color: AppTheme.foreground)),
+                          style: const TextStyle(fontSize: 13, color: AppTheme.muted)),
                     ],
                   )
                 : Row(
                     children: [
                       if (_step > 0)
-                        TextButton(
+                        TextButton.icon(
                           onPressed: () => setState(() => _step--),
-                          child: const Text('← back',
-                              style: TextStyle(fontSize: 12, fontFamily: 'monospace', color: AppTheme.muted)),
+                          icon: const Icon(Icons.arrow_back, size: 16),
+                          label: const Text('Back'),
+                          style: TextButton.styleFrom(foregroundColor: AppTheme.mutedForeground),
                         ),
                       const Spacer(),
                       if (_step < _totalSteps - 1)
                         ElevatedButton(
                           onPressed: _canProceed ? () => setState(() => _step++) : null,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.foreground,
-                            foregroundColor: AppTheme.background,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            backgroundColor: AppTheme.primary,
+                            foregroundColor: AppTheme.primaryForeground,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
                           ),
-                          child: const Text('next →', style: TextStyle(fontSize: 12, fontFamily: 'monospace')),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('Next', style: TextStyle(fontWeight: FontWeight.w600)),
+                              SizedBox(width: 4),
+                              Icon(Icons.arrow_forward, size: 16),
+                            ],
+                          ),
                         )
                       else
                         ElevatedButton.icon(
                           onPressed: _canProceed ? _handleSubmit : null,
-                          icon: const Icon(Icons.terminal, size: 14),
-                          label: const Text('deploy agent', style: TextStyle(fontSize: 12, fontFamily: 'monospace')),
+                          icon: const Icon(Icons.rocket_launch, size: 16),
+                          label: const Text('Deploy Agent', style: TextStyle(fontWeight: FontWeight.w600)),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.foreground,
-                            foregroundColor: AppTheme.background,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            backgroundColor: AppTheme.primary,
+                            foregroundColor: AppTheme.primaryForeground,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                           ),
                         ),
                     ],
@@ -253,29 +272,28 @@ class _CreateAgentScreenState extends State<CreateAgentScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
-            _label('agent.name *'),
+            _sectionLabel('Name *'),
             TextField(
               controller: _nameController,
               autofocus: true,
-              style: const TextStyle(fontSize: 14, fontFamily: 'monospace', color: AppTheme.foreground),
-              decoration: _inputDec('CryptoOracle'),
+              style: const TextStyle(fontSize: 15, color: AppTheme.foreground),
+              decoration: _inputDec('e.g. CryptoOracle'),
               onChanged: (_) => setState(() {}),
             ),
-            const SizedBox(height: 16),
-            _label('agent.description'),
+            const SizedBox(height: 20),
+            _sectionLabel('Description'),
             TextField(
               controller: _descController,
-              style: const TextStyle(fontSize: 14, fontFamily: 'monospace', color: AppTheme.foreground),
+              style: const TextStyle(fontSize: 15, color: AppTheme.foreground),
               decoration: _inputDec('What does your agent do?'),
             ),
-            const SizedBox(height: 16),
-            _label('agent.lore'),
+            const SizedBox(height: 20),
+            _sectionLabel('Personality & Instructions'),
             TextField(
               controller: _promptController,
               maxLines: 4,
               maxLength: 500,
-              style: const TextStyle(fontSize: 14, fontFamily: 'monospace', color: AppTheme.foreground),
+              style: const TextStyle(fontSize: 15, color: AppTheme.foreground),
               decoration: _inputDec('Add personality, backstory, or special instructions...'),
             ),
           ],
@@ -285,33 +303,54 @@ class _CreateAgentScreenState extends State<CreateAgentScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
-            _label('select role_preset'),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _rolePresets.map((r) {
-                final value = r['value']!;
-                final selected = _selectedRole == value;
-                return ChoiceChip(
-                  label: Text(r['label']!.toLowerCase(),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontFamily: 'monospace',
-                        color: selected ? AppTheme.foreground : AppTheme.muted,
-                      )),
-                  selected: selected,
-                  onSelected: (_) => _handleRoleSelect(value),
-                  backgroundColor: AppTheme.secondary.withOpacity(0.3),
-                  selectedColor: AppTheme.foreground.withOpacity(0.1),
-                  side: BorderSide(
-                    color: selected ? AppTheme.foreground.withOpacity(0.3) : AppTheme.border.withOpacity(0.1),
+            ..._rolePresets.map((r) {
+              final value = r['value'] as String;
+              final selected = _selectedRole == value;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: InkWell(
+                  onTap: () => _handleRoleSelect(value),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: selected ? AppTheme.primary.withOpacity(0.1) : AppTheme.secondary.withOpacity(0.5),
+                      border: Border.all(
+                        color: selected ? AppTheme.primary.withOpacity(0.4) : AppTheme.border.withOpacity(0.15),
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          height: 40,
+                          width: 40,
+                          decoration: BoxDecoration(
+                            color: selected ? AppTheme.primary.withOpacity(0.15) : AppTheme.card,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            r['icon'] as IconData,
+                            size: 20,
+                            color: selected ? AppTheme.primary : AppTheme.muted,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(r['label'] as String, style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: selected ? AppTheme.foreground : AppTheme.mutedForeground,
+                          )),
+                        ),
+                        if (selected)
+                          const Icon(Icons.check_circle, color: AppTheme.primary, size: 20),
+                      ],
+                    ),
                   ),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                );
-              }).toList(),
-            ),
+                ),
+              );
+            }),
           ],
         );
 
@@ -319,54 +358,70 @@ class _CreateAgentScreenState extends State<CreateAgentScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
-            _label('select gpu_tier'),
-            const SizedBox(height: 8),
             ..._gpuTemplates.map((t) {
-              final id = t['id']!;
+              final id = t['id'] as String;
               final selected = _selectedTemplate == id;
               return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: InkWell(
                   onTap: () => setState(() => _selectedTemplate = id),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   child: Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: selected ? AppTheme.foreground.withOpacity(0.1) : AppTheme.secondary.withOpacity(0.3),
+                      color: selected ? AppTheme.primary.withOpacity(0.1) : AppTheme.secondary.withOpacity(0.5),
                       border: Border.all(
-                        color: selected ? AppTheme.foreground.withOpacity(0.3) : AppTheme.border.withOpacity(0.1),
+                        color: selected ? AppTheme.primary.withOpacity(0.4) : AppTheme.border.withOpacity(0.15),
                       ),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          id == 'easy' ? Icons.bolt : id == 'medium' ? Icons.memory : Icons.rocket_launch,
-                          size: 18,
-                          color: selected ? AppTheme.foreground : AppTheme.muted,
+                        Container(
+                          height: 44,
+                          width: 44,
+                          decoration: BoxDecoration(
+                            color: selected ? AppTheme.primary.withOpacity(0.15) : AppTheme.card,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            t['icon'] as IconData,
+                            size: 22,
+                            color: selected ? AppTheme.primary : AppTheme.muted,
+                          ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 14),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(t['label']!, style: TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w500,
+                              Text(t['label'] as String, style: TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.w600,
                                 color: selected ? AppTheme.foreground : AppTheme.mutedForeground,
                               )),
-                              Text(t['description']!, style: TextStyle(
-                                fontSize: 11, color: AppTheme.muted.withOpacity(0.6),
-                                fontFamily: 'monospace',
+                              const SizedBox(height: 2),
+                              Text(t['description'] as String, style: const TextStyle(
+                                fontSize: 12, color: AppTheme.muted,
                               )),
                             ],
                           ),
                         ),
-                        Text(t['price']!, style: TextStyle(
-                          fontSize: 10,
-                          fontFamily: 'monospace',
-                          color: selected ? AppTheme.foreground.withOpacity(0.6) : AppTheme.muted.withOpacity(0.4),
-                        )),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.card,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(t['price'] as String, style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: selected ? AppTheme.foreground : AppTheme.muted,
+                          )),
+                        ),
+                        if (selected) ...[
+                          const SizedBox(width: 10),
+                          const Icon(Icons.check_circle, color: AppTheme.primary, size: 20),
+                        ],
                       ],
                     ),
                   ),
@@ -380,14 +435,13 @@ class _CreateAgentScreenState extends State<CreateAgentScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
-            _label('models.open_source'),
-            const SizedBox(height: 8),
-            ..._aiModels.where((m) => m['category'] == 'open-source').map((m) => _modelTile(m)),
-            const SizedBox(height: 16),
-            _label('models.claude'),
-            const SizedBox(height: 8),
-            ..._aiModels.where((m) => m['category'] == 'claude').map((m) => _modelTile(m)),
+            _sectionLabel('Open Source'),
+            const SizedBox(height: 6),
+            ..._aiModels.where((m) => m['category'] == 'open-source').map(_modelTile),
+            const SizedBox(height: 20),
+            _sectionLabel('Claude Models'),
+            const SizedBox(height: 6),
+            ..._aiModels.where((m) => m['category'] == 'claude').map(_modelTile),
           ],
         );
 
@@ -403,43 +457,63 @@ class _CreateAgentScreenState extends State<CreateAgentScreen> {
       padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         onTap: () => setState(() => _selectedModel = id),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: selected ? AppTheme.foreground.withOpacity(0.1) : AppTheme.secondary.withOpacity(0.3),
+            color: selected ? AppTheme.primary.withOpacity(0.1) : AppTheme.secondary.withOpacity(0.5),
             border: Border.all(
-              color: selected ? AppTheme.foreground.withOpacity(0.3) : AppTheme.border.withOpacity(0.1),
+              color: selected ? AppTheme.primary.withOpacity(0.4) : AppTheme.border.withOpacity(0.15),
             ),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
             children: [
-              Icon(
-                m['category'] == 'claude' ? Icons.psychology : Icons.memory,
-                size: 18,
-                color: selected ? AppTheme.foreground : AppTheme.muted,
+              Container(
+                height: 40,
+                width: 40,
+                decoration: BoxDecoration(
+                  color: selected ? AppTheme.primary.withOpacity(0.15) : AppTheme.card,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  m['category'] == 'claude' ? Icons.psychology : Icons.memory,
+                  size: 20,
+                  color: selected ? AppTheme.primary : AppTheme.muted,
+                ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(m['label']!, style: TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w500,
+                      fontSize: 14, fontWeight: FontWeight.w500,
                       color: selected ? AppTheme.foreground : AppTheme.mutedForeground,
                     )),
-                    Text(m['desc']!, style: TextStyle(
-                      fontSize: 11, color: AppTheme.muted.withOpacity(0.6),
+                    const SizedBox(height: 2),
+                    Text(m['desc']!, style: const TextStyle(
+                      fontSize: 12, color: AppTheme.muted,
                     )),
                   ],
                 ),
               ),
-              Text(m['credits']!, style: TextStyle(
-                fontSize: 9,
-                fontFamily: 'monospace',
-                color: selected ? AppTheme.foreground.withOpacity(0.6) : AppTheme.muted.withOpacity(0.4),
-              )),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.card,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(m['credits']!, style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: selected ? AppTheme.primary : AppTheme.muted,
+                )),
+              ),
+              if (selected) ...[
+                const SizedBox(width: 8),
+                const Icon(Icons.check_circle, color: AppTheme.primary, size: 20),
+              ],
             ],
           ),
         ),
@@ -447,28 +521,32 @@ class _CreateAgentScreenState extends State<CreateAgentScreen> {
     );
   }
 
-  Widget _label(String text) => Text(
-        text,
-        style: TextStyle(
-          fontSize: 11,
-          fontFamily: 'monospace',
-          color: AppTheme.foreground.withOpacity(0.6),
-        ),
+  Widget _sectionLabel(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(text, style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.mutedForeground,
+        )),
       );
 
   InputDecoration _inputDec(String hint) => InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: AppTheme.muted.withOpacity(0.3), fontFamily: 'monospace'),
+        hintStyle: const TextStyle(color: AppTheme.muted),
         filled: true,
-        fillColor: AppTheme.secondary.withOpacity(0.3),
+        fillColor: AppTheme.secondary.withOpacity(0.5),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: AppTheme.border.withOpacity(0.2)),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: AppTheme.border.withOpacity(0.2)),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.primary, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       );
 }

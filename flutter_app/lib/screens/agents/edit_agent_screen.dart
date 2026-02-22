@@ -8,10 +8,10 @@ const _rolePresets = [
 ];
 
 const _availableTools = [
-  {'id': 'web-search', 'label': 'Web Search'},
-  {'id': 'image-gen', 'label': 'Image Gen'},
-  {'id': 'code-exec', 'label': 'Code Exec'},
-  {'id': 'file-analysis', 'label': 'File Analysis'},
+  {'id': 'web-search', 'label': 'Web Search', 'icon': Icons.search},
+  {'id': 'image-gen', 'label': 'Image Gen', 'icon': Icons.image},
+  {'id': 'code-exec', 'label': 'Code Exec', 'icon': Icons.code},
+  {'id': 'file-analysis', 'label': 'File Analysis', 'icon': Icons.description},
 ];
 
 const _aiModels = [
@@ -77,24 +77,23 @@ class _EditAgentScreenState extends State<EditAgentScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Edit ${widget.agent.name}',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: const Text('Edit Agent', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Name
             _sectionLabel('Name'),
             TextField(
               controller: _nameController,
-              style: const TextStyle(fontSize: 14, color: AppTheme.foreground),
-              decoration: _inputDec(),
+              style: const TextStyle(fontSize: 15, color: AppTheme.foreground),
+              decoration: _inputDec('Agent name'),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             _sectionLabel('Role'),
+            const SizedBox(height: 4),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -103,42 +102,46 @@ class _EditAgentScreenState extends State<EditAgentScreen> {
                 final selected = _role == val;
                 return ChoiceChip(
                   label: Text(r, style: TextStyle(
-                    fontSize: 12,
-                    color: selected ? AppTheme.foreground : AppTheme.muted,
+                    fontSize: 13,
+                    color: selected ? AppTheme.foreground : AppTheme.mutedForeground,
                   )),
                   selected: selected,
                   onSelected: (_) => setState(() => _role = val),
-                  backgroundColor: AppTheme.secondary.withOpacity(0.5),
+                  backgroundColor: AppTheme.secondary,
                   selectedColor: AppTheme.primary.withOpacity(0.15),
                   side: BorderSide(
-                    color: selected ? AppTheme.muted.withOpacity(0.3) : AppTheme.border.withOpacity(0.1),
+                    color: selected ? AppTheme.primary.withOpacity(0.4) : AppTheme.border.withOpacity(0.2),
                   ),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  checkmarkColor: AppTheme.primary,
                 );
               }).toList(),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             _sectionLabel('System Prompt'),
             TextField(
               controller: _promptController,
               maxLines: 4,
-              style: const TextStyle(fontSize: 14, color: AppTheme.foreground),
-              decoration: _inputDec(),
+              style: const TextStyle(fontSize: 15, color: AppTheme.foreground),
+              decoration: _inputDec('Instructions for your agent...'),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             _sectionLabel('Tools'),
+            const SizedBox(height: 4),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: _availableTools.map((t) {
-                final id = t['id']!;
+                final id = t['id'] as String;
                 final selected = _tools.contains(id);
                 return FilterChip(
-                  label: Text(t['label']!, style: TextStyle(
-                    fontSize: 12,
-                    color: selected ? AppTheme.foreground : AppTheme.muted,
+                  avatar: Icon(t['icon'] as IconData, size: 16,
+                    color: selected ? AppTheme.primary : AppTheme.muted),
+                  label: Text(t['label'] as String, style: TextStyle(
+                    fontSize: 13,
+                    color: selected ? AppTheme.foreground : AppTheme.mutedForeground,
                   )),
                   selected: selected,
                   onSelected: (v) {
@@ -146,17 +149,18 @@ class _EditAgentScreenState extends State<EditAgentScreen> {
                       if (v) { _tools.add(id); } else { _tools.remove(id); }
                     });
                   },
-                  backgroundColor: AppTheme.secondary.withOpacity(0.5),
+                  backgroundColor: AppTheme.secondary,
                   selectedColor: AppTheme.primary.withOpacity(0.15),
                   side: BorderSide(
-                    color: selected ? AppTheme.muted.withOpacity(0.3) : AppTheme.border.withOpacity(0.1),
+                    color: selected ? AppTheme.primary.withOpacity(0.4) : AppTheme.border.withOpacity(0.2),
                   ),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  checkmarkColor: AppTheme.primary,
                 );
               }).toList(),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             _sectionLabel('AI Model'),
             const SizedBox(height: 8),
             ..._aiModels.map((m) {
@@ -166,41 +170,55 @@ class _EditAgentScreenState extends State<EditAgentScreen> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: InkWell(
                   onTap: () => setState(() => _model = id),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   child: Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: selected ? AppTheme.primary.withOpacity(0.1) : AppTheme.secondary.withOpacity(0.3),
+                      color: selected ? AppTheme.primary.withOpacity(0.1) : AppTheme.secondary.withOpacity(0.5),
                       border: Border.all(
-                        color: selected ? AppTheme.muted.withOpacity(0.3) : AppTheme.border.withOpacity(0.1),
+                        color: selected ? AppTheme.primary.withOpacity(0.4) : AppTheme.border.withOpacity(0.15),
                       ),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          m['cat'] == 'claude' ? Icons.psychology : Icons.memory,
-                          size: 16,
-                          color: selected ? AppTheme.foreground : AppTheme.muted,
+                        Container(
+                          height: 36,
+                          width: 36,
+                          decoration: BoxDecoration(
+                            color: selected ? AppTheme.primary.withOpacity(0.15) : AppTheme.card,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            m['cat'] == 'claude' ? Icons.psychology : Icons.memory,
+                            size: 18,
+                            color: selected ? AppTheme.primary : AppTheme.muted,
+                          ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(m['label']!, style: TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w500,
+                                fontSize: 14, fontWeight: FontWeight.w500,
                                 color: selected ? AppTheme.foreground : AppTheme.mutedForeground,
                               )),
-                              Text(m['desc']!, style: TextStyle(
-                                fontSize: 10, color: AppTheme.muted.withOpacity(0.6),
+                              Text(m['desc']!, style: const TextStyle(
+                                fontSize: 12, color: AppTheme.muted,
                               )),
                             ],
                           ),
                         ),
                         Text(m['credits']!, style: TextStyle(
-                          fontSize: 9, color: AppTheme.muted.withOpacity(0.5),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: selected ? AppTheme.primary : AppTheme.muted,
                         )),
+                        if (selected) ...[
+                          const SizedBox(width: 8),
+                          const Icon(Icons.check_circle, color: AppTheme.primary, size: 18),
+                        ],
                       ],
                     ),
                   ),
@@ -208,15 +226,18 @@ class _EditAgentScreenState extends State<EditAgentScreen> {
               );
             }),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: _saving || _nameController.text.trim().isEmpty ? null : _handleSave,
                 icon: _saving
-                    ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryForeground))
                     : const Icon(Icons.save, size: 18),
-                label: const Text('Save Changes'),
+                label: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.w600)),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
               ),
             ),
             const SizedBox(height: 32),
@@ -228,20 +249,30 @@ class _EditAgentScreenState extends State<EditAgentScreen> {
 
   Widget _sectionLabel(String text) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Text(text, style: TextStyle(fontSize: 11, color: AppTheme.muted.withOpacity(0.7))),
+        child: Text(text, style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.mutedForeground,
+        )),
       );
 
-  InputDecoration _inputDec() => InputDecoration(
+  InputDecoration _inputDec(String hint) => InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: AppTheme.muted),
         filled: true,
         fillColor: AppTheme.secondary.withOpacity(0.5),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppTheme.border.withOpacity(0.1)),
+          borderSide: BorderSide(color: AppTheme.border.withOpacity(0.2)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppTheme.border.withOpacity(0.1)),
+          borderSide: BorderSide(color: AppTheme.border.withOpacity(0.2)),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.primary, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       );
 }
