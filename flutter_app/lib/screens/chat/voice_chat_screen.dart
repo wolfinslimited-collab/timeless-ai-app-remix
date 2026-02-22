@@ -167,7 +167,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
       if (tokenResp.statusCode != 200) {
         final errData = jsonDecode(tokenResp.body);
-        throw Exception(errData['error'] ?? 'Failed to get API key: ${tokenResp.statusCode}');
+        throw Exception(errData['error'] ??
+            'Failed to get API key: ${tokenResp.statusCode}');
       }
 
       final tokenData = jsonDecode(tokenResp.body);
@@ -204,7 +205,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
           if (_isListening && _reconnectAttempts < _maxReconnectAttempts) {
             _reconnectAttempts++;
-            debugPrint('[VoiceChat] Auto-reconnecting (attempt $_reconnectAttempts)...');
+            debugPrint(
+                '[VoiceChat] Auto-reconnecting (attempt $_reconnectAttempts)...');
             setState(() {
               _error = 'Reconnecting...';
               _voiceState = VoiceState.processing;
@@ -250,7 +252,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
           },
         },
       };
-      debugPrint('[VoiceChat] Sending setup with model: ${setupMsg['setup']!['model']}');
+      debugPrint(
+          '[VoiceChat] Sending setup with model: ${setupMsg['setup']!['model']}');
       _wsChannel!.sink.add(jsonEncode(setupMsg));
 
       // Step 5: Start keepalive (15s silent audio, same as web)
@@ -360,20 +363,24 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       }
 
       // Handle output transcription (AI speech → text)
-      final outputT = serverContent['outputTranscription'] as Map<String, dynamic>?;
+      final outputT =
+          serverContent['outputTranscription'] as Map<String, dynamic>?;
       if (outputT != null && outputT['text'] != null) {
         _liveAIText += outputT['text'] as String;
         if (mounted) setState(() {});
       }
 
       // Handle input transcription (user speech → text)
-      final inputT = serverContent['inputTranscription'] as Map<String, dynamic>?;
+      final inputT =
+          serverContent['inputTranscription'] as Map<String, dynamic>?;
       if (inputT != null && inputT['text'] != null) {
         _liveUserText += inputT['text'] as String;
         if (mounted) setState(() {});
       }
       // Commit user text when finished
-      if (inputT != null && inputT['finished'] == true && _liveUserText.isNotEmpty) {
+      if (inputT != null &&
+          inputT['finished'] == true &&
+          _liveUserText.isNotEmpty) {
         _transcriptEntries.add({'role': 'user', 'text': _liveUserText});
         _liveUserText = '';
         if (mounted) setState(() {});
@@ -381,7 +388,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
       // Turn complete (matches web: msg?.serverContent?.turnComplete)
       if (serverContent['turnComplete'] == true) {
-        debugPrint('[VoiceChat] Turn complete, chunks: ${_turnAudioChunks.length}');
+        debugPrint(
+            '[VoiceChat] Turn complete, chunks: ${_turnAudioChunks.length}');
 
         // Commit live user text
         if (_liveUserText.isNotEmpty) {
@@ -440,7 +448,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
       int chunkCount = 0;
       _micSubscription = stream.listen((data) {
-        if (!_isListening || _isMuted || _wsChannel == null || !_isConnected) return;
+        if (!_isListening || _isMuted || _wsChannel == null || !_isConnected)
+          return;
 
         // Do NOT do client-side interrupt detection — the web relies on
         // Gemini's server-side interruption (serverContent.interrupted).
@@ -492,6 +501,16 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     return sqrt(sum / count) > 500;
   }
 
+  // ─── Mic Helpers ───
+
+  Future<void> _stopMicCapture() async {
+    _micSubscription?.cancel();
+    _micSubscription = null;
+    try {
+      await _recorder.stop();
+    } catch (_) {}
+  }
+
   // ─── Audio Playback ───
 
   Future<void> _playTurnAudio() async {
@@ -508,13 +527,18 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     }
     _turnAudioChunks.clear();
 
-    final durationEstimate = totalLen ~/ (24000 * 2); // 24kHz, 16-bit = 2 bytes/sample
-    debugPrint('[VoiceChat] Playing turn audio: $totalLen bytes (~${durationEstimate}s)');
+    final durationEstimate =
+        totalLen ~/ (24000 * 2); // 24kHz, 16-bit = 2 bytes/sample
+    debugPrint(
+        '[VoiceChat] Playing turn audio: $totalLen bytes (~${durationEstimate}s)');
 
     if (totalLen < 100) {
       debugPrint('[VoiceChat] Audio too short, skipping playback');
       return;
     }
+
+    // Stop mic before playback to avoid audio session conflicts on iOS/Android
+    await _stopMicCapture();
 
     _isPlaying = true;
     if (mounted) {
@@ -530,7 +554,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
       // Write to temp file
       final tempDir = await getTemporaryDirectory();
-      final filePath = '${tempDir.path}/gemini_${DateTime.now().millisecondsSinceEpoch}.wav';
+      final filePath =
+          '${tempDir.path}/gemini_${DateTime.now().millisecondsSinceEpoch}.wav';
       final tempFile = File(filePath);
       await tempFile.writeAsBytes(wavData);
       debugPrint('[VoiceChat] WAV file written: $filePath');
@@ -571,7 +596,9 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       errSub.cancel();
 
       // Clean up
-      try { await tempFile.delete(); } catch (_) {}
+      try {
+        await tempFile.delete();
+      } catch (_) {}
     } catch (e, stack) {
       debugPrint('[VoiceChat] Playback error: $e\n$stack');
     }
@@ -581,6 +608,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     _isPlaying = false;
 
     if (_isConnected && _isListening && mounted) {
+      // Restart mic capture — playback may have interrupted the recording session
+      await _startMicCapture();
       setState(() {
         _voiceState = VoiceState.listening;
         _statusText = 'Listening…';
@@ -588,17 +617,27 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     }
   }
 
-  Uint8List _pcmToWav(Uint8List pcmData, {int sampleRate = 24000, int channels = 1, int bitsPerSample = 16}) {
+  Uint8List _pcmToWav(Uint8List pcmData,
+      {int sampleRate = 24000, int channels = 1, int bitsPerSample = 16}) {
     final dataSize = pcmData.length;
     final fileSize = 36 + dataSize;
     final byteRate = sampleRate * channels * (bitsPerSample ~/ 8);
     final blockAlign = channels * (bitsPerSample ~/ 8);
 
     final header = ByteData(44);
-    header.setUint8(0, 0x52); header.setUint8(1, 0x49); header.setUint8(2, 0x46); header.setUint8(3, 0x46);
+    header.setUint8(0, 0x52);
+    header.setUint8(1, 0x49);
+    header.setUint8(2, 0x46);
+    header.setUint8(3, 0x46);
     header.setUint32(4, fileSize, Endian.little);
-    header.setUint8(8, 0x57); header.setUint8(9, 0x41); header.setUint8(10, 0x56); header.setUint8(11, 0x45);
-    header.setUint8(12, 0x66); header.setUint8(13, 0x6D); header.setUint8(14, 0x74); header.setUint8(15, 0x20);
+    header.setUint8(8, 0x57);
+    header.setUint8(9, 0x41);
+    header.setUint8(10, 0x56);
+    header.setUint8(11, 0x45);
+    header.setUint8(12, 0x66);
+    header.setUint8(13, 0x6D);
+    header.setUint8(14, 0x74);
+    header.setUint8(15, 0x20);
     header.setUint32(16, 16, Endian.little);
     header.setUint16(20, 1, Endian.little);
     header.setUint16(22, channels, Endian.little);
@@ -606,7 +645,10 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     header.setUint32(28, byteRate, Endian.little);
     header.setUint16(32, blockAlign, Endian.little);
     header.setUint16(34, bitsPerSample, Endian.little);
-    header.setUint8(36, 0x64); header.setUint8(37, 0x61); header.setUint8(38, 0x74); header.setUint8(39, 0x61);
+    header.setUint8(36, 0x64);
+    header.setUint8(37, 0x61);
+    header.setUint8(38, 0x74);
+    header.setUint8(39, 0x61);
     header.setUint32(40, dataSize, Endian.little);
 
     final wav = Uint8List(44 + dataSize);
@@ -619,7 +661,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
   void _handleOrbTap() {
     if (_isInitializing) return;
-    if (_voiceState == VoiceState.listening || _voiceState == VoiceState.speaking) {
+    if (_voiceState == VoiceState.listening ||
+        _voiceState == VoiceState.speaking) {
       _stopListening();
     } else if (_voiceState == VoiceState.idle) {
       setState(() => _error = null);
@@ -660,7 +703,10 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
       final token = _supabase.auth.currentSession?.accessToken;
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null || token == null) {
-        setState(() { _sessions = []; _loadingSessions = false; });
+        setState(() {
+          _sessions = [];
+          _loadingSessions = false;
+        });
         return;
       }
 
@@ -704,7 +750,9 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final hasTranscript = _transcriptEntries.isNotEmpty || _liveUserText.isNotEmpty || _liveAIText.isNotEmpty;
+    final hasTranscript = _transcriptEntries.isNotEmpty ||
+        _liveUserText.isNotEmpty ||
+        _liveAIText.isNotEmpty;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -727,30 +775,36 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
               children: [
                 // Top bar
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
-                        icon: Icon(Icons.history, color: AppTheme.muted, size: 22),
+                        icon: Icon(Icons.history,
+                            color: AppTheme.muted, size: 22),
                         onPressed: () {
                           _fetchSessions();
                           _scaffoldKey.currentState?.openDrawer();
                         },
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.06),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           'Gemini Live',
-                          style: TextStyle(color: AppTheme.muted.withOpacity(0.6), fontSize: 12),
+                          style: TextStyle(
+                              color: AppTheme.muted.withOpacity(0.6),
+                              fontSize: 12),
                         ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.settings, color: AppTheme.muted, size: 22),
+                        icon: Icon(Icons.settings,
+                            color: AppTheme.muted, size: 22),
                         onPressed: () {},
                       ),
                     ],
@@ -769,41 +823,54 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             ..._transcriptEntries.map((e) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    e['role'] == 'user' ? 'You' : 'AI',
-                                    style: TextStyle(
-                                      color: e['role'] == 'user'
-                                          ? AppTheme.primary.withOpacity(0.7)
-                                          : AppTheme.muted.withOpacity(0.7),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        e['role'] == 'user' ? 'You' : 'AI',
+                                        style: TextStyle(
+                                          color: e['role'] == 'user'
+                                              ? AppTheme.primary
+                                                  .withOpacity(0.7)
+                                              : AppTheme.muted.withOpacity(0.7),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        e['text'] ?? '',
+                                        style: TextStyle(
+                                          color: AppTheme.foreground
+                                              .withOpacity(0.8),
+                                          fontSize: 14,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    e['text'] ?? '',
-                                    style: TextStyle(
-                                      color: AppTheme.foreground.withOpacity(0.8),
-                                      fontSize: 14,
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )),
+                                )),
                             if (_liveUserText.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('You', style: TextStyle(color: AppTheme.primary.withOpacity(0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+                                    Text('You',
+                                        style: TextStyle(
+                                            color: AppTheme.primary
+                                                .withOpacity(0.7),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600)),
                                     const SizedBox(height: 2),
-                                    Text(_liveUserText, style: TextStyle(color: AppTheme.foreground.withOpacity(0.6), fontSize: 14, height: 1.4)),
+                                    Text(_liveUserText,
+                                        style: TextStyle(
+                                            color: AppTheme.foreground
+                                                .withOpacity(0.6),
+                                            fontSize: 14,
+                                            height: 1.4)),
                                   ],
                                 ),
                               ),
@@ -813,9 +880,19 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('AI', style: TextStyle(color: AppTheme.muted.withOpacity(0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+                                    Text('AI',
+                                        style: TextStyle(
+                                            color:
+                                                AppTheme.muted.withOpacity(0.7),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600)),
                                     const SizedBox(height: 2),
-                                    Text(_liveAIText, style: TextStyle(color: AppTheme.foreground.withOpacity(0.6), fontSize: 14, height: 1.4)),
+                                    Text(_liveAIText,
+                                        style: TextStyle(
+                                            color: AppTheme.foreground
+                                                .withOpacity(0.6),
+                                            fontSize: 14,
+                                            height: 1.4)),
                                   ],
                                 ),
                               ),
@@ -827,11 +904,14 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
                 if (_error != null)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
                     child: Text(
                       _error!,
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: AppTheme.destructive.withOpacity(0.8), fontSize: 14),
+                      style: TextStyle(
+                          color: AppTheme.destructive.withOpacity(0.8),
+                          fontSize: 14),
                     ),
                   ),
 
@@ -842,8 +922,12 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                       onTap: _handleOrbTap,
                       child: _isInitializing
                           ? const SizedBox(
-                              width: 180, height: 180,
-                              child: Center(child: CircularProgressIndicator(color: Color(0xFFD4A030), strokeWidth: 2)),
+                              width: 180,
+                              height: 180,
+                              child: Center(
+                                  child: CircularProgressIndicator(
+                                      color: Color(0xFFD4A030),
+                                      strokeWidth: 2)),
                             )
                           : VoiceChatVisualizer(state: _voiceState, size: 180),
                     ),
@@ -861,28 +945,37 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 
                 // Bottom controls
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 16, left: 40, right: 40),
+                  padding:
+                      const EdgeInsets.only(bottom: 16, left: 40, right: 40),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       GestureDetector(
                         onTap: _handleClose,
                         child: Container(
-                          width: 56, height: 56,
-                          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.1)),
-                          child: const Icon(Icons.close, color: Colors.white, size: 24),
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withOpacity(0.1)),
+                          child: const Icon(Icons.close,
+                              color: Colors.white, size: 24),
                         ),
                       ),
                       const Spacer(),
                       GestureDetector(
                         onTap: _toggleMute,
                         child: Container(
-                          width: 56, height: 56,
+                          width: 56,
+                          height: 56,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: _isMuted ? Colors.red.withOpacity(0.9) : Colors.white.withOpacity(0.1),
+                            color: _isMuted
+                                ? Colors.red.withOpacity(0.9)
+                                : Colors.white.withOpacity(0.1),
                           ),
-                          child: Icon(_isMuted ? Icons.mic_off : Icons.mic, color: Colors.white, size: 22),
+                          child: Icon(_isMuted ? Icons.mic_off : Icons.mic,
+                              color: Colors.white, size: 22),
                         ),
                       ),
                     ],
@@ -900,7 +993,8 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     return Drawer(
       backgroundColor: const Color(0xFF111111),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(topRight: Radius.circular(16), bottomRight: Radius.circular(16)),
+        borderRadius: BorderRadius.only(
+            topRight: Radius.circular(16), bottomRight: Radius.circular(16)),
       ),
       child: SafeArea(
         child: Column(
@@ -911,28 +1005,45 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Voice History', style: TextStyle(color: AppTheme.foreground.withOpacity(0.9), fontSize: 16, fontWeight: FontWeight.w600)),
-                  IconButton(icon: Icon(Icons.close, color: AppTheme.muted, size: 20), onPressed: () => Navigator.of(context).pop()),
+                  Text('Voice History',
+                      style: TextStyle(
+                          color: AppTheme.foreground.withOpacity(0.9),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600)),
+                  IconButton(
+                      icon: Icon(Icons.close, color: AppTheme.muted, size: 20),
+                      onPressed: () => Navigator.of(context).pop()),
                 ],
               ),
             ),
             Divider(color: Colors.white.withOpacity(0.06), height: 1),
             Expanded(
               child: _loadingSessions
-                  ? const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white38)))
+                  ? const Center(
+                      child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white38)))
                   : _sessions.isEmpty
                       ? Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.access_time, color: AppTheme.muted.withOpacity(0.3), size: 32),
+                              Icon(Icons.access_time,
+                                  color: AppTheme.muted.withOpacity(0.3),
+                                  size: 32),
                               const SizedBox(height: 12),
-                              Text('No voice sessions yet', style: TextStyle(color: AppTheme.muted.withOpacity(0.5), fontSize: 14)),
+                              Text('No voice sessions yet',
+                                  style: TextStyle(
+                                      color: AppTheme.muted.withOpacity(0.5),
+                                      fontSize: 14)),
                             ],
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
                           itemCount: _sessions.length,
                           itemBuilder: (context, index) {
                             final session = _sessions[index];
@@ -940,19 +1051,29 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
                               onTap: () => Navigator.of(context).pop(),
                               borderRadius: BorderRadius.circular(10),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       session['title'] ?? 'Untitled',
-                                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(color: AppTheme.foreground.withOpacity(0.8), fontSize: 14, fontWeight: FontWeight.w500),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                          color: AppTheme.foreground
+                                              .withOpacity(0.8),
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500),
                                     ),
                                     const SizedBox(height: 3),
                                     Text(
-                                      _formatSessionDate(session['created_at'] ?? ''),
-                                      style: TextStyle(color: AppTheme.muted.withOpacity(0.5), fontSize: 12),
+                                      _formatSessionDate(
+                                          session['created_at'] ?? ''),
+                                      style: TextStyle(
+                                          color:
+                                              AppTheme.muted.withOpacity(0.5),
+                                          fontSize: 12),
                                     ),
                                   ],
                                 ),
