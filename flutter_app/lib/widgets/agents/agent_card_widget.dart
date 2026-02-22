@@ -54,8 +54,9 @@ class AgentCardWidget extends StatelessWidget {
         color: AppTheme.card,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: AppTheme.border.withOpacity(0.2)),
+          side: BorderSide(color: AppTheme.border.withOpacity(0.3)),
         ),
+        elevation: 0,
         child: InkWell(
           onTap: isPaused ? null : onChat,
           borderRadius: BorderRadius.circular(16),
@@ -71,7 +72,7 @@ class AgentCardWidget extends StatelessWidget {
                       height: 48,
                       width: 48,
                       decoration: BoxDecoration(
-                        color: AppTheme.primary.withOpacity(0.2),
+                        color: AppTheme.primary.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: agent.avatarUrl != null
@@ -94,12 +95,12 @@ class AgentCardWidget extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text(
                         statusInfo['label'] as String,
-                        style: const TextStyle(fontSize: 11, color: AppTheme.muted),
+                        style: const TextStyle(fontSize: 12, color: AppTheme.muted),
                       ),
                     ],
                     const Spacer(),
                     PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert, size: 18, color: AppTheme.muted),
+                      icon: const Icon(Icons.more_horiz, size: 20, color: AppTheme.muted),
                       color: AppTheme.card,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       onSelected: (v) {
@@ -110,32 +111,41 @@ class AgentCardWidget extends StatelessWidget {
                         }
                       },
                       itemBuilder: (_) => [
-                        const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 16), SizedBox(width: 8), Text('Edit')])),
+                        const PopupMenuItem(value: 'edit', child: Row(children: [
+                          Icon(Icons.edit_outlined, size: 18, color: AppTheme.mutedForeground),
+                          SizedBox(width: 10),
+                          Text('Edit', style: TextStyle(fontSize: 14)),
+                        ])),
                         PopupMenuItem(value: 'pause', child: Row(children: [
-                          Icon(isPaused ? Icons.play_circle : Icons.pause_circle, size: 16),
-                          const SizedBox(width: 8),
-                          Text(isPaused ? 'Resume' : 'Pause'),
+                          Icon(isPaused ? Icons.play_circle_outline : Icons.pause_circle_outline,
+                              size: 18, color: AppTheme.mutedForeground),
+                          const SizedBox(width: 10),
+                          Text(isPaused ? 'Resume' : 'Pause', style: const TextStyle(fontSize: 14)),
                         ])),
                         const PopupMenuDivider(),
-                        const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 16, color: AppTheme.destructive), SizedBox(width: 8), Text('Delete', style: TextStyle(color: AppTheme.destructive))])),
+                        const PopupMenuItem(value: 'delete', child: Row(children: [
+                          Icon(Icons.delete_outline, size: 18, color: AppTheme.destructive),
+                          SizedBox(width: 10),
+                          Text('Delete', style: TextStyle(fontSize: 14, color: AppTheme.destructive)),
+                        ])),
                       ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
 
-                // Name + description
+                // Name
                 Text(agent.name,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.foreground),
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.foreground),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
                 Text(
                   agent.systemPrompt ?? 'No instructions set',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.muted, height: 1.4),
+                  style: const TextStyle(fontSize: 13, color: AppTheme.muted, height: 1.4),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
 
                 // Tags
                 Wrap(
@@ -152,15 +162,16 @@ class AgentCardWidget extends StatelessWidget {
                 // Chat button
                 SizedBox(
                   width: double.infinity,
-                  child: OutlinedButton.icon(
+                  child: ElevatedButton.icon(
                     onPressed: isPaused ? null : onChat,
-                    icon: Icon(isPaused ? Icons.pause_circle : Icons.chat_bubble_outline, size: 16),
-                    label: Text(isPaused ? 'Paused' : 'Chat'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.foreground,
-                      side: BorderSide(color: AppTheme.border.withOpacity(0.3)),
+                    icon: Icon(isPaused ? Icons.pause_circle_outline : Icons.chat_bubble_outline, size: 16),
+                    label: Text(isPaused ? 'Paused' : 'Chat', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isPaused ? AppTheme.secondary : AppTheme.primary.withOpacity(0.12),
+                      foregroundColor: isPaused ? AppTheme.muted : AppTheme.primary,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
                 ),
@@ -173,11 +184,11 @@ class AgentCardWidget extends StatelessWidget {
   }
 
   Widget _tag(String text) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.border.withOpacity(0.5)),
+          color: AppTheme.secondary,
+          borderRadius: BorderRadius.circular(8),
         ),
-        child: Text(text, style: const TextStyle(fontSize: 11, color: AppTheme.mutedForeground)),
+        child: Text(text, style: const TextStyle(fontSize: 12, color: AppTheme.mutedForeground)),
       );
 }
